@@ -1,0 +1,43 @@
+# Configuration pour OVH Hébergement Web
+RewriteEngine On
+
+# Redirection API vers le proxy PHP (depuis /plan/)
+RewriteRule ^plan/api/(.*)$ plan/api-proxy.php [L]
+
+# Redirection API vers le proxy PHP (depuis la racine)
+RewriteRule ^api/(.*)$ api-proxy.php [L]
+
+# Ne pas rediriger les fichiers statiques
+RewriteCond %{REQUEST_FILENAME} -f
+RewriteRule ^.*\.(js|css|png|jpg|jpeg|gif|ico|svg)$ - [L]
+
+# Redirection React Router pour sous-dossier /plan/
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+
+# Redirection specifique pour les routes React
+RewriteRule ^plan/employees$ /plan/index.html [L]
+RewriteRule ^plan/constraints$ /plan/index.html [L]
+RewriteRule ^plan/planning$ /plan/index.html [L]
+RewriteRule ^plan/view$ /plan/index.html [L]
+
+# Redirection generale
+RewriteRule . index.html [L]
+
+# Securite
+<Files ".htaccess">
+    Order allow,deny
+    Deny from all
+</Files>
+
+# Cache pour les fichiers statiques
+<IfModule mod_expires.c>
+    ExpiresActive on
+    ExpiresByType text/css "access plus 1 year"
+    ExpiresByType application/javascript "access plus 1 year"
+    ExpiresByType image/png "access plus 1 year"
+    ExpiresByType image/jpg "access plus 1 year"
+    ExpiresByType image/jpeg "access plus 1 year"
+    ExpiresByType image/gif "access plus 1 year"
+    ExpiresByType image/svg+xml "access plus 1 year"
+</IfModule>

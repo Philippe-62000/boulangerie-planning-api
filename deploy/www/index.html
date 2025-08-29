@@ -1,0 +1,80 @@
+<!doctype html><html lang="fr"><head><meta charset="utf-8"/><!-- Favicon supprimé car non disponible --><meta name="viewport" content="width=device-width,initial-scale=1"/><meta name="theme-color" content="#667eea"/><meta name="description" content="Système de planification du personnel pour boulangerie"/><title>Planning Boulangerie</title><script src="config.js"></script><script defer="defer" src="static/js/main.98512f67.js"></script><link href="static/css/main.bda8b6f7.css" rel="stylesheet"></head><body><noscript>Vous devez activer JavaScript pour utiliser cette application.</noscript><div id="root"></div>
+
+<script>
+// Configuration pour le sous-dossier /plan/
+window.REACT_ROUTER_BASENAME = '/plan';
+
+// Correction automatique des liens React Router et API calls
+document.addEventListener('DOMContentLoaded', function() {
+    // Attendre que React soit charge
+    setTimeout(function() {
+        // 1. Corriger tous les liens
+        const links = document.querySelectorAll('a[href^="/"]');
+        links.forEach(function(link) {
+            const href = link.getAttribute('href');
+            if (href && href.startsWith('/') && !href.startsWith('/plan') && href !== '/') {
+                link.setAttribute('href', '/plan' + href);
+            }
+        });
+
+        // 2. Corriger la navigation programmatique
+        const originalPushState = history.pushState;
+        history.pushState = function(state, title, url) {
+            if (url && url.startsWith('/') && !url.startsWith('/plan') && url !== '/') {
+                url = '/plan' + url;
+            }
+            return originalPushState.call(this, state, title, url);
+        };
+
+        // 3. Intercepter les appels API pour corriger l'URL
+        const originalFetch = window.fetch;
+        window.fetch = function(url, options) {
+            // Si l'URL contient /api/ et pointe vers filmara.fr, la rediriger vers Render
+            if (typeof url === 'string' && url.includes('/api/') && url.includes('filmara.fr')) {
+                url = url.replace('https://www.filmara.fr', 'https://boulangerie-planning-api.onrender.com');
+                console.log('API call redirigé vers:', url);
+            }
+            return originalFetch.call(this, url, options);
+        };
+
+        // 4. Intercepter XMLHttpRequest pour corriger l'URL
+        const originalXHROpen = XMLHttpRequest.prototype.open;
+        XMLHttpRequest.prototype.open = function(method, url, async, user, password) {
+            if (typeof url === 'string' && url.includes('/api/') && url.includes('filmara.fr')) {
+                url = url.replace('https://www.filmara.fr', 'https://boulangerie-planning-api.onrender.com');
+                console.log('XHR API call redirigé vers:', url);
+            }
+            return originalXHROpen.call(this, method, url, async, user, password);
+        };
+
+        // 5. Intercepter Axios si disponible
+        if (window.axios) {
+            const originalAxiosRequest = window.axios.request;
+            window.axios.request = function(config) {
+                if (config.url && config.url.includes('/api/') && config.url.includes('filmara.fr')) {
+                    config.url = config.url.replace('https://www.filmara.fr', 'https://boulangerie-planning-api.onrender.com');
+                    console.log('Axios API call redirigé vers:', config.url);
+                }
+                return originalAxiosRequest.call(this, config);
+            };
+        }
+
+        // 6. Intercepter Axios get/post/put/delete
+        if (window.axios) {
+            ['get', 'post', 'put', 'delete', 'patch'].forEach(method => {
+                const originalMethod = window.axios[method];
+                window.axios[method] = function(url, config) {
+                    if (typeof url === 'string' && url.includes('/api/') && url.includes('filmara.fr')) {
+                        url = url.replace('https://www.filmara.fr', 'https://boulangerie-planning-api.onrender.com');
+                        console.log(`Axios ${method} API call redirigé vers:`, url);
+                    }
+                    return originalMethod.call(this, url, config);
+                };
+            });
+        }
+
+        console.log('✅ Script de correction React Router et API chargé');
+    }, 2000);
+});
+</script>
+</body></html>
