@@ -45,6 +45,244 @@ Application web complète pour la gestion du planning d'une boulangerie avec sys
 
 ---
 
+## 🎯 **INTÉGRATION GOOGLE OR-TOOLS**
+
+### **Architecture OR-Tools**
+```
+┌─────────────────────────┐    HTTP POST    ┌─────────────────────────┐
+│     Node.js API         │ ───────────────> │   Python OR-Tools API   │
+│   (boulangerie-api)     │                 │  (planning-ortools-api)  │
+│                         │                 │                         │
+│ • Prépare les données   │                 │ • Résolution OR-Tools    │
+│ • Appelle l'API         │                 │ • Contraintes strictes   │
+│ • Traite la réponse     │                 │ • Optimisation ±0.5h     │
+│ • Fallback si échec     │                 │ • Multi-critères         │
+└─────────────────────────┘                 └─────────────────────────┘
+         │ Render                                    │ Render
+         │ (principal)                               │ (service séparé)
+```
+
+### **🔧 Configuration**
+- **URL API OR-Tools** : `https://planning-ortools-api.onrender.com/solve`
+- **Variable d'environnement** : `ORTOOLS_API_URL`
+- **Timeout** : 60 secondes
+- **Fallback** : Méthode classique si OR-Tools indisponible
+
+### **📡 Flux de données**
+```json
+// Données envoyées à OR-Tools
+{
+  "employees": [
+    {
+      "id": "employeeId",
+      "name": "Nom Employé",
+      "volume": 35,
+      "status": "Majeur|Mineur",
+      "contract": "CDI|Apprentissage",
+      "skills": ["Ouverture", "Fermeture"],
+      "function": "Vendeuse|Manager|Responsable"
+    }
+  ],
+  "constraints": {
+    "employeeId": {
+      "0": "CP",     // Lundi
+      "1": "MAL",    // Mardi
+      "6": "Repos"   // Dimanche
+    }
+  },
+  "affluences": [2, 2, 2, 3, 3, 4, 2],  // Lun-Dim
+  "week_number": 36
+}
+```
+
+```json
+// Réponse d'OR-Tools
+{
+  "success": true,
+  "planning": {
+    "employeeId": {
+      "0": "06h00-14h00",    // Lundi
+      "1": "Repos",          // Mardi
+      "2": "13h00-20h30",    // Mercredi
+      "3": "07h30-15h30",    // Jeudi
+      "4": "Repos",          // Vendredi
+      "5": "06h00-16h30",    // Samedi
+      "6": "Repos"           // Dimanche
+    }
+  },
+  "validation": {
+    "warnings": ["Alice: 35.5h au lieu de 35h (écart +0.5h)"],
+    "stats": {
+      "total_hours": 280,
+      "diagnostic": [],
+      "suggestions": []
+    }
+  },
+  "solver_info": {
+    "status": "OPTIMAL",
+    "solve_time": 2.34,
+    "objective": 15
+  }
+}
+```
+
+### **⚙️ Contraintes OR-Tools**
+
+#### **1. Volume horaire STRICT**
+- **Tolérance** : ±0.5h (au lieu de ±2h)
+- **Objectif** : Respecter exactement les heures contractuelles
+- **Poids** : 20x (priorité maximale)
+
+#### **2. Contraintes d'ouverture**
+```python
+# Exactement 1 personne à l'ouverture (compétence requise)
+for day in range(7):
+    opening_vars = []
+    for emp in employees:
+        if 'Ouverture' in emp.skills:
+            for slot in shifts[emp_id][day]:
+                if slot.startswith('06h00'):
+                    opening_vars.append(shifts[emp_id][day][slot])
+    
+    model.Add(sum(opening_vars) == 1)
+```
+
+#### **3. Contraintes de fermeture**
+```python
+# Au moins 1 personne avec compétence fermeture
+for day in range(7):
+    closing_vars_skilled = []
+    for emp in employees:
+        if 'Fermeture' in emp.skills:
+            for slot in shifts[emp_id][day]:
+                if '20h30' in slot:
+                    closing_vars_skilled.append(shifts[emp_id][day][slot])
+    
+    model.Add(sum(closing_vars_skilled) >= 1)
+```
+
+#### **4. Règles mineurs**
+```python
+# Repos dimanche obligatoire + max 35h
+for emp in employees:
+    if emp.status == 'Mineur':
+        model.Add(shifts[emp_id][6]['Repos'] == 1)  # Dimanche
+        
+        total_hours = []
+        for day in range(7):
+            for slot, var in shifts[emp_id][day].items():
+                hours = int(slot_hours[slot] * 10)
+                total_hours.append(var * hours)
+        
+        model.Add(sum(total_hours) <= 350)  # 35h max
+```
+
+#### **5. Repos obligatoires**
+```python
+# 2 repos minimum pour temps pleins (≥35h)
+for emp in employees:
+    rest_count = []
+    for day in range(7):
+        if 'Repos' in shifts[emp_id][day]:
+            rest_count.append(shifts[emp_id][day]['Repos'])
+    
+    if emp.volume >= 35:
+        model.Add(sum(rest_count) >= 2)
+```
+
+### **🎯 Objectif multi-critères**
+```python
+# Priorité 1: Respecter volumes horaires (poids 20x)
+for emp in employees:
+    gap_pos = model.NewIntVar(0, 100, f'gap_pos_{emp_id}')
+    gap_neg = model.NewIntVar(0, 100, f'gap_neg_{emp_id}')
+    
+    model.Add(total_hours + gap_neg - gap_pos == target_hours)
+    objectives.append(20 * (gap_pos + gap_neg))
+
+# Objectif global : minimiser écarts
+model.Minimize(sum(objectives))
+```
+
+### **📊 Créneaux disponibles**
+
+#### **Semaine (Lundi-Vendredi)**
+```python
+base_slots = [
+    'Repos',
+    '06h00-14h00',    # 8.0h - Ouverture standard
+    '07h30-15h30',    # 8.0h - Support matin
+    '13h00-20h30',    # 7.5h - Fermeture
+]
+
+# Si affluence >= 2
+if affluence_level >= 2:
+    base_slots.extend([
+        '10h00-18h00',    # 8.0h - Renfort midi
+        '14h00-20h30',    # 6.5h - Renfort fermeture
+    ])
+
+# Si affluence >= 3
+if affluence_level >= 3:
+    base_slots.extend([
+        '09h00-17h00',    # 8.0h - Renfort matinée
+        '16h00-20h30',    # 4.5h - Support fermeture courte
+    ])
+```
+
+#### **Samedi**
+```python
+samedi_slots = [
+    'Repos',
+    '06h00-16h30',    # 10.5h - Ouverture longue
+    '07h30-16h30',    # 9.0h - Support matin
+    '10h30-16h30',    # 6.0h - Renfort midi
+    '16h30-20h30',    # 4.0h - Fermeture
+    '17h00-20h30',    # 3.5h - Support fermeture
+]
+```
+
+#### **Dimanche**
+```python
+dimanche_slots = [
+    'Repos',
+    '06h00-13h00',    # 7.0h - Ouverture matin
+    '07h30-13h00',    # 5.5h - Support matin  
+    '09h30-13h00',    # 3.5h - Renfort matin
+    '13h00-20h30',    # 7.5h - Fermeture après-midi
+    '14h00-20h30',    # 6.5h - Support fermeture
+]
+```
+
+### **🔄 Fallback et robustesse**
+```javascript
+// Dans planningController.js
+try {
+  // Appel OR-Tools
+  const result = await this.callORToolsAPI(data);
+  
+  if (result.success) {
+    console.log('✅ Solution trouvée avec OR-Tools !');
+    return this.createPlanningsFromORToolsSolution(result.planning, weekNumber, year, employees);
+  } else {
+    console.log('⚠️ OR-Tools a échoué, fallback vers méthode classique...');
+    return this.generateWeeklyPlanningClassic(weekNumber, year, affluenceLevels, employees);
+  }
+} catch (error) {
+  console.error('❌ Erreur avec OR-Tools:', error);
+  return this.generateWeeklyPlanningClassic(weekNumber, year, affluenceLevels, employees);
+}
+```
+
+### **📈 Amélioration des performances**
+- **Précision** : ±0.5h au lieu de ±2h
+- **Contraintes strictes** : Respect exact des compétences
+- **Optimisation** : Multi-critères avec pondération
+- **Robustesse** : Fallback automatique
+- **Rapidité** : Résolution en ~2-5 secondes
+
+---
+
 ## 📁 **Structure des Fichiers**
 
 ```
@@ -583,7 +821,7 @@ echo 📋 Étape 2: Ajout des fichiers modifiés...
 git add .
 
 echo 📋 Étape 3: Commit des changements...
-git commit -m "📝 v1.3.1 - Lien arrêts maladie + Règles mineurs + Cadre général"
+git commit -m "🎯 v1.4.0 - INTEGRATION GOOGLE OR-TOOLS + Précision horaire améliorée"
 
 echo 📋 Étape 4: Push sur master...
 git push origin master
@@ -848,4 +1086,4 @@ calculatePriority(employee, schedule, day, constraintType) {
 
 ---
 
-*Dernière mise à jour : Version 1.3.1 - Lien arrêts maladie + Règles mineurs + Cadre général*
+*Dernière mise à jour : Version 1.4.0 - **INTÉGRATION GOOGLE OR-TOOLS** + Précision horaire améliorée (±0.5h)*
