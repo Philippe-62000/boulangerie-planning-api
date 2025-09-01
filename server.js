@@ -3,8 +3,5 @@
 
 const path = require('path');
 
-// Changer le répertoire de travail vers backend
-process.chdir(path.join(__dirname, 'backend'));
-
-// Importer et démarrer le serveur
-require('./server.js');
+// Importer et démarrer le serveur depuis le dossier backend
+require(path.join(__dirname, 'backend', 'server.js'));
