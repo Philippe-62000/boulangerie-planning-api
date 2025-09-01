@@ -21,8 +21,7 @@
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",
     "helmet": "^7.0.0",
-    "compression": "^1.7.4",
-    "@google/or-tools": "^9.7.2996"
+    "compression": "^1.7.4"
   },
   "devDependencies": {
     "nodemon": "^3.0.1"

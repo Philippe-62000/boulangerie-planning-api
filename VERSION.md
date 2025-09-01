@@ -1,20 +1,28 @@
 # 📋 VERSION - Boulangerie Planning
 
-## 🚀 Version actuelle : v1.3.2
+## 🚀 Version actuelle : v1.3.3
 
 ### 📅 Dernière mise à jour : 2024-12-19
 
 ### 🔧 Changements dans cette version :
-- 🔧 Correction package OR-Tools (@google/or-tools)
+- 🔧 Remplacement OR-Tools par solveur JavaScript optimisé
 - ✅ Lien avec arrêts maladie déclarés (profil employé)
 - ✅ Règles mineurs strictes (pas de travail dimanche + repos consécutifs)
 - ✅ Cadre général des besoins en personnel appliqué
 - ✅ Rotation des horaires (ouverture/fermeture)
 - ✅ Respect des compétences (ouverture/fermeture)
-- ✅ Intégration OR-Tools pour optimisation planning
+- ✅ Solveur de planning optimisé (inspiré du code Python OR-Tools)
 - ✅ Rotation automatique des horaires (matin/après-midi)
 
 ### 📊 Historique des versions :
+
+#### v1.3.3 (2024-12-19)
+- 🔧 Remplacement OR-Tools par solveur JavaScript optimisé
+- 🏥 Lien avec arrêts maladie déclarés (profil employé)
+- 👶 Règles mineurs strictes (pas de travail dimanche + repos consécutifs)
+- 📋 Cadre général des besoins en personnel appliqué
+- 🔄 Rotation des horaires (ouverture/fermeture)
+- 🎯 Respect des compétences (ouverture/fermeture)
 
 #### v1.3.2 (2024-12-19)
 - 🔧 Correction package OR-Tools (@google/or-tools)
