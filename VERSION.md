@@ -1,10 +1,12 @@
 # 📋 VERSION - Boulangerie Planning
 
-## 🚀 Version actuelle : v1.4.0
+## 🚀 Version actuelle : v1.4.1
 
 ### 📅 Dernière mise à jour : 2024-12-19
 
 ### 🔧 Changements dans cette version :
+- 🐛 **CORRECTION CRITIQUE** : Suppression méthodes dupliquées OR-Tools
+- 📊 Ajout logs debug pour traçabilité OR-Tools  
 - 🎯 **INTEGRATION GOOGLE OR-TOOLS** via API externe
 - 🚀 Précision horaire améliorée (±0.5h au lieu de ±2h)
 - 📡 Appel API OR-Tools Python optimisée

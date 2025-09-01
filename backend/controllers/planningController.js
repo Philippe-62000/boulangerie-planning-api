@@ -569,6 +569,13 @@ class PlanningGenerator {
   // Utiliser Google OR-Tools via API externe
   async generateWeeklyPlanning(weekNumber, year, affluenceLevels, employees) {
     console.log('🚀 Génération planning avec Google OR-Tools...');
+    console.log('📊 Données reçues:', {
+      weekNumber,
+      year,
+      employeesCount: employees.length,
+      affluenceLevels,
+      ortoolsUrl: process.env.ORTOOLS_API_URL
+    });
     
     try {
       // Préparer les données pour OR-Tools
@@ -612,12 +619,24 @@ class PlanningGenerator {
         function: emp.role || 'Vendeuse'
       }));
       
+      console.log('📡 Données préparées pour OR-Tools:', {
+        employeesData: employeesData.length,
+        constraints: Object.keys(constraints).length,
+        affluences
+      });
+
       // Appeler l'API OR-Tools
       const result = await this.callORToolsAPI({
         employees: employeesData,
         constraints: constraints,
         affluences: affluences,
         week_number: weekNumber
+      });
+      
+      console.log('📈 Résultat OR-Tools:', {
+        success: result.success,
+        hasPlanning: !!result.planning,
+        error: result.error || 'Aucune erreur'
       });
       
       if (result.success) {
@@ -900,43 +919,9 @@ class PlanningGenerator {
     };
   }
 
-  // Générer le planning pour une semaine avec OR-Tools
-  async generateWeeklyPlanning(weekNumber, year, affluenceLevels, employees) {
-    console.log('🚀 Génération planning avec OR-Tools...');
-    
-    // Essayer d'abord avec OR-Tools
-    const orToolsSolution = this.optimizePlanningWithORTools(employees, weekNumber, year, affluenceLevels);
-    
-    if (orToolsSolution) {
-      console.log('✅ Solution OR-Tools trouvée !');
-      return this.createPlanningsFromSolution(orToolsSolution, weekNumber, year);
-    } else {
-      console.log('⚠️ Fallback vers méthode classique...');
-      return this.generateWeeklyPlanningClassic(weekNumber, year, affluenceLevels, employees);
-    }
-  }
+  // Méthode supprimée - utilisez celle avec API OR-Tools externe (ligne 570)
 
-  // Créer les plannings à partir de la solution OR-Tools
-  createPlanningsFromSolution(solution, weekNumber, year) {
-    const plannings = [];
-    
-    for (const employeeSolution of solution) {
-      const planning = new Planning({
-        weekNumber,
-        year,
-        employeeId: employeeSolution.employee._id,
-        employeeName: employeeSolution.employee.name,
-        schedule: employeeSolution.schedule,
-        totalWeeklyHours: employeeSolution.totalHours,
-        contractedHours: employeeSolution.employee.weeklyHours,
-        status: 'generated'
-      });
-      
-      plannings.push(planning);
-    }
-    
-    return plannings;
-  }
+  // Méthode supprimée - utilisez createPlanningsFromORToolsSolution (ligne 673)
 
   // Méthode classique (fallback)
   async generateWeeklyPlanningClassic(weekNumber, year, affluenceLevels, employees) {
