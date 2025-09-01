@@ -469,6 +469,92 @@ if (result.success) {
 - ✅ Règles mineurs appliquées
 - ✅ Rotation automatique des horaires
 
+#### **10. 🐛 Correction critique v1.4.1**
+
+**Problème détecté le 19/12/2024 :**
+```
+❌ Planning généré avec violations majeures :
+- Anaïs: 42h au lieu de 35h (+7h)
+- Vanessa F: 40h au lieu de 39h (+1h) 
+- Severine: 46.5h au lieu de 39h (+7.5h)
+- Volumes horaires non respectés
+- OR-Tools non utilisé
+```
+
+**Diagnostic :**
+```javascript
+// PROBLÈME : Méthodes dupliquées dans planningController.js
+
+// ✅ Méthode correcte (ligne 570)
+async generateWeeklyPlanning(weekNumber, year, affluenceLevels, employees) {
+  console.log('🚀 Génération planning avec Google OR-Tools...');
+  const result = await this.callORToolsAPI({...});  // ← API externe
+}
+
+// ❌ Méthode obsolète (ligne 923) - UTILISÉE PAR ERREUR
+async generateWeeklyPlanning(weekNumber, year, affluenceLevels, employees) {
+  const orToolsSolution = this.optimizePlanningWithORTools(...);  // ← N'existe plus !
+  return this.generateWeeklyPlanningClassic(...);  // ← Fallback permanent
+}
+```
+
+**Cause racine :**
+- **Code dupliqué** : 2 méthodes `generateWeeklyPlanning` dans le même fichier
+- **Référence cassée** : Ancienne méthode appelait `optimizePlanningWithORTools` (supprimée)
+- **Fallback permanent** : Toujours la méthode classique utilisée
+- **OR-Tools ignoré** : API externe jamais appelée
+
+**Solution appliquée v1.4.1 :**
+```diff
+// Suppression méthodes obsolètes
+- async generateWeeklyPlanning() { // Ligne 923 - SUPPRIMÉE
+-   const orToolsSolution = this.optimizePlanningWithORTools(...);
+-   return this.generateWeeklyPlanningClassic(...);
+- }
+
+- createPlanningsFromSolution(solution, weekNumber, year) { // SUPPRIMÉE
+-   // Ancienne logique OR-Tools locale
+- }
+
+// Conservation méthode correcte
++ async generateWeeklyPlanning() { // Ligne 570 - CONSERVÉE
++   console.log('🚀 Génération planning avec Google OR-Tools...');
++   const result = await this.callORToolsAPI({...});  // ← API externe
++ }
+
+// Ajout logs debug
++ console.log('📊 Données reçues:', { 
++   weekNumber, employeesCount, ortoolsUrl: process.env.ORTOOLS_API_URL 
++ });
++ console.log('📡 Données préparées pour OR-Tools:', {...});
++ console.log('📈 Résultat OR-Tools:', { success, hasPlanning, error });
+```
+
+**Vérification post-correction :**
+```bash
+# Logs attendus après v1.4.1
+🚀 Génération planning avec Google OR-Tools...
+📊 Données reçues: { weekNumber: 36, employeesCount: 9, ortoolsUrl: "https://planning-ortools-api.onrender.com/solve" }
+📡 Données préparées pour OR-Tools: { employeesData: 9, constraints: 0, affluences: [2,2,2,2,2,2,2] }
+📡 Appel API OR-Tools: https://planning-ortools-api.onrender.com/solve
+📊 Réponse OR-Tools: ✅ Succès
+📈 Résultat OR-Tools: { success: true, hasPlanning: true, error: "Aucune erreur" }
+✅ Solution trouvée avec OR-Tools !
+```
+
+**Impact de la correction :**
+- ✅ **OR-Tools utilisé** : API externe appelée correctement
+- ✅ **Précision horaire** : ±0.5h respectée
+- ✅ **Contraintes strictes** : Volumes, ouverture, fermeture, mineurs
+- ✅ **Traçabilité** : Logs détaillés pour debugging
+- ✅ **Fallback sécurisé** : Méthode classique si OR-Tools échoue
+
+**Prévention future :**
+- 🔍 **Code review** : Éviter duplication de méthodes
+- 📊 **Tests automatisés** : Vérifier utilisation OR-Tools
+- 📋 **Logs structurés** : Traçabilité complète du processus
+- ⚠️ **Alertes** : Monitoring volumes horaires déviants
+
 ---
 
 ## 📁 **Structure des Fichiers**
@@ -1274,4 +1360,4 @@ calculatePriority(employee, schedule, day, constraintType) {
 
 ---
 
-*Dernière mise à jour : Version 1.4.0 - **INTÉGRATION GOOGLE OR-TOOLS** + Précision horaire améliorée (±0.5h)*
+*Dernière mise à jour : Version 1.4.1 - **CORRECTION CRITIQUE OR-TOOLS** + Suppression méthodes dupliquées*

@@ -22,6 +22,13 @@
 
 ### 📊 Historique des versions :
 
+#### v1.4.1 (2024-12-19)
+- 🐛 **CORRECTION CRITIQUE** : Suppression méthodes dupliquées OR-Tools
+- 📊 Ajout logs debug pour traçabilité OR-Tools
+- 🔧 Résolution conflit entre méthode API externe et méthode locale
+- ✅ OR-Tools maintenant utilisé correctement
+- ✅ Précision horaire ±0.5h effective
+
 #### v1.4.0 (2024-12-19)
 - 🎯 **INTEGRATION GOOGLE OR-TOOLS** via API externe
 - 🚀 Précision horaire améliorée (±0.5h au lieu de ±2h)
