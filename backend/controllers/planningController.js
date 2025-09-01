@@ -123,16 +123,38 @@ class PlanningGenerator {
           });
         } else {
           // Ajouter le jour avec contrainte (pas de travail)
+          let constraintHours = 0;
+          
+          // Calculer les heures selon le type de contrainte
+          switch (dayConstraint.type) {
+            case 'CP':
+              constraintHours = employee.weeklyHours === 35 ? 5.5 : 6.5;
+              break;
+            case 'Formation':
+              constraintHours = 8; // Formation = 8h
+              break;
+            case 'MAL':
+            case 'ABS':
+            case 'RET':
+              constraintHours = 0; // Pas d'heures comptées
+              break;
+            case 'Repos':
+              constraintHours = 0; // Pas d'heures comptées
+              break;
+            default:
+              constraintHours = dayConstraint.hours || 0;
+          }
+          
           schedule.schedule.push({
             day,
             shifts: [],
-            totalHours: dayConstraint.hours || 0,
+            totalHours: constraintHours,
             constraint: dayConstraint.type
           });
           
-          // Ajouter les heures pour CP
-          if (dayConstraint.hours) {
-            schedule.totalHours += dayConstraint.hours;
+          // Ajouter les heures pour les contraintes qui en ont
+          if (constraintHours > 0) {
+            schedule.totalHours += constraintHours;
           }
         }
       }
@@ -208,8 +230,16 @@ class PlanningGenerator {
       }
     }
 
-    // Créer les plannings finaux
+    // Créer les plannings finaux et ajuster les repos
     for (const [employeeId, schedule] of employeeSchedules) {
+      // Ajuster les repos pour respecter les heures contractuelles
+      this.adjustEmployeeSchedule(schedule);
+      
+      // Si l'employé a encore des jours vides et pas assez d'heures, essayer de les remplir
+      if (schedule.totalHours < schedule.employee.weeklyHours - 4) { // Tolérance de 4h
+        this.fillRemainingDays(schedule);
+      }
+      
       const planning = new Planning({
         weekNumber,
         year,
@@ -231,20 +261,31 @@ class PlanningGenerator {
   calculatePriority(employee, schedule, day, constraintType) {
     let priority = 0;
     
-    // Priorité basse si l'employé a déjà beaucoup d'heures
-    priority += schedule.totalHours * 10;
+    // Priorité HAUTE si l'employé n'a pas atteint ses heures contractuelles
+    if (schedule.totalHours < employee.weeklyHours) {
+      priority -= 100; // Priorité très haute
+      
+      // Priorité encore plus haute si proche des heures contractuelles
+      const remainingHours = employee.weeklyHours - schedule.totalHours;
+      if (remainingHours <= 8) {
+        priority -= 50; // Priorité maximale
+      }
+    } else if (schedule.totalHours > employee.weeklyHours) {
+      // Priorité basse seulement s'il dépasse ses heures contractuelles
+      priority += (schedule.totalHours - employee.weeklyHours) * 20;
+    }
     
     // Priorité basse si l'employé a déjà beaucoup de jours travaillés
-    priority += schedule.daysWorked * 5;
+    priority += schedule.daysWorked * 3;
     
-    // Priorité haute pour les managers
+    // Priorité haute pour les managers (mais pas au détriment des heures)
     if (employee.role === 'manager' || employee.role === 'responsable') {
-      priority -= 20;
+      priority -= 10;
     }
     
     // Priorité basse pour les apprentis (formation prioritaire)
     if (employee.role === 'apprenti') {
-      priority += 50;
+      priority += 30;
     }
     
     return priority;
@@ -256,10 +297,20 @@ class PlanningGenerator {
     const morningNeeded = requirements.morning.staff;
     const afternoonNeeded = requirements.afternoon.staff;
     
+    // Trier par priorité (plus bas = plus prioritaire)
+    availableEmployees.sort((a, b) => a.priority - b.priority);
+    
     // Sélectionner pour le matin
     let morningSelected = 0;
     for (const candidate of availableEmployees) {
       if (morningSelected >= morningNeeded) break;
+      
+      // Vérifier que l'employé peut encore travailler
+      // Permettre le travail même avec des heures de contraintes si le total est inférieur aux heures contractuelles
+      const totalHoursWithConstraints = candidate.schedule.totalHours;
+      if (totalHoursWithConstraints >= candidate.employee.weeklyHours) {
+        continue;
+      }
       
       const hasOpeningSkill = candidate.employee.skills.includes('Ouverture');
       if (hasOpeningSkill || candidate.employee.role === 'manager' || candidate.employee.role === 'responsable') {
@@ -278,6 +329,13 @@ class PlanningGenerator {
       
       // Éviter de sélectionner deux fois le même employé
       if (selected.find(s => s.employee._id.toString() === candidate.employee._id.toString())) {
+        continue;
+      }
+      
+      // Vérifier que l'employé peut encore travailler
+      // Permettre le travail même avec des heures de contraintes si le total est inférieur aux heures contractuelles
+      const totalHoursWithConstraints = candidate.schedule.totalHours;
+      if (totalHoursWithConstraints >= candidate.employee.weeklyHours) {
         continue;
       }
       
@@ -300,6 +358,13 @@ class PlanningGenerator {
         continue;
       }
       
+      // Vérifier que l'employé peut encore travailler
+      // Permettre le travail même avec des heures de contraintes si le total est inférieur aux heures contractuelles
+      const totalHoursWithConstraints = candidate.schedule.totalHours;
+      if (totalHoursWithConstraints >= candidate.employee.weeklyHours) {
+        continue;
+      }
+      
       selected.push({
         ...candidate,
         shiftType: 'standard'
@@ -307,6 +372,115 @@ class PlanningGenerator {
     }
     
     return selected;
+  }
+
+  // Ajuster le planning d'un employé pour respecter ses heures contractuelles
+  adjustEmployeeSchedule(schedule) {
+    const employee = schedule.employee;
+    const targetHours = employee.weeklyHours;
+    const currentHours = schedule.totalHours;
+    
+    console.log(`🔧 Ajustement planning ${employee.name}: ${currentHours}h sur ${targetHours}h`);
+    
+    // Si l'employé a trop d'heures, ajouter des repos
+    if (currentHours > targetHours) {
+      const excessHours = currentHours - targetHours;
+      const daysToRest = Math.ceil(excessHours / 8); // 8h par jour de repos
+      
+      console.log(`📅 ${employee.name} a ${excessHours}h en trop, ajout de ${daysToRest} jours de repos`);
+      
+      // Trouver les jours sans contraintes pour ajouter des repos
+      const availableDays = schedule.schedule.filter(day => 
+        !day.constraint && day.shifts.length === 0
+      );
+      
+      for (let i = 0; i < Math.min(daysToRest, availableDays.length); i++) {
+        availableDays[i].constraint = 'Repos';
+        availableDays[i].totalHours = 0;
+        schedule.totalHours -= availableDays[i].shifts.reduce((sum, shift) => sum + shift.hoursWorked, 0);
+        availableDays[i].shifts = [];
+      }
+    }
+    
+    // Si l'employé n'a pas assez d'heures, essayer de réduire les repos
+    else if (currentHours < targetHours - 8) { // Tolérance de 8h
+      const missingHours = targetHours - currentHours;
+      const daysToWork = Math.ceil(missingHours / 8);
+      
+      console.log(`📅 ${employee.name} manque ${missingHours}h, transformation de ${daysToWork} jours de repos en travail`);
+      
+      // Trouver les jours de repos pour les transformer en travail
+      const restDays = schedule.schedule.filter(day => day.constraint === 'Repos');
+      
+      for (let i = 0; i < Math.min(daysToWork, restDays.length); i++) {
+        restDays[i].constraint = undefined;
+        restDays[i].totalHours = 0;
+        // Le shift sera généré plus tard
+      }
+    }
+    
+    console.log(`✅ ${employee.name}: Ajustement terminé, total: ${schedule.totalHours}h`);
+  }
+
+  // Remplir les jours restants pour atteindre les heures contractuelles
+  fillRemainingDays(schedule) {
+    const employee = schedule.employee;
+    const targetHours = employee.weeklyHours;
+    const currentHours = schedule.totalHours;
+    
+    if (currentHours >= targetHours) return;
+    
+    console.log(`🔧 Remplissage jours restants pour ${employee.name}: ${currentHours}h sur ${targetHours}h`);
+    
+    // Trouver les jours vides (sans contraintes et sans shifts)
+    const emptyDays = schedule.schedule.filter(day => 
+      !day.constraint && day.shifts.length === 0
+    );
+    
+    if (emptyDays.length === 0) return;
+    
+    // Calculer combien de jours il faut pour atteindre les heures contractuelles
+    const missingHours = targetHours - currentHours;
+    const daysToFill = Math.min(Math.ceil(missingHours / 8), emptyDays.length);
+    
+    console.log(`📅 ${employee.name}: Remplissage de ${daysToFill} jours vides`);
+    
+    // Remplir les jours vides avec des shifts
+    for (let i = 0; i < daysToFill; i++) {
+      const day = emptyDays[i];
+      
+      // Générer un shift approprié selon les compétences
+      if (employee.skills.includes('Ouverture')) {
+        day.shifts = [{
+          startTime: '06:00',
+          endTime: '14:30',
+          breakMinutes: 30,
+          hoursWorked: this.calculateHoursWorked('06:00', '14:30', true),
+          role: employee.role
+        }];
+      } else if (employee.skills.includes('Fermeture')) {
+        day.shifts = [{
+          startTime: '13:30',
+          endTime: '20:30',
+          breakMinutes: 30,
+          hoursWorked: this.calculateHoursWorked('13:30', '20:30', true),
+          role: employee.role
+        }];
+      } else {
+        day.shifts = [{
+          startTime: '07:30',
+          endTime: '16:30',
+          breakMinutes: 30,
+          hoursWorked: this.calculateHoursWorked('07:30', '16:30', true),
+          role: employee.role
+        }];
+      }
+      
+      day.totalHours = day.shifts[0].hoursWorked;
+      schedule.totalHours += day.totalHours;
+    }
+    
+    console.log(`✅ ${employee.name}: Remplissage terminé, total: ${schedule.totalHours}h`);
   }
 
   // Générer un shift pour un employé

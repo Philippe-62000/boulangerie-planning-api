@@ -320,7 +320,7 @@ const Planning = () => {
           <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', marginTop: '1rem' }}>
             <button
               className="btn btn-primary"
-              onClick={() => window.location.href = `/plan/constraints?week=${weekNumber}&year=${year}`}
+              onClick={() => window.location.href = `/constraints?week=${weekNumber}&year=${year}`}
             >
               Configurer les contraintes
             </button>

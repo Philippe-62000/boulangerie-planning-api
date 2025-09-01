@@ -97,6 +97,11 @@ boulangerie-planning/
 │   ├── clean-deploy.bat
 │   ├── push-api-*.bat
 │   └── deploy-frontend-*.bat
+├── tests/                   # Scripts de test et debugging
+│   ├── check-vanessa-maladie.js
+│   ├── test-constraints-save.js
+│   ├── test-constraints-final.js
+│   └── check-new-planning.js
 └── ARCHITECTURE-PROJET.md
 ```
 
@@ -221,6 +226,12 @@ npm run build
 powershell -File upload-to-ovh.ps1
 ```
 
+### **⚠️ IMPORTANT - Commandes PowerShell**
+- **NE PAS utiliser** `&&` (ne fonctionne pas sur PowerShell)
+- **Utiliser** `;` à la place : `cd frontend; npm run build`
+- **Exemple correct** : `cd frontend; npm install; npm run build`
+- **Exemple incorrect** : `cd frontend && npm install && npm run build`
+
 ---
 
 ## ⚠️ **Bonnes Pratiques & Erreurs Évitées**
@@ -242,18 +253,27 @@ powershell -File upload-to-ovh.ps1
 - ✅ Validation des schémas
 - ✅ Gestion des contraintes uniques
 - ✅ Middleware pour updatedAt
+- ✅ **Gestion des arrêts maladie** dans le profil employé
 
 ### **4. Frontend**
 - ✅ Routing avec basename `/plan/`
 - ✅ Configuration .htaccess pour SPA
 - ✅ Gestion des états de chargement
 - ✅ Notifications utilisateur
+- ✅ **URLs relatives** (sans `/plan/` préfixe) pour éviter les doublons
+- ✅ **Gestion des redirections** : Utiliser des chemins relatifs, pas absolus
+- ✅ **Filtrage des contraintes vides** avant envoi à l'API (évite erreur 400)
+- ✅ **Affichage intelligent des contraintes** avec prise en compte des arrêts maladie
+- ✅ **URLs des APIs corrigées** (path parameters au lieu de query parameters)
+- ✅ **Filtrage des contraintes vides** avant envoi à l'API (évite erreur 400)
 
 ### **5. API**
 - ✅ Endpoints RESTful
 - ✅ Gestion des erreurs HTTP
 - ✅ Validation des paramètres
 - ✅ Documentation des endpoints
+- ✅ **Génération intelligente du planning** avec respect des heures contractuelles
+- ✅ **Ajustement automatique** des repos et du travail
 
 ---
 
@@ -276,6 +296,8 @@ powershell -File upload-to-ovh.ps1
 2. Utiliser `test-api-connection.js`
 3. Vérifier la console navigateur
 4. Tester les endpoints individuellement
+5. **Vérifier les URLs des APIs** (path parameters vs query parameters)
+6. **Contrôler les arrêts maladie** dans les profils employés
 
 ---
 
@@ -335,6 +357,165 @@ JWT_SECRET=...
 CORS_ORIGIN=https://www.filmara.fr
 ```
 
+## 🏥 **Gestion des Arrêts Maladie et Contraintes**
+
+### **✅ Affichage Intelligent des Contraintes**
+**Le système prend maintenant en compte automatiquement :**
+- **Arrêts maladie déclarés** dans le profil employé
+- **Périodes de validité** des arrêts maladie
+- **Affichage cohérent** entre contraintes et planning
+
+**Exemple :**
+- **Vanessa F** : Arrêt maladie du 24 août au 7 septembre 2025
+- **Semaine 36** : Tous les jours affichent "🏥 Maladie" (au lieu de "Travail normal")
+- **Planning généré** : Respecte l'arrêt maladie (MAL partout)
+
+### **🔧 Corrections Techniques Implémentées**
+1. **Filtrage des contraintes vides** avant envoi à l'API
+2. **Vérification automatique** des arrêts maladie par date
+3. **Affichage conditionnel** : Select désactivé si arrêt maladie
+4. **Style visuel** : Fond rouge pour les jours en arrêt maladie
+
+### **📊 Structure des Données**
+```javascript
+// Modèle Employee avec arrêt maladie
+{
+  name: "Vanessa F",
+  sickLeave: {
+    isOnSickLeave: true,
+    startDate: "2025-08-24T00:00:00.000Z",
+    endDate: "2025-09-07T00:00:00.000Z"
+  }
+}
+
+// Contraintes avec prise en compte arrêt maladie
+{
+  Lundi: "MAL",      // Si en arrêt maladie
+  Mardi: "MAL",      // Si en arrêt maladie
+  // ... autres jours
+}
+```
+
+---
+
+## 🎯 **Génération du Planning - Corrections Majeures**
+
+### **✅ Problèmes Résolus**
+**Le système respecte maintenant automatiquement :**
+- **Heures contractuelles** de chaque employé
+- **Contraintes de formation** (comptées comme 8h)
+- **Congés payés** (comptés selon les heures contractuelles)
+- **Équilibre travail/repos** pour atteindre les objectifs
+
+### **🔧 Corrections Techniques Implémentées**
+
+#### **1. Logique de Sélection Intelligente**
+```javascript
+// AVANT : Priorité basse si beaucoup d'heures
+priority += schedule.totalHours * 10;
+
+// APRÈS : Priorité haute si pas assez d'heures
+if (schedule.totalHours < employee.weeklyHours) {
+  priority -= 100; // Priorité très haute
+  if (remainingHours <= 8) {
+    priority -= 50; // Priorité maximale
+  }
+}
+```
+
+#### **2. Fonction d'Ajustement Automatique**
+```javascript
+adjustEmployeeSchedule(schedule) {
+  // Si trop d'heures → ajouter des repos
+  // Si pas assez d'heures → transformer des repos en travail
+  // Logs détaillés pour debugging
+}
+```
+
+#### **3. Remplissage Automatique des Jours Vides**
+```javascript
+fillRemainingDays(schedule) {
+  // Trouve les jours vides
+  // Génère des shifts appropriés
+  // Atteint les heures contractuelles
+}
+```
+
+### **📊 Exemples de Résultats**
+
+#### **Anaïs (35h contractuelles) :**
+- **Formation** : Mercredi (8h)
+- **Travail** : 4 jours pour atteindre 35h
+- **Repos** : 2 jours appropriés
+
+#### **Camille (35h contractuelles) :**
+- **Formation** : Lundi et Mardi (16h)
+- **Travail** : 3 jours pour atteindre 35h
+- **Repos** : 2 jours appropriés
+
+#### **Severine (39h contractuelles) :**
+- **Travail** : 6 jours (48h)
+- **CP** : Dimanche (6.5h)
+- **Total** : 54.5h → **Ajusté automatiquement** à 39h
+
+### **🚀 Avantages des Corrections**
+1. **Respect automatique** des heures contractuelles
+2. **Équilibre travail/repos** optimal
+3. **Gestion intelligente** des contraintes
+4. **Logs détaillés** pour debugging
+5. **Planning équilibré** et respectueux des employés
+
+---
+
+## 🌐 **Gestion des URLs - RÈGLE IMPORTANTE**
+**NE JAMAIS faire :**
+```javascript
+// ❌ INCORRECT - Double préfixe
+window.location.href = `/plan/planning`  // Devient /plan/plan/planning
+window.location.href = `/plan/constraints`  // Devient /plan/plan/constraints
+```
+
+**TOUJOURS faire :**
+```javascript
+// ✅ CORRECT - URLs relatives
+window.location.href = `/planning`  // Devient /plan/planning
+window.location.href = `/constraints`  // Devient /plan/constraints
+```
+
+### **Pourquoi ?**
+- **React Router** : `basename="/plan"` ajoute automatiquement `/plan/`
+- **URLs absolues** : `/plan/planning` → `/plan/plan/planning` (incorrect)
+- **URLs relatives** : `/planning` → `/plan/planning` (correct)
+
+### **Exemples de correction :**
+```javascript
+// ❌ Avant (incorrect)
+onClick={() => window.location.href = `/plan/planning?week=${weekNumber}&year=${year}`}
+
+// ✅ Après (correct)
+onClick={() => window.location.href = `/planning?week=${weekNumber}&year=${year}`}
+```
+
+### **🌐 URLs des APIs - RÈGLE IMPORTANTE**
+**NE JAMAIS faire :**
+```javascript
+// ❌ INCORRECT - Query parameters
+api.get(`/constraints?weekNumber=${week}&year=${year}`)
+api.get(`/planning?weekNumber=${week}&year=${year}`)
+```
+
+**TOUJOURS faire :**
+```javascript
+// ✅ CORRECT - Path parameters
+api.get(`/constraints/${week}/${year}`)
+api.get(`/planning/${week}/${year}`)
+```
+
+**Pourquoi ?**
+- **Backend** : Routes définies avec `/:weekNumber/:year`
+- **Query parameters** : Causent erreur 404 "Route non trouvée"
+- **Path parameters** : Fonctionnent correctement avec Express.js
+
 ---
 
 ## 📞 **Support & Maintenance**
@@ -353,4 +534,108 @@ CORS_ORIGIN=https://www.filmara.fr
 
 ---
 
-*Dernière mise à jour : Version 1.1.2 - Optimisation planning*
+## 🔢 **PROTOCOLE DE VERSIONING**
+
+### **📋 Système de Versioning**
+**À chaque push sur GitHub, nous utilisons un système de versioning pour identifier facilement les déploiements Render :**
+
+#### **📁 Fichier VERSION.md**
+```markdown
+# 📋 VERSION - Boulangerie Planning
+
+## 🚀 Version actuelle : v1.2.1
+
+### 📅 Dernière mise à jour : 2024-12-19
+
+### 🔧 Changements dans cette version :
+- ✅ Correction logique de sélection planning
+- ✅ Respect des heures contractuelles
+- ✅ Fonction `adjustEmployeeSchedule` 
+- ✅ Fonction `fillRemainingDays`
+- ✅ Documentation architecture mise à jour
+```
+
+#### **🔄 Protocole de Push**
+1. **Modifier le code** et tester localement
+2. **Mettre à jour VERSION.md** avec :
+   - Numéro de version incrémenté
+   - Date de mise à jour
+   - Liste des changements
+3. **Exécuter le script automatisé** : `push-to-main.bat`
+4. **Le script fait automatiquement** :
+   - Commit des changements
+   - Push sur `master`
+   - Switch vers `main`
+   - Merge de `master` vers `main`
+   - Push sur `main` (déclenche Render)
+
+#### **📁 Script Automatisé : push-to-main.bat**
+```batch
+@echo off
+echo ========================================
+echo 🚀 PUSH VERS MAIN - Boulangerie Planning
+echo ========================================
+
+echo 📋 Étape 1: Vérification de la branche actuelle...
+git branch --show-current
+
+echo 📋 Étape 2: Ajout des fichiers modifiés...
+git add VERSION.md ARCHITECTURE-PROJET.md
+
+echo 📋 Étape 3: Commit des changements...
+git commit -m "📝 v1.2.2 - Système de versioning + Documentation mise à jour"
+
+echo 📋 Étape 4: Push sur master...
+git push origin master
+
+echo 📋 Étape 5: Switch vers main...
+git checkout main
+
+echo 📋 Étape 6: Merge de master vers main...
+git merge master
+
+echo 📋 Étape 7: Push sur main (déclenche Render)...
+git push origin main
+
+echo 🎉 DÉPLOIEMENT TERMINÉ !
+echo 📊 Version déployée : v1.2.2
+echo 🌐 Render va redéployer automatiquement
+```
+
+#### **🔍 Vérification sur Render**
+**Pour identifier la version déployée :**
+1. **Dashboard Render** → Vérifier la date du dernier déploiement
+2. **Fichier VERSION.md** → Comparer avec la date
+3. **Logs Render** → Vérifier les messages de commit
+
+#### **📊 Historique des Versions**
+```markdown
+#### v1.2.1 (2024-12-19)
+- 🔧 Fix planning - Logique sélection + ajustement heures contractuelles
+- 📝 Mise à jour documentation architecture
+
+#### v1.2.0 (2024-12-19)
+- 🔧 Fix génération planning - Respect heures contractuelles + gestion contraintes
+
+#### v1.1.0 (2024-12-19)
+- Correction des contraintes de planning + amélioration frontend
+- Correction du respect des contraintes (Formation, CP, MAL)
+- Suppression automatique des anciens plannings
+- Bouton Maladie/Absence avec menu déroulant
+- Sauvegarde automatique des contraintes avant génération
+
+#### v1.0.0 (2024-12-19)
+- 🚀 Version initiale
+- Configuration proxy API et React Router pour déploiement OVH
+```
+
+### **🎯 Avantages du Versioning**
+1. **Traçabilité** : Chaque déploiement est identifié
+2. **Debugging** : Facilite l'identification des problèmes
+3. **Rollback** : Possibilité de revenir à une version précédente
+4. **Documentation** : Historique complet des changements
+5. **Communication** : Équipe et utilisateurs informés des versions
+
+---
+
+*Dernière mise à jour : Version 1.2.1 - Système de versioning + Corrections planning*

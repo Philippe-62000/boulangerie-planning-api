@@ -1,8 +1,15 @@
 const mongoose = require('mongoose');
+<<<<<<< HEAD
 const Employee = require('./backend/models/Employee');
 
 // Configuration MongoDB (utiliser la même que votre API)
 const MONGODB_URI = 'mongodb+srv://phimjc:ZDOPZA2Kd8ylewoR@cluster0.4huietv.mongodb.net/boulangerie-planning?retryWrites=true&w=majority';
+=======
+const Employee = require('./models/Employee');
+
+// Configuration MongoDB (utiliser la même que votre API)
+const MONGODB_URI = 'mongodb+srv://philippe62000:Philippe62000@cluster0.mongodb.net/boulangerie-planning?retryWrites=true&w=majority';
+>>>>>>> 443a6b525e041691af7ca6aec0344707cf3e4762
 
 async function migrateEmployees() {
   try {
