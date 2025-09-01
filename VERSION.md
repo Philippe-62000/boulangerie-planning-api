@@ -1,23 +1,36 @@
 # 📋 VERSION - Boulangerie Planning
 
-## 🚀 Version actuelle : v1.3.6
+## 🚀 Version actuelle : v1.4.0
 
 ### 📅 Dernière mise à jour : 2024-12-19
 
 ### 🔧 Changements dans cette version :
+- 🎯 **INTEGRATION GOOGLE OR-TOOLS** via API externe
+- 🚀 Précision horaire améliorée (±0.5h au lieu de ±2h)
+- 📡 Appel API OR-Tools Python optimisée
 - 🔧 Correction erreur syntaxe planningController.js
 - 🔧 Création serveur racine (server.js) pour compatibilité Render
-- 🔧 Correction chemin serveur (backend/server.js)
-- 🔧 Remplacement OR-Tools par solveur JavaScript optimisé
 - ✅ Lien avec arrêts maladie déclarés (profil employé)
 - ✅ Règles mineurs strictes (pas de travail dimanche + repos consécutifs)
 - ✅ Cadre général des besoins en personnel appliqué
 - ✅ Rotation des horaires (ouverture/fermeture)
 - ✅ Respect des compétences (ouverture/fermeture)
-- ✅ Solveur de planning optimisé (inspiré du code Python OR-Tools)
-- ✅ Rotation automatique des horaires (matin/après-midi)
+- ✅ Contraintes strictes d'ouverture/fermeture
+- ✅ Optimisation multi-critères avec OR-Tools
 
 ### 📊 Historique des versions :
+
+#### v1.4.0 (2024-12-19)
+- 🎯 **INTEGRATION GOOGLE OR-TOOLS** via API externe
+- 🚀 Précision horaire améliorée (±0.5h au lieu de ±2h)
+- 📡 Appel API OR-Tools Python optimisée
+- 🔧 Correction erreur syntaxe planningController.js
+- 🔧 Création serveur racine (server.js) pour compatibilité Render
+- 🏥 Lien avec arrêts maladie déclarés (profil employé)
+- 👶 Règles mineurs strictes (pas de travail dimanche + repos consécutifs)
+- 📋 Cadre général des besoins en personnel appliqué
+- 🔄 Rotation des horaires (ouverture/fermeture)
+- 🎯 Respect des compétences (ouverture/fermeture)
 
 #### v1.3.6 (2024-12-19)
 - 🔧 Correction erreur syntaxe planningController.js

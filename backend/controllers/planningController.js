@@ -566,12 +566,12 @@ class PlanningGenerator {
     return { valid: true };
   }
 
-  // Utiliser le solveur JavaScript optimisé
+  // Utiliser Google OR-Tools via API externe
   async generateWeeklyPlanning(weekNumber, year, affluenceLevels, employees) {
-    console.log('🚀 Génération planning avec solveur JavaScript optimisé...');
+    console.log('🚀 Génération planning avec Google OR-Tools...');
     
     try {
-      // Préparer les données pour le solveur
+      // Préparer les données pour OR-Tools
       const constraints = {};
       for (const emp of employees) {
         const empId = emp._id.toString();
@@ -601,24 +601,201 @@ class PlanningGenerator {
         affluences.push(affluenceLevels[dayName] || 2);
       }
       
-      // Utiliser le solveur JavaScript
-      const result = planningSolver.solvePlanning(employees, constraints, affluences, weekNumber);
+      // Convertir les employés au format attendu par OR-Tools
+      const employeesData = employees.map(emp => ({
+        id: emp._id.toString(),
+        name: emp.name,
+        volume: emp.weeklyHours,
+        status: emp.age < 18 ? 'Mineur' : 'Majeur',
+        contract: emp.contractType || 'CDI',
+        skills: emp.skills || [],
+        function: emp.role || 'Vendeuse'
+      }));
+      
+      // Appeler l'API OR-Tools
+      const result = await this.callORToolsAPI({
+        employees: employeesData,
+        constraints: constraints,
+        affluences: affluences,
+        week_number: weekNumber
+      });
       
       if (result.success) {
-        console.log('✅ Solution trouvée avec le solveur JavaScript !');
-        return this.createPlanningsFromSolution(result.planning, weekNumber, year, employees);
+        console.log('✅ Solution trouvée avec OR-Tools !');
+        return this.createPlanningsFromORToolsSolution(result.planning, weekNumber, year, employees);
       } else {
-        console.log('⚠️ Fallback vers méthode classique...');
+        console.log('⚠️ OR-Tools a échoué, fallback vers méthode classique...');
+        console.log('Diagnostic:', result.diagnostic);
+        console.log('Suggestions:', result.suggestions);
         return this.generateWeeklyPlanningClassic(weekNumber, year, affluenceLevels, employees);
       }
     } catch (error) {
-      console.error('❌ Erreur avec le solveur JavaScript:', error);
+      console.error('❌ Erreur avec OR-Tools:', error);
       console.log('⚠️ Fallback vers méthode classique...');
       return this.generateWeeklyPlanningClassic(weekNumber, year, affluenceLevels, employees);
     }
   }
 
-  // Créer les plannings à partir de la solution du solveur
+  // Appeler l'API OR-Tools externe
+  async callORToolsAPI(data) {
+    const fetch = require('node-fetch');
+    
+    // URL de l'API OR-Tools (vous devrez déployer le service Python)
+    const apiUrl = process.env.ORTOOLS_API_URL || 'https://planning-ortools-api.onrender.com/solve';
+    
+    try {
+      console.log('📡 Appel API OR-Tools:', apiUrl);
+      
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify(data),
+        timeout: 60000 // 60 secondes
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      
+      const result = await response.json();
+      console.log('📊 Réponse OR-Tools:', result.success ? '✅ Succès' : '❌ Échec');
+      
+      return result;
+    } catch (error) {
+      console.error('❌ Erreur appel API OR-Tools:', error.message);
+      throw error;
+    }
+  }
+
+  // Créer les plannings à partir de la solution OR-Tools
+  createPlanningsFromORToolsSolution(solution, weekNumber, year, employees) {
+    const plannings = [];
+    
+    for (const emp of employees) {
+      const empId = emp._id.toString();
+      if (solution[empId]) {
+        const schedule = [];
+        let totalHours = 0;
+        
+        for (let day = 0; day < 7; day++) {
+          const dayName = this.days[day];
+          const daySlot = solution[empId][day];
+          
+          if (daySlot === 'Repos') {
+            schedule.push({
+              day: dayName,
+              shifts: [],
+              totalHours: 0,
+              constraint: 'Repos'
+            });
+          } else if (daySlot === 'Formation') {
+            schedule.push({
+              day: dayName,
+              shifts: [],
+              totalHours: 8,
+              constraint: 'Formation'
+            });
+            totalHours += 8;
+          } else if (daySlot === 'CP') {
+            const cpHours = emp.weeklyHours === 35 ? 5.5 : 6.5;
+            schedule.push({
+              day: dayName,
+              shifts: [],
+              totalHours: cpHours,
+              constraint: 'CP'
+            });
+            totalHours += cpHours;
+          } else if (daySlot === 'MAL' || daySlot === 'Maladie') {
+            schedule.push({
+              day: dayName,
+              shifts: [],
+              totalHours: 0,
+              constraint: 'MAL'
+            });
+          } else {
+            // Créneau de travail - convertir depuis le format OR-Tools
+            const shift = this.convertORToolsSlotToShift(daySlot, emp);
+            schedule.push({
+              day: dayName,
+              shifts: [shift],
+              totalHours: shift.hoursWorked,
+              constraint: undefined
+            });
+            totalHours += shift.hoursWorked;
+          }
+        }
+        
+        const planning = new Planning({
+          weekNumber,
+          year,
+          employeeId: emp._id,
+          employeeName: emp.name,
+          schedule,
+          totalWeeklyHours: totalHours,
+          contractedHours: emp.weeklyHours,
+          status: 'generated'
+        });
+        
+        plannings.push(planning);
+      }
+    }
+    
+    return plannings;
+  }
+
+  // Convertir un créneau OR-Tools en shift
+  convertORToolsSlotToShift(slot, employee) {
+    // Mapping des créneaux OR-Tools vers les horaires
+    const slotMappings = {
+      // Créneaux semaine
+      '06h00-14h00': { start: '06:00', end: '14:00', hours: 8.0 },
+      '07h30-15h30': { start: '07:30', end: '15:30', hours: 8.0 },
+      '09h00-17h00': { start: '09:00', end: '17:00', hours: 8.0 },
+      '10h00-18h00': { start: '10:00', end: '18:00', hours: 8.0 },
+      '13h00-20h30': { start: '13:00', end: '20:30', hours: 7.5 },
+      '14h00-20h30': { start: '14:00', end: '20:30', hours: 6.5 },
+      '16h00-20h30': { start: '16:00', end: '20:30', hours: 4.5 },
+      
+      // Créneaux samedi
+      '06h00-16h30': { start: '06:00', end: '16:30', hours: 10.5 },
+      '07h30-16h30': { start: '07:30', end: '16:30', hours: 9.0 },
+      '10h30-16h30': { start: '10:30', end: '16:30', hours: 6.0 },
+      '16h30-20h30': { start: '16:30', end: '20:30', hours: 4.0 },
+      '17h00-20h30': { start: '17:00', end: '20:30', hours: 3.5 },
+      
+      // Créneaux dimanche
+      '06h00-13h00': { start: '06:00', end: '13:00', hours: 7.0 },
+      '07h30-13h00': { start: '07:30', end: '13:00', hours: 5.5 },
+      '09h30-13h00': { start: '09:30', end: '13:00', hours: 3.5 },
+      '13h00-20h30': { start: '13:00', end: '20:30', hours: 7.5 },
+      '14h00-20h30': { start: '14:00', end: '20:30', hours: 6.5 }
+    };
+    
+    const mapping = slotMappings[slot];
+    if (mapping) {
+      return {
+        startTime: mapping.start,
+        endTime: mapping.end,
+        breakMinutes: 30,
+        hoursWorked: mapping.hours,
+        role: employee.role || 'vendeuse'
+      };
+    }
+    
+    // Fallback pour créneaux non reconnus
+    return {
+      startTime: '08:00',
+      endTime: '17:00',
+      breakMinutes: 30,
+      hoursWorked: 8.0,
+      role: employee.role || 'vendeuse'
+    };
+  }
+
+  // Créer les plannings à partir de la solution du solveur (fallback)
   createPlanningsFromSolution(solution, weekNumber, year, employees) {
     const plannings = [];
     
