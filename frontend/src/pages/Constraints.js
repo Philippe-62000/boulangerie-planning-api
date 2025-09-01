@@ -177,17 +177,26 @@ const Constraints = () => {
       const promises = employees.map(employee => {
         const employeeConstraints = constraints[employee._id] || {};
         
+        // Filtrer les contraintes vides et ne garder que les valeurs valides
+        const filteredConstraints = {};
+        daysOfWeek.forEach(day => {
+          if (employeeConstraints[day] && employeeConstraints[day].trim() !== '') {
+            filteredConstraints[day] = employeeConstraints[day];
+          }
+        });
+        
         return api.post('/constraints', {
           weekNumber: parseInt(weekNumber),
           year: parseInt(year),
           employeeId: employee._id,
-          constraints: employeeConstraints
+          constraints: filteredConstraints
         });
       });
 
       await Promise.all(promises);
       toast.success('Contraintes sauvegardées avec succès');
     } catch (error) {
+      console.error('Erreur détaillée:', error);
       toast.error('Erreur lors de la sauvegarde des contraintes');
     } finally {
       setLoading(false);
@@ -200,7 +209,7 @@ const Constraints = () => {
       await saveConstraints();
       
       // Ensuite rediriger vers la génération du planning
-      window.location.href = `/plan/planning?week=${weekNumber}&year=${year}`;
+      window.location.href = `/planning?week=${weekNumber}&year=${year}`;
     } catch (error) {
       toast.error('Erreur lors de la sauvegarde des contraintes');
     }
@@ -215,6 +224,20 @@ const Constraints = () => {
       4: 'Très fort'
     };
     return labels[level] || 'Normal';
+  };
+
+  // Fonction helper pour convertir les jours de la semaine en index de date
+  const getDayOfWeekIndex = (day) => {
+    const dayMap = {
+      'Lundi': 1,
+      'Mardi': 2,
+      'Mercredi': 3,
+      'Jeudi': 4,
+      'Vendredi': 5,
+      'Samedi': 6,
+      'Dimanche': 0
+    };
+    return dayMap[day] || 1;
   };
 
   const getConstraintLabel = (constraint) => {
@@ -348,17 +371,32 @@ const Constraints = () => {
                   </td>
                   {daysOfWeek.map(day => (
                     <td key={day}>
-                      <select
-                        value={constraints[employee._id]?.[day] || ''}
-                        onChange={(e) => handleConstraintChange(employee._id, day, e.target.value)}
-                        style={{ width: '100%', fontSize: '0.9rem' }}
-                      >
-                        {constraintOptions.map(option => (
-                          <option key={option.value} value={option.value}>
-                            {option.label}
-                          </option>
-                        ))}
-                      </select>
+                      {employee.sickLeave?.isOnSickLeave && 
+                       new Date(employee.sickLeave.startDate) <= new Date(`${year}-${String(parseInt(weekNumber) + 1).padStart(2, '0')}-${getDayOfWeekIndex(day)}`) &&
+                       new Date(employee.sickLeave.endDate) >= new Date(`${year}-${String(parseInt(weekNumber) + 1).padStart(2, '0')}-${getDayOfWeekIndex(day)}`) ? (
+                        <div style={{ 
+                          backgroundColor: '#f8d7da', 
+                          color: '#721c24', 
+                          padding: '0.5rem', 
+                          borderRadius: '4px',
+                          textAlign: 'center',
+                          fontWeight: 'bold'
+                        }}>
+                          🏥 Maladie
+                        </div>
+                      ) : (
+                        <select
+                          value={constraints[employee._id]?.[day] || ''}
+                          onChange={(e) => handleConstraintChange(employee._id, day, e.target.value)}
+                          style={{ width: '100%', fontSize: '0.9rem' }}
+                        >
+                          {constraintOptions.map(option => (
+                            <option key={option.value} value={option.value}>
+                              {option.label}
+                            </option>
+                          ))}
+                        </select>
+                      )}
                     </td>
                   ))}
                 </tr>
