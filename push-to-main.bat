@@ -9,7 +9,7 @@ git branch --show-current
 echo.
 
 echo 📋 Étape 2: Ajout des fichiers modifiés...
-git add VERSION.md ARCHITECTURE-PROJET.md push-to-main.bat
+git add VERSION.md ARCHITECTURE-PROJET.md push-to-main.bat package.json
 echo ✅ Fichiers ajoutés
 echo.
 
