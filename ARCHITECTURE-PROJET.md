@@ -221,6 +221,12 @@ npm run build
 powershell -File upload-to-ovh.ps1
 ```
 
+### **⚠️ IMPORTANT - Commandes PowerShell**
+- **NE PAS utiliser** `&&` (ne fonctionne pas sur PowerShell)
+- **Utiliser** `;` à la place : `cd frontend; npm run build`
+- **Exemple correct** : `cd frontend; npm install; npm run build`
+- **Exemple incorrect** : `cd frontend && npm install && npm run build`
+
 ---
 
 ## ⚠️ **Bonnes Pratiques & Erreurs Évitées**
@@ -242,12 +248,18 @@ powershell -File upload-to-ovh.ps1
 - ✅ Validation des schémas
 - ✅ Gestion des contraintes uniques
 - ✅ Middleware pour updatedAt
+- ✅ **Gestion des arrêts maladie** dans le profil employé
 
 ### **4. Frontend**
 - ✅ Routing avec basename `/plan/`
 - ✅ Configuration .htaccess pour SPA
 - ✅ Gestion des états de chargement
 - ✅ Notifications utilisateur
+- ✅ **URLs relatives** (sans `/plan/` préfixe) pour éviter les doublons
+- ✅ **Gestion des redirections** : Utiliser des chemins relatifs, pas absolus
+- ✅ **Filtrage des contraintes vides** avant envoi à l'API (évite erreur 400)
+- ✅ **Affichage intelligent des contraintes** avec prise en compte des arrêts maladie
+- ✅ **URLs des APIs corrigées** (path parameters au lieu de query parameters)
 
 ### **5. API**
 - ✅ Endpoints RESTful
@@ -276,6 +288,8 @@ powershell -File upload-to-ovh.ps1
 2. Utiliser `test-api-connection.js`
 3. Vérifier la console navigateur
 4. Tester les endpoints individuellement
+5. **Vérifier les URLs des APIs** (path parameters vs query parameters)
+6. **Contrôler les arrêts maladie** dans les profils employés
 
 ---
 
@@ -335,6 +349,96 @@ JWT_SECRET=...
 CORS_ORIGIN=https://www.filmara.fr
 ```
 
+## 🏥 **Gestion des Arrêts Maladie et Contraintes**
+
+### **✅ Affichage Intelligent des Contraintes**
+**Le système prend maintenant en compte automatiquement :**
+- **Arrêts maladie déclarés** dans le profil employé
+- **Périodes de validité** des arrêts maladie
+- **Affichage cohérent** entre contraintes et planning
+
+**Exemple :**
+- **Vanessa F** : Arrêt maladie du 24 août au 7 septembre 2025
+- **Semaine 36** : Tous les jours affichent "🏥 Maladie" (au lieu de "Travail normal")
+- **Planning généré** : Respecte l'arrêt maladie (MAL partout)
+
+### **🔧 Corrections Techniques Implémentées**
+1. **Filtrage des contraintes vides** avant envoi à l'API
+2. **Vérification automatique** des arrêts maladie par date
+3. **Affichage conditionnel** : Select désactivé si arrêt maladie
+4. **Style visuel** : Fond rouge pour les jours en arrêt maladie
+
+### **📊 Structure des Données**
+```javascript
+// Modèle Employee avec arrêt maladie
+{
+  name: "Vanessa F",
+  sickLeave: {
+    isOnSickLeave: true,
+    startDate: "2025-08-24T00:00:00.000Z",
+    endDate: "2025-09-07T00:00:00.000Z"
+  }
+}
+
+// Contraintes avec prise en compte arrêt maladie
+{
+  Lundi: "MAL",      // Si en arrêt maladie
+  Mardi: "MAL",      // Si en arrêt maladie
+  // ... autres jours
+}
+```
+
+---
+
+## 🌐 **Gestion des URLs - RÈGLE IMPORTANTE**
+**NE JAMAIS faire :**
+```javascript
+// ❌ INCORRECT - Double préfixe
+window.location.href = `/plan/planning`  // Devient /plan/plan/planning
+window.location.href = `/plan/constraints`  // Devient /plan/plan/constraints
+```
+
+**TOUJOURS faire :**
+```javascript
+// ✅ CORRECT - URLs relatives
+window.location.href = `/planning`  // Devient /plan/planning
+window.location.href = `/constraints`  // Devient /plan/constraints
+```
+
+### **Pourquoi ?**
+- **React Router** : `basename="/plan"` ajoute automatiquement `/plan/`
+- **URLs absolues** : `/plan/planning` → `/plan/plan/planning` (incorrect)
+- **URLs relatives** : `/planning` → `/plan/planning` (correct)
+
+### **Exemples de correction :**
+```javascript
+// ❌ Avant (incorrect)
+onClick={() => window.location.href = `/plan/planning?week=${weekNumber}&year=${year}`}
+
+// ✅ Après (correct)
+onClick={() => window.location.href = `/planning?week=${weekNumber}&year=${year}`}
+```
+
+### **🌐 URLs des APIs - RÈGLE IMPORTANTE**
+**NE JAMAIS faire :**
+```javascript
+// ❌ INCORRECT - Query parameters
+api.get(`/constraints?weekNumber=${week}&year=${year}`)
+api.get(`/planning?weekNumber=${week}&year=${year}`)
+```
+
+**TOUJOURS faire :**
+```javascript
+// ✅ CORRECT - Path parameters
+api.get(`/constraints/${week}/${year}`)
+api.get(`/planning/${week}/${year}`)
+```
+
+**Pourquoi ?**
+- **Backend** : Routes définies avec `/:weekNumber/:year`
+- **Query parameters** : Causent erreur 404 "Route non trouvée"
+- **Path parameters** : Fonctionnent correctement avec Express.js
+
 ---
 
 ## 📞 **Support & Maintenance**
@@ -353,4 +457,4 @@ CORS_ORIGIN=https://www.filmara.fr
 
 ---
 
-*Dernière mise à jour : Version 1.1.2 - Optimisation planning*
+*Dernière mise à jour : Version 1.1.9 - Correction affichage contraintes arrêts maladie + URLs APIs*
