@@ -14,7 +14,7 @@ echo ✅ Fichiers ajoutés
 echo.
 
 echo 📋 Étape 3: Commit des changements...
-git commit -m "📝 v1.2.3 - Correction formations + Ajustement heures contractuelles"
+git commit -m "📝 v1.3.0 - Intégration OR-Tools + Optimisation planning"
 echo ✅ Commit créé
 echo.
 

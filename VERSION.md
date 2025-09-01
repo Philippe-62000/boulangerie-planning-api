@@ -1,19 +1,26 @@
 # 📋 VERSION - Boulangerie Planning
 
-## 🚀 Version actuelle : v1.2.3
+## 🚀 Version actuelle : v1.3.0
 
 ### 📅 Dernière mise à jour : 2024-12-19
 
 ### 🔧 Changements dans cette version :
+- ✅ Intégration OR-Tools pour optimisation planning
+- ✅ Rotation automatique des horaires (matin/après-midi)
+- ✅ Règles spéciales pour mineurs (repos consécutifs + dimanche)
+- ✅ Respect strict des heures contractuelles
+- ✅ Éviter la monotonie des horaires
 - ✅ Correction comptage formations (8h par jour)
 - ✅ Amélioration ajustement heures contractuelles (tolérance 2h/4h)
-- ✅ Logs détaillés pour debugging formations
-- ✅ Correction transformation repos ↔ travail
-- ✅ Système de versioning automatisé
-- ✅ Script `push-to-main.bat` pour déploiement
-- ✅ Documentation protocole de versioning
 
 ### 📊 Historique des versions :
+
+#### v1.3.0 (2024-12-19)
+- 🚀 Intégration OR-Tools pour optimisation planning
+- 🔧 Rotation automatique des horaires (matin/après-midi)
+- 👶 Règles spéciales pour mineurs (repos consécutifs + dimanche)
+- 📊 Respect strict des heures contractuelles
+- 🔄 Éviter la monotonie des horaires
 
 #### v1.2.3 (2024-12-19)
 - 🔧 Correction comptage formations (8h par jour)
