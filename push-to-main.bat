@@ -14,7 +14,7 @@ echo ✅ Fichiers ajoutés
 echo.
 
 echo 📋 Étape 3: Commit des changements...
-git commit -m "📝 v1.3.5 - Serveur racine + Solveur JavaScript optimisé"
+git commit -m "📝 v1.3.6 - Correction syntaxe + Serveur racine + Solveur JavaScript"
 echo ✅ Commit créé
 echo.
 
@@ -43,7 +43,7 @@ echo 🎉 DÉPLOIEMENT TERMINÉ !
 echo ========================================
 echo.
 
-echo 📊 Version déployée : v1.3.5
+echo 📊 Version déployée : v1.3.6
 echo 🌐 Render va redéployer automatiquement
 echo ⏰ Attendez 2-3 minutes pour vérifier
 echo.

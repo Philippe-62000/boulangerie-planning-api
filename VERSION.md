@@ -1,10 +1,11 @@
 # 📋 VERSION - Boulangerie Planning
 
-## 🚀 Version actuelle : v1.3.5
+## 🚀 Version actuelle : v1.3.6
 
 ### 📅 Dernière mise à jour : 2024-12-19
 
 ### 🔧 Changements dans cette version :
+- 🔧 Correction erreur syntaxe planningController.js
 - 🔧 Création serveur racine (server.js) pour compatibilité Render
 - 🔧 Correction chemin serveur (backend/server.js)
 - 🔧 Remplacement OR-Tools par solveur JavaScript optimisé
@@ -18,7 +19,8 @@
 
 ### 📊 Historique des versions :
 
-#### v1.3.5 (2024-12-19)
+#### v1.3.6 (2024-12-19)
+- 🔧 Correction erreur syntaxe planningController.js
 - 🔧 Création serveur racine (server.js) pour compatibilité Render
 - 🔧 Correction chemin serveur (backend/server.js)
 - 🔧 Remplacement OR-Tools par solveur JavaScript optimisé

@@ -565,219 +565,162 @@ class PlanningGenerator {
     
     return { valid: true };
   }
-      return { canWork: false, reason: 'Dimanche interdit pour mineurs' };
-    }
-    
-    // Pas de travail les jours fériés
-    if (isHoliday) {
-      return { canWork: false, reason: 'Jour férié interdit pour mineurs' };
-    }
-    
-    // Vérifier repos consécutifs avec dimanche
-    const consecutiveRest = this.checkConsecutiveRest(employee, day, weekSchedule);
-    if (!consecutiveRest.valid) {
-      return { canWork: false, reason: consecutiveRest.reason };
-    }
-    
-    return { canWork: true };
-  }
 
-  // Vérifier repos consécutifs pour mineurs
-  checkConsecutiveRest(employee, day, weekSchedule) {
-    const dayIndex = this.days.indexOf(day);
-    const previousDay = this.days[dayIndex - 1];
-    const nextDay = this.days[dayIndex + 1];
+  // Utiliser le solveur JavaScript optimisé
+  async generateWeeklyPlanning(weekNumber, year, affluenceLevels, employees) {
+    console.log('🚀 Génération planning avec solveur JavaScript optimisé...');
     
-    // Vérifier si l'employé a travaillé le jour précédent
-    const workedPrevious = weekSchedule.find(s => s.day === previousDay && s.totalHours > 0);
-    const workedNext = weekSchedule.find(s => s.day === nextDay && s.totalHours > 0);
-    
-    // Pour les mineurs : repos consécutifs avec dimanche
-    if (employee.age < 18) {
-      // Si travail le samedi, repos dimanche obligatoire
-      if (day === 'Dimanche' && workedPrevious) {
-        return { valid: false, reason: 'Repos dimanche obligatoire après travail samedi' };
-      }
-      
-      // Si travail le dimanche, repos lundi obligatoire
-      if (day === 'Lundi' && workedPrevious) {
-        return { valid: false, reason: 'Repos lundi obligatoire après travail dimanche' };
-      }
-    }
-    
-    return { valid: true };
-  }
-
-  // Optimiser le planning avec OR-Tools
-  optimizePlanningWithORTools(employees, weekNumber, year, affluenceLevels) {
-    const model = new CpModel();
-    const solver = new CpSolver();
-    
-    // Variables de décision
-    const assignments = {};
-    const employeesList = employees.filter(emp => emp.isActive);
-    
-    // Créer les variables pour chaque employé/jour/shift
-    for (const employee of employeesList) {
-      assignments[employee._id] = {};
-      for (const day of this.days) {
-        assignments[employee._id][day] = {};
-        for (const shiftType of Object.keys(this.shifts)) {
-          assignments[employee._id][day][shiftType] = model.newBoolVar(
-            `${employee.name}_${day}_${shiftType}`
-          );
-        }
-        // Variable pour repos
-        assignments[employee._id][day]['rest'] = model.newBoolVar(
-          `${employee.name}_${day}_rest`
-        );
-      }
-    }
-    
-    // Contraintes
-    
-    // 1. Chaque employé doit avoir exactement une activité par jour
-    for (const employee of employeesList) {
-      for (const day of this.days) {
-        const activities = [
-          ...Object.keys(this.shifts).map(shift => assignments[employee._id][day][shift]),
-          assignments[employee._id][day]['rest']
-        ];
-        model.addExactlyOne(activities);
-      }
-    }
-    
-    // 2. Respect des heures contractuelles
-    for (const employee of employeesList) {
-      const weeklyHours = [];
-      for (const day of this.days) {
-        for (const [shiftType, shift] of Object.entries(this.shifts)) {
-          weeklyHours.push(
-            LinearExpr.term(assignments[employee._id][day][shiftType], shift.hours)
-          );
-        }
-      }
-      model.add(LinearExpr.sum(weeklyHours) <= employee.weeklyHours);
-      model.add(LinearExpr.sum(weeklyHours) >= employee.weeklyHours - 2); // Tolérance 2h
-    }
-    
-    // 3. Rotation des horaires (éviter la monotonie)
-    for (const employee of employeesList) {
-      for (let i = 0; i < this.days.length - 1; i++) {
-        const day1 = this.days[i];
-        const day2 = this.days[i + 1];
+    try {
+      // Préparer les données pour le solveur
+      const constraints = {};
+      for (const emp of employees) {
+        const empId = emp._id.toString();
+        constraints[empId] = {};
         
-        // Éviter le même shift deux jours consécutifs
-        for (const shiftType of Object.keys(this.shifts)) {
-          const consecutive = [
-            assignments[employee._id][day1][shiftType],
-            assignments[employee._id][day2][shiftType]
-          ];
-          model.addAtMostOne(consecutive);
-        }
-      }
-    }
-    
-    // 4. Règles spéciales pour mineurs
-    for (const employee of employeesList) {
-      if (employee.age < 18) {
-        // Pas de travail le dimanche
-        model.add(assignments[employee._id]['Dimanche']['rest'] === 1);
+        // Récupérer les contraintes de la base de données
+        const weeklyConstraints = await WeeklyConstraints.findOne({
+          weekNumber,
+          year,
+          employeeId: emp._id
+        });
         
-        // Repos consécutifs avec dimanche
-        model.add(assignments[employee._id]['Samedi']['rest'] === 1);
-      }
-    }
-    
-    // 5. Besoins en personnel par jour
-    for (const day of this.days) {
-      const affluence = affluenceLevels[day] || 2;
-      const requirements = this.getDailyRequirements(affluence);
-      
-      // Matin
-      const morningStaff = [];
-      for (const employee of employeesList) {
-        morningStaff.push(assignments[employee._id][day]['morning']);
-      }
-      model.add(LinearExpr.sum(morningStaff) >= requirements.morning.staff);
-      
-      // Après-midi
-      const afternoonStaff = [];
-      for (const employee of employeesList) {
-        afternoonStaff.push(assignments[employee._id][day]['afternoon']);
-      }
-      model.add(LinearExpr.sum(afternoonStaff) >= requirements.afternoon.staff);
-    }
-    
-    // Objectif : minimiser la monotonie et maximiser la satisfaction
-    const objective = [];
-    for (const employee of employeesList) {
-      for (const day of this.days) {
-        for (const shiftType of Object.keys(this.shifts)) {
-          // Pénaliser les shifts répétitifs
-          objective.push(
-            LinearExpr.term(assignments[employee._id][day][shiftType], 1)
-          );
+        if (weeklyConstraints && weeklyConstraints.constraints) {
+          for (let day = 0; day < 7; day++) {
+            const dayName = this.days[day];
+            if (weeklyConstraints.constraints[dayName]) {
+              constraints[empId][day] = weeklyConstraints.constraints[dayName];
+            }
+          }
         }
       }
-    }
-    
-    model.minimize(LinearExpr.sum(objective));
-    
-    // Résoudre
-    const status = solver.solve(model);
-    
-    if (status === CpSolver.OPTIMAL || status === CpSolver.FEASIBLE) {
-      return this.extractSolution(assignments, employeesList, solver);
-    } else {
-      console.log('❌ Aucune solution trouvée avec OR-Tools');
-      return null;
+      
+      // Préparer les affluences (convertir en tableau de 7 jours)
+      const affluences = [];
+      for (let day = 0; day < 7; day++) {
+        const dayName = this.days[day];
+        affluences.push(affluenceLevels[dayName] || 2);
+      }
+      
+      // Utiliser le solveur JavaScript
+      const result = planningSolver.solvePlanning(employees, constraints, affluences, weekNumber);
+      
+      if (result.success) {
+        console.log('✅ Solution trouvée avec le solveur JavaScript !');
+        return this.createPlanningsFromSolution(result.planning, weekNumber, year, employees);
+      } else {
+        console.log('⚠️ Fallback vers méthode classique...');
+        return this.generateWeeklyPlanningClassic(weekNumber, year, affluenceLevels, employees);
+      }
+    } catch (error) {
+      console.error('❌ Erreur avec le solveur JavaScript:', error);
+      console.log('⚠️ Fallback vers méthode classique...');
+      return this.generateWeeklyPlanningClassic(weekNumber, year, affluenceLevels, employees);
     }
   }
 
-  // Extraire la solution d'OR-Tools
-  extractSolution(assignments, employees, solver) {
-    const solution = [];
+  // Créer les plannings à partir de la solution du solveur
+  createPlanningsFromSolution(solution, weekNumber, year, employees) {
+    const plannings = [];
     
-    for (const employee of employees) {
-      const schedule = [];
-      let totalHours = 0;
-      
-      for (const day of this.days) {
-        let daySchedule = { day, shifts: [], totalHours: 0, constraint: undefined };
+    for (const emp of employees) {
+      const empId = emp._id.toString();
+      if (solution[empId]) {
+        const schedule = [];
+        let totalHours = 0;
         
-        // Vérifier quel shift est assigné
-        for (const [shiftType, shift] of Object.entries(this.shifts)) {
-          if (solver.value(assignments[employee._id][day][shiftType]) === 1) {
-            daySchedule.shifts = [{
-              startTime: shift.start,
-              endTime: shift.end,
-              breakMinutes: 30,
-              hoursWorked: shift.hours,
-              role: employee.role
-            }];
-            daySchedule.totalHours = shift.hours;
-            totalHours += shift.hours;
-            break;
+        for (let day = 0; day < 7; day++) {
+          const daySchedule = solution[empId][day];
+          const dayName = this.days[day];
+          
+          if (daySchedule.slot === 'Repos') {
+            schedule.push({
+              day: dayName,
+              shifts: [],
+              totalHours: 0,
+              constraint: 'Repos'
+            });
+          } else if (daySchedule.slot === 'Formation') {
+            schedule.push({
+              day: dayName,
+              shifts: [],
+              totalHours: 8,
+              constraint: 'Formation'
+            });
+            totalHours += 8;
+          } else if (daySchedule.slot === 'CP') {
+            schedule.push({
+              day: dayName,
+              shifts: [],
+              totalHours: emp.weeklyHours === 35 ? 5.5 : 6.5,
+              constraint: 'CP'
+            });
+            totalHours += emp.weeklyHours === 35 ? 5.5 : 6.5;
+          } else if (daySchedule.slot === 'MAL') {
+            schedule.push({
+              day: dayName,
+              shifts: [],
+              totalHours: 0,
+              constraint: 'MAL'
+            });
+          } else {
+            // Créneau de travail
+            const shift = this.generateShiftFromSlot(daySchedule.slot, emp);
+            schedule.push({
+              day: dayName,
+              shifts: [shift],
+              totalHours: daySchedule.hours,
+              constraint: undefined
+            });
+            totalHours += daySchedule.hours;
           }
         }
         
-        // Si aucun shift, c'est un repos
-        if (daySchedule.shifts.length === 0) {
-          daySchedule.constraint = 'Repos';
-        }
+        const planning = new Planning({
+          weekNumber,
+          year,
+          employeeId: emp._id,
+          employeeName: emp.name,
+          schedule,
+          totalWeeklyHours: totalHours,
+          contractedHours: emp.weeklyHours,
+          status: 'generated'
+        });
         
-        schedule.push(daySchedule);
+        plannings.push(planning);
       }
-      
-      solution.push({
-        employee,
-        schedule,
-        totalHours
-      });
     }
     
-    return solution;
+    return plannings;
+  }
+
+  // Générer un shift à partir d'un créneau
+  generateShiftFromSlot(slot, employee) {
+    const slotHours = planningSolver.getSlotHours();
+    const hours = slotHours[slot] || 8;
+    
+    // Extraire les heures du créneau (ex: "06h00-14h00")
+    const timeMatch = slot.match(/(\d{1,2})h(\d{2})-(\d{1,2})h(\d{2})/);
+    if (timeMatch) {
+      const startHour = timeMatch[1] + ':' + timeMatch[2];
+      const endHour = timeMatch[3] + ':' + timeMatch[4];
+      
+      return {
+        startTime: startHour,
+        endTime: endHour,
+        breakMinutes: 30,
+        hoursWorked: hours,
+        role: employee.role
+      };
+    }
+    
+    // Fallback
+    return {
+      startTime: '08:00',
+      endTime: '17:00',
+      breakMinutes: 30,
+      hoursWorked: hours,
+      role: employee.role
+    };
   }
 
   // Générer le planning pour une semaine avec OR-Tools
