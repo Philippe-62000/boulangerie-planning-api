@@ -1,10 +1,11 @@
 # 📋 VERSION - Boulangerie Planning
 
-## 🚀 Version actuelle : v1.3.1
+## 🚀 Version actuelle : v1.3.2
 
 ### 📅 Dernière mise à jour : 2024-12-19
 
 ### 🔧 Changements dans cette version :
+- 🔧 Correction package OR-Tools (@google/or-tools)
 - ✅ Lien avec arrêts maladie déclarés (profil employé)
 - ✅ Règles mineurs strictes (pas de travail dimanche + repos consécutifs)
 - ✅ Cadre général des besoins en personnel appliqué
@@ -14,6 +15,14 @@
 - ✅ Rotation automatique des horaires (matin/après-midi)
 
 ### 📊 Historique des versions :
+
+#### v1.3.2 (2024-12-19)
+- 🔧 Correction package OR-Tools (@google/or-tools)
+- 🏥 Lien avec arrêts maladie déclarés (profil employé)
+- 👶 Règles mineurs strictes (pas de travail dimanche + repos consécutifs)
+- 📋 Cadre général des besoins en personnel appliqué
+- 🔄 Rotation des horaires (ouverture/fermeture)
+- 🎯 Respect des compétences (ouverture/fermeture)
 
 #### v1.3.1 (2024-12-19)
 - 🏥 Lien avec arrêts maladie déclarés (profil employé)

@@ -14,7 +14,7 @@ echo ✅ Fichiers ajoutés
 echo.
 
 echo 📋 Étape 3: Commit des changements...
-git commit -m "📝 v1.3.1 - Lien arrêts maladie + Règles mineurs + Cadre général"
+git commit -m "📝 v1.3.2 - Correction OR-Tools + Lien arrêts maladie + Règles mineurs"
 echo ✅ Commit créé
 echo.
 
@@ -42,7 +42,7 @@ echo ========================================
 echo 🎉 DÉPLOIEMENT TERMINÉ !
 echo ========================================
 echo.
-echo 📊 Version déployée : v1.3.1
+echo 📊 Version déployée : v1.3.2
 echo 🌐 Render va redéployer automatiquement
 echo ⏰ Attendez 2-3 minutes pour vérifier
 echo.
