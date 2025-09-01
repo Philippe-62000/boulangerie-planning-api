@@ -9,12 +9,12 @@ git branch --show-current
 echo.
 
 echo 📋 Étape 2: Ajout des fichiers modifiés...
-git add VERSION.md ARCHITECTURE-PROJET.md push-to-main.bat package.json
+git add .
 echo ✅ Fichiers ajoutés
 echo.
 
 echo 📋 Étape 3: Commit des changements...
-git commit -m "📝 v1.3.0 - Intégration OR-Tools + Optimisation planning"
+git commit -m "📝 v1.3.1 - Lien arrêts maladie + Règles mineurs + Cadre général"
 echo ✅ Commit créé
 echo.
 
@@ -42,7 +42,7 @@ echo ========================================
 echo 🎉 DÉPLOIEMENT TERMINÉ !
 echo ========================================
 echo.
-echo 📊 Version déployée : v1.2.3
+echo 📊 Version déployée : v1.3.1
 echo 🌐 Render va redéployer automatiquement
 echo ⏰ Attendez 2-3 minutes pour vérifier
 echo.

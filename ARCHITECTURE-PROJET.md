@@ -543,16 +543,16 @@ api.get(`/planning/${week}/${year}`)
 ```markdown
 # 📋 VERSION - Boulangerie Planning
 
-## 🚀 Version actuelle : v1.2.1
+## 🚀 Version actuelle : v1.3.1
 
 ### 📅 Dernière mise à jour : 2024-12-19
 
 ### 🔧 Changements dans cette version :
-- ✅ Correction logique de sélection planning
-- ✅ Respect des heures contractuelles
-- ✅ Fonction `adjustEmployeeSchedule` 
-- ✅ Fonction `fillRemainingDays`
-- ✅ Documentation architecture mise à jour
+- ✅ Lien avec arrêts maladie déclarés (profil employé)
+- ✅ Règles mineurs strictes (pas de travail dimanche + repos consécutifs)
+- ✅ Cadre général des besoins en personnel appliqué
+- ✅ Rotation des horaires (ouverture/fermeture)
+- ✅ Respect des compétences (ouverture/fermeture)
 ```
 
 #### **🔄 Protocole de Push**
@@ -580,10 +580,10 @@ echo 📋 Étape 1: Vérification de la branche actuelle...
 git branch --show-current
 
 echo 📋 Étape 2: Ajout des fichiers modifiés...
-git add VERSION.md ARCHITECTURE-PROJET.md
+git add .
 
 echo 📋 Étape 3: Commit des changements...
-git commit -m "📝 v1.2.2 - Système de versioning + Documentation mise à jour"
+git commit -m "📝 v1.3.1 - Lien arrêts maladie + Règles mineurs + Cadre général"
 
 echo 📋 Étape 4: Push sur master...
 git push origin master
@@ -598,7 +598,7 @@ echo 📋 Étape 7: Push sur main (déclenche Render)...
 git push origin main
 
 echo 🎉 DÉPLOIEMENT TERMINÉ !
-echo 📊 Version déployée : v1.2.2
+echo 📊 Version déployée : v1.3.1
 echo 🌐 Render va redéployer automatiquement
 ```
 
@@ -610,6 +610,31 @@ echo 🌐 Render va redéployer automatiquement
 
 #### **📊 Historique des Versions**
 ```markdown
+#### v1.3.1 (2024-12-19)
+- 🏥 Lien avec arrêts maladie déclarés (profil employé)
+- 👶 Règles mineurs strictes (pas de travail dimanche + repos consécutifs)
+- 📋 Cadre général des besoins en personnel appliqué
+- 🔄 Rotation des horaires (ouverture/fermeture)
+- 🎯 Respect des compétences (ouverture/fermeture)
+
+#### v1.3.0 (2024-12-19)
+- 🚀 Intégration OR-Tools pour optimisation planning
+- 🔧 Rotation automatique des horaires (matin/après-midi)
+- 👶 Règles spéciales pour mineurs (repos consécutifs + dimanche)
+- 📊 Respect strict des heures contractuelles
+- 🔄 Éviter la monotonie des horaires
+
+#### v1.2.3 (2024-12-19)
+- 🔧 Correction comptage formations (8h par jour)
+- 🔧 Amélioration ajustement heures contractuelles (tolérance 2h/4h)
+- 📝 Logs détaillés pour debugging formations
+- 🔧 Correction transformation repos ↔ travail
+
+#### v1.2.2 (2024-12-19)
+- 🔧 Système de versioning automatisé
+- 📝 Script `push-to-main.bat` pour déploiement
+- 📝 Documentation protocole de versioning
+
 #### v1.2.1 (2024-12-19)
 - 🔧 Fix planning - Logique sélection + ajustement heures contractuelles
 - 📝 Mise à jour documentation architecture
@@ -638,4 +663,189 @@ echo 🌐 Render va redéployer automatiquement
 
 ---
 
-*Dernière mise à jour : Version 1.2.1 - Système de versioning + Corrections planning*
+## 📋 **RÈGLES DE PLANNING - OBLIGATOIRES**
+
+### **🏥 Gestion des Arrêts Maladie**
+**Le système vérifie automatiquement les arrêts maladie déclarés dans le profil employé :**
+```javascript
+// Vérification automatique des arrêts maladie
+if (employee.sickLeave && employee.sickLeave.isOnSickLeave) {
+  const startDate = new Date(employee.sickLeave.startDate);
+  const endDate = new Date(employee.sickLeave.endDate);
+  const dayDate = this.getDateForDay(day, weekNumber, year);
+  
+  if (dayDate >= startDate && dayDate <= endDate) {
+    return { canWork: false, type: 'MAL' };
+  }
+}
+```
+
+**Règles appliquées :**
+- ✅ **Arrêt automatique** : L'employé est en MAL toute la période
+- ✅ **Pas d'heures comptées** : Les jours de maladie ne comptent pas dans le total
+- ✅ **Priorité absolue** : Les arrêts maladie priment sur toutes les autres contraintes
+
+### **👶 Règles Spéciales pour Mineurs (< 18 ans)**
+
+#### **🚫 Interdictions Absolues**
+- **Dimanche** : Aucun travail autorisé
+- **Jours fériés** : Aucun travail autorisé
+- **Travail nocturne** : Interdit après 22h00
+
+#### **📅 Repos Consécutifs Obligatoires**
+```javascript
+// Règles pour mineurs
+checkMinorRules(employee, day, weekSchedule) {
+  if (employee.age >= 18) return { canWork: true };
+  
+  // Pas de travail le dimanche
+  if (day === 'Dimanche') {
+    return { canWork: false, reason: 'Dimanche interdit pour mineurs' };
+  }
+  
+  // Repos consécutifs avec dimanche
+  const consecutiveRest = this.checkConsecutiveRestForMinor(employee, day, weekSchedule);
+  if (!consecutiveRest.valid) {
+    return { canWork: false, reason: consecutiveRest.reason };
+  }
+}
+```
+
+**Règles appliquées :**
+- ✅ **Si travail samedi** → Repos dimanche obligatoire
+- ✅ **Si travail lundi** → Repos dimanche obligatoire
+- ✅ **2 jours de repos consécutifs** minimum avec dimanche
+
+### **📋 Cadre Général des Besoins en Personnel**
+
+#### **🏪 Lundi au Vendredi**
+```javascript
+const requirements = {
+  'Lundi': {
+    opening: { start: '06:00', end: '13:30', staff: 2, skills: ['Ouverture'] },
+    afternoon: { start: '13:30', end: '16:00', staff: 3 },
+    evening: { start: '16:00', end: '20:30', staff: 2, skills: ['Fermeture'] }
+  }
+  // ... autres jours
+};
+```
+
+**Besoins par période :**
+- **06h00 - 13h30** : 2 vendeuses (dont 1 avec compétence ouverture)
+- **13h30 - 16h00** : 3 vendeuses minimum (période calme)
+- **16h00 - 20h30** : 2 vendeuses (dont 1 avec compétence fermeture)
+
+#### **🛒 Samedi**
+- **06h00 - 16h30** : 3 vendeuses (dont 1 avec compétence ouverture)
+- **16h30 - 20h30** : 2 vendeuses (dont 1 avec compétence fermeture)
+
+#### **🌅 Dimanche**
+- **06h00 - 13h00** : 3 vendeuses (dont 1 avec compétence ouverture)
+- **13h00 - 20h30** : 2 vendeuses (dont 1 avec compétence fermeture)
+
+### **🔄 Rotation des Horaires - Anti-Monotonie**
+
+#### **🎯 Objectifs de Rotation**
+- ✅ **Éviter la répétition** : Même employé pas au même poste toute la semaine
+- ✅ **Alternance matin/après-midi** : Rotation automatique des horaires
+- ✅ **Respect des compétences** : Ouverture/fermeture selon les compétences
+- ✅ **Équité** : Distribution équitable des tâches
+
+#### **🔧 Implémentation Technique**
+```javascript
+// Rotation des horaires avec OR-Tools
+for (let i = 0; i < this.days.length - 1; i++) {
+  const day1 = this.days[i];
+  const day2 = this.days[i + 1];
+  
+  // Éviter le même shift deux jours consécutifs
+  for (const shiftType of Object.keys(this.shifts)) {
+    const consecutive = [
+      assignments[employee._id][day1][shiftType],
+      assignments[employee._id][day2][shiftType]
+    ];
+    model.addAtMostOne(consecutive);
+  }
+}
+```
+
+### **⏰ Respect des Heures Contractuelles**
+
+#### **📊 Calcul Automatique**
+```javascript
+// Ajustement automatique des heures
+adjustEmployeeSchedule(schedule) {
+  const targetHours = employee.weeklyHours;
+  const currentHours = schedule.totalHours;
+  
+  if (currentHours > targetHours + 2) { // Tolérance 2h
+    // Ajouter des repos pour réduire les heures
+  } else if (currentHours < targetHours - 4) { // Tolérance 4h
+    // Transformer des repos en travail
+  }
+}
+```
+
+**Règles appliquées :**
+- ✅ **Tolérance excès** : 2h maximum au-dessus des heures contractuelles
+- ✅ **Tolérance manque** : 4h maximum en-dessous des heures contractuelles
+- ✅ **Ajustement automatique** : Ajout/suppression de repos selon les besoins
+
+### **🎓 Gestion des Formations et Congés**
+
+#### **📚 Formations**
+- **Comptage** : 8h par jour de formation
+- **Priorité** : Les formations priment sur le travail
+- **Intégration** : Comptées dans les heures contractuelles
+
+#### **🏖️ Congés Payés (CP)**
+- **Comptage** : 5.5h (35h) ou 6.5h (39h) selon le contrat
+- **Priorité** : Les CP priment sur le travail
+- **Intégration** : Comptés dans les heures contractuelles
+
+### **🚫 Contraintes Absolues**
+
+#### **🔒 Types de Contraintes**
+- **Fermé** : Boutique fermée (pas de travail)
+- **Repos** : Jour de repos (pas d'heures comptées)
+- **Formation** : Formation obligatoire (8h comptées)
+- **CP** : Congé payé (heures selon contrat)
+- **MAL** : Arrêt maladie (pas d'heures comptées)
+- **ABS** : Absence (pas d'heures comptées)
+- **RET** : Retard (pas d'heures comptées)
+- **Férié** : Jour férié (pas d'heures comptées)
+- **Management** : Tâches administratives (heures selon contrat)
+
+### **🎯 Priorités de Sélection des Employés**
+
+#### **📊 Système de Priorité**
+```javascript
+calculatePriority(employee, schedule, day, constraintType) {
+  let priority = 0;
+  
+  // Priorité HAUTE si pas assez d'heures
+  if (schedule.totalHours < employee.weeklyHours) {
+    priority -= 100;
+    if (remainingHours <= 8) {
+      priority -= 50; // Priorité maximale
+    }
+  }
+  
+  // Priorité basse si trop d'heures
+  if (schedule.totalHours > employee.weeklyHours) {
+    priority += (schedule.totalHours - employee.weeklyHours) * 20;
+  }
+  
+  return priority;
+}
+```
+
+**Ordre de priorité :**
+1. **Employés avec moins d'heures** (priorité maximale)
+2. **Managers/Responsables** (priorité haute)
+3. **Employés avec compétences spécifiques** (ouverture/fermeture)
+4. **Équilibre travail/repos** (éviter la surcharge)
+
+---
+
+*Dernière mise à jour : Version 1.3.1 - Lien arrêts maladie + Règles mineurs + Cadre général*
