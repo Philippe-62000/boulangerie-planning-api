@@ -1,10 +1,11 @@
 # 📋 VERSION - Boulangerie Planning
 
-## 🚀 Version actuelle : v1.3.4
+## 🚀 Version actuelle : v1.3.5
 
 ### 📅 Dernière mise à jour : 2024-12-19
 
 ### 🔧 Changements dans cette version :
+- 🔧 Création serveur racine (server.js) pour compatibilité Render
 - 🔧 Correction chemin serveur (backend/server.js)
 - 🔧 Remplacement OR-Tools par solveur JavaScript optimisé
 - ✅ Lien avec arrêts maladie déclarés (profil employé)
@@ -17,7 +18,8 @@
 
 ### 📊 Historique des versions :
 
-#### v1.3.4 (2024-12-19)
+#### v1.3.5 (2024-12-19)
+- 🔧 Création serveur racine (server.js) pour compatibilité Render
 - 🔧 Correction chemin serveur (backend/server.js)
 - 🔧 Remplacement OR-Tools par solveur JavaScript optimisé
 - 🏥 Lien avec arrêts maladie déclarés (profil employé)
