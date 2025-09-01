@@ -1,19 +1,25 @@
 # 📋 VERSION - Boulangerie Planning
 
-## 🚀 Version actuelle : v1.2.2
+## 🚀 Version actuelle : v1.2.3
 
 ### 📅 Dernière mise à jour : 2024-12-19
 
 ### 🔧 Changements dans cette version :
+- ✅ Correction comptage formations (8h par jour)
+- ✅ Amélioration ajustement heures contractuelles (tolérance 2h/4h)
+- ✅ Logs détaillés pour debugging formations
+- ✅ Correction transformation repos ↔ travail
 - ✅ Système de versioning automatisé
 - ✅ Script `push-to-main.bat` pour déploiement
 - ✅ Documentation protocole de versioning
-- ✅ Correction logique de sélection planning
-- ✅ Respect des heures contractuelles
-- ✅ Fonction `adjustEmployeeSchedule` 
-- ✅ Fonction `fillRemainingDays`
 
 ### 📊 Historique des versions :
+
+#### v1.2.3 (2024-12-19)
+- 🔧 Correction comptage formations (8h par jour)
+- 🔧 Amélioration ajustement heures contractuelles (tolérance 2h/4h)
+- 📝 Logs détaillés pour debugging formations
+- 🔧 Correction transformation repos ↔ travail
 
 #### v1.2.2 (2024-12-19)
 - 🔧 Système de versioning automatisé

@@ -14,7 +14,7 @@ echo ✅ Fichiers ajoutés
 echo.
 
 echo 📋 Étape 3: Commit des changements...
-git commit -m "📝 v1.2.2 - Système de versioning + Documentation mise à jour"
+git commit -m "📝 v1.2.3 - Correction formations + Ajustement heures contractuelles"
 echo ✅ Commit créé
 echo.
 
@@ -42,7 +42,7 @@ echo ========================================
 echo 🎉 DÉPLOIEMENT TERMINÉ !
 echo ========================================
 echo.
-echo 📊 Version déployée : v1.2.2
+echo 📊 Version déployée : v1.2.3
 echo 🌐 Render va redéployer automatiquement
 echo ⏰ Attendez 2-3 minutes pour vérifier
 echo.
