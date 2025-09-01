@@ -281,6 +281,194 @@ try {
 - **Robustesse** : Fallback automatique
 - **Rapidité** : Résolution en ~2-5 secondes
 
+### **🚀 Déploiement de l'API OR-Tools**
+
+#### **1. Création du repository GitHub**
+```bash
+# Repository créé : https://github.com/Philippe-62000/planning-ortools-api
+# Fichiers nécessaires :
+- ortools-api.py          # API Flask avec OR-Tools
+- requirements.txt        # Dépendances Python
+- render.yaml            # Configuration Render
+- README.md              # Documentation
+```
+
+#### **2. Fichiers de déploiement**
+
+**📄 requirements.txt**
+```
+Flask==2.3.3
+Flask-CORS==4.0.0
+ortools==9.14.6206       # Version corrigée (9.7.2996 n'existait pas)
+gunicorn==21.2.0
+```
+
+**📄 render.yaml**
+```yaml
+services:
+  - type: web
+    name: planning-ortools-api
+    env: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn --bind 0.0.0.0:$PORT ortools-api:app
+    envVars:
+      - key: FLASK_ENV
+        value: production
+      - key: PORT
+        value: 10000
+    healthCheckPath: /
+    autoDeploy: true
+```
+
+#### **3. Déploiement sur Render**
+1. **Service créé** : `planning-ortools-api`
+2. **URL déployée** : `https://planning-ortools-api.onrender.com`
+3. **Status** : ✅ Online (testé avec health check)
+4. **Build temps** : ~5-10 minutes (OR-Tools = 27.7 MB)
+
+#### **4. Configuration API principale**
+
+**Variable d'environnement ajoutée :**
+```bash
+# Dans boulangerie-planning-api (Render Dashboard → Environment)
+ORTOOLS_API_URL = "https://planning-ortools-api.onrender.com/solve"
+```
+
+**Test de connectivité :**
+```json
+# GET https://planning-ortools-api.onrender.com/
+{
+  "status": "online",
+  "service": "Planning Boulangerie OR-Tools API", 
+  "version": "5.0",
+  "timestamp": "2025-09-01T21:59:21.618600",
+  "endpoints": {
+    "status": "GET /",
+    "solve": "POST /solve"
+  }
+}
+```
+
+#### **5. Architecture finale déployée**
+```
+┌─────────────────────────────────────────┐
+│           PRODUCTION RENDER             │
+├─────────────────────────────────────────┤
+│                                         │
+│  ┌─────────────────────────────────┐    │
+│  │     API Principale              │    │
+│  │ boulangerie-planning-api        │    │ 
+│  │                                 │    │
+│  │ Node.js + Express + MongoDB     │    │
+│  │ URL: /api/planning/generate     │    │
+│  │ ENV: ORTOOLS_API_URL            │    │
+│  └─────────────┬───────────────────┘    │
+│                │ HTTP POST              │
+│                ▼                        │
+│  ┌─────────────────────────────────┐    │
+│  │     API OR-Tools                │    │
+│  │ planning-ortools-api            │    │
+│  │                                 │    │
+│  │ Python + Flask + OR-Tools       │    │
+│  │ URL: /solve                     │    │
+│  │ Optimisation ±0.5h              │    │
+│  └─────────────────────────────────┘    │
+│                                         │
+└─────────────────────────────────────────┘
+```
+
+#### **6. Flux de données en production**
+```javascript
+// 1. Utilisateur génère planning
+POST /api/planning/generate
+
+// 2. API principale prépare données
+const employeesData = employees.map(emp => ({
+  id: emp._id.toString(),
+  name: emp.name,
+  volume: emp.weeklyHours,
+  status: emp.age < 18 ? 'Mineur' : 'Majeur',
+  skills: emp.skills || [],
+  function: emp.role || 'Vendeuse'
+}));
+
+// 3. Appel API OR-Tools
+const response = await fetch('https://planning-ortools-api.onrender.com/solve', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    employees: employeesData,
+    constraints: constraints,
+    affluences: affluences,
+    week_number: weekNumber
+  })
+});
+
+// 4. Traitement réponse OR-Tools
+if (result.success) {
+  // Utiliser solution optimisée OR-Tools
+  return this.createPlanningsFromORToolsSolution(result.planning);
+} else {
+  // Fallback méthode classique
+  return this.generateWeeklyPlanningClassic();
+}
+```
+
+#### **7. Monitoring et santé**
+
+**Health checks disponibles :**
+- **API OR-Tools** : `GET https://planning-ortools-api.onrender.com/`
+- **API Principale** : `GET https://boulangerie-planning-api-3.onrender.com/health`
+
+**Logs de déploiement :**
+```bash
+# OR-Tools API
+✅ Successfully installed ortools-9.14.6206
+✅ Build successful 🎉
+✅ Running 'gunicorn app:app --bind 0.0.0.0:$PORT'
+✅ Your service is live 🎉
+
+# API Principale (après configuration)
+✅ ORTOOLS_API_URL configured
+✅ OR-Tools integration active
+✅ Fallback method available
+```
+
+#### **8. Troubleshooting déploiement**
+
+**Problèmes rencontrés et solutions :**
+
+1. **Version OR-Tools invalide** ❌
+   ```bash
+   ERROR: Could not find a version that satisfies the requirement ortools==9.7.2996
+   ```
+   **Solution** ✅ : Mise à jour vers `ortools==9.14.6206`
+
+2. **Cold start Render** ⚠️
+   - OR-Tools peut être lent au premier démarrage
+   - Render met les services en veille après inactivité
+   - **Solution** : Pinging automatique ou upgrade plan
+
+3. **Timeout API OR-Tools** ⚠️
+   - Timeout configuré à 60 secondes
+   - **Solution** : Fallback automatique vers méthode classique
+
+#### **9. Performance en production**
+
+**Métriques attendues :**
+- **Temps résolution OR-Tools** : 2-5 secondes
+- **Précision horaire** : ±0.5h (vs ±2h avant)
+- **Taux de réussite OR-Tools** : ~95%
+- **Taux de fallback** : ~5% (cas complexes)
+
+**Avantages déployés :**
+- ✅ Contraintes strictes respectées
+- ✅ Optimisation multi-critères
+- ✅ Respect exact compétences ouverture/fermeture
+- ✅ Règles mineurs appliquées
+- ✅ Rotation automatique des horaires
+
 ---
 
 ## 📁 **Structure des Fichiers**
@@ -821,7 +1009,7 @@ echo 📋 Étape 2: Ajout des fichiers modifiés...
 git add .
 
 echo 📋 Étape 3: Commit des changements...
-git commit -m "🎯 v1.4.0 - INTEGRATION GOOGLE OR-TOOLS + Précision horaire améliorée"
+git commit -m "🎯 v1.4.0 - INTEGRATION GOOGLE OR-TOOLS + API déployée + Configuration terminée"
 
 echo 📋 Étape 4: Push sur master...
 git push origin master
@@ -836,7 +1024,7 @@ echo 📋 Étape 7: Push sur main (déclenche Render)...
 git push origin main
 
 echo 🎉 DÉPLOIEMENT TERMINÉ !
-echo 📊 Version déployée : v1.3.1
+echo 📊 Version déployée : v1.4.0
 echo 🌐 Render va redéployer automatiquement
 ```
 
