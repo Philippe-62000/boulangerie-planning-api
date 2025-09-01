@@ -14,7 +14,7 @@ echo ✅ Fichiers ajoutés
 echo.
 
 echo 📋 Étape 3: Commit des changements...
-git commit -m "📝 v1.3.3 - Solveur JavaScript optimisé + Lien arrêts maladie + Règles mineurs"
+git commit -m "📝 v1.3.4 - Correction chemin serveur + Solveur JavaScript optimisé"
 echo ✅ Commit créé
 echo.
 
@@ -43,7 +43,7 @@ echo 🎉 DÉPLOIEMENT TERMINÉ !
 echo ========================================
 echo.
 
-echo 📊 Version déployée : v1.3.3
+echo 📊 Version déployée : v1.3.4
 echo 🌐 Render va redéployer automatiquement
 echo ⏰ Attendez 2-3 minutes pour vérifier
 echo.

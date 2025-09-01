@@ -1,6 +1,6 @@
 {
   "name": "boulangerie-planning-api",
-  "version": "1.3.3",
+  "version": "1.3.4",
   "description": "API de gestion du planning boulangerie",
   "main": "backend/server.js",
   "scripts": {
