@@ -1,0 +1,45 @@
+# Commandes Git pour pousser vers GitHub
+# ======================================
+
+# 1. Initialiser Git (si pas déjà fait)
+git init
+
+# 2. Ajouter le remote GitHub (remplacez par votre URL)
+git remote add origin https://github.com/votre-username/boulangerie-planning.git
+
+# 3. Ajouter les fichiers modifiés
+git add deploy/www/config.js
+git add deploy/www/index.html
+git add deploy/www/.htaccess
+git add deploy/www/api-proxy.php
+git add deploy/www/plan/api-proxy.php
+git add deploy/www/plan/test-proxy.html
+git add deploy/www/asset-manifest.json
+git add deploy/www/static/
+
+# 4. Créer le commit
+git commit -m "🔧 Fix: Configuration proxy API et React Router pour déploiement OVH
+
+- Ajout proxy PHP pour redirection API vers Render
+- Configuration API_URL vers /api dans config.js
+- Correction React Router pour sous-dossier /plan/
+- Suppression référence favicon manquant
+- Ajout pages de test proxy
+- Configuration .htaccess pour proxy et React Router"
+
+# 5. Pousser vers GitHub
+git push -u origin main
+
+# Si la branche main n'existe pas, essayez master :
+# git push -u origin master
+
+# ======================================
+# Fichiers modifiés :
+# - deploy/www/config.js (API_URL: '/api')
+# - deploy/www/index.html (favicon supprimé)
+# - deploy/www/.htaccess (proxy configuration)
+# - deploy/www/api-proxy.php (nouveau)
+# - deploy/www/plan/api-proxy.php (nouveau)
+# - deploy/www/plan/test-proxy.html (nouveau)
+# - deploy/www/asset-manifest.json
+# - deploy/www/static/ (fichiers React)
