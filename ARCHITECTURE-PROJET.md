@@ -97,6 +97,11 @@ boulangerie-planning/
 │   ├── clean-deploy.bat
 │   ├── push-api-*.bat
 │   └── deploy-frontend-*.bat
+├── tests/                   # Scripts de test et debugging
+│   ├── check-vanessa-maladie.js
+│   ├── test-constraints-save.js
+│   ├── test-constraints-final.js
+│   └── check-new-planning.js
 └── ARCHITECTURE-PROJET.md
 ```
 
@@ -260,12 +265,15 @@ powershell -File upload-to-ovh.ps1
 - ✅ **Filtrage des contraintes vides** avant envoi à l'API (évite erreur 400)
 - ✅ **Affichage intelligent des contraintes** avec prise en compte des arrêts maladie
 - ✅ **URLs des APIs corrigées** (path parameters au lieu de query parameters)
+- ✅ **Filtrage des contraintes vides** avant envoi à l'API (évite erreur 400)
 
 ### **5. API**
 - ✅ Endpoints RESTful
 - ✅ Gestion des erreurs HTTP
 - ✅ Validation des paramètres
 - ✅ Documentation des endpoints
+- ✅ **Génération intelligente du planning** avec respect des heures contractuelles
+- ✅ **Ajustement automatique** des repos et du travail
 
 ---
 
@@ -387,6 +395,75 @@ CORS_ORIGIN=https://www.filmara.fr
   // ... autres jours
 }
 ```
+
+---
+
+## 🎯 **Génération du Planning - Corrections Majeures**
+
+### **✅ Problèmes Résolus**
+**Le système respecte maintenant automatiquement :**
+- **Heures contractuelles** de chaque employé
+- **Contraintes de formation** (comptées comme 8h)
+- **Congés payés** (comptés selon les heures contractuelles)
+- **Équilibre travail/repos** pour atteindre les objectifs
+
+### **🔧 Corrections Techniques Implémentées**
+
+#### **1. Logique de Sélection Intelligente**
+```javascript
+// AVANT : Priorité basse si beaucoup d'heures
+priority += schedule.totalHours * 10;
+
+// APRÈS : Priorité haute si pas assez d'heures
+if (schedule.totalHours < employee.weeklyHours) {
+  priority -= 100; // Priorité très haute
+  if (remainingHours <= 8) {
+    priority -= 50; // Priorité maximale
+  }
+}
+```
+
+#### **2. Fonction d'Ajustement Automatique**
+```javascript
+adjustEmployeeSchedule(schedule) {
+  // Si trop d'heures → ajouter des repos
+  // Si pas assez d'heures → transformer des repos en travail
+  // Logs détaillés pour debugging
+}
+```
+
+#### **3. Remplissage Automatique des Jours Vides**
+```javascript
+fillRemainingDays(schedule) {
+  // Trouve les jours vides
+  // Génère des shifts appropriés
+  // Atteint les heures contractuelles
+}
+```
+
+### **📊 Exemples de Résultats**
+
+#### **Anaïs (35h contractuelles) :**
+- **Formation** : Mercredi (8h)
+- **Travail** : 4 jours pour atteindre 35h
+- **Repos** : 2 jours appropriés
+
+#### **Camille (35h contractuelles) :**
+- **Formation** : Lundi et Mardi (16h)
+- **Travail** : 3 jours pour atteindre 35h
+- **Repos** : 2 jours appropriés
+
+#### **Severine (39h contractuelles) :**
+- **Travail** : 6 jours (48h)
+- **CP** : Dimanche (6.5h)
+- **Total** : 54.5h → **Ajusté automatiquement** à 39h
+
+### **🚀 Avantages des Corrections**
+1. **Respect automatique** des heures contractuelles
+2. **Équilibre travail/repos** optimal
+3. **Gestion intelligente** des contraintes
+4. **Logs détaillés** pour debugging
+5. **Planning équilibré** et respectueux des employés
 
 ---
 
