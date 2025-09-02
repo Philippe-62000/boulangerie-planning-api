@@ -1,0 +1,5 @@
+Flask==2.3.3
+Flask-CORS==4.0.0
+pymongo==4.5.0
+ortools==9.7.2996
+python-dateutil==2.8.2
