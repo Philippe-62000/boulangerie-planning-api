@@ -1461,6 +1461,18 @@ class PlanningGenerator {
     // Priorité basse si l'employé a déjà beaucoup de jours travaillés
     priority += schedule.daysWorked * 3;
     
+    // ÉQUILIBRAGE SPÉCIAL DES WEEKENDS
+    if (day === 'Samedi' || day === 'Dimanche') {
+      // Priorité haute pour ceux qui ont peu travaillé les weekends précédents
+      const weekendWorkCount = this.getWeekendWorkCount(employee, schedule);
+      priority -= (3 - weekendWorkCount) * 15; // Priorité +15 par weekend manquant
+      
+      // Priorité basse pour ceux qui ont beaucoup travaillé les weekends
+      if (weekendWorkCount > 1) {
+        priority += weekendWorkCount * 10;
+      }
+    }
+    
     // Priorité haute pour les managers (mais pas au détriment des heures)
     if (employee.role === 'manager' || employee.role === 'responsable') {
       priority -= 10;
@@ -1474,6 +1486,18 @@ class PlanningGenerator {
     return priority;
   }
 
+  // Compter le nombre de weekends travaillés récemment
+  getWeekendWorkCount(employee, schedule) {
+    let weekendCount = 0;
+    for (const daySchedule of schedule.schedule) {
+      if ((daySchedule.day === 'Samedi' || daySchedule.day === 'Dimanche') && 
+          daySchedule.shifts && daySchedule.shifts.length > 0) {
+        weekendCount++;
+      }
+    }
+    return weekendCount;
+  }
+
   // Sélectionner les employés pour un jour donné
   selectEmployeesForDay(availableEmployees, requirements, day) {
     const selected = [];
@@ -1481,16 +1505,62 @@ class PlanningGenerator {
     const afternoonNeeded = requirements.afternoon?.staff || 0;
     const eveningNeeded = requirements.evening?.staff || 0;
     
+    // EXIGENCE SPÉCIALE : Weekends avec personnel minimum garanti
+    const isWeekend = day === 'Samedi' || day === 'Dimanche';
+    const weekendMinStaff = day === 'Samedi' ? 4 : 2; // Samedi: 4 min, Dimanche: 2 min
+    
     // Trier par priorité (plus bas = plus prioritaire)
     availableEmployees.sort((a, b) => a.priority - b.priority);
     
-    // Sélectionner pour l'ouverture
+    // SÉLECTION OBLIGATOIRE pour les weekends
+    if (isWeekend) {
+      // Forcer la sélection d'employés pour respecter le minimum weekend
+      let forcedSelected = 0;
+      for (const candidate of availableEmployees) {
+        if (forcedSelected >= weekendMinStaff) break;
+        
+        // Éviter de sélectionner deux fois le même employé
+        if (selected.find(s => s.employee._id.toString() === candidate.employee._id.toString())) {
+          continue;
+        }
+        
+        // Vérifier que l'employé peut encore travailler
+        const totalHoursWithConstraints = candidate.schedule.totalHours;
+        if (totalHoursWithConstraints >= candidate.employee.weeklyHours) {
+          continue;
+        }
+        
+        // Sélectionner en priorité ceux avec les bonnes compétences
+        const hasOpeningSkill = candidate.employee.skills.includes('Ouverture');
+        const hasClosingSkill = candidate.employee.skills.includes('Fermeture');
+        
+        if (day === 'Dimanche' && hasOpeningSkill) {
+          // Dimanche : priorité aux ouverture
+          selected.push({ ...candidate, shiftType: 'opening' });
+          forcedSelected++;
+        } else if (day === 'Samedi' && (hasOpeningSkill || hasClosingSkill)) {
+          // Samedi : priorité aux ouverture/fermeture
+          selected.push({ ...candidate, shiftType: hasOpeningSkill ? 'opening' : 'afternoon' });
+          forcedSelected++;
+        } else if (!hasOpeningSkill && !hasClosingSkill) {
+          // Compléter avec les autres
+          selected.push({ ...candidate, shiftType: 'standard' });
+          forcedSelected++;
+        }
+      }
+    }
+    
+    // SÉLECTION NORMALE pour l'ouverture
     let openingSelected = 0;
     for (const candidate of availableEmployees) {
       if (openingSelected >= openingNeeded) break;
       
+      // Éviter de sélectionner deux fois le même employé
+      if (selected.find(s => s.employee._id.toString() === candidate.employee._id.toString())) {
+        continue;
+      }
+      
       // Vérifier que l'employé peut encore travailler
-      // Permettre le travail même avec des heures de contraintes si le total est inférieur aux heures contractuelles
       const totalHoursWithConstraints = candidate.schedule.totalHours;
       if (totalHoursWithConstraints >= candidate.employee.weeklyHours) {
         continue;
