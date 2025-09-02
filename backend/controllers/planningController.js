@@ -584,6 +584,41 @@ class PlanningGenerator {
     }
   }
 
+  // Intégrer les maladies déclarées dans les contraintes automatiquement
+  async integrateDeclaredSickLeaves(employees, constraints, weekNumber, year) {
+    console.log('🏥 Intégration des maladies déclarées dans les contraintes');
+    
+    for (const employee of employees) {
+      const empId = employee._id.toString();
+      
+      // Vérifier si l'employé a un arrêt maladie déclaré
+      if (employee.sickLeave && employee.sickLeave.isOnSickLeave) {
+        const startDate = new Date(employee.sickLeave.startDate);
+        const endDate = new Date(employee.sickLeave.endDate);
+        
+        console.log(`🏥 ${employee.name} en arrêt maladie du ${startDate.toLocaleDateString()} au ${endDate.toLocaleDateString()}`);
+        
+        // Vérifier chaque jour de la semaine
+        for (let dayIndex = 0; dayIndex < 7; dayIndex++) {
+          const dayDate = this.getDateForDay(this.days[dayIndex], weekNumber, year);
+          
+          if (dayDate >= startDate && dayDate <= endDate) {
+            // Initialiser les contraintes pour cet employé si nécessaire
+            if (!constraints[empId]) {
+              constraints[empId] = {};
+            }
+            
+            // Forcer la contrainte maladie pour ce jour
+            constraints[empId][dayIndex] = 'MAL';
+            console.log(`🏥 ${employee.name}: ${this.days[dayIndex]} → MAL (arrêt maladie déclaré)`);
+          }
+        }
+      }
+    }
+    
+    console.log('✅ Maladies déclarées intégrées dans les contraintes');
+  }
+
   // Vérifier les règles pour mineurs
   checkMinorRules(employee, day, weekSchedule) {
     if (employee.age >= 18) return { canWork: true };
@@ -686,6 +721,9 @@ class PlanningGenerator {
       
       // Calculer l'historique des weekends (simulation basée sur les plannings précédents)
       const weekendHistory = await this.calculateWeekendHistory(employees, weekNumber, year);
+      
+      // Intégrer les maladies déclarées dans les contraintes automatiquement
+      await this.integrateDeclaredSickLeaves(employees, constraints, weekNumber, year);
       
       console.log('📡 Données préparées pour OR-Tools:', {
         employeesData: employeesData.length,

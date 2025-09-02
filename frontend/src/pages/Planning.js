@@ -172,7 +172,7 @@ const Planning = () => {
 
           <button
             className="btn btn-secondary"
-            onClick={() => window.location.href = `/plan/constraints?week=${weekNumber}&year=${year}`}
+            onClick={() => window.location.href = `/constraints?week=${weekNumber}&year=${year}`}
           >
             ✏️ Modifier contraintes
           </button>

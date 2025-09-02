@@ -1,0 +1,9 @@
+@echo off
+echo 🔧 Déploiement correction rapide...
+git add ortools-api.py
+git commit -m "🔧 v2.1.1 - CONTRAINTE ÉQUILIBRAGE RENFORCÉE: Écart max 1 employé + min 4-7 employés par jour semaine"
+git push origin main
+echo ⏳ Attente 15 secondes...
+timeout /t 15
+echo 🧪 Test automatique...
+node test-donnees-reelles.js

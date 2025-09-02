@@ -14,7 +14,7 @@ echo ✅ Fichiers ajoutés
 echo.
 
 echo 📋 Étape 3: Commit des changements...
-git commit -m "🐛 v1.4.1 - CORRECTION CRITIQUE OR-Tools + Suppression méthodes dupliquées"
+git commit -m "🔧 v2.2.0 - CORS FIX DEFINITIF: Lecture correcte variable CORS_ORIGIN + logs debug pour éliminer erreur CORS www.filmara.fr"
 echo ✅ Commit créé
 echo.
 
@@ -43,7 +43,7 @@ echo 🎉 DÉPLOIEMENT TERMINÉ !
 echo ========================================
 echo.
 
-echo 📊 Version déployée : v1.4.1
+echo 📊 Version déployée : v2.2.0 - CORS FIX
 echo 🌐 Render va redéployer automatiquement
 echo ⏰ Attendez 2-3 minutes pour vérifier
 echo.
