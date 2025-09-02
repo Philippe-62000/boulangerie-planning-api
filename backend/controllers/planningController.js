@@ -378,6 +378,18 @@ class PlanningBoulangerieSolver {
     
     return validation;
   }
+
+  // Ajuster l'heure de fin d'un shift selon les heures travaillées
+  adjustEndTime(startTime, hoursWorked) {
+    const [startHour, startMinute] = startTime.split(':').map(Number);
+    const startMinutes = startHour * 60 + startMinute;
+    const endMinutes = startMinutes + (hoursWorked * 60);
+    
+    const endHour = Math.floor(endMinutes / 60);
+    const endMinute = endMinutes % 60;
+    
+    return `${endHour.toString().padStart(2, '0')}:${endMinute.toString().padStart(2, '0')}`;
+  }
 }
 
 // Instance globale du solveur
@@ -1554,39 +1566,57 @@ class PlanningGenerator {
     
     console.log(`🔧 Ajustement planning ${employee.name}: ${currentHours}h sur ${targetHours}h`);
     
-    // Si l'employé a trop d'heures, ajouter des repos
+    // Si l'employé a trop d'heures, réduire les shifts pour atteindre exactement les heures contractuelles
     if (currentHours > targetHours) {
       const excessHours = currentHours - targetHours;
-      const daysToRest = Math.ceil(excessHours / 8); // 8h par jour de repos
+      console.log(`📅 ${employee.name} a ${excessHours}h en trop, réduction des shifts`);
       
-      console.log(`📅 ${employee.name} a ${excessHours}h en trop, ajout de ${daysToRest} jours de repos`);
+      // Réduire les shifts en commençant par les plus longs
+      const allShifts = [];
+      schedule.schedule.forEach(day => {
+        day.shifts.forEach(shift => {
+          allShifts.push({ day, shift, hours: shift.hoursWorked });
+        });
+      });
       
-      // Trouver les jours sans contraintes pour ajouter des repos
-      const availableDays = schedule.schedule.filter(day => 
-        !day.constraint && day.shifts.length === 0
-      );
+      // Trier par heures décroissantes
+      allShifts.sort((a, b) => b.hours - a.hours);
       
-      for (let i = 0; i < Math.min(daysToRest, availableDays.length); i++) {
-        availableDays[i].constraint = 'Repos';
-        availableDays[i].totalHours = 0;
-        schedule.totalHours -= availableDays[i].shifts.reduce((sum, shift) => sum + shift.hoursWorked, 0);
-        availableDays[i].shifts = [];
+      let remainingExcess = excessHours;
+      for (const { day, shift } of allShifts) {
+        if (remainingExcess <= 0) break;
+        
+        if (shift.hoursWorked <= remainingExcess) {
+          // Supprimer complètement le shift
+          day.shifts = day.shifts.filter(s => s !== shift);
+          day.totalHours = day.shifts.reduce((sum, s) => sum + s.hoursWorked, 0);
+          remainingExcess -= shift.hoursWorked;
+          schedule.totalHours -= shift.hoursWorked;
+        } else {
+          // Réduire partiellement le shift
+          const reduction = remainingExcess;
+          shift.hoursWorked -= reduction;
+          shift.endTime = this.adjustEndTime(shift.startTime, shift.hoursWorked);
+          day.totalHours = day.shifts.reduce((sum, s) => sum + s.hoursWorked, 0);
+          remainingExcess = 0;
+          schedule.totalHours -= reduction;
+        }
       }
     }
     
     // Si l'employé n'a pas assez d'heures, essayer de réduire les repos
-    else if (currentHours < targetHours - 8) { // Tolérance de 8h
+    else if (currentHours < targetHours - 4) { // Tolérance de 4h
       const missingHours = targetHours - currentHours;
-      const daysToWork = Math.ceil(missingHours / 8);
-      
-      console.log(`📅 ${employee.name} manque ${missingHours}h, transformation de ${daysToWork} jours de repos en travail`);
+      console.log(`📅 ${employee.name} manque ${missingHours}h, transformation de jours de repos en travail`);
       
       // Trouver les jours de repos pour les transformer en travail
       const restDays = schedule.schedule.filter(day => day.constraint === 'Repos');
       
-      for (let i = 0; i < Math.min(daysToWork, restDays.length); i++) {
-        restDays[i].constraint = undefined;
-        restDays[i].totalHours = 0;
+      for (const restDay of restDays) {
+        if (schedule.totalHours >= targetHours) break;
+        
+        restDay.constraint = undefined;
+        restDay.totalHours = 0;
         // Le shift sera généré plus tard
       }
     }

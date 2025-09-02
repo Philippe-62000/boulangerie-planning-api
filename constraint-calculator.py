@@ -191,16 +191,19 @@ def calculate_constraints():
             availability = calculator.calculate_employee_availability(employee, week_number, year)
             
             # Calculer historique weekends
+            employee_id = employee.get('_id') or employee.get('id') or str(employee.get('name', 'unknown'))
             weekend_history = calculator.calculate_weekend_history(
-                str(employee['_id']), week_number, year
+                str(employee_id), week_number, year
             )
             
             # Enrichir avec historique
             availability['weekend_history'] = weekend_history
+            availability['employee_id'] = employee_id
+            availability['employee_name'] = employee.get('name', 'Unknown')
             
             results.append(availability)
             
-            logger.info(f"✅ {employee['name']}: {availability['total_available_days']} jours disponibles")
+            logger.info(f"✅ {employee.get('name', 'Unknown')}: {availability['total_available_days']} jours disponibles")
         
         # Enregistrer en MongoDB
         if client:
