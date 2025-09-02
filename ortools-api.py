@@ -271,35 +271,78 @@ class PlanningBoulangerieSolver:
     def balance_shifts_by_affluence(self, solution, employees, affluences):
         """
         Équilibrer les journées en fonction de l'affluence et du volume horaire total
+        CORRECTION: Assurer une répartition équitable pour même niveau d'affluence
         """
         logger.info("⚖️ Équilibrage selon l'affluence")
         
-        # Analyser l'affluence par jour et ajuster les créneaux
+        # Grouper les jours par niveau d'affluence
+        affluence_groups = {}
         for day in range(7):
             day_affluence = affluences[day]
-            working_employees = []
+            if day_affluence not in affluence_groups:
+                affluence_groups[day_affluence] = []
+            affluence_groups[day_affluence].append(day)
+        
+        # Analyser et équilibrer par groupe d'affluence
+        for affluence_level, days in affluence_groups.items():
+            logger.info(f"📊 Niveau d'affluence {affluence_level}: jours {days}")
             
-            # Identifier les employés travaillant ce jour
-            for emp in employees:
-                emp_id = str(emp['id'])
-                if emp_id in solution:
-                    slot = solution[emp_id].get(day, 'Repos')
-                    if slot != 'Repos' and slot not in ['MAL', 'Formation', 'CP']:
-                        working_employees.append({
-                            'emp_id': emp_id,
-                            'name': emp['name'],
-                            'slot': slot
-                        })
+            # Calculer la répartition actuelle
+            day_stats = []
+            for day in days:
+                working_employees = []
+                total_hours = 0
+                
+                for emp in employees:
+                    emp_id = str(emp['id'])
+                    if emp_id in solution:
+                        slot = solution[emp_id].get(day, 'Repos')
+                        if slot != 'Repos' and slot not in ['MAL', 'Formation', 'CP']:
+                            working_employees.append({
+                                'emp_id': emp_id,
+                                'name': emp['name'],
+                                'slot': slot
+                            })
+                            # Calculer les heures de ce créneau
+                            slot_hours = self.get_slot_hours_value(slot)
+                            total_hours += slot_hours
+                
+                day_stats.append({
+                    'day': day,
+                    'employees': len(working_employees),
+                    'total_hours': total_hours,
+                    'working_list': working_employees
+                })
+                
+                logger.info(f"📅 Jour {day}: {len(working_employees)} employés, {total_hours}h total")
             
-            # Ajuster selon l'affluence
-            if day_affluence >= 3 and len(working_employees) < 4:
-                logger.info(f"📈 Jour {day}: Affluence forte ({day_affluence}) mais seulement {len(working_employees)} employés")
-            elif day_affluence <= 2 and len(working_employees) > 3:
-                logger.info(f"📉 Jour {day}: Affluence faible ({day_affluence}) mais {len(working_employees)} employés")
-            
-            logger.info(f"📊 Jour {day}: Affluence {day_affluence}, {len(working_employees)} employés travaillent")
+            # Détecter les déséquilibres pour même affluence
+            if len(day_stats) > 1:
+                employee_counts = [stat['employees'] for stat in day_stats]
+                min_employees = min(employee_counts)
+                max_employees = max(employee_counts)
+                
+                if max_employees - min_employees > 2:  # Écart trop important
+                    logger.warning(f"⚠️ Déséquilibre détecté pour affluence {affluence_level}:")
+                    logger.warning(f"   Minimum: {min_employees} employés, Maximum: {max_employees} employés")
+                    logger.warning(f"   Recommandation: Équilibrer entre {min_employees+1} et {max_employees-1} employés")
         
         return solution
+    
+    def get_slot_hours_value(self, slot):
+        """Obtenir les heures d'un créneau"""
+        slot_hours = {
+            '06h00-14h00': 8.0, '07h30-15h30': 8.0, '09h00-17h00': 8.0,
+            '10h00-18h00': 8.0, '11h00-19h00': 8.0, '12h00-20h00': 8.0,
+            '13h00-20h30': 7.5, '14h00-20h30': 6.5, '16h00-20h30': 4.5,
+            '06h00-16h30': 10.5, '07h30-16h30': 9.0, '10h30-16h30': 6.0,
+            '11h00-18h30': 7.5, '12h00-19h30': 7.5, '16h30-20h30': 4.0,
+            '17h00-20h30': 3.5, '06h00-13h00': 7.0, '07h30-13h00': 5.5,
+            '09h30-13h00': 3.5, '11h00-18h00': 7.0, '12h00-19h00': 7.0,
+            '13h00-20h30': 7.5, '14h00-20h30': 6.5, 'Formation': 8.0,
+            'CP': 5.5, 'MAL': 0, 'Repos': 0
+        }
+        return slot_hours.get(slot, 0)
     
     def solve_planning(self, employees, constraints, affluences, week_number, weekend_history=None):
         """
@@ -517,29 +560,46 @@ class PlanningBoulangerieSolver:
                     else:
                         self.model.Add(sum(rest_count) >= 1)
             
-            # 4. Contraintes d'ouverture STRICTES avec intégration de la stratégie
+            # 4. Contraintes d'ouverture STRICTES avec vérification des compétences
             for day in range(7):
                 opening_vars = []
+                
+                # RÈGLE STRICTE: Seuls les employés avec compétence "Ouverture" peuvent ouvrir
                 for emp in employees:
                     emp_id = str(emp['id'])
                     if 'Ouverture' in emp.get('skills', []):
                         for slot in shifts[emp_id][day]:
                             if slot.startswith('06h00'):
                                 opening_vars.append(shifts[emp_id][day][slot])
+                    else:
+                        # INTERDIRE l'ouverture pour ceux sans compétence
+                        for slot in shifts[emp_id][day]:
+                            if slot.startswith('06h00'):
+                                self.model.Add(shifts[emp_id][day][slot] == 0)
+                                logger.info(f"🚫 {emp['name']} interdit à l'ouverture (pas de compétence)")
                 
-                # Prioriser l'employé assigné par la stratégie si disponible
+                # Prioriser l'employé assigné par la stratégie si disponible ET compétent
                 if day in shift_distribution['opening_assignments']:
                     preferred_emp_id = str(shift_distribution['opening_assignments'][day])
-                    if preferred_emp_id in shifts and day < len(shifts[preferred_emp_id]):
-                        for slot in shifts[preferred_emp_id][day]:
-                            if slot.startswith('06h00'):
-                                # Favoriser cet employé pour l'ouverture
-                                self.model.Add(shifts[preferred_emp_id][day][slot] == 1)
-                                break
+                    preferred_emp = next((emp for emp in employees if str(emp['id']) == preferred_emp_id), None)
+                    
+                    if preferred_emp and 'Ouverture' in preferred_emp.get('skills', []):
+                        if preferred_emp_id in shifts and day < len(shifts[preferred_emp_id]):
+                            for slot in shifts[preferred_emp_id][day]:
+                                if slot.startswith('06h00'):
+                                    # Favoriser cet employé pour l'ouverture
+                                    self.model.Add(shifts[preferred_emp_id][day][slot] == 1)
+                                    logger.info(f"✅ {preferred_emp['name']} priorité ouverture jour {day}")
+                                    break
+                    else:
+                        logger.warning(f"⚠️ Employé préféré {preferred_emp_id} jour {day} n'a pas compétence ouverture")
                 
-                # Exactement 1 personne à l'ouverture
+                # Exactement 1 personne à l'ouverture (parmi les compétents)
                 if opening_vars:
                     self.model.Add(sum(opening_vars) == 1)
+                else:
+                    logger.error(f"❌ Aucun employé compétent pour ouverture jour {day}")
+                    diagnostic.append(f'Jour {day}: Aucun employé avec compétence Ouverture disponible')
             
             # 5. Contraintes de fermeture STRICTES avec intégration de la stratégie
             for day in range(7):
@@ -601,6 +661,60 @@ class PlanningBoulangerieSolver:
                     if 'Repos' in shifts[emp_id][6]:  # Dimanche
                         # Augmenter la probabilité de repos dimanche
                         pass  # OR-Tools gérera via l'objectif
+            
+            # 8. NOUVELLE CONTRAINTE: Équilibrage lundi-vendredi pour même affluence
+            # Grouper les jours de semaine par affluence
+            weekday_affluence_groups = {}
+            for day in range(5):  # Lundi à vendredi seulement
+                day_affluence = affluences[day]
+                if day_affluence not in weekday_affluence_groups:
+                    weekday_affluence_groups[day_affluence] = []
+                weekday_affluence_groups[day_affluence].append(day)
+            
+            # Pour chaque groupe d'affluence, équilibrer le nombre d'employés
+            for affluence_level, days_group in weekday_affluence_groups.items():
+                if len(days_group) > 1:  # Plusieurs jours avec même affluence
+                    logger.info(f"⚖️ Équilibrage affluence {affluence_level}: jours {days_group}")
+                    
+                    # Contrainte: écart max de 2 employés entre jours de même affluence
+                    for i, day1 in enumerate(days_group):
+                        for day2 in days_group[i+1:]:
+                            working_day1 = []
+                            working_day2 = []
+                            
+                            for emp in employees:
+                                emp_id = str(emp['id'])
+                                for slot, var in shifts[emp_id][day1].items():
+                                    if slot != 'Repos':
+                                        working_day1.append(var)
+                                for slot, var in shifts[emp_id][day2].items():
+                                    if slot != 'Repos':
+                                        working_day2.append(var)
+                            
+                            # Contrainte: |employés_jour1 - employés_jour2| <= 1 (plus strict)
+                            if working_day1 and working_day2:
+                                diff_pos = self.model.NewIntVar(0, 5, f'diff_pos_{day1}_{day2}')
+                                diff_neg = self.model.NewIntVar(0, 5, f'diff_neg_{day1}_{day2}')
+                                
+                                self.model.Add(sum(working_day1) - sum(working_day2) == diff_pos - diff_neg)
+                                self.model.Add(diff_pos + diff_neg <= 1)  # Écart max 1 employé (plus strict)
+                                
+                                logger.info(f"⚖️ Contrainte équilibrage: jour {day1} vs jour {day2} (écart max 1)")
+            
+            # 9. CONTRAINTE SUPPLÉMENTAIRE: Minimum/Maximum employés par jour semaine
+            for day in range(5):  # Lundi à vendredi
+                working_day = []
+                for emp in employees:
+                    emp_id = str(emp['id'])
+                    for slot, var in shifts[emp_id][day].items():
+                        if slot != 'Repos':
+                            working_day.append(var)
+                
+                if working_day:
+                    # Au moins 4 employés et maximum 7 employés par jour de semaine
+                    self.model.Add(sum(working_day) >= 4)
+                    self.model.Add(sum(working_day) <= 7)
+                    logger.info(f"📊 Jour {day}: entre 4 et 7 employés requis")
             
             # OBJECTIF MULTI-CRITÈRES
             objectives = []
