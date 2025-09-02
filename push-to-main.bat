@@ -14,7 +14,7 @@ echo ✅ Fichiers ajoutés
 echo.
 
 echo 📋 Étape 3: Commit des changements...
-git commit -m "🔧 v2.2.0 - CORS FIX DEFINITIF: Lecture correcte variable CORS_ORIGIN + logs debug pour éliminer erreur CORS www.filmara.fr"
+git commit -m "🔧 v2.2.1 - CORRECTION MODÈLE PLANNING: Cohérence énumérations contraintes + résolution erreur Mongoose + CORS fix"
 echo ✅ Commit créé
 echo.
 
@@ -43,7 +43,7 @@ echo 🎉 DÉPLOIEMENT TERMINÉ !
 echo ========================================
 echo.
 
-echo 📊 Version déployée : v2.2.0 - CORS FIX
+echo 📊 Version déployée : v2.2.1 - Modèle Planning + CORS Fix
 echo 🌐 Render va redéployer automatiquement
 echo ⏰ Attendez 2-3 minutes pour vérifier
 echo.

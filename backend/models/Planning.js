@@ -37,7 +37,7 @@ const dayScheduleSchema = new mongoose.Schema({
   },
   constraint: {
     type: String,
-    enum: ['Fermé', 'Matin', 'Après-midi', 'Repos', 'Formation', 'CP', 'MAL', 'ABS', 'RET', 'Férié', 'Management'],
+    enum: ['Repos', 'Formation', 'CP', 'MAL', 'Indisponible'],
     default: undefined
   }
 });

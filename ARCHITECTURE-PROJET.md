@@ -45,9 +45,9 @@ Application web complète pour la gestion du planning d'une boulangerie avec sys
 
 ---
 
-## 🎯 **INTÉGRATION GOOGLE OR-TOOLS**
+## 🎯 **INTÉGRATION GOOGLE OR-TOOLS - NOUVELLE STRATÉGIE**
 
-### **Architecture OR-Tools**
+### **🏗️ Architecture OR-Tools**
 ```
 ┌─────────────────────────┐    HTTP POST    ┌─────────────────────────┐
 │     Node.js API         │ ───────────────> │   Python OR-Tools API   │
@@ -68,7 +68,16 @@ Application web complète pour la gestion du planning d'une boulangerie avec sys
 - **Timeout** : 60 secondes
 - **Fallback** : Méthode classique si OR-Tools indisponible
 
-### **📡 Flux de données**
+### **🚀 NOUVELLE STRATÉGIE DE CALCUL**
+1. **Placement des contraintes** : Repos, congé, maladie, formation
+2. **Calcul des fréquences weekend** : Historique des samedis/dimanches travaillés
+3. **Classification par groupes** : Ouverture, fermeture, vente
+4. **Distribution équitable** : Ouverture/fermeture selon disponibilités
+5. **Placement des créneaux** : 7h30, 11h, 12h
+6. **Ajustement des heures** : Équilibrage selon affluence
+7. **Validation finale** : Respect des heures contractuelles
+
+### **📡 Flux de données - NOUVELLE STRATÉGIE**
 ```json
 // Données envoyées à OR-Tools
 {
@@ -91,7 +100,10 @@ Application web complète pour la gestion du planning d'une boulangerie avec sys
     }
   },
   "affluences": [2, 2, 2, 3, 3, 4, 2],  // Lun-Dim
-  "week_number": 36
+  "week_number": 36,
+  "weekend_history": {  // NOUVEAU: Historique des weekends
+    "employeeId": { "saturdays": 2, "sundays": 1 }
+  }
 }
 ```
 
@@ -757,8 +769,25 @@ powershell -File upload-to-ovh.ps1
 ### **2. Déploiement**
 - ✅ Scripts de déploiement automatisés
 - ✅ Versioning automatique (VERSION.md)
-- ✅ Force push pour éviter les conflits Git
-- ✅ Nettoyage des fichiers temporaires
+
+### **3. CORS et Sécurité**
+- ✅ Configuration CORS dynamique via variables d'environnement
+- ✅ Support multi-origines (www.filmara.fr, filmara.fr)
+- ✅ Logs de debug pour traçabilité CORS
+- ✅ Gestion des erreurs 502 Bad Gateway
+
+### **4. Intégration OR-Tools**
+- ✅ Gestion automatique des arrêts maladie déclarés
+- ✅ Historique des weekends pour équilibrage
+- ✅ Classification intelligente des employés par compétences
+- ✅ Distribution équitable des shifts ouverture/fermeture
+
+### **5. Résolution des Problèmes Courants**
+- ✅ **CORS** : Configuration dynamique via variables d'environnement
+- ✅ **Arrêts maladie** : Vérification automatique des dates et périodes
+- ✅ **Compétences** : Validation des skills ouverture/fermeture
+- ✅ **Planning** : Équilibrage automatique selon affluence
+- ✅ **Déploiement** : Scripts automatisés et rollback en cas d'erreur
 
 ### **3. Base de Données**
 - ✅ Indexes optimisés
@@ -1196,6 +1225,15 @@ if (employee.sickLeave && employee.sickLeave.isOnSickLeave) {
 - ✅ **Arrêt automatique** : L'employé est en MAL toute la période
 - ✅ **Pas d'heures comptées** : Les jours de maladie ne comptent pas dans le total
 - ✅ **Priorité absolue** : Les arrêts maladie priment sur toutes les autres contraintes
+- ✅ **Intégration automatique** : Les arrêts maladie sont injectés dans les contraintes OR-Tools
+- ✅ **Validation des dates** : Vérification automatique de la période de validité
+
+**📅 Exemple de Fonctionnement :**
+- **Employé** : Vanessa F
+- **Arrêt maladie** : 24/08/2025 → 07/09/2025
+- **Semaine 36** : 08/09/2025 → 14/09/2025
+- **Résultat** : ✅ L'employé peut travailler (arrêt terminé le 07/09)
+- **Logique** : Le système calcule automatiquement les dates et injecte les contraintes MAL uniquement pendant la période d'arrêt
 
 ### **👶 Règles Spéciales pour Mineurs (< 18 ans)**
 
