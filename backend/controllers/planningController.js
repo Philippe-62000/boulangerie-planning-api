@@ -465,37 +465,34 @@ class PlanningGenerator {
     }
     
     // Vérifier les contraintes hebdomadaires
-    const constraints = await WeeklyConstraints.findOne({
-      weekNumber,
-      year,
-      employeeId: employee._id
-    });
-    
-    if (constraints && constraints.constraints && constraints.constraints[day]) {
-      const constraint = constraints.constraints[day];
+    try {
+      const constraints = await WeeklyConstraints.findOne({
+        weekNumber: weekNumber,
+        year: year,
+        employeeId: employee._id
+      });
       
-      switch (constraint) {
-        case 'Fermé':
-          return { canWork: false, type: 'Fermé' };
-        case 'Repos':
-          return { canWork: false, type: 'Repos' };
-        case 'Formation':
-          return { canWork: false, type: 'Formation', hours: 8 }; // Formation = 8h
-        case 'CP':
-          return { canWork: false, type: 'CP', hours: employee.weeklyHours === 35 ? 5.5 : 6.5 };
-        case 'MAL':
-          return { canWork: false, type: 'MAL' };
-        case 'ABS':
-          return { canWork: false, type: 'ABS' };
-        case 'RET':
-          return { canWork: false, type: 'RET' };
-        case 'Férié':
-          return { canWork: false, type: 'Férié' };
-        case 'Management':
-          return { canWork: true, type: 'Management' };
-        default:
-          return { canWork: true, type: 'shift' };
+      if (constraints && constraints.constraints && constraints.constraints[day]) {
+        const constraint = constraints.constraints[day];
+        
+        switch (constraint) {
+          case 'Repos':
+            return { canWork: false, type: 'Repos' };
+          case 'Formation':
+            return { canWork: false, type: 'Formation', hours: 8 }; // Formation = 8h
+          case 'CP':
+            return { canWork: false, type: 'CP', hours: employee.weeklyHours === 35 ? 5.5 : 6.5 };
+          case 'MAL':
+            return { canWork: false, type: 'MAL' };
+          case 'Indisponible':
+            return { canWork: false, type: 'Indisponible' };
+          default:
+            return { canWork: true, type: 'shift' };
+        }
       }
+    } catch (error) {
+      console.log(`⚠️ Erreur lors de la vérification des contraintes pour ${employee.name}:`, error.message);
+      // En cas d'erreur, on considère que l'employé peut travailler
     }
     
     return { canWork: true, type: 'shift' };
