@@ -9,5 +9,8 @@ router.patch('/:planningId/validate', planningController.validatePlanning);
 router.patch('/:planningId/realize', planningController.markAsRealized);
 router.delete('/:weekNumber/:year', planningController.deletePlanningByWeek);
 
+// Route de test pour l'architecture distribuée
+router.get('/test/distributed', planningController.testDistributedArchitecture);
+
 module.exports = router;
 

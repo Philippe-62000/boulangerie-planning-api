@@ -2,6 +2,7 @@ const Planning = require('../models/Planning');
 const Employee = require('../models/Employee');
 const WeeklyConstraints = require('../models/WeeklyConstraints');
 const EquityStats = require('../models/EquityStats');
+const fetch = require('node-fetch');
 
 // Solveur de planning optimisé en JavaScript pur (inspiré du code Python OR-Tools)
 class PlanningBoulangerieSolver {
@@ -728,12 +729,13 @@ class PlanningGenerator {
         affluences
       });
 
-      // Appeler l'API OR-Tools avec l'historique des weekends
-      const result = await this.callORToolsAPI({
+      // Appeler l'architecture distribuée par défaut
+      const result = await this.callDistributedServices({
         employees: employeesData,
         constraints: constraints,
         affluences: affluences,
         week_number: weekNumber,
+        year: year,
         weekend_history: weekendHistory
       });
       
@@ -744,8 +746,13 @@ class PlanningGenerator {
       });
       
       if (result.success) {
-        console.log('✅ Solution trouvée avec OR-Tools !');
-        return this.createPlanningsFromORToolsSolution(result.planning, weekNumber, year, employees);
+        if (result.method === 'distributed') {
+          console.log('✅ Solution trouvée avec l\'architecture distribuée !');
+          return this.createPlanningsFromDistributedSolution(result.planning, weekNumber, year, employees);
+        } else {
+          console.log('✅ Solution trouvée avec OR-Tools !');
+          return this.createPlanningsFromORToolsSolution(result.planning, weekNumber, year, employees);
+        }
       } else {
         console.log('⚠️ OR-Tools a échoué, fallback vers méthode classique...');
         console.log('Diagnostic:', result.diagnostic);
@@ -753,15 +760,34 @@ class PlanningGenerator {
         return this.generateWeeklyPlanningClassic(weekNumber, year, affluenceLevels, employees);
       }
     } catch (error) {
-      console.error('❌ Erreur avec OR-Tools:', error);
-      console.log('⚠️ Fallback vers méthode classique...');
-      return this.generateWeeklyPlanningClassic(weekNumber, year, affluenceLevels, employees);
+      console.error('❌ Erreur avec l\'architecture distribuée:', error);
+      console.log('⚠️ Tentative de fallback vers l\'ancien service OR-Tools...');
+      
+      try {
+        const fallbackResult = await this.callORToolsAPI({
+          employees: employeesData,
+          constraints: constraints,
+          affluences: affluences,
+          week_number: weekNumber,
+          weekend_history: weekendHistory
+        });
+        
+        if (fallbackResult.success) {
+          console.log('✅ Fallback OR-Tools réussi !');
+          return this.createPlanningsFromORToolsSolution(fallbackResult.planning, weekNumber, year, employees);
+        } else {
+          throw new Error('Fallback OR-Tools échoué');
+        }
+      } catch (fallbackError) {
+        console.error('❌ Fallback OR-Tools échoué:', fallbackError.message);
+        console.log('⚠️ Fallback final vers méthode classique...');
+        return this.generateWeeklyPlanningClassic(weekNumber, year, affluenceLevels, employees);
+      }
     }
   }
 
   // Appeler l'API OR-Tools externe
   async callORToolsAPI(data) {
-    const fetch = require('node-fetch');
     
     // URL de l'API OR-Tools (vous devrez déployer le service Python)
     const apiUrl = process.env.ORTOOLS_API_URL || 'https://planning-ortools-api.onrender.com/solve';
@@ -789,6 +815,78 @@ class PlanningGenerator {
       return result;
     } catch (error) {
       console.error('❌ Erreur appel API OR-Tools:', error.message);
+      throw error;
+    }
+  }
+
+  // NOUVELLE MÉTHODE : Architecture Distribuée avec 2 Services
+  async callDistributedServices(data) {
+    
+    try {
+      console.log('🏗️ Utilisation de l\'architecture distribuée...');
+      
+      // ÉTAPE 1 : Calculer les contraintes avec constraint-calculator
+      console.log('🧮 Étape 1: Calcul des contraintes...');
+      const constraintsResponse = await fetch('https://constraint-calculator.onrender.com/calculate-constraints', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify({
+          employees: data.employees,
+          week_number: data.week_number,
+          year: data.year || new Date().getFullYear()
+        }),
+        timeout: 30000 // 30 secondes
+      });
+      
+      if (!constraintsResponse.ok) {
+        throw new Error(`Erreur calcul contraintes: HTTP ${constraintsResponse.status}`);
+      }
+      
+      const constraintsResult = await constraintsResponse.json();
+      console.log('✅ Contraintes calculées:', constraintsResult.success ? 'Succès' : 'Échec');
+      
+      // ÉTAPE 2 : Générer le planning avec planning-generator
+      console.log('🚀 Étape 2: Génération du planning...');
+      const planningResponse = await fetch('https://planning-generator.onrender.com/generate-planning', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify({
+          employees: data.employees,
+          week_number: data.week_number,
+          year: data.year || new Date().getFullYear(),
+          affluences: data.affluences
+        }),
+        timeout: 60000 // 60 secondes
+      });
+      
+      if (!planningResponse.ok) {
+        throw new Error(`Erreur génération planning: HTTP ${planningResponse.status}`);
+      }
+      
+      const planningResult = await planningResponse.json();
+      console.log('✅ Planning généré:', planningResult.success ? 'Succès' : 'Échec');
+      
+      if (planningResult.success) {
+        return {
+          success: true,
+          planning: planningResult.planning,
+          method: 'distributed',
+          constraints: constraintsResult.constraints,
+          solver_status: planningResult.solver_status,
+          solve_time: planningResult.solve_time
+        };
+      } else {
+        throw new Error(`Erreur génération planning: ${planningResult.error}`);
+      }
+      
+    } catch (error) {
+      console.error('❌ Erreur architecture distribuée:', error.message);
       throw error;
     }
   }
@@ -867,6 +965,138 @@ class PlanningGenerator {
     }
     
     return plannings;
+  }
+
+  // Créer les plannings à partir de la solution distribuée
+  createPlanningsFromDistributedSolution(solution, weekNumber, year, employees) {
+    const plannings = [];
+    
+    console.log('🏗️ Création des plannings depuis la solution distribuée...');
+    
+    for (const emp of employees) {
+      const empId = emp._id.toString();
+      if (solution[empId]) {
+        const schedule = [];
+        let totalHours = 0;
+        
+        for (let day = 0; day < 7; day++) {
+          const dayName = this.days[day];
+          const daySlot = solution[empId][day];
+          
+          if (daySlot === 'Repos') {
+            schedule.push({
+              day: dayName,
+              shifts: [],
+              totalHours: 0,
+              constraint: 'Repos'
+            });
+          } else if (daySlot === 'Formation') {
+            schedule.push({
+              day: dayName,
+              shifts: [],
+              totalHours: 8,
+              constraint: 'Formation'
+            });
+            totalHours += 8;
+          } else if (daySlot === 'CP') {
+            const cpHours = emp.weeklyHours === 35 ? 5.5 : 6.5;
+            schedule.push({
+              day: dayName,
+              shifts: [],
+              totalHours: cpHours,
+              constraint: 'CP'
+            });
+            totalHours += cpHours;
+          } else if (daySlot === 'MAL' || daySlot === 'Maladie') {
+            schedule.push({
+              day: dayName,
+              shifts: [],
+              totalHours: 0,
+              constraint: 'MAL'
+            });
+          } else if (daySlot.startsWith('opening_') || daySlot.startsWith('afternoon_') || daySlot.startsWith('evening_')) {
+            // Format distribué : "opening_06:00-13:30"
+            const shift = this.convertDistributedSlotToShift(daySlot, emp);
+            schedule.push({
+              day: dayName,
+              shifts: [shift],
+              totalHours: shift.hoursWorked,
+              constraint: undefined
+            });
+            totalHours += shift.hoursWorked;
+          } else {
+            // Créneau de travail - convertir depuis le format distribué
+            const shift = this.convertDistributedSlotToShift(daySlot, emp);
+            schedule.push({
+              day: dayName,
+              shifts: [shift],
+              totalHours: shift.hoursWorked,
+              constraint: undefined
+            });
+            totalHours += shift.hoursWorked;
+          }
+        }
+        
+        const planning = new Planning({
+          weekNumber,
+          year,
+          employeeId: emp._id,
+          employeeName: emp.name,
+          schedule,
+          totalWeeklyHours: totalHours,
+          contractedHours: emp.weeklyHours,
+          status: 'generated',
+          method: 'distributed'
+        });
+        
+        plannings.push(planning);
+        console.log(`✅ Planning créé pour ${emp.name}: ${totalHours}h`);
+      }
+    }
+    
+    console.log(`🎯 Total: ${plannings.length} plannings créés`);
+    return plannings;
+  }
+
+  // Convertir un créneau distribué en shift
+  convertDistributedSlotToShift(slot, employee) {
+    // Format distribué : "opening_06:00-13:30", "afternoon_13:30-16:00", "evening_16:00-20:30"
+    if (slot.startsWith('opening_')) {
+      const timeRange = slot.replace('opening_', '');
+      const [start, end] = timeRange.split('-');
+      return {
+        start,
+        end,
+        hoursWorked: 7.5,
+        shiftType: 'opening'
+      };
+    } else if (slot.startsWith('afternoon_')) {
+      const timeRange = slot.replace('afternoon_', '');
+      const [start, end] = timeRange.split('-');
+      return {
+        start,
+        end,
+        hoursWorked: 2.5,
+        shiftType: 'afternoon'
+      };
+    } else if (slot.startsWith('evening_')) {
+      const timeRange = slot.replace('evening_', '');
+      const [start, end] = timeRange.split('-');
+      return {
+        start,
+        end,
+        hoursWorked: 4.5,
+        shiftType: 'evening'
+      };
+    } else {
+      // Format par défaut
+      return {
+        start: '09:00',
+        end: '17:00',
+        hoursWorked: 8.0,
+        shiftType: 'standard'
+      };
+    }
   }
 
   // Convertir un créneau OR-Tools en shift
@@ -1143,7 +1373,7 @@ class PlanningGenerator {
             employeeId: employee._id
           });
           
-          const dayConstraint = this.checkConstraints(employee, constraints?.constraints || {}, day);
+          const dayConstraint = await this.checkConstraints(employee, day, weekNumber, year);
           
           if (!dayConstraint.canWork) {
             // Il y a une vraie contrainte, l'utiliser
@@ -1476,6 +1706,39 @@ class PlanningGenerator {
 
     return shift;
   }
+
+  // Méthode de test pour l'architecture distribuée
+  async testDistributedArchitecture() {
+    console.log('🧪 Test de l\'architecture distribuée...');
+    
+    try {
+      // Test du service constraint-calculator
+      console.log('🧮 Test du service constraint-calculator...');
+      const constraintResponse = await fetch('https://constraint-calculator.onrender.com/health');
+      const constraintHealth = await constraintResponse.json();
+      console.log('✅ Constraint Calculator:', constraintHealth.status);
+      
+      // Test du service planning-generator
+      console.log('🚀 Test du service planning-generator...');
+      const planningResponse = await fetch('https://planning-generator.onrender.com/health');
+      const planningHealth = await planningResponse.json();
+      console.log('✅ Planning Generator:', planningHealth.status);
+      
+      return {
+        success: true,
+        constraint_calculator: constraintHealth,
+        planning_generator: planningHealth,
+        message: 'Architecture distribuée opérationnelle'
+      };
+    } catch (error) {
+      console.error('❌ Erreur test architecture distribuée:', error.message);
+      return {
+        success: false,
+        error: error.message,
+        message: 'Architecture distribuée non opérationnelle'
+      };
+    }
+  }
 }
 
 // Contrôleur principal
@@ -1613,6 +1876,17 @@ exports.deletePlanningByWeek = async (req, res) => {
     });
   } catch (error) {
     console.error('Erreur lors de la suppression des plannings:', error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// Test de l'architecture distribuée
+exports.testDistributedArchitecture = async (req, res) => {
+  try {
+    const result = await planningGenerator.testDistributedArchitecture();
+    res.json(result);
+  } catch (error) {
+    console.error('Erreur lors du test de l\'architecture distribuée:', error);
     res.status(500).json({ error: error.message });
   }
 };
