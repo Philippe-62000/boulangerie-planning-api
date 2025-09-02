@@ -14,7 +14,7 @@ echo ✅ Fichiers ajoutés
 echo.
 
 echo 📋 Étape 3: Commit des changements...
-git commit -m "🔧 v2.2.2 - CORRECTION CRITIQUE: Modèles Planning/WeeklyConstraints cohérents + gestion erreurs Mongoose + CORS fix"
+git commit -m "🔧 v2.2.3 - CORRECTION FINALE: Méthode classique corrigée + paramètres checkConstraints + CORS fix"
 echo ✅ Commit créé
 echo.
 
@@ -43,7 +43,7 @@ echo 🎉 DÉPLOIEMENT TERMINÉ !
 echo ========================================
 echo.
 
-echo 📊 Version déployée : v2.2.2 - Modèles cohérents + CORS Fix
+echo 📊 Version déployée : v2.2.3 - Correction finale + CORS Fix
 echo 🌐 Render va redéployer automatiquement
 echo ⏰ Attendez 2-3 minutes pour vérifier
 echo.

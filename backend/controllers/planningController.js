@@ -1054,13 +1054,7 @@ class PlanningGenerator {
         const employee = schedule.employee;
         
         // Obtenir les contraintes de l'employé pour cette semaine
-        const constraints = await WeeklyConstraints.findOne({
-          weekNumber,
-          year,
-          employeeId: employee._id
-        });
-        
-        const dayConstraint = this.checkConstraints(employee, constraints?.constraints || {}, day);
+        const dayConstraint = await this.checkConstraints(employee, day, weekNumber, year);
         
         if (dayConstraint.canWork) {
           availableEmployees.push({
