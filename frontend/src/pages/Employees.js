@@ -2,16 +2,14 @@ import React, { useState, useEffect } from 'react';
 import api from '../services/api';
 import { toast } from 'react-toastify';
 import EmployeeModal from '../components/EmployeeModal';
-import SickLeaveModal from '../components/SickLeaveModal';
-import AbsenceModal from '../components/AbsenceModal';
-import { Dropdown, DropdownButton } from 'react-bootstrap';
+import DeclarationModal from '../components/DeclarationModal';
+import './Employees.css';
 
 const Employees = () => {
   const [employees, setEmployees] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
-  const [showSickLeaveModal, setShowSickLeaveModal] = useState(false);
-  const [showAbsenceModal, setShowAbsenceModal] = useState(false);
+  const [showDeclarationModal, setShowDeclarationModal] = useState(false);
   const [editingEmployee, setEditingEmployee] = useState(null);
 
   useEffect(() => {
@@ -38,12 +36,8 @@ const Employees = () => {
 
 
 
-  const handleDeclareMaladieAbsence = (type) => {
-    if (type === 'maladie') {
-      setShowSickLeaveModal(true);
-    } else if (type === 'absence') {
-      setShowAbsenceModal(true);
-    }
+  const handleDeclareMaladieAbsence = () => {
+    setShowDeclarationModal(true);
   };
 
   const handleEditEmployee = (employee) => {
@@ -68,26 +62,38 @@ const Employees = () => {
     }
   };
 
-  const handleSaveSickLeave = async (sickLeaveData) => {
+  const handleSaveDeclaration = async (declarationData) => {
     try {
-      console.log('Données arrêt maladie:', sickLeaveData);
+      console.log('Données déclaration:', declarationData);
       
-      // Utiliser l'endpoint PUT existant en attendant que l'API soit mise à jour
-      const response = await api.put(`/employees/${sickLeaveData.employeeId}`, {
-        sickLeave: {
-          isOnSickLeave: true,
-          startDate: sickLeaveData.startDate,
-          endDate: sickLeaveData.endDate
-        }
-      });
+      if (declarationData.type === 'maladie') {
+        // Arrêt maladie
+        const response = await api.put(`/employees/${declarationData.employeeId}`, {
+          sickLeave: {
+            isOnSickLeave: true,
+            startDate: declarationData.startDate,
+            endDate: declarationData.endDate
+          }
+        });
+        toast.success('Arrêt maladie déclaré avec succès');
+      } else {
+        // Absence
+        const response = await api.put(`/employees/${declarationData.employeeId}`, {
+          absence: {
+            isAbsent: true,
+            startDate: declarationData.startDate,
+            endDate: declarationData.endDate,
+            reason: declarationData.reason
+          }
+        });
+        toast.success('Absence déclarée avec succès');
+      }
       
-      console.log('Réponse API:', response.data);
-      toast.success('Arrêt maladie déclaré avec succès');
       fetchEmployees();
-      setShowSickLeaveModal(false);
+      setShowDeclarationModal(false);
     } catch (error) {
       console.error('Erreur détaillée:', error.response?.data || error.message);
-      toast.error('Erreur lors de la déclaration d\'arrêt maladie');
+      toast.error('Erreur lors de la déclaration');
     }
   };
 
@@ -152,52 +158,33 @@ const Employees = () => {
 
   return (
     <div className="employees fade-in">
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+      <div className="page-header">
         <h2>Gestion des employés</h2>
-        <div style={{ display: 'flex', gap: '1rem' }}>
-          <DropdownButton
-            id="dropdown-maladie-absence"
-            title="🏥 Déclarer Maladie/Absence"
-            variant="primary"
-            onSelect={handleDeclareMaladieAbsence}
-          >
-            <Dropdown.Item eventKey="maladie">🏥 Déclarer Maladie</Dropdown.Item>
-            <Dropdown.Item eventKey="absence">📋 Déclarer Absence</Dropdown.Item>
-          </DropdownButton>
+        <div className="header-actions">
+          <button className="btn btn-success" onClick={handleDeclareMaladieAbsence}>
+            <svg viewBox="0 0 24 24" fill="currentColor" className="btn-icon">
+              <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 14h-2v-2h2v2zm0-4h-2V7h2v6z"/>
+            </svg>
+            Déclarer maladie/absence
+          </button>
           <button className="btn btn-primary" onClick={handleAddEmployee}>
-            ➕ Ajouter un employé
+            <svg viewBox="0 0 24 24" fill="currentColor" className="btn-icon">
+              <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+            </svg>
+            Ajouter un employé
           </button>
         </div>
       </div>
 
       {/* Zone de formulaire qui apparaît au-dessus du tableau */}
-      {(showModal || showSickLeaveModal || showAbsenceModal) && (
+      {showModal && (
         <div className="card" style={{ marginBottom: '1.5rem', backgroundColor: '#f8f9fa' }}>
           <div style={{ padding: '1rem' }}>
-            {showModal && (
-              <EmployeeModal
-                employee={editingEmployee}
-                onSave={handleSaveEmployee}
-                onClose={() => setShowModal(false)}
-              />
-            )}
-            {showSickLeaveModal && (
-              <SickLeaveModal
-                employees={employees.filter(emp => emp.isActive)}
-                onSave={handleSaveSickLeave}
-                onClose={() => setShowSickLeaveModal(false)}
-              />
-            )}
-            {showAbsenceModal && (
-              <AbsenceModal
-                show={showAbsenceModal}
-                onHide={() => setShowAbsenceModal(false)}
-                onSuccess={() => {
-                  fetchEmployees();
-                  toast.success('Absence déclarée avec succès');
-                }}
-              />
-            )}
+            <EmployeeModal
+              employee={editingEmployee}
+              onSave={handleSaveEmployee}
+              onClose={() => setShowModal(false)}
+            />
           </div>
         </div>
       )}
@@ -311,7 +298,13 @@ const Employees = () => {
         </div>
       )}
 
-
+      {/* Modal de déclaration maladie/absence */}
+      <DeclarationModal
+        show={showDeclarationModal}
+        onClose={() => setShowDeclarationModal(false)}
+        onSave={handleSaveDeclaration}
+        employees={employees.filter(emp => emp.isActive)}
+      />
     </div>
   );
 };
