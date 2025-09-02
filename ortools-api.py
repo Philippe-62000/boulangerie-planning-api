@@ -697,7 +697,7 @@ class PlanningBoulangerieSolver:
                                 diff_neg = self.model.NewIntVar(0, 5, f'diff_neg_{day1}_{day2}')
                                 
                                 self.model.Add(sum(working_day1) - sum(working_day2) == diff_pos - diff_neg)
-                                self.model.Add(diff_pos + diff_neg <= 1)  # Écart max 1 employé (plus strict)
+                                self.model.Add(diff_pos + diff_neg <= 2)  # Retour à écart max 2 employés (plus réaliste)
                                 
                                 logger.info(f"⚖️ Contrainte équilibrage: jour {day1} vs jour {day2} (écart max 1)")
             
@@ -711,9 +711,9 @@ class PlanningBoulangerieSolver:
                             working_day.append(var)
                 
                 if working_day:
-                    # Au moins 4 employés et maximum 7 employés par jour de semaine
+                    # Au moins 4 employés et maximum 6 employés par jour de semaine (ajusté)
                     self.model.Add(sum(working_day) >= 4)
-                    self.model.Add(sum(working_day) <= 7)
+                    self.model.Add(sum(working_day) <= 6)
                     logger.info(f"📊 Jour {day}: entre 4 et 7 employés requis")
             
             # OBJECTIF MULTI-CRITÈRES
