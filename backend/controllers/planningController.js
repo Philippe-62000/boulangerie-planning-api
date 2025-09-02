@@ -409,41 +409,41 @@ class PlanningGenerator {
     return `${endHour.toString().padStart(2, '0')}:${endMinute.toString().padStart(2, '0')}`;
   }
 
-  // Configuration des besoins selon le cadre général
+  // Configuration des besoins selon le cadre général - ÉQUILIBRÉE
   getDailyRequirements(day) {
     const requirements = {
       'Lundi': {
-        opening: { start: '06:00', end: '13:30', staff: 2, skills: ['Ouverture'] },
-        afternoon: { start: '13:30', end: '16:00', staff: 3 },
-        evening: { start: '16:00', end: '20:30', staff: 2, skills: ['Fermeture'] }
+        opening: { start: '06:00', end: '13:30', staff: 1, skills: ['Ouverture'] }, // Réduit de 2 à 1
+        afternoon: { start: '13:30', end: '16:00', staff: 2 }, // Réduit de 3 à 2
+        evening: { start: '16:00', end: '20:30', staff: 1, skills: ['Fermeture'] } // Réduit de 2 à 1
       },
       'Mardi': {
-        opening: { start: '06:00', end: '13:30', staff: 2, skills: ['Ouverture'] },
-        afternoon: { start: '13:30', end: '16:00', staff: 3 },
-        evening: { start: '16:00', end: '20:30', staff: 2, skills: ['Fermeture'] }
+        opening: { start: '06:00', end: '13:30', staff: 1, skills: ['Ouverture'] }, // Réduit de 2 à 1
+        afternoon: { start: '13:30', end: '16:00', staff: 2 }, // Réduit de 3 à 2
+        evening: { start: '16:00', end: '20:30', staff: 1, skills: ['Fermeture'] } // Réduit de 2 à 1
       },
       'Mercredi': {
-        opening: { start: '06:00', end: '13:30', staff: 2, skills: ['Ouverture'] },
-        afternoon: { start: '13:30', end: '16:00', staff: 3 },
-        evening: { start: '16:00', end: '20:30', staff: 2, skills: ['Fermeture'] }
+        opening: { start: '06:00', end: '13:30', staff: 1, skills: ['Ouverture'] }, // Réduit de 2 à 1
+        afternoon: { start: '13:30', end: '16:00', staff: 2 }, // Réduit de 3 à 2
+        evening: { start: '16:00', end: '20:30', staff: 1, skills: ['Fermeture'] } // Réduit de 2 à 1
       },
       'Jeudi': {
-        opening: { start: '06:00', end: '13:30', staff: 2, skills: ['Ouverture'] },
-        afternoon: { start: '13:30', end: '16:00', staff: 3 },
-        evening: { start: '16:00', end: '20:30', staff: 2, skills: ['Fermeture'] }
+        opening: { start: '06:00', end: '13:30', staff: 1, skills: ['Ouverture'] }, // Réduit de 2 à 1
+        afternoon: { start: '13:30', end: '16:00', staff: 2 }, // Réduit de 3 à 2
+        evening: { start: '16:00', end: '20:30', staff: 1, skills: ['Fermeture'] } // Réduit de 2 à 1
       },
       'Vendredi': {
-        opening: { start: '06:00', end: '13:30', staff: 2, skills: ['Ouverture'] },
-        afternoon: { start: '13:30', end: '16:00', staff: 3 },
-        evening: { start: '16:00', end: '20:30', staff: 2, skills: ['Fermeture'] }
+        opening: { start: '06:00', end: '13:30', staff: 1, skills: ['Ouverture'] }, // Réduit de 2 à 1
+        afternoon: { start: '13:30', end: '16:00', staff: 2 }, // Réduit de 3 à 2
+        evening: { start: '16:00', end: '20:30', staff: 1, skills: ['Fermeture'] } // Réduit de 2 à 1
       },
       'Samedi': {
-        opening: { start: '06:00', end: '16:30', staff: 3, skills: ['Ouverture'] },
-        evening: { start: '16:30', end: '20:30', staff: 2, skills: ['Fermeture'] }
+        opening: { start: '06:00', end: '16:30', staff: 3, skills: ['Ouverture'] }, // Maintenu à 3
+        evening: { start: '16:30', end: '20:30', staff: 2, skills: ['Fermeture'] } // Maintenu à 2
       },
       'Dimanche': {
-        opening: { start: '06:00', end: '13:00', staff: 3, skills: ['Ouverture'] },
-        evening: { start: '13:00', end: '20:30', staff: 2, skills: ['Fermeture'] }
+        opening: { start: '06:00', end: '13:00', staff: 3, skills: ['Ouverture'] }, // Maintenu à 3
+        evening: { start: '13:00', end: '20:30', staff: 2, skills: ['Fermeture'] } // Maintenu à 2
       }
     };
     return requirements[day] || requirements['Lundi'];
@@ -1461,15 +1461,28 @@ class PlanningGenerator {
     // Priorité basse si l'employé a déjà beaucoup de jours travaillés
     priority += schedule.daysWorked * 3;
     
-    // ÉQUILIBRAGE SPÉCIAL DES WEEKENDS
+    // ÉQUILIBRAGE SPÉCIAL DES WEEKENDS - PRIORITÉ MAXIMALE
     if (day === 'Samedi' || day === 'Dimanche') {
-      // Priorité haute pour ceux qui ont peu travaillé les weekends précédents
+      // Priorité TRÈS haute pour ceux qui ont peu travaillé les weekends précédents
       const weekendWorkCount = this.getWeekendWorkCount(employee, schedule);
-      priority -= (3 - weekendWorkCount) * 15; // Priorité +15 par weekend manquant
+      priority -= (3 - weekendWorkCount) * 25; // Priorité +25 par weekend manquant
       
-      // Priorité basse pour ceux qui ont beaucoup travaillé les weekends
+      // Priorité TRÈS basse pour ceux qui ont beaucoup travaillé les weekends
       if (weekendWorkCount > 1) {
-        priority += weekendWorkCount * 10;
+        priority += weekendWorkCount * 20;
+      }
+      
+      // Priorité absolue pour les weekends si l'employé a des heures disponibles
+      if (schedule.totalHours < employee.weeklyHours) {
+        priority -= 200; // Priorité absolue pour les weekends
+      }
+    }
+    
+    // RÉSERVATION D'HEURES POUR LES WEEKENDS
+    if (day === 'Lundi' || day === 'Mardi' || day === 'Mercredi' || day === 'Jeudi' || day === 'Vendredi') {
+      // Priorité basse si l'employé a déjà beaucoup d'heures en semaine
+      if (schedule.totalHours > employee.weeklyHours * 0.7) { // Plus de 70% des heures
+        priority += 50; // Priorité basse pour réserver des heures aux weekends
       }
     }
     
@@ -1498,6 +1511,44 @@ class PlanningGenerator {
     return weekendCount;
   }
 
+  // Calculer la priorité weekend spécifique
+  calculateWeekendPriority(candidate, day) {
+    let priority = 0;
+    const employee = candidate.employee;
+    const schedule = candidate.schedule;
+    
+    // Priorité basse si l'employé a déjà beaucoup d'heures
+    if (schedule.totalHours >= employee.weeklyHours) {
+      priority += 1000; // Priorité très basse
+      return priority;
+    }
+    
+    // Priorité haute si l'employé a des heures disponibles
+    const remainingHours = employee.weeklyHours - schedule.totalHours;
+    priority -= remainingHours * 2; // Plus d'heures disponibles = priorité plus haute
+    
+    // Priorité haute pour ceux qui ont peu travaillé les weekends
+    const weekendWorkCount = this.getWeekendWorkCount(employee, schedule);
+    priority -= (3 - weekendWorkCount) * 30; // Priorité +30 par weekend manquant
+    
+    // Priorité basse pour ceux qui ont beaucoup travaillé les weekends
+    if (weekendWorkCount > 1) {
+      priority += weekendWorkCount * 25;
+    }
+    
+    // Priorité haute pour les bonnes compétences
+    const hasOpeningSkill = employee.skills.includes('Ouverture');
+    const hasClosingSkill = employee.skills.includes('Fermeture');
+    
+    if (day === 'Dimanche' && hasOpeningSkill) {
+      priority -= 50; // Priorité très haute pour ouverture le dimanche
+    } else if (day === 'Samedi' && (hasOpeningSkill || hasClosingSkill)) {
+      priority -= 40; // Priorité haute pour ouverture/fermeture le samedi
+    }
+    
+    return priority;
+  }
+
   // Sélectionner les employés pour un jour donné
   selectEmployeesForDay(availableEmployees, requirements, day) {
     const selected = [];
@@ -1512,11 +1563,19 @@ class PlanningGenerator {
     // Trier par priorité (plus bas = plus prioritaire)
     availableEmployees.sort((a, b) => a.priority - b.priority);
     
-    // SÉLECTION OBLIGATOIRE pour les weekends
+    // SÉLECTION OBLIGATOIRE pour les weekends - PRIORITÉ ABSOLUE
     if (isWeekend) {
       // Forcer la sélection d'employés pour respecter le minimum weekend
       let forcedSelected = 0;
-      for (const candidate of availableEmployees) {
+      
+      // TRIER par priorité weekend (plus bas = plus prioritaire)
+      const weekendCandidates = [...availableEmployees].sort((a, b) => {
+        const aWeekendPriority = this.calculateWeekendPriority(a, day);
+        const bWeekendPriority = this.calculateWeekendPriority(b, day);
+        return aWeekendPriority - bWeekendPriority;
+      });
+      
+      for (const candidate of weekendCandidates) {
         if (forcedSelected >= weekendMinStaff) break;
         
         // Éviter de sélectionner deux fois le même employé
@@ -1538,15 +1597,23 @@ class PlanningGenerator {
           // Dimanche : priorité aux ouverture
           selected.push({ ...candidate, shiftType: 'opening' });
           forcedSelected++;
+          console.log(`🔒 FORCÉ: ${candidate.employee.name} sélectionné pour ${day} (ouverture)`);
         } else if (day === 'Samedi' && (hasOpeningSkill || hasClosingSkill)) {
           // Samedi : priorité aux ouverture/fermeture
           selected.push({ ...candidate, shiftType: hasOpeningSkill ? 'opening' : 'afternoon' });
           forcedSelected++;
+          console.log(`🔒 FORCÉ: ${candidate.employee.name} sélectionné pour ${day} (${hasOpeningSkill ? 'ouverture' : 'fermeture'})`);
         } else if (!hasOpeningSkill && !hasClosingSkill) {
           // Compléter avec les autres
           selected.push({ ...candidate, shiftType: 'standard' });
           forcedSelected++;
+          console.log(`🔒 FORCÉ: ${candidate.employee.name} sélectionné pour ${day} (standard)`);
         }
+      }
+      
+      // VÉRIFICATION : Si on n'a pas assez de personnel, forcer la sélection
+      if (forcedSelected < weekendMinStaff) {
+        console.log(`⚠️ ATTENTION: Seulement ${forcedSelected}/${weekendMinStaff} employés sélectionnés pour ${day}`);
       }
     }
     
