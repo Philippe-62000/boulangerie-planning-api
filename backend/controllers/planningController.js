@@ -718,15 +718,15 @@ class PlanningGenerator {
         affluences.push(affluenceLevels[dayName] || 2);
       }
       
-      // Convertir les employés au format attendu par OR-Tools
+      // Convertir les employés au format attendu par l'architecture distribuée
       const employeesData = employees.map(emp => ({
-        id: emp._id.toString(),
+        _id: emp._id.toString(),
         name: emp.name,
-        volume: emp.weeklyHours,
-        status: emp.age < 18 ? 'Mineur' : 'Majeur',
-        contract: emp.contractType || 'CDI',
+        age: emp.age || 18,
+        weeklyHours: emp.weeklyHours,
         skills: emp.skills || [],
-        function: emp.role || 'Vendeuse'
+        trainingDays: emp.trainingDays || [],
+        sickLeave: emp.sickLeave || { isOnSickLeave: false }
       }));
       
       // Calculer l'historique des weekends (simulation basée sur les plannings précédents)
