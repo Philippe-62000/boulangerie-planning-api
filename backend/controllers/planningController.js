@@ -1061,8 +1061,11 @@ class PlanningGenerator {
           method: 'distributed'
         });
         
+        // 🔧 AJOUTER L'AJUSTEMENT DES HEURES CONTRACTUELLES
+        this.adjustPlanningToContractHours(planning, emp);
+        
         plannings.push(planning);
-        console.log(`✅ Planning créé pour ${emp.name}: ${totalHours}h`);
+        console.log(`✅ Planning créé pour ${emp.name}: ${planning.totalWeeklyHours.toFixed(1)}h / ${emp.weeklyHours}h`);
       }
     }
     
@@ -1904,6 +1907,49 @@ class PlanningGenerator {
         error: error.message,
         message: 'Architecture distribuée non opérationnelle'
       };
+    }
+  }
+
+  // 🔧 AJOUTER L'AJUSTEMENT DES HEURES CONTRACTUELLES
+  adjustPlanningToContractHours(planning, employee) {
+    const targetHours = employee.weeklyHours;
+    const currentHours = planning.totalWeeklyHours;
+    
+    if (currentHours > targetHours) {
+      const excessHours = currentHours - targetHours;
+      console.log(`📅 ${employee.name}: ${excessHours}h en trop, réduction des shifts`);
+      
+      // Réduire les shifts en commençant par les plus longs
+      const allShifts = [];
+      planning.schedule.forEach(day => {
+        day.shifts.forEach(shift => {
+          allShifts.push({ day, shift, hours: shift.hoursWorked });
+        });
+      });
+      
+      // Trier par heures décroissantes
+      allShifts.sort((a, b) => b.hours - a.hours);
+      
+      let remainingExcess = excessHours;
+      for (const { day, shift } of allShifts) {
+        if (remainingExcess <= 0) break;
+        
+        if (shift.hoursWorked <= remainingExcess) {
+          // Supprimer complètement le shift
+          day.shifts = day.shifts.filter(s => s !== shift);
+          day.totalHours = day.shifts.reduce((sum, s) => sum + s.hoursWorked, 0);
+          remainingExcess -= shift.hoursWorked;
+          planning.totalWeeklyHours -= shift.hoursWorked;
+        } else {
+          // Réduire partiellement le shift
+          const reduction = remainingExcess;
+          shift.hoursWorked -= reduction;
+          shift.endTime = this.adjustEndTime(shift.startTime, shift.hoursWorked);
+          day.totalHours = day.shifts.reduce((sum, s) => sum + s.hoursWorked, 0);
+          remainingExcess = 0;
+          planning.totalWeeklyHours -= reduction;
+        }
+      }
     }
   }
 }
