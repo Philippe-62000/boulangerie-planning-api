@@ -1235,16 +1235,17 @@ class PlanningGenerator {
   // Sélectionner les employés pour un jour donné
   selectEmployeesForDay(availableEmployees, requirements, day) {
     const selected = [];
-    const morningNeeded = requirements.morning.staff;
-    const afternoonNeeded = requirements.afternoon.staff;
+    const openingNeeded = requirements.opening?.staff || 0;
+    const afternoonNeeded = requirements.afternoon?.staff || 0;
+    const eveningNeeded = requirements.evening?.staff || 0;
     
     // Trier par priorité (plus bas = plus prioritaire)
     availableEmployees.sort((a, b) => a.priority - b.priority);
     
-    // Sélectionner pour le matin
-    let morningSelected = 0;
+    // Sélectionner pour l'ouverture
+    let openingSelected = 0;
     for (const candidate of availableEmployees) {
-      if (morningSelected >= morningNeeded) break;
+      if (openingSelected >= openingNeeded) break;
       
       // Vérifier que l'employé peut encore travailler
       // Permettre le travail même avec des heures de contraintes si le total est inférieur aux heures contractuelles
@@ -1257,9 +1258,9 @@ class PlanningGenerator {
       if (hasOpeningSkill || candidate.employee.role === 'manager' || candidate.employee.role === 'responsable') {
         selected.push({
           ...candidate,
-          shiftType: 'morning'
+          shiftType: 'opening'
         });
-        morningSelected++;
+        openingSelected++;
       }
     }
     
@@ -1292,7 +1293,7 @@ class PlanningGenerator {
     
     // Compléter avec d'autres employés si nécessaire
     for (const candidate of availableEmployees) {
-      if (selected.length >= (morningNeeded + afternoonNeeded)) break;
+      if (selected.length >= (openingNeeded + afternoonNeeded + eveningNeeded)) break;
       
       // Éviter de sélectionner deux fois le même employé
       if (selected.find(s => s.employee._id.toString() === candidate.employee._id.toString())) {
