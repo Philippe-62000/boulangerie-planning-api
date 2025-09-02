@@ -519,6 +519,71 @@ class PlanningGenerator {
     return targetDate;
   }
 
+  // Calculer l'historique des weekends pour équilibrer les futures affectations
+  async calculateWeekendHistory(employees, currentWeekNumber, year) {
+    console.log('📊 Calcul de l\'historique des weekends pour équilibrage');
+    
+    const weekendHistory = {};
+    
+    try {
+      // Calculer les 4 dernières semaines pour l'historique
+      const weeksToAnalyze = [];
+      for (let i = 1; i <= 4; i++) {
+        let analyzeWeek = currentWeekNumber - i;
+        let analyzeYear = year;
+        
+        if (analyzeWeek <= 0) {
+          analyzeWeek += 52; // Approximation, semaines de l'année précédente
+          analyzeYear -= 1;
+        }
+        
+        weeksToAnalyze.push({ week: analyzeWeek, year: analyzeYear });
+      }
+      
+      console.log('🔍 Analyse des semaines:', weeksToAnalyze);
+      
+      for (const emp of employees) {
+        const empId = emp._id.toString();
+        let saturdayCount = 0;
+        let sundayCount = 0;
+        
+        // Analyser les plannings des semaines précédentes
+        for (const { week, year: analyzeYear } of weeksToAnalyze) {
+          const planning = await Planning.findOne({
+            weekNumber: week,
+            year: analyzeYear,
+            employeeId: emp._id
+          });
+          
+          if (planning && planning.schedule) {
+            // Compter les samedis et dimanches travaillés
+            const saturdaySchedule = planning.schedule.find(day => day.day === 'Samedi');
+            const sundaySchedule = planning.schedule.find(day => day.day === 'Dimanche');
+            
+            if (saturdaySchedule && saturdaySchedule.totalHours > 0 && saturdaySchedule.constraint !== 'Repos') {
+              saturdayCount++;
+            }
+            
+            if (sundaySchedule && sundaySchedule.totalHours > 0 && sundaySchedule.constraint !== 'Repos') {
+              sundayCount++;
+            }
+          }
+        }
+        
+        weekendHistory[`${empId}_saturday`] = saturdayCount;
+        weekendHistory[`${empId}_sunday`] = sundayCount;
+        
+        console.log(`👤 ${emp.name}: ${saturdayCount} samedis, ${sundayCount} dimanches sur 4 semaines`);
+      }
+      
+      return weekendHistory;
+    } catch (error) {
+      console.error('❌ Erreur calcul historique weekends:', error);
+      // Retourner un historique vide en cas d'erreur
+      return {};
+    }
+  }
+
   // Vérifier les règles pour mineurs
   checkMinorRules(employee, day, weekSchedule) {
     if (employee.age >= 18) return { canWork: true };
@@ -619,18 +684,22 @@ class PlanningGenerator {
         function: emp.role || 'Vendeuse'
       }));
       
+      // Calculer l'historique des weekends (simulation basée sur les plannings précédents)
+      const weekendHistory = await this.calculateWeekendHistory(employees, weekNumber, year);
+      
       console.log('📡 Données préparées pour OR-Tools:', {
         employeesData: employeesData.length,
         constraints: Object.keys(constraints).length,
         affluences
       });
 
-      // Appeler l'API OR-Tools
+      // Appeler l'API OR-Tools avec l'historique des weekends
       const result = await this.callORToolsAPI({
         employees: employeesData,
         constraints: constraints,
         affluences: affluences,
-        week_number: weekNumber
+        week_number: weekNumber,
+        weekend_history: weekendHistory
       });
       
       console.log('📈 Résultat OR-Tools:', {
