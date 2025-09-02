@@ -12,8 +12,22 @@ app.use(helmet());
 app.use(compression());
 
 // Configuration CORS pour la production
+const allowedOrigins = [
+  'https://www.filmara.fr',
+  'https://filmara.fr', 
+  'http://localhost:3000',
+  'http://localhost:3001'
+];
+
+// Si CORS_ORIGIN est défini, l'utiliser, sinon utiliser la liste par défaut
+const corsOrigins = process.env.CORS_ORIGIN ? 
+  process.env.CORS_ORIGIN.split(',').map(origin => origin.trim()) : 
+  allowedOrigins;
+
+console.log('🔧 CORS Origins configurés:', corsOrigins);
+
 const corsOptions = {
-  origin: config.CORS_ORIGIN,
+  origin: corsOrigins,
   credentials: true,
   optionsSuccessStatus: 200
 };
