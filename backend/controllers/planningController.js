@@ -378,18 +378,6 @@ class PlanningBoulangerieSolver {
     
     return validation;
   }
-
-  // Ajuster l'heure de fin d'un shift selon les heures travaillées
-  adjustEndTime(startTime, hoursWorked) {
-    const [startHour, startMinute] = startTime.split(':').map(Number);
-    const startMinutes = startHour * 60 + startMinute;
-    const endMinutes = startMinutes + (hoursWorked * 60);
-    
-    const endHour = Math.floor(endMinutes / 60);
-    const endMinute = endMinutes % 60;
-    
-    return `${endHour.toString().padStart(2, '0')}:${endMinute.toString().padStart(2, '0')}`;
-  }
 }
 
 // Instance globale du solveur
@@ -407,6 +395,18 @@ class PlanningGenerator {
       afternoon: { start: '13:30', end: '20:30', hours: 6.5 },
       full: { start: '07:30', end: '16:30', hours: 8.5 }
     };
+  }
+
+  // Ajuster l'heure de fin d'un shift selon les heures travaillées
+  adjustEndTime(startTime, hoursWorked) {
+    const [startHour, startMinute] = startTime.split(':').map(Number);
+    const startMinutes = startHour * 60 + startMinute;
+    const endMinutes = startMinutes + (hoursWorked * 60);
+    
+    const endHour = Math.floor(endMinutes / 60);
+    const endMinute = endMinutes % 60;
+    
+    return `${endHour.toString().padStart(2, '0')}:${endMinute.toString().padStart(2, '0')}`;
   }
 
   // Configuration des besoins selon le cadre général
