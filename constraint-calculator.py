@@ -8,7 +8,7 @@ Enregistre les résultats en MongoDB
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 import pymongo
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import logging
 import os
 from typing import Dict, List, Any
@@ -63,6 +63,8 @@ class ConstraintCalculator:
             
             for day_index, day_name in enumerate(self.days):
                 day_date = self.get_date_for_day(day_name, week_number, year)
+                # Rendre day_date timezone-aware pour la comparaison
+                day_date = day_date.replace(tzinfo=timezone.utc)
                 if start_date <= day_date <= end_date:
                     availability['constraints'][day_name] = 'MAL'
                     availability['sick_leave_days'] += 1
