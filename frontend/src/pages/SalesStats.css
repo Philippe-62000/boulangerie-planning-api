@@ -1,0 +1,380 @@
+.sales-stats-container {
+  padding: 20px;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.sales-stats-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 30px;
+  padding: 20px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 15px;
+  color: white;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+}
+
+.sales-stats-header h1 {
+  margin: 0;
+  font-size: 2.5rem;
+  font-weight: 700;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.period-selector {
+  display: flex;
+  gap: 15px;
+  align-items: center;
+}
+
+.month-select,
+.year-select {
+  padding: 12px 20px;
+  border: none;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.9);
+  color: #333;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+}
+
+.month-select:hover,
+.year-select:hover {
+  background: white;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+}
+
+.sales-stats-content {
+  display: flex;
+  flex-direction: column;
+  gap: 30px;
+}
+
+/* Section Formulaire */
+.sales-form-section {
+  background: white;
+  border-radius: 15px;
+  padding: 25px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.sales-form-section h2 {
+  color: #333;
+  margin-bottom: 20px;
+  font-size: 1.8rem;
+  font-weight: 600;
+  border-bottom: 3px solid #667eea;
+  padding-bottom: 10px;
+}
+
+.sales-form-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 20px;
+  background: white;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+}
+
+.sales-form-table th {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 15px 10px;
+  text-align: center;
+  font-weight: 600;
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.sales-form-table td {
+  padding: 12px 8px;
+  text-align: center;
+  border-bottom: 1px solid #eee;
+  vertical-align: middle;
+}
+
+.sales-form-table tr:hover {
+  background-color: #f8f9ff;
+}
+
+.employee-name {
+  font-weight: 600;
+  color: #333;
+  text-align: left;
+  padding-left: 15px;
+}
+
+.sales-form-table input {
+  width: 80px;
+  padding: 8px 10px;
+  border: 2px solid #e1e5e9;
+  border-radius: 8px;
+  text-align: center;
+  font-size: 0.9rem;
+  transition: all 0.3s ease;
+  background: #f8f9fa;
+}
+
+.sales-form-table input:focus {
+  outline: none;
+  border-color: #667eea;
+  background: white;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.sales-form-table input:hover {
+  border-color: #667eea;
+  background: white;
+}
+
+.score-cell {
+  background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+  color: white;
+  font-weight: 700;
+  border-radius: 8px;
+  padding: 8px 12px;
+  margin: 2px;
+}
+
+.form-actions {
+  text-align: center;
+  margin-top: 20px;
+}
+
+.save-button {
+  background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+  color: white;
+  border: none;
+  padding: 15px 40px;
+  border-radius: 25px;
+  font-size: 1.1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 6px 20px rgba(40, 167, 69, 0.3);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.save-button:hover:not(:disabled) {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 25px rgba(40, 167, 69, 0.4);
+}
+
+.save-button:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Section Classement */
+.ranking-section {
+  background: white;
+  border-radius: 15px;
+  padding: 25px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.ranking-section h2 {
+  color: #333;
+  margin-bottom: 20px;
+  font-size: 1.8rem;
+  font-weight: 600;
+  border-bottom: 3px solid #ffc107;
+  padding-bottom: 10px;
+}
+
+.ranking-table table {
+  width: 100%;
+  border-collapse: collapse;
+  background: white;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+}
+
+.ranking-table th {
+  background: linear-gradient(135deg, #ffc107 0%, #ff8c00 100%);
+  color: white;
+  padding: 15px 10px;
+  text-align: center;
+  font-weight: 600;
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.ranking-table td {
+  padding: 12px 8px;
+  text-align: center;
+  border-bottom: 1px solid #eee;
+  vertical-align: middle;
+}
+
+.ranking-table tr:hover {
+  background-color: #fff8e1;
+}
+
+.ranking-table tr.top-three {
+  background: linear-gradient(135deg, #fff8e1 0%, #fff3cd 100%);
+}
+
+.ranking-table tr.top-three:hover {
+  background: linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%);
+}
+
+.rank {
+  font-weight: 700;
+  color: #ffc107;
+  font-size: 1.1rem;
+}
+
+.score {
+  background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+  color: white;
+  border-radius: 8px;
+  padding: 8px 12px;
+  margin: 2px;
+}
+
+.positive {
+  color: #28a745;
+  font-weight: 600;
+}
+
+.negative {
+  color: #dc3545;
+  font-weight: 600;
+}
+
+/* Section Comparaison mensuelle */
+.monthly-comparison-section {
+  background: white;
+  border-radius: 15px;
+  padding: 25px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.monthly-comparison-section h2 {
+  color: #333;
+  margin-bottom: 20px;
+  font-size: 1.8rem;
+  font-weight: 600;
+  border-bottom: 3px solid #17a2b8;
+  padding-bottom: 10px;
+}
+
+.monthly-stats table {
+  width: 100%;
+  border-collapse: collapse;
+  background: white;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+}
+
+.monthly-stats th {
+  background: linear-gradient(135deg, #17a2b8 0%, #138496 100%);
+  color: white;
+  padding: 15px 10px;
+  text-align: center;
+  font-weight: 600;
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.monthly-stats td {
+  padding: 12px 8px;
+  text-align: center;
+  border-bottom: 1px solid #eee;
+  vertical-align: middle;
+}
+
+.monthly-stats tr:hover {
+  background-color: #e3f2fd;
+}
+
+.monthly-stats tr.current-month {
+  background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+  font-weight: 600;
+}
+
+.monthly-stats tr.current-month:hover {
+  background: linear-gradient(135deg, #bbdefb 0%, #90caf9 100%);
+}
+
+/* Responsive Design */
+@media (max-width: 1200px) {
+  .sales-stats-header {
+    flex-direction: column;
+    gap: 20px;
+    text-align: center;
+  }
+  
+  .sales-stats-header h1 {
+    font-size: 2rem;
+  }
+  
+  .period-selector {
+    justify-content: center;
+  }
+}
+
+@media (max-width: 768px) {
+  .sales-stats-container {
+    padding: 10px;
+  }
+  
+  .sales-form-table {
+    font-size: 0.8rem;
+  }
+  
+  .sales-form-table input {
+    width: 60px;
+    padding: 6px 8px;
+    font-size: 0.8rem;
+  }
+  
+  .sales-stats-header h1 {
+    font-size: 1.5rem;
+  }
+  
+  .period-selector {
+    flex-direction: column;
+    gap: 10px;
+  }
+  
+  .month-select,
+  .year-select {
+    width: 100%;
+    max-width: 200px;
+  }
+}
+
+@media (max-width: 480px) {
+  .sales-form-table {
+    font-size: 0.7rem;
+  }
+  
+  .sales-form-table input {
+    width: 50px;
+    padding: 4px 6px;
+    font-size: 0.7rem;
+  }
+  
+  .sales-stats-header h1 {
+    font-size: 1.3rem;
+  }
+}

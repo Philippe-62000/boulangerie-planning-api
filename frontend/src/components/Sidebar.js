@@ -11,6 +11,7 @@ const Sidebar = () => {
     { path: '/employees', label: 'Gestion des employés', icon: '👥' },
     { path: '/constraints', label: 'Contraintes hebdomadaires', icon: '📋' },
     { path: '/planning', label: 'Génération du planning', icon: '🎯' },
+    { path: '/sales-stats', label: 'Stats Vente', icon: '💰' },
     { path: '/absence-status', label: 'État des absences', icon: '📈' }
   ];
 

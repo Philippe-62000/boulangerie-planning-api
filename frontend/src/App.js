@@ -7,6 +7,7 @@ import EmployeeManagement from './pages/Employees';
 import PlanningGenerator from './pages/Planning';
 import ConstraintsManager from './pages/Constraints';
 import Dashboard from './pages/Dashboard';
+import SalesStats from './pages/SalesStats';
 import AbsenceStatusPage from './pages/AbsenceStatusPage';
 
 function App() {
@@ -23,6 +24,7 @@ function App() {
               <Route path="/employees" element={<EmployeeManagement />} />
               <Route path="/constraints" element={<ConstraintsManager />} />
               <Route path="/planning" element={<PlanningGenerator />} />
+              <Route path="/sales-stats" element={<SalesStats />} />
               <Route path="/absences" element={<AbsenceStatusPage />} />
             </Routes>
           </main>
