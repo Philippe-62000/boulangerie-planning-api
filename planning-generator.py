@@ -43,9 +43,9 @@ class PlanningGenerator:
     def __init__(self):
         self.days = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche']
         self.shifts = {
-            'opening': {'start': '06:00', 'end': '13:30', 'hours': 7.5},
-            'afternoon': {'start': '13:30', 'end': '16:00', 'hours': 2.5},
-            'evening': {'start': '16:00', 'end': '20:30', 'hours': 4.5}
+            'opening': {'start': '06:00', 'end': '13:30', 'hours': 7.5, 'minutes': 450},  # 7h30 = 450 min
+            'afternoon': {'start': '13:30', 'end': '16:00', 'hours': 2.5, 'minutes': 150},  # 2h30 = 150 min
+            'evening': {'start': '16:00', 'end': '20:30', 'hours': 4.5, 'minutes': 270}   # 4h30 = 270 min
         }
     
     def get_calculated_constraints(self, week_number: int, year: int) -> List[Dict]:
@@ -175,9 +175,11 @@ class PlanningGenerator:
             
             # Pénalité si trop d'heures
             excess_hours = model.NewIntVar(0, 10, f'excess_{emp_id}')
-            total_hours = sum(x[emp_id][day_idx][shift] * self.shifts[shift]['hours'] 
+            total_minutes = sum(x[emp_id][day_idx][shift] * self.shifts[shift]['minutes'] 
                             for day_idx in range(7) for shift in self.shifts.keys())
             
+            # Convertir en heures (diviser par 60)
+            total_hours = total_minutes // 60
             model.Add(excess_hours >= total_hours - weekly_hours)
             penalties.append(excess_hours)
         
