@@ -1707,16 +1707,18 @@ class PlanningGenerator {
     console.log(`🔧 Ajustement planning ${employee.name}: ${currentHours}h sur ${targetHours}h`);
     
     // Si l'employé a trop d'heures, réduire les shifts pour atteindre exactement les heures contractuelles
-    if (currentHours > targetHours) {
+    if (currentHours > targetHours + 1) { // Tolérance réduite à 1h
       const excessHours = currentHours - targetHours;
       console.log(`📅 ${employee.name} a ${excessHours}h en trop, réduction des shifts`);
       
       // Réduire les shifts en commençant par les plus longs
       const allShifts = [];
       schedule.schedule.forEach(day => {
-        day.shifts.forEach(shift => {
-          allShifts.push({ day, shift, hours: shift.hoursWorked });
-        });
+        if (day.shifts) {
+          day.shifts.forEach(shift => {
+            allShifts.push({ day, shift, hours: shift.hoursWorked });
+          });
+        }
       });
       
       // Trier par heures décroissantes
@@ -1732,6 +1734,7 @@ class PlanningGenerator {
           day.totalHours = day.shifts.reduce((sum, s) => sum + s.hoursWorked, 0);
           remainingExcess -= shift.hoursWorked;
           schedule.totalHours -= shift.hoursWorked;
+          console.log(`🗑️ Shift supprimé: ${shift.startTime}-${shift.endTime} (${shift.hoursWorked}h)`);
         } else {
           // Réduire partiellement le shift
           const reduction = remainingExcess;
@@ -1740,12 +1743,13 @@ class PlanningGenerator {
           day.totalHours = day.shifts.reduce((sum, s) => sum + s.hoursWorked, 0);
           remainingExcess = 0;
           schedule.totalHours -= reduction;
+          console.log(`✂️ Shift réduit: ${shift.startTime}-${shift.endTime} (${shift.hoursWorked}h)`);
         }
       }
     }
     
     // Si l'employé n'a pas assez d'heures, essayer de réduire les repos
-    else if (currentHours < targetHours - 4) { // Tolérance de 4h
+    else if (currentHours < targetHours - 2) { // Tolérance réduite à 2h
       const missingHours = targetHours - currentHours;
       console.log(`📅 ${employee.name} manque ${missingHours}h, transformation de jours de repos en travail`);
       
@@ -1757,6 +1761,7 @@ class PlanningGenerator {
         
         restDay.constraint = undefined;
         restDay.totalHours = 0;
+        console.log(`🔄 Jour de repos transformé en travail: ${restDay.day}`);
         // Le shift sera généré plus tard
       }
     }

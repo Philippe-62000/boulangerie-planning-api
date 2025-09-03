@@ -10,8 +10,7 @@ const Constraints = () => {
   const [affluenceLevels, setAffluenceLevels] = useState({
     Lundi: 2, Mardi: 2, Mercredi: 2, Jeudi: 2, Vendredi: 2, Samedi: 2, Dimanche: 2
   });
-  const [loading, setLoading] = useState(false);
-  const [sixDayWorkers, setSixDayWorkers] = useState({});
+  const [loading, setLoading] = useState(false);\n  const [sixDayWorkers, setSixDayWorkers] = useState({});
 
   const daysOfWeek = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
   const constraintOptions = [
@@ -150,39 +149,26 @@ const Constraints = () => {
     toast.success('Maladie appliquée pour toute la semaine');
   };
 
-  // Fonction améliorée pour appliquer 6/7 jours de travail
+  // Nouvelle fonction pour appliquer 6/7 jours de travail
   const applySixDaysWork = (employeeId) => {
-    setSixDayWorkers(prev => ({
-      ...prev,
-      [employeeId]: !prev[employeeId]
-    }));
-
     setConstraints(prev => {
       const updated = { ...prev };
       if (!updated[employeeId]) {
         updated[employeeId] = {};
       }
       
-      if (sixDayWorkers[employeeId]) {
-        // Désactiver 6j/7 - remettre toutes les contraintes
-        daysOfWeek.forEach(day => {
-          updated[employeeId][day] = '';
-        });
-        toast.success('6j/7 désactivé pour cet employé');
-      } else {
-        // Activer 6j/7 - forcer 1 jour de repos
-        daysOfWeek.forEach(day => {
-          updated[employeeId][day] = '';
-        });
-        
-        // Choisir un jour de repos (généralement le dimanche)
-        const restDay = 'Dimanche';
-        updated[employeeId][restDay] = 'Repos';
-        toast.success('6 jours de travail appliqués (1 jour de repos)');
-      }
+      // Réinitialiser toutes les contraintes
+      daysOfWeek.forEach(day => {
+        updated[employeeId][day] = '';
+      });
+      
+      // Choisir un jour de repos (généralement le dimanche ou le lundi)
+      const restDay = 'Dimanche'; // ou 'Lundi' selon la préférence
+      updated[employeeId][restDay] = 'Repos';
       
       return updated;
     });
+    toast.success('6 jours de travail appliqués (1 jour de repos)');
   };
 
   const saveConstraints = async () => {

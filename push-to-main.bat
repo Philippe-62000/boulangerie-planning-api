@@ -1,55 +1,28 @@
 @echo off
 echo ========================================
-echo 🚀 PUSH VERS MAIN - Boulangerie Planning
+echo    PUSH VERS LA BRANCHE MAIN
 echo ========================================
 echo.
 
-echo 📋 Étape 1: Vérification de la branche actuelle...
-git branch --show-current
-echo.
+echo 🔍 Vérification du statut Git...
+git status
 
-echo 📋 Étape 2: Ajout des fichiers modifiés...
+echo.
+echo 📦 Ajout de tous les fichiers modifiés...
 git add .
-echo ✅ Fichiers ajoutés
-echo.
 
-echo 📋 Étape 3: Commit des changements...
-git commit -m "🔧 v2.2.5 - CORRECTION FINALE: Tous les appels checkConstraints corrigés + méthode classique stable + CORS fix"
-echo ✅ Commit créé
 echo.
+echo 💾 Commit des modifications...
+git commit -m "🔧 Ajout de l'ajustement automatique des heures contractuelles après génération OR-Tools"
 
-echo 📋 Étape 4: Push sur master...
-git push origin master
-echo ✅ Push sur master terminé
 echo.
-
-echo 📋 Étape 5: Switch vers main...
-git checkout main
-echo ✅ Branch main active
-echo.
-
-echo 📋 Étape 6: Merge de master vers main...
-git merge master
-echo ✅ Merge terminé
-echo.
-
-echo 📋 Étape 7: Push sur main (déclenche Render)...
+echo 🚀 Push vers la branche main...
 git push origin main
-echo ✅ Push sur main terminé
-echo.
 
-echo ========================================
-echo 🎉 DÉPLOIEMENT TERMINÉ !
-echo ========================================
 echo.
-
-echo 📊 Version déployée : v2.2.5 - Tous les appels corrigés + CORS Fix
-echo 🌐 Render va redéployer automatiquement
-echo ⏰ Attendez 2-3 minutes pour vérifier
+echo ✅ Push terminé !
 echo.
-
-echo 🔍 Pour vérifier : Dashboard Render
-echo 📅 Date du déploiement : %date% %time%
+echo 🌐 Vérifiez le déploiement sur Render.com
+echo 📱 Testez le nouveau design sur votre site
 echo.
-
 pause

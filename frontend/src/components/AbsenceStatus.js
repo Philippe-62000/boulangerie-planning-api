@@ -2,12 +2,9 @@ import React, { useState, useEffect } from 'react';
 import './AbsenceStatus.css';
 
 const AbsenceStatus = ({ employees }) => {
-  const [selectedPeriod, setSelectedPeriod] = useState('current');
+  const [selectedPeriod, setSelectedPeriod] = useState('month');
   const [absenceStats, setAbsenceStats] = useState({
-    total: 0,
-    maladie: 0,
-    absence: 0,
-    retard: 0,
+    total: { absences: 0, sickLeave: 0, delays: 0, total: 0 },
     byEmployee: []
   });
 
@@ -16,96 +13,91 @@ const AbsenceStatus = ({ employees }) => {
   }, [employees, selectedPeriod]);
 
   const calculateAbsenceStats = () => {
-    const currentDate = new Date();
-    const currentMonth = currentDate.getMonth();
-    const currentYear = currentDate.getFullYear();
+    const now = new Date();
+    let startDate, endDate;
+    
+    switch (selectedPeriod) {
+      case 'year':
+        startDate = new Date(now.getFullYear(), 0, 1);
+        endDate = new Date(now.getFullYear(), 11, 31);
+        break;
+      case 'month':
+        startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+        endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+        break;
+      case 'week':
+        const weekStart = new Date(now);
+        weekStart.setDate(now.getDate() - now.getDay() + 1);
+        const weekEnd = new Date(weekStart);
+        weekEnd.setDate(weekStart.getDate() + 6);
+        startDate = weekStart;
+        endDate = weekEnd;
+        break;
+      default:
+        startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+        endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    }
 
-    let stats = {
-      total: 0,
-      maladie: 0,
-      absence: 0,
-      retard: 0,
-      byEmployee: []
-    };
+    // Calculer les statistiques par employé
+    const byEmployee = employees.map(employee => {
+      const employeeAbsences = employee.absences?.filter(absence => {
+        const absenceDate = new Date(absence.date);
+        return absenceDate >= startDate && absenceDate <= endDate;
+      }) || [];
 
-    employees.forEach(employee => {
-      let employeeStats = {
+      const employeeSickLeaves = employee.sickLeaves?.filter(sickLeave => {
+        const start = new Date(sickLeave.startDate);
+        const end = new Date(sickLeave.endDate);
+        return (start <= endDate && end >= startDate);
+      }) || [];
+
+      const employeeDelays = employee.delays?.filter(delay => {
+        const delayDate = new Date(delay.date);
+        return delayDate >= startDate && delayDate <= endDate;
+      }) || [];
+
+      return {
         id: employee._id,
         name: employee.name,
-        role: employee.role,
-        total: 0,
-        maladie: 0,
-        absence: 0,
-        retard: 0
+        absences: employeeAbsences.length,
+        sickLeave: employeeSickLeaves.reduce((total, sl) => {
+          const start = new Date(sl.startDate);
+          const end = new Date(sl.endDate);
+          const days = Math.ceil((end - start) / (1000 * 60 * 60 * 24)) + 1;
+          return total + days;
+        }, 0),
+        delays: employeeDelays.length,
+        total: employeeAbsences.length + employeeSickLeaves.length + employeeDelays.length
       };
-
-      // Calculer les absences maladie
-      if (employee.sickLeave?.isOnSickLeave) {
-        const startDate = new Date(employee.sickLeave.startDate);
-        const endDate = new Date(employee.sickLeave.endDate);
-        
-        if (selectedPeriod === 'current') {
-          if (startDate.getMonth() === currentMonth && startDate.getFullYear() === currentYear) {
-            const daysDiff = Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24)) + 1;
-            employeeStats.maladie += daysDiff;
-            stats.maladie += daysDiff;
-            stats.total += daysDiff;
-            employeeStats.total += daysDiff;
-          }
-        } else if (selectedPeriod === 'all') {
-          const daysDiff = Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24)) + 1;
-          employeeStats.maladie += daysDiff;
-          stats.maladie += daysDiff;
-          stats.total += daysDiff;
-          employeeStats.total += daysDiff;
-        }
-      }
-
-      // Calculer les absences
-      if (employee.absence?.isAbsent) {
-        const startDate = new Date(employee.absence.startDate);
-        const endDate = new Date(employee.absence.endDate);
-        
-        if (selectedPeriod === 'current') {
-          if (startDate.getMonth() === currentMonth && startDate.getFullYear() === currentYear) {
-            const daysDiff = Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24)) + 1;
-            employeeStats.absence += daysDiff;
-            stats.absence += daysDiff;
-            stats.total += daysDiff;
-            employeeStats.total += daysDiff;
-          }
-        } else if (selectedPeriod === 'all') {
-          const daysDiff = Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24)) + 1;
-          employeeStats.absence += daysDiff;
-          stats.absence += daysDiff;
-          stats.total += daysDiff;
-          employeeStats.total += daysDiff;
-        }
-      }
-
-      // Ajouter les statistiques de l'employé si il a des absences
-      if (employeeStats.total > 0) {
-        stats.byEmployee.push(employeeStats);
-      }
     });
 
-    // Trier par total d'absences décroissant
-    stats.byEmployee.sort((a, b) => b.total - a.total);
-    
-    setAbsenceStats(stats);
+    // Calculer les totaux
+    const total = byEmployee.reduce((acc, emp) => ({
+      absences: acc.absences + emp.absences,
+      sickLeave: acc.sickLeave + emp.sickLeave,
+      delays: acc.delays + emp.delays,
+      total: acc.total + emp.total
+    }), { absences: 0, sickLeave: 0, delays: 0, total: 0 });
+
+    setAbsenceStats({ total, byEmployee });
   };
 
   const getPeriodLabel = () => {
-    const currentDate = new Date();
-    const monthNames = [
-      'Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin',
-      'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'
-    ];
-    
-    if (selectedPeriod === 'current') {
-      return `${monthNames[currentDate.getMonth()]} ${currentDate.getFullYear()}`;
+    const now = new Date();
+    switch (selectedPeriod) {
+      case 'year':
+        return `${now.getFullYear()}`;
+      case 'month':
+        return `${now.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })}`;
+      case 'week':
+        const weekStart = new Date(now);
+        weekStart.setDate(now.getDate() - now.getDay() + 1);
+        const weekEnd = new Date(weekStart);
+        weekEnd.setDate(weekStart.getDate() + 6);
+        return `Semaine du ${weekStart.toLocaleDateString('fr-FR')} au ${weekEnd.toLocaleDateString('fr-FR')}`;
+      default:
+        return `${now.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })}`;
     }
-    return 'Toutes périodes';
   };
 
   return (
@@ -114,16 +106,22 @@ const AbsenceStatus = ({ employees }) => {
         <h2>📊 État des absences</h2>
         <div className="period-selector">
           <button
-            className={`period-btn ${selectedPeriod === 'current' ? 'active' : ''}`}
-            onClick={() => setSelectedPeriod('current')}
+            className={`period-btn ${selectedPeriod === 'month' ? 'active' : ''}`}
+            onClick={() => setSelectedPeriod('month')}
           >
-            Période actuelle
+            Mois
           </button>
           <button
-            className={`period-btn ${selectedPeriod === 'all' ? 'active' : ''}`}
-            onClick={() => setSelectedPeriod('all')}
+            className={`period-btn ${selectedPeriod === 'year' ? 'active' : ''}`}
+            onClick={() => setSelectedPeriod('year')}
           >
-            Toutes périodes
+            Année
+          </button>
+          <button
+            className={`period-btn ${selectedPeriod === 'week' ? 'active' : ''}`}
+            onClick={() => setSelectedPeriod('week')}
+          >
+            Semaine
           </button>
         </div>
       </div>
@@ -137,7 +135,7 @@ const AbsenceStatus = ({ employees }) => {
             </svg>
           </div>
           <div className="stat-content">
-            <h3 className="stat-value">{absenceStats.total}</h3>
+            <h3 className="stat-value">{absenceStats.total.total}</h3>
             <p className="stat-label">Total des absences</p>
             <p className="stat-period">{getPeriodLabel()}</p>
           </div>
@@ -150,7 +148,7 @@ const AbsenceStatus = ({ employees }) => {
             </svg>
           </div>
           <div className="stat-content">
-            <h3 className="stat-value">{absenceStats.maladie}</h3>
+            <h3 className="stat-value">{absenceStats.total.sickLeave}</h3>
             <p className="stat-label">Arrêts maladie</p>
             <p className="stat-period">{getPeriodLabel()}</p>
           </div>
@@ -163,7 +161,7 @@ const AbsenceStatus = ({ employees }) => {
             </svg>
           </div>
           <div className="stat-content">
-            <h3 className="stat-value">{absenceStats.absence}</h3>
+            <h3 className="stat-value">{absenceStats.total.absences}</h3>
             <p className="stat-label">Absences</p>
             <p className="stat-period">{getPeriodLabel()}</p>
           </div>
@@ -176,7 +174,7 @@ const AbsenceStatus = ({ employees }) => {
             </svg>
           </div>
           <div className="stat-content">
-            <h3 className="stat-value">{absenceStats.retard}</h3>
+            <h3 className="stat-value">{absenceStats.total.delays}</h3>
             <p className="stat-label">Retards</p>
             <p className="stat-period">{getPeriodLabel()}</p>
           </div>
@@ -200,15 +198,15 @@ const AbsenceStatus = ({ employees }) => {
                     <span className="mini-stat-label">Total</span>
                   </div>
                   <div className="mini-stat maladie">
-                    <span className="mini-stat-value">{employee.maladie}</span>
+                    <span className="mini-stat-value">{employee.sickLeave}</span>
                     <span className="mini-stat-label">Maladie</span>
                   </div>
                   <div className="mini-stat absence">
-                    <span className="mini-stat-value">{employee.absence}</span>
+                    <span className="mini-stat-value">{employee.absences}</span>
                     <span className="mini-stat-label">Absence</span>
                   </div>
                   <div className="mini-stat retard">
-                    <span className="mini-stat-value">{employee.retard}</span>
+                    <span className="mini-stat-value">{employee.delays}</span>
                     <span className="mini-stat-label">Retard</span>
                   </div>
                 </div>
