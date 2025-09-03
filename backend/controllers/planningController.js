@@ -678,123 +678,52 @@ class PlanningGenerator {
 
   // Utiliser Google OR-Tools via API externe
   async generateWeeklyPlanning(weekNumber, year, affluenceLevels, employees) {
-    console.log('🚀 Génération planning avec Google OR-Tools...');
-    console.log('📊 Données reçues:', {
-      weekNumber,
-      year,
-      employeesCount: employees.length,
-      affluenceLevels,
-      ortoolsUrl: process.env.ORTOOLS_API_URL
-    });
+    console.log('🚀 GÉNÉRATION PLANNING - OR-TOOLS OBLIGATOIRE');
+    
+    // Forcer l'utilisation d'OR-Tools uniquement
+    return this.generatePlanningWithORToolsOnly(weekNumber, year, affluenceLevels, employees);
+  }
+
+  // Forcer l'utilisation d'OR-Tools uniquement
+  async generatePlanningWithORToolsOnly(weekNumber, year, affluenceLevels, employees) {
+    console.log('🚀 GÉNÉRATION PLANNING - OR-TOOLS OBLIGATOIRE');
     
     try {
-      // Préparer les données pour OR-Tools
-      const constraints = {};
-      for (const emp of employees) {
-        const empId = emp._id.toString();
-        constraints[empId] = {};
-        
-        // Récupérer les contraintes de la base de données
-        const weeklyConstraints = await WeeklyConstraints.findOne({
-          weekNumber,
-          year,
-          employeeId: emp._id
-        });
-        
-        if (weeklyConstraints && weeklyConstraints.constraints) {
-          for (let day = 0; day < 7; day++) {
-            const dayName = this.days[day];
-            if (weeklyConstraints.constraints[dayName]) {
-              constraints[empId][day] = weeklyConstraints.constraints[dayName];
-            }
-          }
-        }
-      }
-      
-      // Préparer les affluences (convertir en tableau de 7 jours)
-      const affluences = [];
-      for (let day = 0; day < 7; day++) {
-        const dayName = this.days[day];
-        affluences.push(affluenceLevels[dayName] || 2);
-      }
-      
-      // Convertir les employés au format attendu par l'architecture distribuée
-      const employeesData = employees.map(emp => ({
-        _id: emp._id.toString(),
-        name: emp.name,
-        age: emp.age || 18,
-        weeklyHours: emp.weeklyHours,
-        skills: emp.skills || [],
-        trainingDays: emp.trainingDays || [],
-        sickLeave: emp.sickLeave || { isOnSickLeave: false }
-      }));
-      
-      // Calculer l'historique des weekends (simulation basée sur les plannings précédents)
-      const weekendHistory = await this.calculateWeekendHistory(employees, weekNumber, year);
-      
-      // Intégrer les maladies déclarées dans les contraintes automatiquement
-      await this.integrateDeclaredSickLeaves(employees, constraints, weekNumber, year);
-      
-      console.log('📡 Données préparées pour OR-Tools:', {
-        employeesData: employeesData.length,
-        constraints: Object.keys(constraints).length,
-        affluences
-      });
-
-      // Appeler l'architecture distribuée par défaut
-      const result = await this.callDistributedServices({
-        employees: employeesData,
-        constraints: constraints,
-        affluences: affluences,
-        week_number: weekNumber,
-        year: year,
-        weekend_history: weekendHistory
-      });
-      
-      console.log('📈 Résultat OR-Tools:', {
-        success: result.success,
-        hasPlanning: !!result.planning,
-        error: result.error || 'Aucune erreur'
-      });
+      // Tentative 1: Architecture distribuée
+      console.log('🏗️ Tentative 1: Architecture distribuée...');
+      const result = await this.callDistributedServices(weekNumber, year, affluenceLevels, employees);
       
       if (result.success) {
-        if (result.method === 'distributed') {
-          console.log('✅ Solution trouvée avec l\'architecture distribuée !');
-          return this.createPlanningsFromDistributedSolution(result.planning, weekNumber, year, employees);
-        } else {
-          console.log('✅ Solution trouvée avec OR-Tools !');
-          return this.createPlanningsFromORToolsSolution(result.planning, weekNumber, year, employees);
-        }
-      } else {
-        console.log('⚠️ OR-Tools a échoué, fallback vers méthode classique...');
-        console.log('Diagnostic:', result.diagnostic);
-        console.log('Suggestions:', result.suggestions);
-        return this.generateWeeklyPlanningClassic(weekNumber, year, affluenceLevels, employees);
+        console.log('✅ Planning généré avec architecture distribuée');
+        return {
+          success: true,
+          planning: result.planning,
+          method: 'OR-Tools Distribué',
+          message: 'Planning optimisé généré avec succès'
+        };
       }
-    } catch (error) {
-      console.error('❌ Erreur avec l\'architecture distribuée:', error);
-      console.log('⚠️ Tentative de fallback vers l\'ancien service OR-Tools...');
       
-      try {
-        const fallbackResult = await this.callORToolsAPI({
-          employees: employeesData,
-          constraints: constraints,
-          affluences: affluences,
-          week_number: weekNumber,
-          weekend_history: weekendHistory
-        });
-        
-        if (fallbackResult.success) {
-          console.log('✅ Fallback OR-Tools réussi !');
-          return this.createPlanningsFromORToolsSolution(fallbackResult.planning, weekNumber, year, employees);
-        } else {
-          throw new Error('Fallback OR-Tools échoué');
-        }
-      } catch (fallbackError) {
-        console.error('❌ Fallback OR-Tools échoué:', fallbackError.message);
-        console.log('⚠️ Fallback final vers méthode classique...');
-        return this.generateWeeklyPlanningClassic(weekNumber, year, affluenceLevels, employees);
+      // Tentative 2: Ancien service OR-Tools
+      console.log('🔄 Tentative 2: Ancien service OR-Tools...');
+      const ortoolsResult = await this.callORToolsAPI(weekNumber, year, affluenceLevels, employees);
+      
+      if (ortoolsResult.success) {
+        console.log('✅ Planning généré avec ancien service OR-Tools');
+        return {
+          success: true,
+          planning: ortoolsResult.planning,
+          method: 'OR-Tools Classique',
+          message: 'Planning optimisé généré avec succès'
+        };
       }
+      
+      // AUCUN FALLBACK AUTORISÉ
+      console.log('❌ OR-Tools a échoué - AUCUN FALLBACK AUTORISÉ');
+      throw new Error('OR-Tools obligatoire pour la génération du planning - Pas de fallback autorisé');
+      
+    } catch (error) {
+      console.error('❌ Erreur OR-Tools:', error.message);
+      throw new Error(`OR-Tools indisponible: ${error.message}`);
     }
   }
 

@@ -102,33 +102,43 @@ class ConstraintCalculator:
     def calculate_balanced_rest(self, availability: Dict, employee: Dict):
         """Calcule les repos équilibrés selon les règles"""
         
-        # Règles pour mineurs
-        if employee.get('age', 18) < 18:
-            # Pas de travail le dimanche
-            if 'Dimanche' not in availability['constraints']:
-                availability['constraints']['Dimanche'] = 'Repos'
-                availability['rest_days'] += 1
-                availability['total_available_days'] -= 1
-            
-            # Repos consécutifs avec dimanche
-            if 'Samedi' not in availability['constraints']:
-                availability['constraints']['Samedi'] = 'Repos'
-                availability['rest_days'] += 1
-                availability['total_available_days'] -= 1
+        # Règle 1: 1 repos obligatoire pour tous
+        mandatory_rest = 1
         
-        # Équilibrage des repos pour tous
-        min_rest_days = 2
-        if availability['rest_days'] < min_rest_days:
-            # Ajouter des repos équilibrés
-            available_days = [day for day in self.days if day not in availability['constraints']]
-            rest_to_add = min_rest_days - availability['rest_days']
+        # Règle 2: 2 repos si 6j/7 n'est pas coché
+        if not employee.get('sixDaysPerWeek', False):
+            mandatory_rest = 2
+        
+        # Règle 3: Mineurs doivent être en repos le dimanche
+        if employee.get('age', 99) < 18:
+            availability['constraints']['Dimanche'] = 'Repos'
+            mandatory_rest -= 1
+        
+        # Calculer les jours disponibles restants
+        available_days = availability['total_available_days']
+        rest_needed = max(0, mandatory_rest)
+        
+        # Placer les repos restants de manière équilibrée
+        if rest_needed > 0:
+            # Priorité: weekend pour équilibrage
+            weekend_days = ['Samedi', 'Dimanche']
             
-            for i in range(rest_to_add):
-                if available_days:
-                    rest_day = available_days.pop(0)
-                    availability['constraints'][rest_day] = 'Repos'
+            for day in weekend_days:
+                if day not in availability['constraints'] and rest_needed > 0:
+                    availability['constraints'][day] = 'Repos'
                     availability['rest_days'] += 1
+                    rest_needed -= 1
                     availability['total_available_days'] -= 1
+            
+            # Si encore besoin de repos, placer en semaine
+            if rest_needed > 0:
+                weekdays = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi']
+                for day in weekdays:
+                    if day not in availability['constraints'] and rest_needed > 0:
+                        availability['constraints'][day] = 'Repos'
+                        availability['rest_days'] += 1
+                        rest_needed -= 1
+                        availability['total_available_days'] -= 1
     
     def calculate_weekend_history(self, employee_id: str, week_number: int, year: int) -> Dict:
         """Calcule l'historique des weekends pour équilibrage"""

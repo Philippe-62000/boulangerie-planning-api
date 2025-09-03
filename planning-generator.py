@@ -255,6 +255,70 @@ class PlanningGenerator:
         
         return solution
 
+    def place_opening_closing_shifts(self, employees: List[Dict], constraints: Dict, group_availability: Dict, week_number: int, year: int):
+        """Place les shifts d'ouverture et fermeture selon les besoins stricts"""
+        
+        for day_index, day_name in enumerate(self.days):
+            day_requirements = self.get_daily_requirements(day_name)
+            
+            # PLACEMENT OUVERTURE - RESPECT STRICT DES LIMITES
+            if day_requirements.get('opening'):
+                opening_needed = day_requirements['opening']['staff']
+                opening_available = [emp for emp in group_availability['opening'] 
+                                   if not constraints.get(str(emp['_id']), {}).get(day_name)]
+                
+                # Sélectionner exactement le nombre nécessaire
+                opening_selected = self.select_best_employees(opening_available, opening_needed, day_name, constraints)
+                
+                for employee in opening_selected:
+                    employee_id = str(employee['_id'])
+                    if employee_id not in constraints:
+                        constraints[employee_id] = {}
+                    constraints[employee_id][day_name] = 'opening'
+                    
+                    # Marquer comme utilisé pour ce jour
+                    employee['used_days'] = employee.get('used_days', [])
+                    employee['used_days'].append(day_name)
+            
+            # PLACEMENT FERMETURE - RESPECT STRICT DES LIMITES
+            if day_requirements.get('evening'):
+                closing_needed = day_requirements['evening']['staff']
+                closing_available = [emp for emp in group_availability['closing'] 
+                                   if not constraints.get(str(emp['_id']), {}).get(day_name)]
+                
+                # Sélectionner exactement le nombre nécessaire
+                closing_selected = self.select_best_employees(closing_available, closing_needed, day_name, constraints)
+                
+                for employee in closing_selected:
+                    employee_id = str(employee['_id'])
+                    if employee_id not in constraints:
+                        constraints[employee_id] = {}
+                    constraints[employee_id][day_name] = 'closing'
+                    
+                    # Marquer comme utilisé pour ce jour
+                    employee['used_days'] = employee.get('used_days', [])
+                    employee['used_days'].append(day_name)
+    
+    def select_best_employees(self, available_employees: List[Dict], needed: int, day_name: str, constraints: Dict) -> List[Dict]:
+        """Sélectionne les meilleurs employés en respectant strictement les limites"""
+        
+        # Filtrer les employés disponibles pour ce jour
+        available = [emp for emp in available_employees 
+                    if not constraints.get(str(emp['_id']), {}).get(day_name)]
+        
+        if not available:
+            return []
+        
+        # Trier par priorité: disponibilité + compétences + équilibrage
+        available.sort(key=lambda emp: (
+            emp.get('availableDays', 0),  # Plus de jours disponibles = priorité
+            len(emp.get('used_days', [])),  # Moins utilisé = priorité
+            emp.get('skills', [])  # Compétences spécifiques
+        ), reverse=True)
+        
+        # Retourner exactement le nombre nécessaire
+        return available[:needed]
+
 @app.route('/generate-planning', methods=['POST'])
 def generate_planning():
     """Endpoint principal pour générer le planning"""
