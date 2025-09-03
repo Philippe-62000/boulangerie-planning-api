@@ -180,74 +180,93 @@ class ConstraintCalculator:
 
 @app.route('/calculate-constraints', methods=['POST'])
 def calculate_constraints():
-    """Endpoint principal pour calculer les contraintes"""
+    """Calcule les contraintes et disponibilités pour une semaine"""
     
     try:
+        # Récupérer et valider les données
         data = request.get_json()
-        employees = data.get('employees', [])
-        week_number = data.get('week_number')
-        year = data.get('year')
         
-        if not employees or week_number is None or year is None:
-            return jsonify({'error': 'Données manquantes'}), 400
+        if not data:
+            logger.error("❌ Données JSON manquantes")
+            return jsonify({
+                'success': False,
+                'error': 'Données JSON manquantes'
+            }), 400
+        
+        # Validation des champs requis
+        required_fields = ['employees', 'week_number', 'year']
+        for field in required_fields:
+            if field not in data:
+                logger.error(f"❌ Champ manquant: {field}")
+                return jsonify({
+                    'success': False,
+                    'error': f'Champ manquant: {field}'
+                }), 400
+        
+        employees = data['employees']
+        week_number = data['week_number']
+        year = data['year']
+        
+        if not isinstance(employees, list) or len(employees) == 0:
+            logger.error("❌ Liste d'employés invalide")
+            return jsonify({
+                'success': False,
+                'error': 'Liste d\'employés invalide'
+            }), 400
+        
+        if not isinstance(week_number, int) or week_number < 1 or week_number > 53:
+            logger.error(f"❌ Numéro de semaine invalide: {week_number}")
+            return jsonify({
+                'success': False,
+                'error': f'Numéro de semaine invalide: {week_number}'
+            }), 400
+        
+        if not isinstance(year, int) or year < 2020 or year > 2030:
+            logger.error(f"❌ Année invalide: {year}")
+            return jsonify({
+                'success': False,
+                'error': f'Année invalide: {year}'
+            }), 400
         
         logger.info(f"🧮 Calcul des contraintes pour {len(employees)} employés, semaine {week_number}")
         
+        # Calculer les contraintes
         calculator = ConstraintCalculator()
-        results = []
+        constraints = []
         
         for employee in employees:
-            # Calculer disponibilité
-            availability = calculator.calculate_employee_availability(employee, week_number, year)
-            
-            # Calculer historique weekends
-            employee_id = employee.get('_id') or employee.get('id') or str(employee.get('name', 'unknown'))
-            weekend_history = calculator.calculate_weekend_history(
-                str(employee_id), week_number, year
-            )
-            
-            # Enrichir avec historique
-            availability['weekend_history'] = weekend_history
-            availability['employee_id'] = employee_id
-            availability['employee_name'] = employee.get('name', 'Unknown')
-            
-            results.append(availability)
-            
-            logger.info(f"✅ {employee.get('name', 'Unknown')}: {availability['total_available_days']} jours disponibles")
-        
-        # Enregistrer en MongoDB
-        if client:
             try:
-                # Supprimer anciennes contraintes
-                db[COLLECTION_CONSTRAINTS].delete_many({
-                    'week_number': week_number,
-                    'year': year
-                })
-                
-                # Insérer nouvelles contraintes
-                for result in results:
-                    db[COLLECTION_CONSTRAINTS].insert_one({
-                        **result,
-                        'calculated_at': datetime.utcnow(),
-                        'status': 'calculated'
-                    })
-                
-                logger.info(f"💾 {len(results)} contraintes enregistrées en MongoDB")
-                
+                availability = calculator.calculate_employee_availability(employee, week_number, year)
+                constraints.append(availability)
+                logger.info(f"✅ {employee.get('name', 'Unknown')}: {availability['total_available_days']} jours disponibles")
             except Exception as e:
-                logger.error(f"❌ Erreur enregistrement MongoDB: {e}")
+                logger.error(f"❌ Erreur calcul employé {employee.get('name', 'Unknown')}: {e}")
+                # Continuer avec les autres employés
+                continue
+        
+        if not constraints:
+            logger.error("❌ Aucune contrainte calculée")
+            return jsonify({
+                'success': False,
+                'error': 'Aucune contrainte calculée'
+            }), 500
+        
+        logger.info(f"✅ {len(constraints)} contraintes calculées avec succès")
         
         return jsonify({
             'success': True,
-            'message': f'Contraintes calculées pour {len(employees)} employés',
-            'constraints': results,
+            'constraints': constraints,
             'week_number': week_number,
-            'year': year
+            'year': year,
+            'count': len(constraints)
         })
         
     except Exception as e:
         logger.error(f"❌ Erreur calcul contraintes: {e}")
-        return jsonify({'error': str(e)}), 500
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
 
 @app.route('/health', methods=['GET'])
 def health_check():

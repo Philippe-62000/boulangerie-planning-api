@@ -761,10 +761,28 @@ class PlanningGenerator {
   }
 
   // NOUVELLE MÉTHODE : Architecture Distribuée avec 2 Services
-  async callDistributedServices(data) {
+  async callDistributedServices(weekNumber, year, affluenceLevels, employees) {
     
     try {
       console.log('🏗️ Utilisation de l\'architecture distribuée...');
+      
+      // Préparer les données pour le constraint calculator
+      const employeesData = employees.map(emp => ({
+        _id: emp._id.toString(),
+        name: emp.name,
+        age: emp.age || 18,
+        weeklyHours: emp.weeklyHours,
+        skills: emp.skills || [],
+        trainingDays: emp.trainingDays || [],
+        sickLeave: emp.sickLeave || { isOnSickLeave: false },
+        sixDaysPerWeek: emp.sixDaysPerWeek || false
+      }));
+      
+      console.log('📊 Données préparées pour constraint calculator:', {
+        employeesCount: employeesData.length,
+        weekNumber,
+        year
+      });
       
       // ÉTAPE 1 : Calculer les contraintes avec constraint-calculator
       console.log('🧮 Étape 1: Calcul des contraintes...');
@@ -775,19 +793,25 @@ class PlanningGenerator {
           'Accept': 'application/json'
         },
         body: JSON.stringify({
-          employees: data.employees,
-          week_number: data.week_number,
-          year: data.year || new Date().getFullYear()
+          employees: employeesData,
+          week_number: weekNumber,
+          year: year
         }),
         timeout: 30000 // 30 secondes
       });
       
       if (!constraintsResponse.ok) {
-        throw new Error(`Erreur calcul contraintes: HTTP ${constraintsResponse.status}`);
+        const errorText = await constraintsResponse.text();
+        console.error('❌ Erreur constraint calculator:', errorText);
+        throw new Error(`Erreur calcul contraintes: HTTP ${constraintsResponse.status} - ${errorText}`);
       }
       
       const constraintsResult = await constraintsResponse.json();
       console.log('✅ Contraintes calculées:', constraintsResult.success ? 'Succès' : 'Échec');
+      
+      if (!constraintsResult.success) {
+        throw new Error(`Erreur calcul contraintes: ${constraintsResult.error || 'Erreur inconnue'}`);
+      }
       
       // ÉTAPE 2 : Générer le planning avec planning-generator
       console.log('🚀 Étape 2: Génération du planning...');
@@ -798,33 +822,34 @@ class PlanningGenerator {
           'Accept': 'application/json'
         },
         body: JSON.stringify({
-          employees: data.employees,
-          week_number: data.week_number,
-          year: data.year || new Date().getFullYear(),
-          affluences: data.affluences
+          employees: employeesData,
+          constraints: constraintsResult.constraints,
+          affluence_levels: affluenceLevels,
+          week_number: weekNumber,
+          year: year
         }),
-        timeout: 60000 // 60 secondes
+        timeout: 30000 // 30 secondes
       });
       
       if (!planningResponse.ok) {
-        throw new Error(`Erreur génération planning: HTTP ${planningResponse.status}`);
+        const errorText = await planningResponse.text();
+        console.error('❌ Erreur planning generator:', errorText);
+        throw new Error(`Erreur génération planning: HTTP ${planningResponse.status} - ${errorText}`);
       }
       
       const planningResult = await planningResponse.json();
       console.log('✅ Planning généré:', planningResult.success ? 'Succès' : 'Échec');
       
-      if (planningResult.success) {
-        return {
-          success: true,
-          planning: planningResult.planning,
-          method: 'distributed',
-          constraints: constraintsResult.constraints,
-          solver_status: planningResult.solver_status,
-          solve_time: planningResult.solve_time
-        };
-      } else {
-        throw new Error(`Erreur génération planning: ${planningResult.error}`);
+      if (!planningResult.success) {
+        throw new Error(`Erreur génération planning: ${planningResult.error || 'Erreur inconnue'}`);
       }
+      
+      return {
+        success: true,
+        planning: planningResult.planning,
+        method: 'distributed',
+        constraints: constraintsResult.constraints
+      };
       
     } catch (error) {
       console.error('❌ Erreur architecture distribuée:', error.message);
