@@ -1707,18 +1707,16 @@ class PlanningGenerator {
     console.log(`🔧 Ajustement planning ${employee.name}: ${currentHours}h sur ${targetHours}h`);
     
     // Si l'employé a trop d'heures, réduire les shifts pour atteindre exactement les heures contractuelles
-    if (currentHours > targetHours + 1) { // Tolérance réduite à 1h
+    if (currentHours > targetHours) {
       const excessHours = currentHours - targetHours;
       console.log(`📅 ${employee.name} a ${excessHours}h en trop, réduction des shifts`);
       
       // Réduire les shifts en commençant par les plus longs
       const allShifts = [];
       schedule.schedule.forEach(day => {
-        if (day.shifts) {
-          day.shifts.forEach(shift => {
-            allShifts.push({ day, shift, hours: shift.hoursWorked });
-          });
-        }
+        day.shifts.forEach(shift => {
+          allShifts.push({ day, shift, hours: shift.hoursWorked });
+        });
       });
       
       // Trier par heures décroissantes
@@ -1734,7 +1732,6 @@ class PlanningGenerator {
           day.totalHours = day.shifts.reduce((sum, s) => sum + s.hoursWorked, 0);
           remainingExcess -= shift.hoursWorked;
           schedule.totalHours -= shift.hoursWorked;
-          console.log(`🗑️ Shift supprimé: ${shift.startTime}-${shift.endTime} (${shift.hoursWorked}h)`);
         } else {
           // Réduire partiellement le shift
           const reduction = remainingExcess;
@@ -1743,13 +1740,12 @@ class PlanningGenerator {
           day.totalHours = day.shifts.reduce((sum, s) => sum + s.hoursWorked, 0);
           remainingExcess = 0;
           schedule.totalHours -= reduction;
-          console.log(`✂️ Shift réduit: ${shift.startTime}-${shift.endTime} (${shift.hoursWorked}h)`);
         }
       }
     }
     
     // Si l'employé n'a pas assez d'heures, essayer de réduire les repos
-    else if (currentHours < targetHours - 2) { // Tolérance réduite à 2h
+    else if (currentHours < targetHours - 4) { // Tolérance de 4h
       const missingHours = targetHours - currentHours;
       console.log(`📅 ${employee.name} manque ${missingHours}h, transformation de jours de repos en travail`);
       
@@ -1761,7 +1757,6 @@ class PlanningGenerator {
         
         restDay.constraint = undefined;
         restDay.totalHours = 0;
-        console.log(`🔄 Jour de repos transformé en travail: ${restDay.day}`);
         // Le shift sera généré plus tard
       }
     }
@@ -1956,6 +1951,224 @@ class PlanningGenerator {
         }
       }
     }
+  }
+
+  // Méthodes auxiliaires pour la nouvelle stratégie
+  
+  // Calculer l'historique des weekends
+  async calculateWeekendHistory(employee, weekNumber, year) {
+    const history = { saturdays: 0, sundays: 0 };
+    
+    // Analyser les 4 semaines précédentes
+    for (let week = weekNumber - 4; week < weekNumber; week++) {
+      if (week > 0) {
+        const planning = await Planning.findOne({
+          weekNumber: week,
+          year: year,
+          employeeId: employee._id
+        });
+        
+        if (planning && planning.schedule) {
+          planning.schedule.forEach(day => {
+            if (day.day === 'Samedi' && day.shifts && day.shifts.length > 0) {
+              history.saturdays++;
+            }
+            if (day.day === 'Dimanche' && day.shifts && day.shifts.length > 0) {
+              history.sundays++;
+            }
+          });
+        }
+      }
+    }
+    
+    return history;
+  }
+
+  // Sélectionner les meilleurs employés pour un poste
+  selectBestEmployees(availableEmployees, needed, dayName, constraints) {
+    // Filtrer les employés disponibles pour ce jour
+    const available = availableEmployees.filter(emp => 
+      !constraints[emp._id] || constraints[emp._id][dayName] === 'Travail normal'
+    );
+    
+    // Trier par disponibilité (plus de jours disponibles = priorité)
+    available.sort((a, b) => (b.availableDays || 0) - (a.availableDays || 0));
+    
+    return available.slice(0, needed);
+  }
+
+  // Sélectionner un créneau disponible
+  selectAvailableSlot(remainingSlots, dayName, weekNumber, year) {
+    // Logique simple: alterner entre les créneaux
+    const dayIndex = this.days.indexOf(dayName);
+    return remainingSlots[dayIndex % remainingSlots.length];
+  }
+
+  // Calculer les heures d'un shift
+  calculateShiftHours(shiftType) {
+    const shiftHours = {
+      'opening': 7.5,
+      'closing': 6.5,
+      '7h30': 1.5,
+      '11h': 4.5,
+      '12h': 4.0
+    };
+    
+    return shiftHours[shiftType] || 8.0; // Par défaut 8h
+  }
+
+  // Réduire les heures en excès
+  async reduceExcessHours(employee, excessHours, weekNumber, year) {
+    // Logique de réduction des heures
+    console.log(`🔧 Réduction de ${excessHours}h pour ${employee.name}`);
+    
+    // Implémentation: supprimer des shifts ou réduire leur durée
+    // Cette méthode sera appelée lors de la création finale du planning
+  }
+
+  // Ajouter les heures manquantes
+  async addMissingHours(employee, missingHours, weekNumber, year) {
+    // Logique d'ajout d'heures
+    console.log(`🔧 Ajout de ${missingHours}h pour ${employee.name}`);
+    
+    // Implémentation: ajouter des shifts ou étendre la durée
+    // Cette méthode sera appelée lors de la création finale du planning
+  }
+
+  // Compter le personnel actuel pour un jour
+  countCurrentStaff(employees, dayName, weekNumber, year) {
+    let count = 0;
+    
+    for (const employee of employees) {
+      if (employee.constraints && employee.constraints[dayName] && 
+          employee.constraints[dayName] !== 'Repos' && 
+          employee.constraints[dayName] !== 'MAL' &&
+          employee.constraints[dayName] !== 'CP') {
+        count++;
+      }
+    }
+    
+    return count;
+  }
+
+  // Ajouter du personnel pour l'affluence
+  async addStaffForAffluence(employees, dayName, needed, weekNumber, year) {
+    console.log(`👥 Ajout de ${needed} employés pour ${dayName} (affluence élevée)`);
+    
+    // Logique d'ajout de personnel
+    // Cette méthode sera implémentée selon les besoins
+  }
+
+  // Réduire le personnel pour l'affluence
+  async reduceStaffForAffluence(employees, dayName, excess, weekNumber, year) {
+    console.log(`👥 Réduction de ${excess} employés pour ${dayName} (affluence faible)`);
+    
+    // Logique de réduction de personnel
+    // Cette méthode sera implémentée selon les besoins
+  }
+
+  // Créer les plannings à partir de la nouvelle stratégie
+  createPlanningsFromNewStrategy(employees, weekNumber, year) {
+    const plannings = [];
+    
+    for (const employee of employees) {
+      const planning = {
+        weekNumber,
+        year,
+        employeeId: employee._id,
+        employeeName: employee.name,
+        schedule: []
+      };
+      
+      // Créer le planning pour chaque jour
+      for (let day = 0; day < 7; day++) {
+        const dayName = this.days[day];
+        const dayConstraint = employee.constraints?.[dayName];
+        
+        const daySchedule = {
+          day: dayName,
+          shifts: [],
+          totalHours: 0
+        };
+        
+        if (dayConstraint === 'Repos') {
+          daySchedule.constraint = 'Repos';
+        } else if (dayConstraint === 'MAL') {
+          daySchedule.constraint = 'MAL';
+        } else if (dayConstraint === 'CP') {
+          daySchedule.constraint = 'CP';
+        } else if (dayConstraint === 'Formation') {
+          daySchedule.constraint = 'Formation';
+          daySchedule.totalHours = 8;
+        } else if (dayConstraint) {
+          // Créer un shift selon le type
+          const shift = this.createShiftFromConstraint(dayConstraint, dayName);
+          daySchedule.shifts = [shift];
+          daySchedule.totalHours = shift.hoursWorked;
+        }
+        
+        planning.schedule.push(daySchedule);
+      }
+      
+      // Calculer le total hebdomadaire
+      planning.totalHours = planning.schedule.reduce((total, day) => total + day.totalHours, 0);
+      
+      plannings.push(planning);
+    }
+    
+    return plannings;
+  }
+
+  // Créer un shift à partir d'une contrainte
+  createShiftFromConstraint(constraint, dayName) {
+    const shiftTemplates = {
+      'opening': { startTime: '06:00', endTime: '13:30', hoursWorked: 7.5 },
+      'closing': { startTime: '13:30', endTime: '20:30', hoursWorked: 6.5 },
+      '7h30': { startTime: '07:30', endTime: '09:00', hoursWorked: 1.5 },
+      '11h': { startTime: '11:00', endTime: '15:30', hoursWorked: 4.5 },
+      '12h': { startTime: '12:00', endTime: '16:00', hoursWorked: 4.0 }
+    };
+    
+    const template = shiftTemplates[constraint];
+    if (template) {
+      return {
+        startTime: template.startTime,
+        endTime: template.endTime,
+        hoursWorked: template.hoursWorked,
+        type: constraint
+      };
+    }
+    
+    // Shift par défaut
+    return {
+      startTime: '09:00',
+      endTime: '17:00',
+      hoursWorked: 8.0,
+      type: 'standard'
+    };
+  }
+
+  // Obtenir la date pour un jour spécifique
+  getDateForDay(dayName, weekNumber, year) {
+    // Calculer la date du premier jour de la semaine
+    const firstDayOfYear = new Date(year, 0, 1);
+    const firstMonday = new Date(firstDayOfYear);
+    
+    // Trouver le premier lundi de l'année
+    while (firstMonday.getDay() !== 1) {
+      firstMonday.setDate(firstMonday.getDate() + 1);
+    }
+    
+    // Calculer le lundi de la semaine demandée
+    const targetMonday = new Date(firstMonday);
+    targetMonday.setDate(firstMonday.getDate() + (weekNumber - 1) * 7);
+    
+    // Calculer le jour spécifique
+    const dayIndex = this.days.indexOf(dayName);
+    const targetDay = new Date(targetMonday);
+    targetDay.setDate(targetMonday.getDate() + dayIndex);
+    
+    return targetDay;
   }
 }
 

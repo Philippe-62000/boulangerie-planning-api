@@ -29,24 +29,6 @@ const Header = () => {
     <header className="header">
       <div className="header-content">
         <div className="header-brand">
-          <div className="brand-icon">
-            <svg viewBox="0 0 120 60" className="filmara-logo" xmlns="http://www.w3.org/2000/svg">
-              {/* Orca (left side) */}
-              <path d="M15 20c0-5 5-10 10-10s10 5 10 10c0 3-2 6-4 8l-2 2c-1 1-2 2-4 2s-3-1-4-2l-2-2c-2-2-4-5-4-8z" fill="#8B4513"/>
-              <path d="M18 18c0-2 1-4 3-4s3 2 3 4-1 4-3 4-3-2-3-4z" fill="white"/>
-              
-              {/* Fox (right side) */}
-              <path d="M85 20c0-5 5-10 10-10s10 5 10 10c0 3-2 6-4 8l-2 2c-1 1-2 2-4 2s-3-1-4-2l-2-2c-2-2-4-5-4-8z" fill="#D2691E"/>
-              <path d="M88 18c0-2 1-4 3-4s3 2 3 4-1 4-3 4-3-2-3-4z" fill="white"/>
-              <path d="M95 25c0-2 1-4 3-4s3 2 3 4-1 4-3 4-3-2-3-4z" fill="white"/>
-              
-              {/* FILMARA text - using path instead of text element for better compatibility */}
-              <path d="M45 45 L55 45 L55 50 L45 50 Z" fill="#8B4513"/>
-              <path d="M60 45 L70 45 L70 50 L60 50 Z" fill="#8B4513"/>
-              <path d="M75 45 L85 45 L85 50 L75 50 Z" fill="#8B4513"/>
-            </svg>
-            <div className="filmara-text">FILMARA</div>
-          </div>
           <div className="week-info">
             <div className="week-number">{currentWeek}</div>
             <div className="current-date">{currentDate}</div>
