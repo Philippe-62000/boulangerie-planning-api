@@ -49,6 +49,7 @@ app.use('/api/employees', require('./routes/employees'));
 app.use('/api/planning', require('./routes/planning'));
 app.use('/api/constraints', require('./routes/constraints'));
 app.use('/api/absences', require('./routes/absences'));
+app.use('/api/sales-stats', require('./routes/salesStats'));
 
 // Route de santé pour vérifier que l'API fonctionne
 app.get('/health', (req, res) => {
@@ -69,7 +70,8 @@ app.get('/', (req, res) => {
       health: '/health',
       employees: '/api/employees',
       planning: '/api/planning',
-      constraints: '/api/constraints'
+      constraints: '/api/constraints',
+      salesStats: '/api/sales-stats'
     }
   });
 });
