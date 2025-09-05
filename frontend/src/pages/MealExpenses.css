@@ -17,7 +17,7 @@
   font-size: 1.8rem;
 }
 
-.header-actions {
+.header-controls {
   display: flex;
   align-items: center;
   gap: 1rem;

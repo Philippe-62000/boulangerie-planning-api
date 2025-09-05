@@ -100,7 +100,7 @@ const MealExpenses = () => {
     <div className="meal-expenses fade-in">
       <div className="page-header">
         <h2>🍽️ Frais Repas - {getMonthName(month)} {year}</h2>
-        <div className="header-actions">
+        <div className="header-controls">
           <div className="date-selector">
             <select
               value={month}

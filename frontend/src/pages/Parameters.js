@@ -34,17 +34,24 @@ const Parameters = () => {
   const saveParameters = async () => {
     setSaving(true);
     try {
+      console.log('📊 Paramètres à sauvegarder:', parameters);
+      
+      const parametersToSave = parameters.map(param => ({
+        _id: param._id,
+        displayName: param.displayName,
+        kmValue: parseFloat(param.kmValue) || 0
+      }));
+      
+      console.log('📤 Données envoyées:', parametersToSave);
+      
       await api.put('/parameters/batch', {
-        parameters: parameters.map(param => ({
-          _id: param._id,
-          displayName: param.displayName,
-          kmValue: parseFloat(param.kmValue) || 0
-        }))
+        parameters: parametersToSave
       });
       
       toast.success('Paramètres sauvegardés avec succès');
     } catch (error) {
       console.error('Erreur lors de la sauvegarde:', error);
+      console.error('Détails de l\'erreur:', error.response?.data);
       toast.error('Erreur lors de la sauvegarde des paramètres');
     } finally {
       setSaving(false);
@@ -82,9 +89,8 @@ const Parameters = () => {
       <div className="card">
         <div className="parameters-info">
           <p>Configurez les paramètres pour le calcul des frais kilométriques.</p>
-          <p><strong>Ligne 1 :</strong> Numéros des paramètres (1 à 12)</p>
-          <p><strong>Ligne 2 :</strong> Intitulé affiché (nom du trajet)</p>
-          <p><strong>Ligne 3 :</strong> Valeur en kilomètres</p>
+          <p><strong>Ligne 1 :</strong> Intitulé affiché (nom du trajet)</p>
+          <p><strong>Ligne 2 :</strong> Valeur en kilomètres</p>
         </div>
         
         <div className="table-container">
@@ -100,17 +106,7 @@ const Parameters = () => {
               </tr>
             </thead>
             <tbody>
-              {/* Ligne 1: Numéros des paramètres */}
-              <tr className="param-numbers-row">
-                <td className="row-label">Numéro</td>
-                {Array.from({ length: 12 }, (_, i) => (
-                  <td key={i + 1} className="param-number">
-                    {i + 1}
-                  </td>
-                ))}
-              </tr>
-              
-              {/* Ligne 2: Intitulés */}
+              {/* Ligne 1: Intitulés */}
               <tr className="param-display-row">
                 <td className="row-label">Intitulé</td>
                 {parameters.map((param, index) => (
@@ -126,7 +122,7 @@ const Parameters = () => {
                 ))}
               </tr>
               
-              {/* Ligne 3: Valeurs KM */}
+              {/* Ligne 2: Valeurs KM */}
               <tr className="param-values-row">
                 <td className="row-label">KM</td>
                 {parameters.map((param, index) => (

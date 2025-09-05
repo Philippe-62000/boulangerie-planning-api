@@ -18,9 +18,13 @@ const KmExpenses = () => {
   const fetchExpenses = async () => {
     setLoading(true);
     try {
+      console.log('📊 Chargement des frais KM pour:', { month, year });
       const response = await api.get(`/km-expenses?month=${month}&year=${year}`);
+      console.log('📥 Réponse API frais KM:', response.data);
       setExpenses(response.data.employees);
       setParameters(response.data.parameters);
+      console.log('📊 Employés chargés:', response.data.employees?.length);
+      console.log('📊 Paramètres chargés:', response.data.parameters?.length);
     } catch (error) {
       console.error('Erreur lors du chargement des frais KM:', error);
       toast.error('Erreur lors du chargement des frais KM');
