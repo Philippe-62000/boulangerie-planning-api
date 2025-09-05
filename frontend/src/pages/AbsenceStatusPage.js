@@ -16,6 +16,23 @@ const AbsenceStatusPage = () => {
     try {
       setLoading(true);
       const response = await api.get('/employees');
+      console.log('📊 Données employés reçues:', response.data);
+      
+      // Vérifier la structure des données
+      if (response.data && response.data.length > 0) {
+        const firstEmployee = response.data[0];
+        console.log('🔍 Premier employé:', {
+          id: firstEmployee._id,
+          name: firstEmployee.name,
+          hasAbsences: !!firstEmployee.absences,
+          hasSickLeaves: !!firstEmployee.sickLeaves,
+          hasDelays: !!firstEmployee.delays,
+          absencesCount: firstEmployee.absences?.length || 0,
+          sickLeavesCount: firstEmployee.sickLeaves?.length || 0,
+          delaysCount: firstEmployee.delays?.length || 0
+        });
+      }
+      
       setEmployees(response.data);
     } catch (error) {
       toast.error('Erreur lors du chargement des employés');

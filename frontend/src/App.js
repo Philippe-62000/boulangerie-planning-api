@@ -9,6 +9,10 @@ import ConstraintsManager from './pages/Constraints';
 import Dashboard from './pages/Dashboard';
 import SalesStats from './pages/SalesStats';
 import AbsenceStatusPage from './pages/AbsenceStatusPage';
+import MealExpenses from './pages/MealExpenses';
+import KmExpenses from './pages/KmExpenses';
+import Parameters from './pages/Parameters';
+import EmployeeStatusPrint from './pages/EmployeeStatusPrint';
 
 function App() {
   return (
@@ -26,6 +30,10 @@ function App() {
               <Route path="/planning" element={<PlanningGenerator />} />
               <Route path="/sales-stats" element={<SalesStats />} />
               <Route path="/absences" element={<AbsenceStatusPage />} />
+              <Route path="/meal-expenses" element={<MealExpenses />} />
+              <Route path="/km-expenses" element={<KmExpenses />} />
+              <Route path="/parameters" element={<Parameters />} />
+              <Route path="/employee-status-print" element={<EmployeeStatusPrint />} />
             </Routes>
           </main>
         </div>

@@ -1398,4 +1398,324 @@ calculatePriority(employee, schedule, day, constraintType) {
 
 ---
 
-*Dernière mise à jour : Version 1.4.1 - **CORRECTION CRITIQUE OR-TOOLS** + Suppression méthodes dupliquées*
+## 📊 **MODULE STATISTIQUES DE VENTE - ARCHITECTURE COMPLÈTE**
+
+### **🎯 Vue d'ensemble du Module**
+Le module "Stats Vente" permet de suivre et analyser les performances commerciales des employés de la boulangerie. Il inclut la saisie mensuelle des données, le classement des vendeuses, et la comparaison sur 12 mois.
+
+### **🏗️ Architecture Frontend (React)**
+
+#### **📁 Structure des Composants**
+```
+frontend/src/pages/SalesStats/
+├── SalesStats.js          # Composant principal
+├── SalesStats.css         # Styles et design
+└── index.js              # Export (si nécessaire)
+```
+
+#### **🔧 Composant Principal : SalesStats.js**
+```javascript
+// Structure du composant
+const SalesStats = () => {
+  // États locaux
+  const [employees, setEmployees] = useState([]);           // Liste des employés
+  const [salesData, setSalesData] = useState({});          // Données de vente
+  const [currentMonth, setCurrentMonth] = useState('');     // Mois sélectionné
+  const [currentYear, setCurrentYear] = useState(2025);    // Année sélectionnée
+  const [monthlyStats, setMonthlyStats] = useState({});    // Stats mensuelles
+  const [loading, setLoading] = useState(false);           // État de chargement
+};
+```
+
+#### **📊 Gestion des Données de Vente**
+```javascript
+// Structure des données par employé
+const salesDataStructure = {
+  employeeId: {
+    caNetHt: 0,              // Chiffre d'affaires net HT
+    nbClients: 0,            // Nombre de clients servis
+    panierMoyen: 0,          // Panier moyen en euros
+    nbMenus: 0,              // Nombre de menus vendus
+    nbCartesFid: 0,          // Nombre de cartes fidélité
+    nbAvisPositifs: 0,       // Nombre d'avis positifs
+    nbAvisNegatifs: 0        // Nombre d'avis négatifs
+  }
+};
+```
+
+#### **🏆 Calcul du Score de Performance**
+```javascript
+// Formule de calcul du score
+const calculateScore = (data) => {
+  return data.caNetHt +                    // CA Net HT
+         (data.nbCartesFid * 500) +        // +500 points par carte fidélité
+         (data.nbAvisPositifs * 100) -     // +100 points par avis positif
+         (data.nbAvisNegatifs * 300);      // -300 points par avis négatif
+};
+```
+
+### **🗄️ Architecture Backend (Node.js/Express)**
+
+#### **📁 Structure des Fichiers**
+```
+backend/
+├── models/
+│   └── SalesStats.js           # Modèle MongoDB
+├── controllers/
+│   └── salesStatsController.js # Logique métier
+├── routes/
+│   └── salesStats.js           # Routes API
+└── server.js                   # Intégration des routes
+```
+
+#### **🏗️ Modèle MongoDB : SalesStats.js**
+```javascript
+const salesStatsSchema = new mongoose.Schema({
+  month: { type: Number, required: true, min: 1, max: 12 },
+  year: { type: Number, required: true },
+  salesData: {
+    type: Map,
+    of: {
+      employeeName: String,
+      caNetHt: Number,
+      nbClients: Number,
+      panierMoyen: Number,
+      nbMenus: Number,
+      nbCartesFid: Number,
+      nbAvisPositifs: Number,
+      nbAvisNegatifs: Number
+    }
+  }
+}, { timestamps: true });
+```
+
+#### **🔧 Méthodes Statiques du Modèle**
+```javascript
+// Récupérer les stats pour une période
+static async getStatsForPeriod(month, year) {
+  return await this.findOne({ month, year });
+}
+
+// Récupérer les stats pour une année
+static async getStatsForYear(year) {
+  return await this.find({ year }).sort({ month: 1 });
+}
+
+// Stats agrégées mensuelles
+static async getMonthlyAggregatedStats(year) {
+  return await this.aggregate([
+    { $match: { year } },
+    { $group: { /* agrégation des données */ } }
+  ]);
+}
+
+// Classement des employés
+static async getEmployeeRanking(year, month) {
+  // Logique de classement par score
+}
+```
+
+#### **🎮 Contrôleur : salesStatsController.js**
+```javascript
+// Endpoints disponibles
+const salesStatsEndpoints = {
+  'POST /api/sales-stats': 'saveSalesStats',           // Sauvegarder
+  'GET /api/sales-stats/period/:month/:year': 'getSalesStatsForPeriod',
+  'GET /api/sales-stats/monthly/:year': 'getMonthlyStatsForYear',
+  'GET /api/sales-stats/ranking/:year/:month': 'getEmployeeRanking',
+  'GET /api/sales-stats/all': 'getAllSalesStats',
+  'DELETE /api/sales-stats/period/:month/:year': 'deleteSalesStats'
+};
+```
+
+### **🌐 API Endpoints**
+
+#### **📝 Sauvegarde des Données**
+```http
+POST /api/sales-stats
+Content-Type: application/json
+
+{
+  "month": 9,
+  "year": 2025,
+  "salesData": {
+    "employeeId1": {
+      "employeeName": "Anaïs",
+      "caNetHt": 2500.50,
+      "nbClients": 45,
+      "panierMoyen": 55.57,
+      "nbMenus": 12,
+      "nbCartesFid": 8,
+      "nbAvisPositifs": 15,
+      "nbAvisNegatifs": 1
+    }
+  }
+}
+```
+
+#### **📊 Récupération des Données**
+```http
+GET /api/sales-stats/period/09/2025
+GET /api/sales-stats/monthly/2025
+GET /api/sales-stats/ranking/2025/09
+```
+
+#### **🗑️ Suppression des Données**
+```http
+DELETE /api/sales-stats/period/09/2025
+```
+
+### **🎨 Interface Utilisateur**
+
+#### **📱 Composants de l'Interface**
+1. **En-tête avec sélecteurs** : Mois et année courants
+2. **Formulaire de saisie** : Tableau des employés avec champs de saisie
+3. **Classement des vendeuses** : Tableau trié par score avec sélecteurs
+4. **Total annuel** : Résumé des performances de l'année
+5. **Comparaison 12 mois** : Vue d'ensemble avec sélecteur d'année
+
+#### **🔧 Fonctionnalités Interactives**
+- **Sélecteurs de période** : Mois et année pour chaque section
+- **Bouton Actualiser** : Recharge automatique des données
+- **Bouton Sauvegarder** : Persistance des données en base
+- **Bouton Effacer** : Suppression des données d'un mois
+- **Tri automatique** : Classement par score de performance
+
+#### **📊 Affichage des Données**
+```javascript
+// Filtrage des employés par fonction
+const vendeuses = employees.filter(emp => emp.function === 'vendeuse');
+const responsables = employees.filter(emp => 
+  emp.function === 'responsable' || emp.function === 'manager'
+);
+
+// Tri par score de performance
+vendeuses.sort((a, b) => {
+  const scoreA = calculateScore(salesData[a._id] || {});
+  const scoreB = calculateScore(salesData[b._id] || {});
+  return scoreB - scoreA; // Ordre décroissant
+});
+```
+
+### **🔄 Gestion des États et Synchronisation**
+
+#### **📡 Cycle de Vie des Données**
+```javascript
+// 1. Chargement initial
+useEffect(() => {
+  fetchEmployees();
+}, []);
+
+// 2. Chargement des données au changement de période
+useEffect(() => {
+  if (currentMonth && currentYear) {
+    setSalesData({}); // Nettoyage
+    loadSalesDataForPeriod(); // Rechargement
+  }
+}, [currentMonth, currentYear]);
+
+// 3. Rechargement des stats mensuelles
+useEffect(() => {
+  if (currentYear) {
+    loadMonthlyStats();
+  }
+}, [currentYear]);
+```
+
+#### **🔄 Synchronisation Frontend-Backend**
+```javascript
+// Mapping des IDs pour résoudre les différences
+const employeeNameMapping = {};
+employees.forEach(emp => {
+  employeeNameMapping[emp.name] = emp._id;
+});
+
+// Correspondance par nom d'employé
+Object.keys(apiData).forEach(apiEmployeeId => {
+  const employeeData = apiData[apiEmployeeId];
+  const employeeName = employeeData.employeeName;
+  const frontendEmployeeId = employeeNameMapping[employeeName];
+  
+  if (frontendEmployeeId) {
+    updatedSalesData[frontendEmployeeId] = employeeData;
+  }
+});
+```
+
+### **🎯 Bonnes Pratiques Implémentées**
+
+#### **🔒 Sécurité et Validation**
+- **Validation des données** : Types et formats vérifiés
+- **Gestion des erreurs** : Try-catch et messages utilisateur
+- **Confirmation des actions** : Suppression avec confirmation
+- **Timeout des requêtes** : Gestion des appels API lents
+
+#### **📱 Responsive Design**
+- **Grid CSS** : Layout adaptatif pour tous les écrans
+- **Flexbox** : Alignement et distribution des éléments
+- **Media queries** : Adaptation mobile et tablette
+- **Touch-friendly** : Boutons et champs adaptés au tactile
+
+#### **⚡ Performance**
+- **Lazy loading** : Chargement à la demande
+- **Memoization** : Calculs optimisés des scores
+- **Debouncing** : Limitation des appels API
+- **Cache local** : Stockage temporaire des données
+
+### **🚀 Déploiement et Maintenance**
+
+#### **📦 Script de Déploiement**
+```batch
+# deploy-frontend-stats-vente-ameliore.bat
+npm run build                    # Construction
+xcopy build\* deploy-ovh\ /E    # Copie des fichiers
+echo .htaccess > deploy-ovh\    # Configuration OVH
+```
+
+#### **🌐 Configuration OVH**
+```apache
+# .htaccess pour React Router
+RewriteEngine On
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule . /index.html [L]
+
+# Compression et cache
+<IfModule mod_deflate.c>
+    AddOutputFilterByType DEFLATE text/html text/css application/javascript
+</IfModule>
+```
+
+#### **📊 Monitoring et Debug**
+```javascript
+// Logs de débogage
+console.log('✅ Données sauvegardées:', result);
+console.log('✅ Données rechargées par nom:', updatedSalesData);
+console.error('❌ Erreur lors de la sauvegarde:', error);
+
+// Gestion des erreurs API
+if (response.ok) {
+  // Succès
+} else {
+  const errorData = await response.json();
+  console.error('❌ Erreur API:', errorData);
+}
+```
+
+### **🔮 Évolutions Futures**
+
+#### **📈 Fonctionnalités Planifiées**
+- **Graphiques interactifs** : Charts.js ou D3.js
+- **Export PDF/Excel** : Rapports automatisés
+- **Notifications** : Alertes de performance
+- **Historique détaillé** : Suivi des tendances
+
+#### **🔧 Améliorations Techniques**
+- **PWA** : Application web progressive
+- **Offline mode** : Synchronisation différée
+- **Real-time** : WebSockets pour mises à jour
+- **Analytics** : Suivi des utilisations
+
+---
+
+*Dernière mise à jour : Version 1.5.0 - **MODULE STATS VENTE COMPLET** + Architecture documentée*

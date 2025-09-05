@@ -38,6 +38,9 @@ const AbsenceStatus = ({ employees }) => {
         endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
     }
 
+    console.log('📅 Période sélectionnée:', { selectedPeriod, startDate, endDate });
+    console.log('👥 Nombre d\'employés:', employees.length);
+
     // Calculer les statistiques par employé
     const byEmployee = employees.map(employee => {
       const employeeAbsences = employee.absences?.filter(absence => {

@@ -50,6 +50,29 @@
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
 }
 
+.refresh-button {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  padding: 12px 20px;
+  border-radius: 10px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+  font-size: 1rem;
+}
+
+.refresh-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+  background: linear-gradient(135deg, #5a6fd8 0%, #6a4190 100%);
+}
+
+.refresh-button:active {
+  transform: translateY(0);
+}
+
 .sales-stats-content {
   display: flex;
   flex-direction: column;
@@ -148,6 +171,10 @@
 .form-actions {
   text-align: center;
   margin-top: 20px;
+  display: flex;
+  gap: 15px;
+  justify-content: center;
+  flex-wrap: wrap;
 }
 
 .save-button {
@@ -176,6 +203,60 @@
   transform: none;
 }
 
+.delete-button {
+  background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+  color: white;
+  border: none;
+  padding: 15px 40px;
+  border-radius: 25px;
+  font-size: 1.1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 6px 20px rgba(220, 53, 69, 0.3);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.delete-button:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 25px rgba(220, 53, 69, 0.4);
+  background: linear-gradient(135deg, #c82333 0%, #bd2130 100%);
+}
+
+.delete-button:active {
+  transform: translateY(0);
+}
+
+/* Boutons d'effacement individuels */
+.actions-cell {
+  text-align: center;
+  padding: 8px 4px;
+}
+
+.delete-employee-button {
+  background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+  color: white;
+  border: none;
+  padding: 6px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 8px rgba(220, 53, 69, 0.3);
+  min-width: 40px;
+}
+
+.delete-employee-button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(220, 53, 69, 0.4);
+  background: linear-gradient(135deg, #c82333 0%, #bd2130 100%);
+}
+
+.delete-employee-button:active {
+  transform: translateY(0);
+}
+
 /* Section Classement */
 .ranking-section {
   background: white;
@@ -192,6 +273,54 @@
   font-weight: 600;
   border-bottom: 3px solid #ffc107;
   padding-bottom: 10px;
+}
+
+.ranking-header {
+  margin-bottom: 20px;
+}
+
+.ranking-selectors {
+  display: flex;
+  gap: 20px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.selector-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.selector-group label {
+  font-weight: 600;
+  color: #333;
+  font-size: 0.9rem;
+}
+
+.month-select-ranking,
+.year-select-ranking {
+  padding: 8px 15px;
+  border: 2px solid #e1e5e9;
+  border-radius: 8px;
+  background: #f8f9fa;
+  color: #333;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.month-select-ranking:hover,
+.year-select-ranking:hover {
+  border-color: #ffc107;
+  background: white;
+}
+
+.month-select-ranking:focus,
+.year-select-ranking:focus {
+  outline: none;
+  border-color: #ffc107;
+  box-shadow: 0 0 0 3px rgba(255, 193, 7, 0.1);
 }
 
 .ranking-table table {
@@ -257,6 +386,61 @@
   font-weight: 600;
 }
 
+/* Total annuel */
+.annual-total {
+  margin-top: 25px;
+  padding: 20px;
+  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+  border-radius: 12px;
+  border: 2px solid #ffc107;
+}
+
+.annual-total h3 {
+  color: #333;
+  margin: 0 0 15px 0;
+  font-size: 1.3rem;
+  font-weight: 600;
+  text-align: center;
+  border-bottom: 2px solid #ffc107;
+  padding-bottom: 10px;
+}
+
+.total-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 15px;
+}
+
+.total-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 15px;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.total-label {
+  font-weight: 600;
+  color: #333;
+  font-size: 0.9rem;
+}
+
+.total-value {
+  font-weight: 700;
+  font-size: 1.1rem;
+  color: #28a745;
+}
+
+.total-value.positive {
+  color: #28a745;
+}
+
+.total-value.negative {
+  color: #dc3545;
+}
+
 /* Section Comparaison mensuelle */
 .monthly-comparison-section {
   background: white;
@@ -273,6 +457,46 @@
   font-weight: 600;
   border-bottom: 3px solid #17a2b8;
   padding-bottom: 10px;
+}
+
+.monthly-comparison-header {
+  margin-bottom: 20px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.year-selector {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.year-selector label {
+  font-weight: 600;
+  color: #333;
+  font-size: 0.9rem;
+}
+
+.year-select-compare {
+  padding: 8px 15px;
+  border: 2px solid #e1e5e9;
+  border-radius: 8px;
+  background: #f8f9fa;
+  color: #333;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.year-select-compare:hover {
+  border-color: #17a2b8;
+  background: white;
+}
+
+.year-select-compare:focus {
+  outline: none;
+  border-color: #17a2b8;
+  box-shadow: 0 0 0 3px rgba(23, 162, 184, 0.1);
 }
 
 .monthly-stats table {
