@@ -110,20 +110,27 @@ const EmployeeModal = ({ employee, onSave, onClose, employees = [] }) => {
   ];
 
   return (
-    <div className="modal show" onClick={onClose}>
-      <div className="modal-content" onClick={e => e.stopPropagation()}>
-        <div className="modal-header">
-          <h2 className="modal-title">
-            {employee ? '👤 Modifier l\'employé' : '➕ Ajouter un employé'}
-          </h2>
-          <button className="modal-close" onClick={onClose}>
-            <svg viewBox="0 0 24 24" fill="currentColor" className="close-icon">
-              <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
-            </svg>
-          </button>
-        </div>
+    <div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+        <h2 style={{ margin: 0, color: '#333' }}>
+          {employee ? '👤 Modifier l\'employé' : '➕ Ajouter un employé'}
+        </h2>
+        <button 
+          onClick={onClose}
+          style={{
+            background: 'none',
+            border: 'none',
+            fontSize: '1.5rem',
+            cursor: 'pointer',
+            color: '#666',
+            padding: '0.5rem'
+          }}
+        >
+          ✕
+        </button>
+      </div>
 
-        <div className="modal-body">
+      <div>
           <form onSubmit={handleSubmit} className="declaration-form">
           <div className="form-group">
             <label className="form-label">Nom complet *</label>
@@ -276,25 +283,24 @@ const EmployeeModal = ({ employee, onSave, onClose, employees = [] }) => {
           )}
 
           </form>
+          
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginTop: '1.5rem' }}>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={onClose}
+            >
+              Annuler
+            </button>
+            <button
+              type="submit"
+              className="btn btn-primary"
+              onClick={handleSubmit}
+            >
+              {employee ? 'Modifier l\'employé' : 'Ajouter l\'employé'}
+            </button>
+          </div>
         </div>
-
-        <div className="modal-footer">
-          <button
-            type="button"
-            className="btn btn-secondary"
-            onClick={onClose}
-          >
-            Annuler
-          </button>
-          <button
-            type="submit"
-            className="btn btn-primary"
-            onClick={handleSubmit}
-          >
-            {employee ? 'Modifier l\'employé' : 'Ajouter l\'employé'}
-          </button>
-        </div>
-      </div>
     </div>
   );
 };

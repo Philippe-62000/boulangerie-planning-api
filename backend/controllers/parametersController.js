@@ -92,14 +92,10 @@ const updateAllParameters = async (req, res) => {
       const updateData = {};
       
       // Toujours mettre à jour displayName (même si vide)
-      if (param.displayName !== undefined) {
-        updateData.displayName = param.displayName || `Paramètre ${param.name || 'inconnu'}`;
-      }
+      updateData.displayName = param.displayName || `Paramètre ${param.name || 'inconnu'}`;
       
       // Toujours mettre à jour kmValue (même si 0)
-      if (param.kmValue !== undefined) {
-        updateData.kmValue = parseFloat(param.kmValue) || 0;
-      }
+      updateData.kmValue = parseFloat(param.kmValue) || 0;
       
       console.log(`📝 Mise à jour paramètre ${param._id}:`, updateData);
       

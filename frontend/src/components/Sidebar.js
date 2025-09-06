@@ -21,7 +21,7 @@ const Sidebar = () => {
         { menuId: 'sales-stats', isVisibleToAdmin: true, isVisibleToEmployee: true },
         { menuId: 'absences', isVisibleToAdmin: true, isVisibleToEmployee: true },
         { menuId: 'parameters', isVisibleToAdmin: true, isVisibleToEmployee: false },
-        { menuId: 'employee-status', isVisibleToAdmin: true, isVisibleToEmployee: false },
+        { menuId: 'employee-status', isVisibleToAdmin: true, isVisibleToEmployee: true },
         { menuId: 'meal-expenses', isVisibleToAdmin: true, isVisibleToEmployee: true },
         { menuId: 'km-expenses', isVisibleToAdmin: true, isVisibleToEmployee: true },
         { menuId: 'employee-status-print', isVisibleToAdmin: true, isVisibleToEmployee: false }

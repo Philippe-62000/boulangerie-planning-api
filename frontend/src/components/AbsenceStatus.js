@@ -43,27 +43,20 @@ const AbsenceStatus = ({ employees }) => {
     console.log('📅 Période sélectionnée:', { selectedPeriod, startDate, endDate });
     console.log('👥 Nombre d\'employés:', employees.length);
     
-    // Debug: Vérifier la structure des données pour le premier employé
-    if (employees.length > 0) {
-      const firstEmployee = employees[0];
-      console.log('🔍 Structure données premier employé:', {
-        name: firstEmployee.name,
-        absences: firstEmployee.absences,
-        sickLeaves: firstEmployee.sickLeaves,
-        delays: firstEmployee.delays,
-        hasAbsencesAll: !!firstEmployee.absences?.all,
-        hasSickLeavesAll: !!firstEmployee.sickLeaves?.all,
-        hasDelaysAll: !!firstEmployee.delays?.all
+    // Debug: Vérifier la structure des données pour tous les employés
+    console.log('🔍 Debug complet des employés:');
+    employees.forEach((employee, index) => {
+      console.log(`👤 Employé ${index + 1} (${employee.name}):`, {
+        name: employee.name,
+        sickLeave: employee.sickLeave,
+        isOnSickLeave: employee.isOnSickLeave,
+        startDate: employee.startDate,
+        endDate: employee.endDate,
+        absences: employee.absences,
+        sickLeaves: employee.sickLeaves,
+        delays: employee.delays
       });
-      
-      // Afficher les maladies si elles existent
-      if (firstEmployee.sickLeaves?.all) {
-        console.log('🏥 Maladies trouvées:', firstEmployee.sickLeaves.all);
-      }
-      if (firstEmployee.sickLeaves && !firstEmployee.sickLeaves.all) {
-        console.log('🏥 Maladies directes:', firstEmployee.sickLeaves);
-      }
-    }
+    });
 
     // Calculer les statistiques par employé
     const byEmployee = employees.map(employee => {
@@ -77,11 +70,30 @@ const AbsenceStatus = ({ employees }) => {
         return absenceDate >= startDate && absenceDate <= endDate;
       }) : [];
 
-      const employeeSickLeaves = Array.isArray(sickLeaves) ? sickLeaves.filter(sickLeave => {
-        const start = new Date(sickLeave.startDate);
-        const end = new Date(sickLeave.endDate);
-        return (start <= endDate && end >= startDate);
-      }) : [];
+      // Calculer les arrêts maladie
+      let employeeSickLeaves = [];
+      
+      // Vérifier si l'employé a un arrêt maladie actuel
+      if (employee.isOnSickLeave && employee.startDate && employee.endDate) {
+        const start = new Date(employee.startDate);
+        const end = new Date(employee.endDate);
+        if (start <= endDate && end >= startDate) {
+          employeeSickLeaves.push({
+            startDate: employee.startDate,
+            endDate: employee.endDate
+          });
+        }
+      }
+      
+      // Ajouter les arrêts maladie stockés dans sickLeaves
+      if (Array.isArray(sickLeaves)) {
+        const filteredSickLeaves = sickLeaves.filter(sickLeave => {
+          const start = new Date(sickLeave.startDate);
+          const end = new Date(sickLeave.endDate);
+          return (start <= endDate && end >= startDate);
+        });
+        employeeSickLeaves = [...employeeSickLeaves, ...filteredSickLeaves];
+      }
 
       const employeeDelays = Array.isArray(delays) ? delays.filter(delay => {
         const delayDate = new Date(delay.date);

@@ -281,6 +281,57 @@
   font-weight: 600;
 }
 
+/* Styles pour la section du site */
+.site-section {
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.site-item {
+  margin-bottom: 1.5rem;
+}
+
+.site-item label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+  font-weight: 600;
+  color: #333;
+}
+
+.site-icon {
+  font-size: 1.2rem;
+}
+
+.site-input {
+  width: 100%;
+  padding: 12px 16px;
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+  font-size: 1rem;
+  transition: border-color 0.3s ease;
+  cursor: text;
+  pointer-events: auto;
+}
+
+.site-input:focus {
+  outline: none;
+  border-color: #007bff;
+  box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+}
+
+.site-actions {
+  text-align: center;
+  margin-top: 2rem;
+}
+
+.site-actions .btn {
+  padding: 12px 24px;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
 .param-input:hover {
   border-color: #007bff;
 }

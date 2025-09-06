@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import { toast } from 'react-toastify';
 import EmployeeModal from '../components/EmployeeModal';
@@ -11,6 +12,7 @@ const Employees = () => {
   const [showModal, setShowModal] = useState(false);
   const [showDeclarationModal, setShowDeclarationModal] = useState(false);
   const [editingEmployee, setEditingEmployee] = useState(null);
+  const navigate = useNavigate();
 
   useEffect(() => {
     fetchEmployees();
@@ -38,6 +40,10 @@ const Employees = () => {
 
   const handleDeclareMaladieAbsence = () => {
     setShowDeclarationModal(true);
+  };
+
+  const handleViewTutors = () => {
+    navigate('/tutors');
   };
 
   const handleEditEmployee = (employee) => {
@@ -161,6 +167,12 @@ const Employees = () => {
       <div className="page-header">
         <h2>Gestion des employés</h2>
         <div className="header-actions">
+          <button className="btn btn-info" onClick={handleViewTutors}>
+            <svg viewBox="0 0 24 24" fill="currentColor" className="btn-icon">
+              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+            </svg>
+            Tuteurs
+          </button>
           <button className="btn btn-success" onClick={handleDeclareMaladieAbsence}>
             <svg viewBox="0 0 24 24" fill="currentColor" className="btn-icon">
               <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 14h-2v-2h2v2zm0-4h-2V7h2v6z"/>
@@ -176,10 +188,37 @@ const Employees = () => {
         </div>
       </div>
 
-      {/* Zone de formulaire qui apparaît au-dessus du tableau */}
+      {/* Modal flottant pour ajouter/modifier un employé */}
       {showModal && (
-        <div className="card" style={{ marginBottom: '1.5rem', backgroundColor: '#f8f9fa' }}>
-          <div style={{ padding: '1rem' }}>
+        <div 
+          className="modal-overlay" 
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000
+          }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowModal(false);
+            }
+          }}
+        >
+          <div className="modal-content" style={{
+            backgroundColor: 'white',
+            borderRadius: '8px',
+            padding: '2rem',
+            maxWidth: '90vw',
+            maxHeight: '90vh',
+            overflow: 'auto',
+            boxShadow: '0 4px 20px rgba(0, 0, 0, 0.15)'
+          }}>
             <EmployeeModal
               employee={editingEmployee}
               onSave={handleSaveEmployee}

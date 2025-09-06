@@ -19,10 +19,16 @@ const Parameters = () => {
   const [menuPermissions, setMenuPermissions] = useState([]);
   const [loadingPermissions, setLoadingPermissions] = useState(false);
   const [savingPermissions, setSavingPermissions] = useState(false);
+  
+  // États pour la gestion du site
+  const [site, setSite] = useState({ name: 'Boulangerie', city: 'Ville' });
+  const [loadingSite, setLoadingSite] = useState(false);
+  const [savingSite, setSavingSite] = useState(false);
 
   useEffect(() => {
     fetchParameters();
     fetchMenuPermissions();
+    fetchSite();
   }, []);
 
   const fetchParameters = async () => {
@@ -235,6 +241,42 @@ const Parameters = () => {
     }
   };
 
+  const fetchSite = async () => {
+    setLoadingSite(true);
+    try {
+      const response = await api.get('/site');
+      setSite(response.data);
+      console.log('🏪 Site chargé:', response.data);
+    } catch (error) {
+      console.error('❌ Erreur lors du chargement du site:', error);
+      toast.error('Erreur lors du chargement des informations du site');
+    } finally {
+      setLoadingSite(false);
+    }
+  };
+
+  const handleSiteChange = (field, value) => {
+    setSite(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
+
+  const saveSite = async () => {
+    setSavingSite(true);
+    try {
+      await api.put('/site', site);
+      toast.success('Informations du site mises à jour avec succès');
+      // Recharger la page pour mettre à jour le titre
+      window.location.reload();
+    } catch (error) {
+      console.error('❌ Erreur lors de la mise à jour du site:', error);
+      toast.error('Erreur lors de la mise à jour du site');
+    } finally {
+      setSavingSite(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="parameters fade-in">
@@ -252,6 +294,63 @@ const Parameters = () => {
     <div className="parameters fade-in">
       <div className="page-header">
         <h2>⚙️ Paramètres</h2>
+      </div>
+
+      {/* Section Informations du Site */}
+      <div className="card">
+        <div className="card-header">
+          <h3>🏪 Informations du Site</h3>
+        </div>
+        <div className="card-body">
+          {loadingSite ? (
+            <div style={{ textAlign: 'center', padding: '2rem' }}>
+              <div className="loading"></div>
+              <p>Chargement des informations du site...</p>
+            </div>
+          ) : (
+            <div className="site-section">
+              <div className="site-item">
+                <label htmlFor="site-name">
+                  <span className="site-icon">🏪</span>
+                  Nom du site
+                </label>
+                <input
+                  id="site-name"
+                  type="text"
+                  value={site.name}
+                  onChange={(e) => handleSiteChange('name', e.target.value)}
+                  placeholder="Nom de la boulangerie"
+                  className="site-input"
+                />
+              </div>
+              
+              <div className="site-item">
+                <label htmlFor="site-city">
+                  <span className="site-icon">🏙️</span>
+                  Ville
+                </label>
+                <input
+                  id="site-city"
+                  type="text"
+                  value={site.city}
+                  onChange={(e) => handleSiteChange('city', e.target.value)}
+                  placeholder="Ville du magasin"
+                  className="site-input"
+                />
+              </div>
+              
+              <div className="site-actions">
+                <button
+                  className="btn btn-primary"
+                  onClick={saveSite}
+                  disabled={savingSite}
+                >
+                  {savingSite ? '💾 Sauvegarde...' : '💾 Sauvegarder les informations du site'}
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Section Gestion des Mots de Passe */}

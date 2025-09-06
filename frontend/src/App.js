@@ -16,6 +16,7 @@ import MealExpenses from './pages/MealExpenses';
 import KmExpenses from './pages/KmExpenses';
 import Parameters from './pages/Parameters';
 import EmployeeStatusPrint from './pages/EmployeeStatusPrint';
+import Tutors from './pages/Tutors';
 
 const AppContent = () => {
   const { user } = useAuth();
@@ -80,6 +81,11 @@ const AppContent = () => {
             <Route path="/employee-status-print" element={
               <ProtectedRoute requiredPermission="view_reports">
                 <EmployeeStatusPrint />
+              </ProtectedRoute>
+            } />
+            <Route path="/tutors" element={
+              <ProtectedRoute adminOnly={true}>
+                <Tutors />
               </ProtectedRoute>
             } />
           </Routes>

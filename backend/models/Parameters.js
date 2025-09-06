@@ -8,11 +8,13 @@ const parameterSchema = new mongoose.Schema({
   },
   displayName: {
     type: String,
-    required: true
+    required: false,
+    default: ''
   },
   kmValue: {
     type: Number,
-    required: true,
+    required: false,
+    default: 0,
     min: 0
   },
   createdAt: {

@@ -48,6 +48,7 @@ mongoose.connect(config.MONGODB_URI, {
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/menu-permissions', require('./routes/menuPermissions'));
 app.use('/api/passwords', require('./routes/passwords'));
+app.use('/api/site', require('./routes/site'));
 app.use('/api/employees', require('./routes/employees'));
 app.use('/api/planning', require('./routes/planning'));
 app.use('/api/constraints', require('./routes/constraints'));
