@@ -47,16 +47,16 @@
   height: 60px;
   background: #2c1810;
   border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%;
-  transform: rotate(-45deg);
+  transform: rotate(-30deg);
 }
 
 .orca::before {
   content: '';
   position: absolute;
-  top: 15px;
-  left: 20px;
-  width: 8px;
-  height: 8px;
+  top: 12px;
+  left: 18px;
+  width: 10px;
+  height: 10px;
   background: white;
   border-radius: 50%;
 }
@@ -64,10 +64,10 @@
 .orca::after {
   content: '';
   position: absolute;
-  top: 25px;
-  left: 15px;
-  width: 12px;
-  height: 6px;
+  top: 20px;
+  left: 12px;
+  width: 15px;
+  height: 8px;
   background: white;
   border-radius: 50%;
 }
@@ -80,16 +80,16 @@
   height: 60px;
   background: #d2691e;
   border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%;
-  transform: rotate(45deg);
+  transform: rotate(30deg);
 }
 
 .fox::before {
   content: '';
   position: absolute;
-  top: 10px;
-  right: 15px;
-  width: 6px;
-  height: 6px;
+  top: 8px;
+  right: 12px;
+  width: 8px;
+  height: 8px;
   background: #2c1810;
   border-radius: 50%;
 }
@@ -97,13 +97,13 @@
 .fox::after {
   content: '';
   position: absolute;
-  top: 8px;
-  right: 8px;
-  width: 8px;
-  height: 8px;
+  top: 6px;
+  right: 6px;
+  width: 10px;
+  height: 10px;
   background: #2c1810;
   border-radius: 50%;
-  transform: rotate(-45deg);
+  transform: rotate(-30deg);
 }
 
 .logo-text {

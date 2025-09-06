@@ -21,6 +21,7 @@ const Sidebar = () => {
         { menuId: 'sales-stats', isVisibleToAdmin: true, isVisibleToEmployee: true },
         { menuId: 'absences', isVisibleToAdmin: true, isVisibleToEmployee: true },
         { menuId: 'parameters', isVisibleToAdmin: true, isVisibleToEmployee: false },
+        { menuId: 'employee-status', isVisibleToAdmin: true, isVisibleToEmployee: false },
         { menuId: 'meal-expenses', isVisibleToAdmin: true, isVisibleToEmployee: true },
         { menuId: 'km-expenses', isVisibleToAdmin: true, isVisibleToEmployee: true },
         { menuId: 'employee-status-print', isVisibleToAdmin: true, isVisibleToEmployee: false }
@@ -31,6 +32,7 @@ const Sidebar = () => {
         { menuId: 'planning', isVisibleToAdmin: false, isVisibleToEmployee: true },
         { menuId: 'sales-stats', isVisibleToAdmin: false, isVisibleToEmployee: true },
         { menuId: 'absences', isVisibleToAdmin: false, isVisibleToEmployee: true },
+        { menuId: 'employee-status', isVisibleToAdmin: false, isVisibleToEmployee: true },
         { menuId: 'meal-expenses', isVisibleToAdmin: false, isVisibleToEmployee: true },
         { menuId: 'km-expenses', isVisibleToAdmin: false, isVisibleToEmployee: true }
       ];
