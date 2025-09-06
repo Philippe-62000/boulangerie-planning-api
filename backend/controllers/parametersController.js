@@ -77,7 +77,12 @@ const updateAllParameters = async (req, res) => {
   try {
     const { parameters } = req.body;
     
+    console.log('📝 Mise à jour des paramètres en lot');
+    console.log('📋 Données reçues:', req.body);
+    console.log('📋 Paramètres:', parameters);
+    
     if (!Array.isArray(parameters)) {
+      console.log('❌ Les paramètres ne sont pas un tableau:', typeof parameters);
       return res.status(400).json({ 
         error: 'Les paramètres doivent être un tableau' 
       });

@@ -79,8 +79,11 @@ const updateAllMenuPermissions = async (req, res) => {
     const { permissions } = req.body;
 
     console.log('📝 Mise à jour de toutes les permissions de menu');
+    console.log('📋 Données reçues:', req.body);
+    console.log('📋 Permissions:', permissions);
 
     if (!Array.isArray(permissions)) {
+      console.log('❌ Les permissions ne sont pas un tableau:', typeof permissions);
       return res.status(400).json({
         success: false,
         error: 'Les permissions doivent être un tableau'
