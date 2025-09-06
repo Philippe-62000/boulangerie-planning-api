@@ -3,6 +3,8 @@ import './AbsenceStatus.css';
 
 const AbsenceStatus = ({ employees }) => {
   const [selectedPeriod, setSelectedPeriod] = useState('month');
+  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [absenceStats, setAbsenceStats] = useState({
     total: { absences: 0, sickLeave: 0, delays: 0, total: 0 },
     byEmployee: []
@@ -10,22 +12,22 @@ const AbsenceStatus = ({ employees }) => {
 
   useEffect(() => {
     calculateAbsenceStats();
-  }, [employees, selectedPeriod]);
+  }, [employees, selectedPeriod, selectedMonth, selectedYear]);
 
   const calculateAbsenceStats = () => {
-    const now = new Date();
     let startDate, endDate;
     
     switch (selectedPeriod) {
       case 'year':
-        startDate = new Date(now.getFullYear(), 0, 1);
-        endDate = new Date(now.getFullYear(), 11, 31);
+        startDate = new Date(selectedYear, 0, 1);
+        endDate = new Date(selectedYear, 11, 31);
         break;
       case 'month':
-        startDate = new Date(now.getFullYear(), now.getMonth(), 1);
-        endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+        startDate = new Date(selectedYear, selectedMonth - 1, 1);
+        endDate = new Date(selectedYear, selectedMonth, 0);
         break;
       case 'week':
+        const now = new Date();
         const weekStart = new Date(now);
         weekStart.setDate(now.getDate() - now.getDay() + 1);
         const weekEnd = new Date(weekStart);
@@ -34,30 +36,57 @@ const AbsenceStatus = ({ employees }) => {
         endDate = weekEnd;
         break;
       default:
-        startDate = new Date(now.getFullYear(), now.getMonth(), 1);
-        endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+        startDate = new Date(selectedYear, selectedMonth - 1, 1);
+        endDate = new Date(selectedYear, selectedMonth, 0);
     }
 
     console.log('📅 Période sélectionnée:', { selectedPeriod, startDate, endDate });
     console.log('👥 Nombre d\'employés:', employees.length);
+    
+    // Debug: Vérifier la structure des données pour le premier employé
+    if (employees.length > 0) {
+      const firstEmployee = employees[0];
+      console.log('🔍 Structure données premier employé:', {
+        name: firstEmployee.name,
+        absences: firstEmployee.absences,
+        sickLeaves: firstEmployee.sickLeaves,
+        delays: firstEmployee.delays,
+        hasAbsencesAll: !!firstEmployee.absences?.all,
+        hasSickLeavesAll: !!firstEmployee.sickLeaves?.all,
+        hasDelaysAll: !!firstEmployee.delays?.all
+      });
+      
+      // Afficher les maladies si elles existent
+      if (firstEmployee.sickLeaves?.all) {
+        console.log('🏥 Maladies trouvées:', firstEmployee.sickLeaves.all);
+      }
+      if (firstEmployee.sickLeaves && !firstEmployee.sickLeaves.all) {
+        console.log('🏥 Maladies directes:', firstEmployee.sickLeaves);
+      }
+    }
 
     // Calculer les statistiques par employé
     const byEmployee = employees.map(employee => {
-      const employeeAbsences = employee.absences?.filter(absence => {
+      // Vérifier la structure des données et adapter
+      const absences = employee.absences?.all || employee.absences || [];
+      const sickLeaves = employee.sickLeaves?.all || employee.sickLeaves || [];
+      const delays = employee.delays?.all || employee.delays || [];
+
+      const employeeAbsences = Array.isArray(absences) ? absences.filter(absence => {
         const absenceDate = new Date(absence.date);
         return absenceDate >= startDate && absenceDate <= endDate;
-      }) || [];
+      }) : [];
 
-      const employeeSickLeaves = employee.sickLeaves?.filter(sickLeave => {
+      const employeeSickLeaves = Array.isArray(sickLeaves) ? sickLeaves.filter(sickLeave => {
         const start = new Date(sickLeave.startDate);
         const end = new Date(sickLeave.endDate);
         return (start <= endDate && end >= startDate);
-      }) || [];
+      }) : [];
 
-      const employeeDelays = employee.delays?.filter(delay => {
+      const employeeDelays = Array.isArray(delays) ? delays.filter(delay => {
         const delayDate = new Date(delay.date);
         return delayDate >= startDate && delayDate <= endDate;
-      }) || [];
+      }) : [];
 
       return {
         id: employee._id,
@@ -126,6 +155,43 @@ const AbsenceStatus = ({ employees }) => {
           >
             Semaine
           </button>
+        </div>
+        
+        {/* Sélecteurs de mois/année */}
+        <div className="date-selectors">
+          <div className="date-selector">
+            <label>Mois</label>
+            <select
+              value={selectedMonth}
+              onChange={(e) => setSelectedMonth(parseInt(e.target.value))}
+              className="form-control"
+            >
+              <option value={1}>Janvier</option>
+              <option value={2}>Février</option>
+              <option value={3}>Mars</option>
+              <option value={4}>Avril</option>
+              <option value={5}>Mai</option>
+              <option value={6}>Juin</option>
+              <option value={7}>Juillet</option>
+              <option value={8}>Août</option>
+              <option value={9}>Septembre</option>
+              <option value={10}>Octobre</option>
+              <option value={11}>Novembre</option>
+              <option value={12}>Décembre</option>
+            </select>
+          </div>
+          <div className="date-selector">
+            <label>Année</label>
+            <select
+              value={selectedYear}
+              onChange={(e) => setSelectedYear(parseInt(e.target.value))}
+              className="form-control"
+            >
+              <option value={2024}>2024</option>
+              <option value={2025}>2025</option>
+              <option value={2026}>2026</option>
+            </select>
+          </div>
         </div>
       </div>
 

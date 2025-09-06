@@ -20,13 +20,48 @@ const KmExpenses = () => {
     try {
       console.log('📊 Chargement des frais KM pour:', { month, year });
       const response = await api.get(`/km-expenses?month=${month}&year=${year}`);
-      console.log('📥 Réponse API frais KM:', response.data);
-      setExpenses(response.data.employees);
-      setParameters(response.data.parameters);
-      console.log('📊 Employés chargés:', response.data.employees?.length);
-      console.log('📊 Paramètres chargés:', response.data.parameters?.length);
+      console.log('📥 Réponse API frais KM complète:', response.data);
+      
+      // Vérifier la structure des données
+      if (response.data) {
+        console.log('📊 Structure des données:', {
+          hasEmployees: !!response.data.employees,
+          hasParameters: !!response.data.parameters,
+          employeesCount: response.data.employees?.length || 0,
+          parametersCount: response.data.parameters?.length || 0
+        });
+        
+        // Vérifier le premier employé
+        if (response.data.employees && response.data.employees.length > 0) {
+          const firstEmployee = response.data.employees[0];
+          console.log('🔍 Premier employé:', {
+            id: firstEmployee.employeeId,
+            name: firstEmployee.employeeName,
+            hasParameterValues: !!firstEmployee.parameterValues,
+            parameterValuesCount: firstEmployee.parameterValues?.length || 0
+          });
+        }
+        
+        // Vérifier le premier paramètre
+        if (response.data.parameters && response.data.parameters.length > 0) {
+          const firstParameter = response.data.parameters[0];
+          console.log('🔍 Premier paramètre:', {
+            id: firstParameter._id,
+            name: firstParameter.name,
+            displayName: firstParameter.displayName,
+            kmValue: firstParameter.kmValue
+          });
+        }
+      }
+      
+      setExpenses(response.data.employees || []);
+      setParameters(response.data.parameters || []);
+      console.log('📊 Employés chargés:', response.data.employees?.length || 0);
+      console.log('📊 Paramètres chargés:', response.data.parameters?.length || 0);
     } catch (error) {
-      console.error('Erreur lors du chargement des frais KM:', error);
+      console.error('❌ Erreur lors du chargement des frais KM:', error);
+      console.error('❌ Détails de l\'erreur:', error.response?.data);
+      console.error('❌ Status:', error.response?.status);
       toast.error('Erreur lors du chargement des frais KM');
     } finally {
       setLoading(false);

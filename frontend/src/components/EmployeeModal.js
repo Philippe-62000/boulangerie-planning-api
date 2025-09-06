@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 
-const EmployeeModal = ({ employee, onSave, onClose }) => {
+const EmployeeModal = ({ employee, onSave, onClose, employees = [] }) => {
   const [formData, setFormData] = useState({
     name: '',
     contractType: 'CDI',
@@ -10,6 +10,7 @@ const EmployeeModal = ({ employee, onSave, onClose }) => {
     weeklyHours: 35,
     trainingDays: [],
     contractEndDate: '',
+    tutor: '',
     isActive: true
   });
 
@@ -24,6 +25,7 @@ const EmployeeModal = ({ employee, onSave, onClose }) => {
         weeklyHours: employee.weeklyHours || 35,
         trainingDays: employee.trainingDays || [],
         contractEndDate: employee.contractEndDate ? new Date(employee.contractEndDate).toISOString().split('T')[0] : '',
+        tutor: employee.tutor || '',
         isActive: employee.isActive !== undefined ? employee.isActive : true
       });
     }
@@ -108,32 +110,41 @@ const EmployeeModal = ({ employee, onSave, onClose }) => {
   ];
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <div className="modal show" onClick={onClose}>
       <div className="modal-content" onClick={e => e.stopPropagation()}>
         <div className="modal-header">
-          <h3>{employee ? 'Modifier l\'employé' : 'Ajouter un employé'}</h3>
-          <button className="modal-close" onClick={onClose}>×</button>
+          <h2 className="modal-title">
+            {employee ? '👤 Modifier l\'employé' : '➕ Ajouter un employé'}
+          </h2>
+          <button className="modal-close" onClick={onClose}>
+            <svg viewBox="0 0 24 24" fill="currentColor" className="close-icon">
+              <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+            </svg>
+          </button>
         </div>
 
-        <form onSubmit={handleSubmit}>
+        <div className="modal-body">
+          <form onSubmit={handleSubmit} className="declaration-form">
           <div className="form-group">
-            <label>Nom complet *</label>
+            <label className="form-label">Nom complet *</label>
             <input
               type="text"
               name="name"
               value={formData.name}
               onChange={handleInputChange}
+              className="form-control"
               required
             />
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+          <div className="form-row">
             <div className="form-group">
-              <label>Contrat *</label>
+              <label className="form-label">Contrat *</label>
               <select
                 name="contractType"
                 value={formData.contractType}
                 onChange={handleInputChange}
+                className="form-control"
                 required
               >
                 <option value="CDI">CDI</option>
@@ -142,12 +153,13 @@ const EmployeeModal = ({ employee, onSave, onClose }) => {
             </div>
 
             <div className="form-group">
-              <label>Âge *</label>
+              <label className="form-label">Âge *</label>
               <input
                 type="number"
                 name="age"
                 value={formData.age}
                 onChange={handleInputChange}
+                className="form-control"
                 min="16"
                 max="65"
                 required
@@ -155,13 +167,14 @@ const EmployeeModal = ({ employee, onSave, onClose }) => {
             </div>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+          <div className="form-row">
             <div className="form-group">
-              <label>Rôle *</label>
+              <label className="form-label">Rôle *</label>
               <select
                 name="role"
                 value={formData.role}
                 onChange={handleInputChange}
+                className="form-control"
                 required
               >
                 {roles.map(role => (
@@ -173,12 +186,13 @@ const EmployeeModal = ({ employee, onSave, onClose }) => {
             </div>
 
             <div className="form-group">
-              <label>Volume hebdomadaire (h) *</label>
+              <label className="form-label">Volume hebdomadaire (h) *</label>
               <input
                 type="number"
                 name="weeklyHours"
                 value={formData.weeklyHours}
                 onChange={handleInputChange}
+                className="form-control"
                 min="20"
                 max="39"
                 required
@@ -189,7 +203,7 @@ const EmployeeModal = ({ employee, onSave, onClose }) => {
 
 
           <div className="form-group">
-            <label>Compétences</label>
+            <label className="form-label">Compétences</label>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
               {availableSkills.map(skill => (
                 <label key={skill} style={{ display: 'flex', alignItems: 'center', marginRight: '1rem' }}>
@@ -205,10 +219,33 @@ const EmployeeModal = ({ employee, onSave, onClose }) => {
             </div>
           </div>
 
+          {/* Champ Tuteur pour les apprentis */}
+          {formData.contractType === 'Apprentissage' && (
+            <div className="form-group">
+              <label className="form-label">Tuteur *</label>
+              <select
+                name="tutor"
+                value={formData.tutor}
+                onChange={handleInputChange}
+                className="form-control"
+                required
+              >
+                <option value="">Sélectionner un tuteur</option>
+                {employees
+                  .filter(emp => emp._id !== employee?._id && emp.isActive)
+                  .map(emp => (
+                    <option key={emp._id} value={emp._id}>
+                      {emp.name} - {emp.role}
+                    </option>
+                  ))}
+              </select>
+            </div>
+          )}
+
           {formData.contractType === 'Apprentissage' && (
             <>
               <div className="form-group">
-                <label>Jours de formation *</label>
+                <label className="form-label">Jours de formation *</label>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
                   {daysOfWeek.map(day => (
                     <label key={day} style={{ display: 'flex', alignItems: 'center', marginRight: '1rem' }}>
@@ -225,27 +262,38 @@ const EmployeeModal = ({ employee, onSave, onClose }) => {
               </div>
 
               <div className="form-group">
-                <label>Date de fin de contrat *</label>
+                <label className="form-label">Date de fin de contrat *</label>
                 <input
                   type="date"
                   name="contractEndDate"
                   value={formData.contractEndDate}
                   onChange={handleInputChange}
+                  className="form-control"
                   required
                 />
               </div>
             </>
           )}
 
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginTop: '2rem' }}>
-            <button type="button" className="btn btn-secondary" onClick={onClose}>
-              Annuler
-            </button>
-            <button type="submit" className="btn btn-primary">
-              {employee ? 'Modifier' : 'Ajouter'}
-            </button>
-          </div>
-        </form>
+          </form>
+        </div>
+
+        <div className="modal-footer">
+          <button
+            type="button"
+            className="btn btn-secondary"
+            onClick={onClose}
+          >
+            Annuler
+          </button>
+          <button
+            type="submit"
+            className="btn btn-primary"
+            onClick={handleSubmit}
+          >
+            {employee ? 'Modifier l\'employé' : 'Ajouter l\'employé'}
+          </button>
+        </div>
       </div>
     </div>
   );

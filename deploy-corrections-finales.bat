@@ -1,49 +1,78 @@
 @echo off
 echo ========================================
-echo    CORRECTIONS FINALES - REPOS + OR-TOOLS
+echo 🚀 DÉPLOIEMENT CORRECTIONS FINALES
 echo ========================================
 echo.
 
-echo [1/4] Vérification des corrections...
-echo ✅ Règle repos: 1 repos obligatoire pour tous
-echo ✅ Règle 6j/7: 2 repos si non coché
-echo ✅ Limites strictes: Respect des besoins en personnel
-echo ✅ OR-Tools forcé: Aucun fallback autorisé
+echo 📋 Corrections appliquées:
+echo ✅ Premier tableau supprimé des paramètres
+echo ✅ Total frais repas déplacé à gauche près du nom
+echo ✅ Menu déroulant frais repas repositionné
+echo ✅ Frais KM première ligne Adélaïde corrigée
+echo ✅ Menu état des absences corrigé
+echo ✅ .htaccess robuste créé
 echo.
 
-echo [2/4] Correction des services OR-Tools...
-echo 🔧 Constraint Calculator: Logique repos corrigée
-echo 🔧 Planning Generator: Limites strictes appliquées
-echo 🔧 Backend: OR-Tools obligatoire
+echo 🚀 Étape 1: Build du frontend...
 echo.
 
-echo [3/4] Push des corrections vers GitHub...
-echo 📡 Commit et push des modifications...
-git add .
-git commit -m "🔧 CORRECTIONS FINALES: Repos obligatoires + Limites strictes + OR-Tools forcé"
-git push origin main
+cd frontend
+echo 📦 Build en cours...
+call npm run build
+if %errorlevel% neq 0 (
+    echo ❌ Erreur lors du build
+    pause
+    exit /b 1
+)
+
+cd ..
+echo.
+echo ✅ Build terminé avec succès !
 echo.
 
-echo [4/4] Déploiement en cours...
-echo 🌐 Render va redéployer automatiquement (2-5 min)
-echo 📊 Les corrections seront actives après redéploiement
+echo 🚀 Étape 2: Préparation du déploiement...
 echo.
 
-echo ========================================
-echo    CORRECTIONS FINALES DÉPLOYÉES !
-echo ========================================
+echo 📁 Nettoyage du dossier deploy-ovh...
+if exist deploy-ovh rmdir /s /q deploy-ovh
+mkdir deploy-ovh
+
 echo.
-echo 🔧 Prochaines étapes :
-echo    1. Attendre le redéploiement Render
-echo    2. Tester la génération du planning semaine 36
-echo    3. Vérifier les repos obligatoires
-echo    4. Contrôler les limites de personnel
+echo 📄 Copie des fichiers buildés...
+xcopy "frontend\build\*" "deploy-ovh\" /E /Y /Q
+
 echo.
-echo 📋 RÈGLES APPLIQUÉES :
-echo    ✅ 1 repos obligatoire pour tous
-echo    ✅ 2 repos si 6j/7 non coché
-echo    ✅ Mineurs: repos dimanche obligatoire
-echo    ✅ Limites strictes: Respect des besoins
-echo    ✅ OR-Tools exclusif: Pas de fallback
+echo 📄 Copie du .htaccess corrigé...
+copy .htaccess-ovh-fixed deploy-ovh\.htaccess
+
+echo.
+echo ✅ DÉPLOIEMENT PRÊT !
+echo.
+
+echo 📁 Contenu du dossier deploy-ovh:
+dir deploy-ovh
+
+echo.
+echo 🎯 INSTRUCTIONS FINALES:
+echo.
+echo 1. 📤 UPLOADEZ TOUT le contenu de deploy-ovh/ sur OVH
+echo    - Dans le dossier /plan/ de votre site
+echo.
+echo 2. 🌐 L'URL sera: https://www.filmara.fr/plan/
+echo.
+echo 3. 🧪 TESTS À EFFECTUER:
+echo    ✅ Sauvegarde des paramètres (plus d'erreur 400)
+echo    ✅ Menu "État des absences" visible
+echo    ✅ Premier tableau supprimé dans paramètres
+echo    ✅ Total frais repas à gauche près du nom
+echo    ✅ Menu déroulant frais repas repositionné
+echo    ✅ Frais KM première ligne Adélaïde complète
+echo    ✅ Navigation React Router fonctionnelle
+echo.
+echo 4. 🔄 Si problème, videz le cache navigateur (Ctrl+F5)
+echo.
+echo 🎉 TOUTES LES CORRECTIONS SONT APPLIQUÉES !
 echo.
 pause
+
+

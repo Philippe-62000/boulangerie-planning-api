@@ -1,31 +1,98 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
 import './Sidebar.css';
 
 const Sidebar = () => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [expandedMenus, setExpandedMenus] = useState({});
+  const [menuPermissions, setMenuPermissions] = useState([]);
   const location = useLocation();
+  const { user, isAdmin, isEmployee } = useAuth();
 
+  // Charger les permissions de menu selon le rôle utilisateur
+  useEffect(() => {
+    const loadMenuPermissions = async () => {
+      if (!user) return;
+
+      try {
+        const response = await fetch(`/api/menu-permissions?role=${user.role}`);
+        const data = await response.json();
+        
+        if (data.success) {
+          setMenuPermissions(data.menuPermissions);
+          console.log('📋 Permissions de menu chargées:', data.menuPermissions);
+        }
+      } catch (error) {
+        console.error('❌ Erreur lors du chargement des permissions:', error);
+      }
+    };
+
+    loadMenuPermissions();
+  }, [user]);
+
+  // Menu items avec permissions
   const menuItems = [
-    { path: '/dashboard', label: 'Tableau de bord', icon: '📊' },
-    { path: '/employees', label: 'Gestion des employés', icon: '👥' },
-    { path: '/constraints', label: 'Contraintes hebdomadaires', icon: '📋' },
-    { path: '/planning', label: 'Génération du planning', icon: '🎯' },
-    { path: '/sales-stats', label: 'Stats Vente', icon: '💰' },
-    { path: '/absences', label: 'État des absences', icon: '📈' },
-    { path: '/parameters', label: 'Paramètres', icon: '⚙️' },
+    { path: '/dashboard', label: 'Tableau de bord', icon: '📊', menuId: 'dashboard' },
+    { path: '/employees', label: 'Gestion des employés', icon: '👥', menuId: 'employees' },
+    { path: '/constraints', label: 'Contraintes hebdomadaires', icon: '📋', menuId: 'constraints' },
+    { path: '/planning', label: 'Génération du planning', icon: '🎯', menuId: 'planning' },
+    { path: '/sales-stats', label: 'Stats Vente', icon: '💰', menuId: 'sales-stats' },
+    { path: '/absences', label: 'État des absences', icon: '📈', menuId: 'absences' },
+    { path: '/parameters', label: 'Paramètres', icon: '⚙️', menuId: 'parameters' },
     { 
       key: 'employee-status',
       label: 'État Salariés', 
       icon: '👤',
+      menuId: 'employee-status',
       submenu: [
-        { path: '/meal-expenses', label: 'Frais Repas', icon: '🍽️' },
-        { path: '/km-expenses', label: 'Frais KM', icon: '🚗' },
-        { path: '/employee-status-print', label: 'Imprimer État', icon: '🖨️' }
+        { path: '/meal-expenses', label: 'Frais Repas', icon: '🍽️', menuId: 'meal-expenses' },
+        { path: '/km-expenses', label: 'Frais KM', icon: '🚗', menuId: 'km-expenses' },
+        { path: '/employee-status-print', label: 'Imprimer État', icon: '🖨️', menuId: 'employee-status-print' }
       ]
     }
   ];
+
+  // Filtrer les menus selon les permissions
+  const getFilteredMenuItems = () => {
+    if (!user || menuPermissions.length === 0) return [];
+
+    return menuItems.filter(item => {
+      const permission = menuPermissions.find(p => p.menuId === item.menuId);
+      if (!permission) return false;
+
+      if (isAdmin()) {
+        return permission.isVisibleToAdmin;
+      } else if (isEmployee()) {
+        return permission.isVisibleToEmployee;
+      }
+      return false;
+    }).map(item => {
+      if (item.submenu) {
+        return {
+          ...item,
+          submenu: item.submenu.filter(subItem => {
+            const subPermission = menuPermissions.find(p => p.menuId === subItem.menuId);
+            if (!subPermission) return false;
+
+            if (isAdmin()) {
+              return subPermission.isVisibleToAdmin;
+            } else if (isEmployee()) {
+              return subPermission.isVisibleToEmployee;
+            }
+            return false;
+          })
+        };
+      }
+      return item;
+    }).filter(item => {
+      // Supprimer les groupes de menu vides
+      if (item.submenu && item.submenu.length === 0) {
+        return false;
+      }
+      return true;
+    });
+  };
 
   const handleMouseEnter = () => {
     setIsExpanded(true);
@@ -66,7 +133,7 @@ const Sidebar = () => {
       </div>
       
       <nav className="sidebar-nav">
-        {menuItems.map((item) => {
+        {getFilteredMenuItems().map((item) => {
           if (item.submenu) {
             // Menu avec sous-menu
             const isExpanded = expandedMenus[item.key];
@@ -113,6 +180,14 @@ const Sidebar = () => {
       </nav>
       
       <div className="sidebar-footer">
+        <div className="user-info">
+          {user && (
+            <div className="user-role">
+              <span className="user-icon">{isAdmin() ? '👑' : '👤'}</span>
+              <span className="user-name">{user.name}</span>
+            </div>
+          )}
+        </div>
         <div className="version-info">v2.0</div>
       </div>
     </div>

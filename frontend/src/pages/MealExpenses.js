@@ -99,8 +99,8 @@ const MealExpenses = () => {
   return (
     <div className="meal-expenses fade-in">
       <div className="page-header">
-        <h2>🍽️ Frais Repas - {getMonthName(month)} {year}</h2>
-        <div className="header-controls">
+        <div className="header-title-section">
+          <h2>🍽️ Frais Repas</h2>
           <div className="date-selector">
             <select
               value={month}
@@ -128,6 +128,8 @@ const MealExpenses = () => {
               })}
             </select>
           </div>
+        </div>
+        <div className="header-actions">
           <button
             className="btn btn-success"
             onClick={saveExpenses}
@@ -149,14 +151,18 @@ const MealExpenses = () => {
                     {i + 1}
                   </th>
                 ))}
-                <th className="total-column">Total</th>
               </tr>
             </thead>
             <tbody>
               {expenses.map((employee, employeeIndex) => (
                 <tr key={employee.employeeId}>
                   <td className="employee-cell">
-                    <strong>{employee.employeeName}</strong>
+                    <span className="employee-name">
+                      <strong>{employee.employeeName}</strong>
+                    </span>
+                    <span className="employee-total">
+                      {employee.totalAmount.toFixed(2)} €
+                    </span>
                   </td>
                   {Array.from({ length: daysInMonth }, (_, i) => {
                     const day = i + 1;
@@ -177,9 +183,6 @@ const MealExpenses = () => {
                       </td>
                     );
                   })}
-                  <td className="total-cell">
-                    <strong>{employee.totalAmount.toFixed(2)} €</strong>
-                  </td>
                 </tr>
               ))}
             </tbody>

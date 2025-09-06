@@ -39,6 +39,13 @@ const employeeSchema = new mongoose.Schema({
   contractEndDate: {
     type: Date
   },
+  tutor: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Employee',
+    required: function() {
+      return this.contractType === 'Apprentissage';
+    }
+  },
   sickLeave: {
     isOnSickLeave: {
       type: Boolean,

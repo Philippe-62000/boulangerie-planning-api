@@ -17,11 +17,17 @@
   font-size: 1.8rem;
 }
 
-.header-controls {
+.header-title-section {
   display: flex;
   align-items: center;
   gap: 1rem;
   flex-wrap: wrap;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
 }
 
 .date-selector {
@@ -36,6 +42,8 @@
   border-radius: 4px;
   background: white;
   font-size: 0.9rem;
+  min-width: 120px;
+  width: auto;
 }
 
 .table-container {
@@ -86,6 +94,23 @@
   left: 0;
   z-index: 1;
   border-right: 2px solid #dee2e6;
+  position: relative;
+  min-width: 180px;
+}
+
+.employee-cell .employee-name {
+  display: inline-block;
+  margin-right: 10px;
+}
+
+.employee-cell .employee-total {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-weight: bold;
+  color: #28a745;
+  font-size: 0.9rem;
 }
 
 .day-column {

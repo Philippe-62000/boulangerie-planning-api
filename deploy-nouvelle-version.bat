@@ -128,3 +128,4 @@ echo 📝 Logs du serveur dans : C:\inetpub\wwwroot\plan\api
 echo.
 pause
 
+loader lr du 

@@ -71,7 +71,9 @@
 }
 
 .employee-column {
-  min-width: 150px;
+  min-width: 200px;
+  max-width: 200px;
+  width: 200px;
   text-align: left !important;
   position: sticky;
   left: 0;
@@ -86,6 +88,15 @@
   left: 0;
   z-index: 1;
   border-right: 2px solid #dee2e6;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  hyphens: auto;
+  padding: 0.75rem 0.5rem !important;
+  line-height: 1.4;
+  max-width: 200px;
+  min-width: 200px;
+  white-space: normal;
+  overflow: visible;
 }
 
 .param-column {

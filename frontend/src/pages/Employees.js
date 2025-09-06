@@ -184,6 +184,7 @@ const Employees = () => {
               employee={editingEmployee}
               onSave={handleSaveEmployee}
               onClose={() => setShowModal(false)}
+              employees={employees.filter(emp => emp.isActive)}
             />
           </div>
         </div>
