@@ -7,6 +7,13 @@ const Parameters = () => {
   const [parameters, setParameters] = useState([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  
+  // États pour la gestion des mots de passe
+  const [passwords, setPasswords] = useState({
+    admin: '',
+    employee: ''
+  });
+  const [savingPasswords, setSavingPasswords] = useState(false);
 
   useEffect(() => {
     fetchParameters();
@@ -93,6 +100,54 @@ const Parameters = () => {
     }
   };
 
+  const handlePasswordChange = (role, value) => {
+    setPasswords(prev => ({
+      ...prev,
+      [role]: value
+    }));
+  };
+
+  const savePasswords = async () => {
+    setSavingPasswords(true);
+    try {
+      // Validation des mots de passe
+      if (passwords.admin.length < 6) {
+        toast.error('Le mot de passe administrateur doit contenir au moins 6 caractères');
+        return;
+      }
+      if (passwords.employee.length < 6) {
+        toast.error('Le mot de passe salarié doit contenir au moins 6 caractères');
+        return;
+      }
+
+      // Mettre à jour le mot de passe administrateur
+      if (passwords.admin) {
+        await api.put('/passwords/update', {
+          username: 'admin',
+          newPassword: passwords.admin,
+          role: 'admin'
+        });
+      }
+
+      // Mettre à jour le mot de passe salarié
+      if (passwords.employee) {
+        await api.put('/passwords/update', {
+          username: 'salarie',
+          newPassword: passwords.employee,
+          role: 'employee'
+        });
+      }
+
+      toast.success('Mots de passe mis à jour avec succès');
+      setPasswords({ admin: '', employee: '' });
+    } catch (error) {
+      console.error('❌ Erreur lors de la mise à jour des mots de passe:', error);
+      toast.error('Erreur lors de la mise à jour des mots de passe');
+    } finally {
+      setSavingPasswords(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="parameters fade-in">
@@ -109,21 +164,75 @@ const Parameters = () => {
   return (
     <div className="parameters fade-in">
       <div className="page-header">
-        <h2>⚙️ Paramètres - Frais KM</h2>
+        <h2>⚙️ Paramètres</h2>
         <div className="header-actions">
           <button
             className="btn btn-success"
             onClick={saveParameters}
             disabled={saving}
           >
-            {saving ? '💾 Sauvegarde...' : '💾 Sauvegarder'}
+            {saving ? '💾 Sauvegarde...' : '💾 Sauvegarder KM'}
           </button>
         </div>
       </div>
 
+      {/* Section Gestion des Mots de Passe */}
       <div className="card">
-        <h3>📋 Configuration des paramètres</h3>
-        <div className="parameters-list">
+        <div className="card-header">
+          <h3>🔐 Gestion des Mots de Passe</h3>
+        </div>
+        <div className="card-body">
+          <div className="password-section">
+            <div className="password-item">
+              <label htmlFor="admin-password">
+                <span className="password-icon">👑</span>
+                Mot de passe Administrateur
+              </label>
+              <input
+                id="admin-password"
+                type="password"
+                value={passwords.admin}
+                onChange={(e) => handlePasswordChange('admin', e.target.value)}
+                placeholder="Nouveau mot de passe (min. 6 caractères)"
+                className="password-input"
+              />
+            </div>
+            
+            <div className="password-item">
+              <label htmlFor="employee-password">
+                <span className="password-icon">👤</span>
+                Mot de passe Salarié
+              </label>
+              <input
+                id="employee-password"
+                type="password"
+                value={passwords.employee}
+                onChange={(e) => handlePasswordChange('employee', e.target.value)}
+                placeholder="Nouveau mot de passe (min. 6 caractères)"
+                className="password-input"
+              />
+            </div>
+            
+            <div className="password-actions">
+              <button
+                className="btn btn-primary"
+                onClick={savePasswords}
+                disabled={savingPasswords || (!passwords.admin && !passwords.employee)}
+              >
+                {savingPasswords ? '🔐 Mise à jour...' : '🔐 Mettre à jour les mots de passe'}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Section Paramètres KM */}
+      <div className="card">
+        <div className="card-header">
+          <h3>🚗 Paramètres - Frais KM</h3>
+        </div>
+        <div className="card-body">
+          <div className="parameters-list">
           {parameters.map((param, index) => (
             <div key={param._id} className="parameter-item">
               <div className="parameter-info">
@@ -150,6 +259,7 @@ const Parameters = () => {
               </div>
             </div>
           ))}
+          </div>
         </div>
       </div>
     </div>
