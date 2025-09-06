@@ -1,7 +1,22 @@
 const MenuPermissions = require('../models/MenuPermissions');
 
 // Créer les permissions par défaut au démarrage
-MenuPermissions.createDefaultPermissions();
+const initializePermissions = async () => {
+  try {
+    const count = await MenuPermissions.countDocuments();
+    if (count === 0) {
+      console.log('📋 Aucune permission trouvée, création des permissions par défaut...');
+      await MenuPermissions.createDefaultPermissions();
+      console.log('✅ Permissions par défaut créées');
+    } else {
+      console.log(`📋 ${count} permissions trouvées`);
+    }
+  } catch (error) {
+    console.error('❌ Erreur lors de l\'initialisation des permissions:', error);
+  }
+};
+
+initializePermissions();
 
 const getMenuPermissions = async (req, res) => {
   try {
