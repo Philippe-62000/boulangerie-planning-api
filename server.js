@@ -7,4 +7,4 @@ const path = require('path');
 process.chdir(path.join(__dirname, 'backend'));
 
 // Importer et démarrer le vrai serveur
-require('./server.js');
+require(path.join(__dirname, 'backend', 'server.js'));

@@ -1,4 +1,4 @@
-jconst mongoose = require('mongoose');
+jlconst mongoose = require('mongoose');
 
 const employeeSchema = new mongoose.Schema({
   name: {
