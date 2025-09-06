@@ -14,9 +14,15 @@ const Parameters = () => {
     employee: ''
   });
   const [savingPasswords, setSavingPasswords] = useState(false);
+  
+  // États pour la gestion des permissions de menu
+  const [menuPermissions, setMenuPermissions] = useState([]);
+  const [loadingPermissions, setLoadingPermissions] = useState(false);
+  const [savingPermissions, setSavingPermissions] = useState(false);
 
   useEffect(() => {
     fetchParameters();
+    fetchMenuPermissions();
   }, []);
 
   const fetchParameters = async () => {
@@ -148,6 +154,51 @@ const Parameters = () => {
     }
   };
 
+  const fetchMenuPermissions = async () => {
+    setLoadingPermissions(true);
+    try {
+      const response = await api.get('/menu-permissions');
+      if (response.data.success) {
+        setMenuPermissions(response.data.menuPermissions);
+        console.log('📋 Permissions de menu chargées:', response.data.menuPermissions);
+      }
+    } catch (error) {
+      console.error('❌ Erreur lors du chargement des permissions:', error);
+      toast.error('Erreur lors du chargement des permissions de menu');
+    } finally {
+      setLoadingPermissions(false);
+    }
+  };
+
+  const handlePermissionChange = (menuId, field, value) => {
+    setMenuPermissions(prev => 
+      prev.map(permission => 
+        permission.menuId === menuId 
+          ? { ...permission, [field]: value }
+          : permission
+      )
+    );
+  };
+
+  const saveMenuPermissions = async () => {
+    setSavingPermissions(true);
+    try {
+      const permissionsToUpdate = menuPermissions.map(permission => ({
+        _id: permission._id,
+        isVisibleToAdmin: permission.isVisibleToAdmin,
+        isVisibleToEmployee: permission.isVisibleToEmployee
+      }));
+
+      await api.put('/menu-permissions/batch', { permissions: permissionsToUpdate });
+      toast.success('Permissions de menu mises à jour avec succès');
+    } catch (error) {
+      console.error('❌ Erreur lors de la sauvegarde des permissions:', error);
+      toast.error('Erreur lors de la sauvegarde des permissions');
+    } finally {
+      setSavingPermissions(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="parameters fade-in">
@@ -223,6 +274,77 @@ const Parameters = () => {
               </button>
             </div>
           </div>
+        </div>
+      </div>
+
+      {/* Section Gestion des Permissions de Menu */}
+      <div className="card">
+        <div className="card-header">
+          <h3>🔐 Gestion des Permissions de Menu</h3>
+          <p>Configurez quels menus sont visibles pour les salariés</p>
+        </div>
+        <div className="card-body">
+          {loadingPermissions ? (
+            <div style={{ textAlign: 'center', padding: '2rem' }}>
+              <div className="loading"></div>
+              <p>Chargement des permissions...</p>
+            </div>
+          ) : (
+            <div className="permissions-section">
+              <div className="permissions-table">
+                <div className="permissions-header">
+                  <div className="permission-menu">Menu</div>
+                  <div className="permission-admin">👑 Admin</div>
+                  <div className="permission-employee">👤 Salarié</div>
+                </div>
+                {menuPermissions.map(permission => (
+                  <div key={permission._id} className="permission-row">
+                    <div className="permission-menu">
+                      <span className="permission-icon">
+                        {permission.menuId === 'dashboard' && '📊'}
+                        {permission.menuId === 'employees' && '👥'}
+                        {permission.menuId === 'constraints' && '📋'}
+                        {permission.menuId === 'planning' && '🎯'}
+                        {permission.menuId === 'sales-stats' && '💰'}
+                        {permission.menuId === 'absences' && '📈'}
+                        {permission.menuId === 'parameters' && '⚙️'}
+                        {permission.menuId === 'employee-status' && '👤'}
+                        {permission.menuId === 'meal-expenses' && '🍽️'}
+                        {permission.menuId === 'km-expenses' && '🚗'}
+                        {permission.menuId === 'employee-status-print' && '🖨️'}
+                      </span>
+                      {permission.menuName}
+                    </div>
+                    <div className="permission-admin">
+                      <input
+                        type="checkbox"
+                        checked={permission.isVisibleToAdmin}
+                        onChange={(e) => handlePermissionChange(permission.menuId, 'isVisibleToAdmin', e.target.checked)}
+                        disabled
+                      />
+                    </div>
+                    <div className="permission-employee">
+                      <input
+                        type="checkbox"
+                        checked={permission.isVisibleToEmployee}
+                        onChange={(e) => handlePermissionChange(permission.menuId, 'isVisibleToEmployee', e.target.checked)}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+              
+              <div className="permissions-actions">
+                <button
+                  className="btn btn-primary"
+                  onClick={saveMenuPermissions}
+                  disabled={savingPermissions}
+                >
+                  {savingPermissions ? '💾 Sauvegarde...' : '💾 Sauvegarder les permissions'}
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 

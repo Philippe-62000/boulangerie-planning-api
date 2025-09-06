@@ -100,19 +100,38 @@ const Sidebar = () => {
 
   // Filtrer les menus selon les permissions
   const getFilteredMenuItems = () => {
-    if (!user || menuPermissions.length === 0) return [];
+    if (!user || menuPermissions.length === 0) {
+      console.log('⚠️ Pas d\'utilisateur ou permissions vides:', { user, menuPermissions });
+      return [];
+    }
 
-    return menuItems.filter(item => {
+    console.log('🔍 Filtrage des menus pour:', user.role);
+    console.log('📋 Permissions disponibles:', menuPermissions);
+
+    const filteredItems = menuItems.filter(item => {
       const permission = menuPermissions.find(p => p.menuId === item.menuId);
-      if (!permission) return false;
+      console.log(`🔍 Menu ${item.menuId}:`, { permission, isAdmin: isAdmin(), isEmployee: isEmployee() });
+      
+      if (!permission) {
+        console.log(`❌ Pas de permission pour ${item.menuId}`);
+        return false;
+      }
 
       if (isAdmin()) {
-        return permission.isVisibleToAdmin;
+        const visible = permission.isVisibleToAdmin;
+        console.log(`👑 Admin - ${item.menuId}: ${visible}`);
+        return visible;
       } else if (isEmployee()) {
-        return permission.isVisibleToEmployee;
+        const visible = permission.isVisibleToEmployee;
+        console.log(`👤 Employee - ${item.menuId}: ${visible}`);
+        return visible;
       }
       return false;
-    }).map(item => {
+    });
+
+    console.log('✅ Menus filtrés:', filteredItems.map(item => item.menuId));
+
+    return filteredItems.map(item => {
       if (item.submenu) {
         return {
           ...item,

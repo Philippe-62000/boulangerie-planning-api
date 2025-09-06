@@ -22,6 +22,12 @@ const updatePassword = async (req, res) => {
     }
 
     // Rechercher l'utilisateur
+    console.log('🔍 Recherche utilisateur avec critères:', { 
+      username: username.toLowerCase(), 
+      role, 
+      isActive: true 
+    });
+    
     const user = await User.findOne({ 
       username: username.toLowerCase(),
       role: role,
@@ -29,7 +35,10 @@ const updatePassword = async (req, res) => {
     });
 
     if (!user) {
-      console.log('❌ Utilisateur non trouvé:', { username, role });
+      console.log('❌ Utilisateur non trouvé. Vérification de tous les utilisateurs...');
+      const allUsers = await User.find({});
+      console.log('📋 Tous les utilisateurs:', allUsers.map(u => ({ username: u.username, role: u.role, isActive: u.isActive })));
+      
       return res.status(404).json({
         success: false,
         error: 'Utilisateur non trouvé'
