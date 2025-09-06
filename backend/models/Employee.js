@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');jogo k
+const mongoose = require('mongoose');
 
 const employeeSchema = new mongoose.Schema({
   name: {
