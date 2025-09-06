@@ -58,6 +58,15 @@ menuPermissionsSchema.statics.createDefaultPermissions = async function() {
     if (existingPermissions === 0) {
       const defaultMenus = [
         {
+          menuId: 'dashboard',
+          menuName: 'Tableau de bord',
+          menuPath: '/dashboard',
+          isVisibleToAdmin: true,
+          isVisibleToEmployee: true,
+          requiredPermissions: ['all'],
+          order: 0
+        },
+        {
           menuId: 'planning',
           menuName: 'Planning',
           menuPath: '/planning',
@@ -76,13 +85,22 @@ menuPermissionsSchema.statics.createDefaultPermissions = async function() {
           order: 2
         },
         {
+          menuId: 'constraints',
+          menuName: 'Contraintes hebdomadaires',
+          menuPath: '/constraints',
+          isVisibleToAdmin: true,
+          isVisibleToEmployee: false,
+          requiredPermissions: ['manage_planning'],
+          order: 3
+        },
+        {
           menuId: 'absences',
           menuName: 'État des absences',
           menuPath: '/absences',
           isVisibleToAdmin: true,
           isVisibleToEmployee: true,
           requiredPermissions: ['view_absences'],
-          order: 3
+          order: 4
         },
         {
           menuId: 'sales-stats',
@@ -91,7 +109,7 @@ menuPermissionsSchema.statics.createDefaultPermissions = async function() {
           isVisibleToAdmin: true,
           isVisibleToEmployee: true,
           requiredPermissions: ['view_sales_stats'],
-          order: 4
+          order: 5
         },
         {
           menuId: 'parameters',
@@ -100,7 +118,16 @@ menuPermissionsSchema.statics.createDefaultPermissions = async function() {
           isVisibleToAdmin: true,
           isVisibleToEmployee: false,
           requiredPermissions: ['manage_parameters'],
-          order: 5
+          order: 6
+        },
+        {
+          menuId: 'employee-status',
+          menuName: 'État Salariés',
+          menuPath: '/employee-status',
+          isVisibleToAdmin: true,
+          isVisibleToEmployee: false,
+          requiredPermissions: ['view_reports'],
+          order: 7
         },
         {
           menuId: 'meal-expenses',
@@ -109,7 +136,7 @@ menuPermissionsSchema.statics.createDefaultPermissions = async function() {
           isVisibleToAdmin: true,
           isVisibleToEmployee: true,
           requiredPermissions: ['view_meal_expenses'],
-          order: 6
+          order: 8
         },
         {
           menuId: 'km-expenses',
@@ -118,7 +145,7 @@ menuPermissionsSchema.statics.createDefaultPermissions = async function() {
           isVisibleToAdmin: true,
           isVisibleToEmployee: true,
           requiredPermissions: ['view_km_expenses'],
-          order: 7
+          order: 9
         },
         {
           menuId: 'employee-status-print',
@@ -127,7 +154,7 @@ menuPermissionsSchema.statics.createDefaultPermissions = async function() {
           isVisibleToAdmin: true,
           isVisibleToEmployee: false,
           requiredPermissions: ['view_reports'],
-          order: 8
+          order: 10
         }
       ];
 
