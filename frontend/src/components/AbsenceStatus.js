@@ -74,13 +74,13 @@ const AbsenceStatus = ({ employees }) => {
       let employeeSickLeaves = [];
       
       // Vérifier si l'employé a un arrêt maladie actuel
-      if (employee.isOnSickLeave && employee.startDate && employee.endDate) {
-        const start = new Date(employee.startDate);
-        const end = new Date(employee.endDate);
+      if (employee.sickLeave?.isOnSickLeave && employee.sickLeave?.startDate && employee.sickLeave?.endDate) {
+        const start = new Date(employee.sickLeave.startDate);
+        const end = new Date(employee.sickLeave.endDate);
         if (start <= endDate && end >= startDate) {
           employeeSickLeaves.push({
-            startDate: employee.startDate,
-            endDate: employee.endDate
+            startDate: employee.sickLeave.startDate,
+            endDate: employee.sickLeave.endDate
           });
         }
       }

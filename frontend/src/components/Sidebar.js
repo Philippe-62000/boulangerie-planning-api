@@ -5,7 +5,6 @@ import './Sidebar.css';
 
 const Sidebar = () => {
   const [isExpanded, setIsExpanded] = useState(false);
-  const [expandedMenus, setExpandedMenus] = useState({});
   const [menuPermissions, setMenuPermissions] = useState([]);
   const location = useLocation();
   const { user, isAdmin, isEmployee } = useAuth();
@@ -76,7 +75,7 @@ const Sidebar = () => {
   }, [user]);
 
 
-  // Menu items avec permissions
+  // Menu items avec permissions (tous en menus principaux)
   const menuItems = [
     { path: '/dashboard', label: 'Tableau de bord', icon: '📊', menuId: 'dashboard' },
     { path: '/employees', label: 'Gestion des employés', icon: '👥', menuId: 'employees' },
@@ -84,18 +83,10 @@ const Sidebar = () => {
     { path: '/planning', label: 'Génération du planning', icon: '🎯', menuId: 'planning' },
     { path: '/sales-stats', label: 'Stats Vente', icon: '💰', menuId: 'sales-stats' },
     { path: '/absences', label: 'État des absences', icon: '📈', menuId: 'absences' },
-    { path: '/parameters', label: 'Paramètres', icon: '⚙️', menuId: 'parameters' },
-    { 
-      key: 'employee-status',
-      label: 'État Salariés', 
-      icon: '👤',
-      menuId: 'employee-status',
-      submenu: [
-        { path: '/meal-expenses', label: 'Frais Repas', icon: '🍽️', menuId: 'meal-expenses' },
-        { path: '/km-expenses', label: 'Frais KM', icon: '🚗', menuId: 'km-expenses' },
-        { path: '/employee-status-print', label: 'Imprimer État', icon: '🖨️', menuId: 'employee-status-print' }
-      ]
-    }
+    { path: '/meal-expenses', label: 'Frais Repas', icon: '🍽️', menuId: 'meal-expenses' },
+    { path: '/km-expenses', label: 'Frais KM', icon: '🚗', menuId: 'km-expenses' },
+    { path: '/employee-status-print', label: 'Imprimer État', icon: '🖨️', menuId: 'employee-status-print' },
+    { path: '/parameters', label: 'Paramètres', icon: '⚙️', menuId: 'parameters' }
   ];
 
   // Filtrer les menus selon les permissions
@@ -131,31 +122,7 @@ const Sidebar = () => {
 
     console.log('✅ Menus filtrés:', filteredItems.map(item => item.menuId));
 
-    return filteredItems.map(item => {
-      if (item.submenu) {
-        return {
-          ...item,
-          submenu: item.submenu.filter(subItem => {
-            const subPermission = menuPermissions.find(p => p.menuId === subItem.menuId);
-            if (!subPermission) return false;
-
-            if (isAdmin()) {
-              return subPermission.isVisibleToAdmin;
-            } else if (isEmployee()) {
-              return subPermission.isVisibleToEmployee;
-            }
-            return false;
-          })
-        };
-      }
-      return item;
-    }).filter(item => {
-      // Supprimer les groupes de menu vides
-      if (item.submenu && item.submenu.length === 0) {
-        return false;
-      }
-      return true;
-    });
+    return filteredItems;
   };
 
   const handleMouseEnter = () => {
@@ -166,16 +133,6 @@ const Sidebar = () => {
     setIsExpanded(false);
   };
 
-  const toggleSubmenu = (menuKey) => {
-    setExpandedMenus(prev => ({
-      ...prev,
-      [menuKey]: !prev[menuKey]
-    }));
-  };
-
-  const isSubmenuActive = (submenu) => {
-    return submenu.some(item => location.pathname === item.path);
-  };
 
   return (
     <div 
@@ -197,50 +154,16 @@ const Sidebar = () => {
       </div>
       
       <nav className="sidebar-nav">
-        {getFilteredMenuItems().map((item) => {
-          if (item.submenu) {
-            // Menu avec sous-menu
-            const isExpanded = expandedMenus[item.key];
-            const isActive = isSubmenuActive(item.submenu);
-            
-            return (
-              <div key={item.key} className="nav-group">
-                <div
-                  className={`nav-item nav-parent ${isActive ? 'active' : ''}`}
-                  onClick={() => toggleSubmenu(item.key)}
-                >
-                  <span className="nav-icon">{item.icon}</span>
-                  <span className="nav-label">{item.label}</span>
-                  <span className={`nav-arrow ${isExpanded ? 'expanded' : ''}`}>▶</span>
-                </div>
-                <div className={`nav-submenu ${isExpanded ? 'expanded' : ''}`}>
-                  {item.submenu.map((subItem) => (
-                    <Link
-                      key={subItem.path}
-                      to={subItem.path}
-                      className={`nav-item nav-child ${location.pathname === subItem.path ? 'active' : ''}`}
-                    >
-                      <span className="nav-icon">{subItem.icon}</span>
-                      <span className="nav-label">{subItem.label}</span>
-                    </Link>
-                  ))}
-                </div>
-              </div>
-            );
-          } else {
-            // Menu simple
-            return (
-              <Link
-                key={item.path}
-                to={item.path}
-                className={`nav-item ${location.pathname === item.path ? 'active' : ''}`}
-              >
-                <span className="nav-icon">{item.icon}</span>
-                <span className="nav-label">{item.label}</span>
-              </Link>
-            );
-          }
-        })}
+        {getFilteredMenuItems().map((item) => (
+          <Link
+            key={item.path}
+            to={item.path}
+            className={`nav-item ${location.pathname === item.path ? 'active' : ''}`}
+          >
+            <span className="nav-icon">{item.icon}</span>
+            <span className="nav-label">{item.label}</span>
+          </Link>
+        ))}
       </nav>
       
       <div className="sidebar-footer">
