@@ -17,19 +17,52 @@ const Sidebar = () => {
 
       try {
         const response = await fetch(`/api/menu-permissions?role=${user.role}`);
+        
+        // Vérifier si la réponse est du JSON
+        const contentType = response.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+          console.warn('⚠️ API non disponible, utilisation des permissions par défaut');
+          // Utiliser des permissions par défaut en cas d'erreur API
+          setMenuPermissions(getDefaultMenuPermissions(user.role));
+          return;
+        }
+        
         const data = await response.json();
         
         if (data.success) {
           setMenuPermissions(data.menuPermissions);
           console.log('📋 Permissions de menu chargées:', data.menuPermissions);
+        } else {
+          console.warn('⚠️ Erreur API, utilisation des permissions par défaut');
+          setMenuPermissions(getDefaultMenuPermissions(user.role));
         }
       } catch (error) {
         console.error('❌ Erreur lors du chargement des permissions:', error);
+        console.warn('⚠️ Utilisation des permissions par défaut');
+        setMenuPermissions(getDefaultMenuPermissions(user.role));
       }
     };
 
     loadMenuPermissions();
   }, [user]);
+
+  // Permissions par défaut en cas d'erreur API
+  const getDefaultMenuPermissions = (role) => {
+    const defaultPermissions = [
+      { menuId: 'dashboard', isVisibleToAdmin: true, isVisibleToEmployee: true },
+      { menuId: 'employees', isVisibleToAdmin: true, isVisibleToEmployee: false },
+      { menuId: 'constraints', isVisibleToAdmin: true, isVisibleToEmployee: false },
+      { menuId: 'planning', isVisibleToAdmin: true, isVisibleToEmployee: true },
+      { menuId: 'sales-stats', isVisibleToAdmin: true, isVisibleToEmployee: true },
+      { menuId: 'absences', isVisibleToAdmin: true, isVisibleToEmployee: true },
+      { menuId: 'parameters', isVisibleToAdmin: true, isVisibleToEmployee: false },
+      { menuId: 'meal-expenses', isVisibleToAdmin: true, isVisibleToEmployee: true },
+      { menuId: 'km-expenses', isVisibleToAdmin: true, isVisibleToEmployee: true },
+      { menuId: 'employee-status-print', isVisibleToAdmin: true, isVisibleToEmployee: false }
+    ];
+
+    return defaultPermissions;
+  };
 
   // Menu items avec permissions
   const menuItems = [
