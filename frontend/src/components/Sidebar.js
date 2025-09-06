@@ -10,13 +10,40 @@ const Sidebar = () => {
   const location = useLocation();
   const { user, isAdmin, isEmployee } = useAuth();
 
+  // Permissions par défaut en cas d'erreur API
+  const getDefaultMenuPermissions = (role) => {
+    if (role === 'admin') {
+      return [
+        { menuId: 'dashboard', isVisibleToAdmin: true, isVisibleToEmployee: false },
+        { menuId: 'employees', isVisibleToAdmin: true, isVisibleToEmployee: false },
+        { menuId: 'constraints', isVisibleToAdmin: true, isVisibleToEmployee: false },
+        { menuId: 'planning', isVisibleToAdmin: true, isVisibleToEmployee: true },
+        { menuId: 'sales-stats', isVisibleToAdmin: true, isVisibleToEmployee: true },
+        { menuId: 'absences', isVisibleToAdmin: true, isVisibleToEmployee: true },
+        { menuId: 'parameters', isVisibleToAdmin: true, isVisibleToEmployee: false },
+        { menuId: 'meal-expenses', isVisibleToAdmin: true, isVisibleToEmployee: true },
+        { menuId: 'km-expenses', isVisibleToAdmin: true, isVisibleToEmployee: true },
+        { menuId: 'employee-status-print', isVisibleToAdmin: true, isVisibleToEmployee: false }
+      ];
+    } else {
+      return [
+        { menuId: 'dashboard', isVisibleToAdmin: false, isVisibleToEmployee: true },
+        { menuId: 'planning', isVisibleToAdmin: false, isVisibleToEmployee: true },
+        { menuId: 'sales-stats', isVisibleToAdmin: false, isVisibleToEmployee: true },
+        { menuId: 'absences', isVisibleToAdmin: false, isVisibleToEmployee: true },
+        { menuId: 'meal-expenses', isVisibleToAdmin: false, isVisibleToEmployee: true },
+        { menuId: 'km-expenses', isVisibleToAdmin: false, isVisibleToEmployee: true }
+      ];
+    }
+  };
+
   // Charger les permissions de menu selon le rôle utilisateur
   useEffect(() => {
     const loadMenuPermissions = async () => {
       if (!user) return;
 
       try {
-        const response = await fetch(`/api/menu-permissions?role=${user.role}`);
+        const response = await fetch(`https://boulangerie-planning-api-3.onrender.com/api/menu-permissions?role=${user.role}`);
         
         // Vérifier si la réponse est du JSON
         const contentType = response.headers.get('content-type');
@@ -46,23 +73,6 @@ const Sidebar = () => {
     loadMenuPermissions();
   }, [user]);
 
-  // Permissions par défaut en cas d'erreur API
-  const getDefaultMenuPermissions = (role) => {
-    const defaultPermissions = [
-      { menuId: 'dashboard', isVisibleToAdmin: true, isVisibleToEmployee: true },
-      { menuId: 'employees', isVisibleToAdmin: true, isVisibleToEmployee: false },
-      { menuId: 'constraints', isVisibleToAdmin: true, isVisibleToEmployee: false },
-      { menuId: 'planning', isVisibleToAdmin: true, isVisibleToEmployee: true },
-      { menuId: 'sales-stats', isVisibleToAdmin: true, isVisibleToEmployee: true },
-      { menuId: 'absences', isVisibleToAdmin: true, isVisibleToEmployee: true },
-      { menuId: 'parameters', isVisibleToAdmin: true, isVisibleToEmployee: false },
-      { menuId: 'meal-expenses', isVisibleToAdmin: true, isVisibleToEmployee: true },
-      { menuId: 'km-expenses', isVisibleToAdmin: true, isVisibleToEmployee: true },
-      { menuId: 'employee-status-print', isVisibleToAdmin: true, isVisibleToEmployee: false }
-    ];
-
-    return defaultPermissions;
-  };
 
   // Menu items avec permissions
   const menuItems = [
