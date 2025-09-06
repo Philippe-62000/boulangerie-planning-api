@@ -267,6 +267,20 @@
   font-weight: 600;
 }
 
+/* Styles pour les actions des paramètres */
+.parameters-actions {
+  text-align: center;
+  margin-top: 2rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid #e0e0e0;
+}
+
+.parameters-actions .btn {
+  padding: 12px 24px;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
 .param-input:hover {
   border-color: #007bff;
 }

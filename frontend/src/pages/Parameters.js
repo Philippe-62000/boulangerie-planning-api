@@ -116,32 +116,47 @@ const Parameters = () => {
   const savePasswords = async () => {
     setSavingPasswords(true);
     try {
-      // Validation des mots de passe
-      if (passwords.admin.length < 6) {
-        toast.error('Le mot de passe administrateur doit contenir au moins 6 caractères');
+      console.log('🔐 Tentative de mise à jour des mots de passe:', passwords);
+      
+      // Vérifier qu'au moins un mot de passe est saisi
+      if (!passwords.admin && !passwords.employee) {
+        toast.error('Veuillez saisir au moins un mot de passe');
+        setSavingPasswords(false);
         return;
       }
-      if (passwords.employee.length < 6) {
+
+      // Validation des mots de passe
+      if (passwords.admin && passwords.admin.length < 6) {
+        toast.error('Le mot de passe administrateur doit contenir au moins 6 caractères');
+        setSavingPasswords(false);
+        return;
+      }
+      if (passwords.employee && passwords.employee.length < 6) {
         toast.error('Le mot de passe salarié doit contenir au moins 6 caractères');
+        setSavingPasswords(false);
         return;
       }
 
       // Mettre à jour le mot de passe administrateur
       if (passwords.admin) {
+        console.log('🔐 Mise à jour mot de passe admin...');
         await api.put('/passwords/update', {
           username: 'admin',
           newPassword: passwords.admin,
           role: 'admin'
         });
+        console.log('✅ Mot de passe admin mis à jour');
       }
 
       // Mettre à jour le mot de passe salarié
       if (passwords.employee) {
+        console.log('🔐 Mise à jour mot de passe salarié...');
         await api.put('/passwords/update', {
           username: 'salarie',
           newPassword: passwords.employee,
           role: 'employee'
         });
+        console.log('✅ Mot de passe salarié mis à jour');
       }
 
       toast.success('Mots de passe mis à jour avec succès');
@@ -237,15 +252,6 @@ const Parameters = () => {
     <div className="parameters fade-in">
       <div className="page-header">
         <h2>⚙️ Paramètres</h2>
-        <div className="header-actions">
-          <button
-            className="btn btn-success"
-            onClick={saveParameters}
-            disabled={saving}
-          >
-            {saving ? '💾 Sauvegarde...' : '💾 Sauvegarder KM'}
-          </button>
-        </div>
       </div>
 
       {/* Section Gestion des Mots de Passe */}
@@ -410,6 +416,16 @@ const Parameters = () => {
               </div>
             </div>
           ))}
+          </div>
+          
+          <div className="parameters-actions">
+            <button
+              className="btn btn-success"
+              onClick={saveParameters}
+              disabled={saving}
+            >
+              {saving ? '💾 Sauvegarde...' : '💾 Sauvegarder les paramètres KM'}
+            </button>
           </div>
         </div>
       </div>

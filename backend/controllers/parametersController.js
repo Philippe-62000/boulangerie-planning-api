@@ -90,8 +90,18 @@ const updateAllParameters = async (req, res) => {
     
     const updatePromises = parameters.map(param => {
       const updateData = {};
-      if (param.displayName !== undefined) updateData.displayName = param.displayName;
-      if (param.kmValue !== undefined) updateData.kmValue = parseFloat(param.kmValue);
+      
+      // Toujours mettre à jour displayName (même si vide)
+      if (param.displayName !== undefined) {
+        updateData.displayName = param.displayName || `Paramètre ${param.name || 'inconnu'}`;
+      }
+      
+      // Toujours mettre à jour kmValue (même si 0)
+      if (param.kmValue !== undefined) {
+        updateData.kmValue = parseFloat(param.kmValue) || 0;
+      }
+      
+      console.log(`📝 Mise à jour paramètre ${param._id}:`, updateData);
       
       return Parameter.findByIdAndUpdate(
         param._id,
