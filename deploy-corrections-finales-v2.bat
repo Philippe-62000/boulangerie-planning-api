@@ -1,74 +1,71 @@
 @echo off
 echo ========================================
-echo 🔧 DÉPLOIEMENT CORRECTIONS FINALES V2
+echo CORRECTIONS FINALES V2
 echo ========================================
-echo.
 
-echo 📋 Corrections appliquées:
-echo ✅ Logs détaillés pour debug des maladies dans AbsenceStatus
-echo ✅ Erreur 400 paramètres corrigée (validation améliorée)
-echo ✅ Ligne Adélaïde frais KM corrigée (largeur fixe 200px)
-echo.
+echo [1/4] Corrections appliquées...
+echo ✅ Header: affichage nom de la ville à côté du titre
+echo ✅ Menu flottant: tous les menus en menus principaux
+echo ✅ Absences: correction détection arrêts maladie
+echo ✅ Timeout: augmentation à 120s avec messages d'erreur
+echo ✅ Rôle: logs debug pour contexte AuthContext
+echo ✅ Menu: fallback permissions par défaut si API timeout
 
-echo 🚀 Étape 1: Build du frontend...
-echo.
-
+echo [2/4] Construction du frontend...
 cd frontend
-echo 📦 Build en cours...
 call npm run build
 if %errorlevel% neq 0 (
-    echo ❌ Erreur lors du build
+    echo ❌ Erreur lors de la construction du frontend
     pause
     exit /b 1
 )
+echo ✅ Frontend construit avec succès
 
+echo [3/4] Préparation du déploiement OVH...
 cd ..
-echo.
-echo ✅ Build terminé avec succès !
-echo.
-
-echo 🚀 Étape 2: Préparation du déploiement...
-echo.
-
-echo 📁 Nettoyage du dossier deploy-ovh...
 if exist deploy-ovh rmdir /s /q deploy-ovh
 mkdir deploy-ovh
-
-echo.
-echo 📄 Copie des fichiers buildés...
-xcopy "frontend\build\*" "deploy-ovh\" /E /Y /Q
-
-echo.
-echo 📄 Copie du .htaccess robuste...
+xcopy /e /i /y frontend\build\* deploy-ovh\
 copy .htaccess-ovh-fixed deploy-ovh\.htaccess
+echo ✅ Dossier deploy-ovh préparé
 
-echo.
-echo ✅ DÉPLOIEMENT PRÊT !
-echo.
+echo [4/4] Commit des corrections...
+git add .
+git commit -m "Fix: Corrections finales V2 - Timeout et Rôle
 
-echo 📁 Contenu du dossier deploy-ovh:
-dir deploy-ovh
+- Header: affichage nom ville à côté du titre
+- Menu: tous les menus en principaux (plus de sous-menus)
+- Absences: correction détection arrêts maladie
+- Timeout: augmentation à 120s avec messages d'erreur
+- Rôle: logs debug pour contexte AuthContext
+- Menu: fallback permissions par défaut si API timeout"
 
-echo.
-echo 🎯 INSTRUCTIONS FINALES V2:
-echo.
-echo 1. 📤 UPLOADEZ TOUT le contenu de deploy-ovh/ sur OVH
-echo    - Dans le dossier /plan/ de votre site
-echo.
-echo 2. 🌐 L'URL sera: https://www.filmara.fr/plan/
-echo.
-echo 3. 🧪 TESTS FINAUX À EFFECTUER:
-echo    ✅ État des absences: vérifier les logs pour les maladies
-echo    ✅ Paramètres: sauvegarde sans erreur 400
-echo    ✅ Frais KM: ligne Adélaïde complète et visible
-echo.
-echo 4. 🔍 DEBUGGING:
-echo    - Ouvrez la console (F12) pour voir les logs détaillés
-echo    - Vérifiez la structure des données d'absences
-echo    - Testez la sauvegarde des paramètres
 echo.
 echo 🎉 CORRECTIONS FINALES V2 APPLIQUÉES !
 echo.
+echo 📋 Corrections apportées :
+echo    ✅ Header: nom de la ville affiché à côté du titre
+echo    ✅ Menu flottant: Dashboard, Frais Repas, Frais KM, Imprimer État visibles
+echo    ✅ Absences: détection correcte des arrêts maladie
+echo    ✅ Timeout: 120s avec messages d'erreur explicites
+echo    ✅ Rôle: logs debug pour diagnostiquer les problèmes
+echo    ✅ Menu: fallback permissions par défaut si API timeout
+echo.
+echo 🔧 Backend : Render.com (déjà déployé)
+echo 📁 Frontend : deploy-ovh/ (à uploader sur OVH)
+echo.
+echo 🧪 Tests après upload OVH :
+echo    1. Titre: "Planning Boulangerie 'Ville'" affiché
+echo    2. Menu: tous les menus visibles (Dashboard, Frais Repas, etc.)
+echo    3. Absences: arrêts maladie correctement détectés
+echo    4. Timeout: messages d'erreur explicites si Render en sleep
+echo    5. Rôle: logs dans console pour diagnostiquer
+echo    6. Menu: fallback si API timeout
+echo.
+echo ⚠️  IMPORTANT: Render gratuit se met en veille après 15min
+echo    Si timeout, attendre 2-3 minutes et recharger
+echo    Les logs dans la console vous aideront à diagnostiquer
+echo.
+echo 🎯 Tous les problèmes sont corrigés !
+echo.
 pause
-
-

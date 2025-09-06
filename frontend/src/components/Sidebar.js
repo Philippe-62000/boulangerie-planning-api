@@ -91,9 +91,24 @@ const Sidebar = () => {
 
   // Filtrer les menus selon les permissions
   const getFilteredMenuItems = () => {
-    if (!user || menuPermissions.length === 0) {
-      console.log('⚠️ Pas d\'utilisateur ou permissions vides:', { user, menuPermissions });
+    if (!user) {
+      console.log('⚠️ Pas d\'utilisateur connecté');
       return [];
+    }
+    
+    if (menuPermissions.length === 0) {
+      console.log('⚠️ Permissions vides, utilisation des permissions par défaut');
+      return menuItems.filter(item => {
+        const defaultPermission = getDefaultMenuPermissions(user.role).find(p => p.menuId === item.menuId);
+        if (!defaultPermission) return false;
+        
+        if (isAdmin()) {
+          return defaultPermission.isVisibleToAdmin;
+        } else if (isEmployee()) {
+          return defaultPermission.isVisibleToEmployee;
+        }
+        return false;
+      });
     }
 
     console.log('🔍 Filtrage des menus pour:', user.role);

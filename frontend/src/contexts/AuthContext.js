@@ -17,20 +17,28 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     // Vérifier si l'utilisateur est déjà connecté
     const savedUser = localStorage.getItem('userRole');
+    console.log('🔐 Vérification utilisateur sauvegardé:', savedUser);
+    
     if (savedUser) {
       try {
-        setUser(JSON.parse(savedUser));
+        const parsedUser = JSON.parse(savedUser);
+        console.log('✅ Utilisateur récupéré:', parsedUser);
+        setUser(parsedUser);
       } catch (error) {
-        console.error('Erreur lors du parsing des données utilisateur:', error);
+        console.error('❌ Erreur lors du parsing des données utilisateur:', error);
         localStorage.removeItem('userRole');
       }
+    } else {
+      console.log('⚠️ Aucun utilisateur sauvegardé');
     }
     setLoading(false);
   }, []);
 
   const login = (userData) => {
+    console.log('🔐 Connexion utilisateur:', userData);
     setUser(userData);
     localStorage.setItem('userRole', JSON.stringify(userData));
+    console.log('✅ Utilisateur connecté et sauvegardé');
   };
 
   const logout = () => {
