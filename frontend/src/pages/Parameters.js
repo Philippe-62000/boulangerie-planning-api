@@ -199,6 +199,27 @@ const Parameters = () => {
     }
   };
 
+  const recreateDefaultPermissions = async () => {
+    if (!window.confirm('Êtes-vous sûr de vouloir recréer les permissions par défaut ? Cela supprimera toutes les permissions actuelles.')) {
+      return;
+    }
+
+    setSavingPermissions(true);
+    try {
+      const response = await api.post('/menu-permissions/recreate');
+      if (response.data.success) {
+        toast.success(response.data.message);
+        // Recharger les permissions
+        await fetchMenuPermissions();
+      }
+    } catch (error) {
+      console.error('❌ Erreur lors de la recréation des permissions:', error);
+      toast.error('Erreur lors de la recréation des permissions');
+    } finally {
+      setSavingPermissions(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="parameters fade-in">
@@ -341,6 +362,14 @@ const Parameters = () => {
                   disabled={savingPermissions}
                 >
                   {savingPermissions ? '💾 Sauvegarde...' : '💾 Sauvegarder les permissions'}
+                </button>
+                <button
+                  className="btn btn-warning"
+                  onClick={recreateDefaultPermissions}
+                  disabled={savingPermissions}
+                  style={{ marginLeft: '10px' }}
+                >
+                  {savingPermissions ? '🔄 Recréation...' : '🔄 Recréer les permissions par défaut'}
                 </button>
               </div>
             </div>

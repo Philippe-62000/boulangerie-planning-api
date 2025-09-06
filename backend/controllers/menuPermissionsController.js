@@ -144,9 +144,40 @@ const getAllMenuPermissions = async (req, res) => {
   }
 };
 
+const recreateDefaultPermissions = async (req, res) => {
+  try {
+    console.log('🔄 Recréation des permissions par défaut...');
+    
+    // Supprimer toutes les permissions existantes
+    await MenuPermissions.deleteMany({});
+    console.log('🗑️ Anciennes permissions supprimées');
+    
+    // Recréer les permissions par défaut
+    await MenuPermissions.createDefaultPermissions();
+    console.log('✅ Nouvelles permissions créées');
+    
+    // Récupérer toutes les permissions créées
+    const allPermissions = await MenuPermissions.find({}).sort({ order: 1 });
+    
+    res.json({
+      success: true,
+      message: `${allPermissions.length} permissions recréées avec succès`,
+      menuPermissions: allPermissions
+    });
+    
+  } catch (error) {
+    console.error('❌ Erreur lors de la recréation des permissions:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Erreur serveur lors de la recréation des permissions'
+    });
+  }
+};
+
 module.exports = {
   getMenuPermissions,
   updateMenuPermission,
   updateAllMenuPermissions,
-  getAllMenuPermissions
+  getAllMenuPermissions,
+  recreateDefaultPermissions
 };
