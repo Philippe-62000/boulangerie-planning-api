@@ -2,58 +2,81 @@ const User = require('../models/User');
 
 const updatePassword = async (req, res) => {
   try {
-    const { username, newPassword, role } = req.body;
+    const { admin, employee } = req.body;
 
-    console.log('🔐 Mise à jour du mot de passe pour:', { username, role });
+    console.log('🔐 Mise à jour des mots de passe:', { admin, employee });
 
     // Validation des données
-    if (!username || !newPassword || !role) {
+    if (!admin && !employee) {
       return res.status(400).json({
         success: false,
-        error: 'Nom d\'utilisateur, nouveau mot de passe et rôle requis'
+        error: 'Au moins un mot de passe (admin ou employee) est requis'
       });
     }
 
-    if (newPassword.length < 6) {
-      return res.status(400).json({
-        success: false,
-        error: 'Le mot de passe doit contenir au moins 6 caractères'
+    const results = [];
+
+    // Mettre à jour le mot de passe admin si fourni
+    if (admin) {
+      if (admin.length < 6) {
+        return res.status(400).json({
+          success: false,
+          error: 'Le mot de passe admin doit contenir au moins 6 caractères'
+        });
+      }
+
+      const adminUser = await User.findOne({ 
+        username: 'admin',
+        role: 'admin',
+        isActive: true 
       });
+
+      if (!adminUser) {
+        console.log('❌ Utilisateur admin non trouvé');
+        return res.status(404).json({
+          success: false,
+          error: 'Utilisateur admin non trouvé'
+        });
+      }
+
+      adminUser.password = admin;
+      await adminUser.save();
+      results.push('admin');
+      console.log('✅ Mot de passe admin mis à jour');
     }
 
-    // Rechercher l'utilisateur
-    console.log('🔍 Recherche utilisateur avec critères:', { 
-      username: username.toLowerCase(), 
-      role, 
-      isActive: true 
-    });
-    
-    const user = await User.findOne({ 
-      username: username.toLowerCase(),
-      role: role,
-      isActive: true 
-    });
+    // Mettre à jour le mot de passe employee si fourni
+    if (employee) {
+      if (employee.length < 6) {
+        return res.status(400).json({
+          success: false,
+          error: 'Le mot de passe employee doit contenir au moins 6 caractères'
+        });
+      }
 
-    if (!user) {
-      console.log('❌ Utilisateur non trouvé. Vérification de tous les utilisateurs...');
-      const allUsers = await User.find({});
-      console.log('📋 Tous les utilisateurs:', allUsers.map(u => ({ username: u.username, role: u.role, isActive: u.isActive })));
-      
-      return res.status(404).json({
-        success: false,
-        error: 'Utilisateur non trouvé'
+      const employeeUser = await User.findOne({ 
+        username: 'salarie',
+        role: 'employee',
+        isActive: true 
       });
+
+      if (!employeeUser) {
+        console.log('❌ Utilisateur employee non trouvé');
+        return res.status(404).json({
+          success: false,
+          error: 'Utilisateur employee non trouvé'
+        });
+      }
+
+      employeeUser.password = employee;
+      await employeeUser.save();
+      results.push('employee');
+      console.log('✅ Mot de passe employee mis à jour');
     }
-
-    // Mettre à jour le mot de passe
-    user.password = newPassword;
-    await user.save();
-
-    console.log('✅ Mot de passe mis à jour pour:', username);
 
     res.json({
       success: true,
-      message: 'Mot de passe mis à jour avec succès'
+      message: `Mots de passe mis à jour avec succès: ${results.join(', ')}`
     });
 
   } catch (error) {

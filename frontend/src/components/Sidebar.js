@@ -19,11 +19,10 @@ const Sidebar = () => {
         { menuId: 'planning', isVisibleToAdmin: true, isVisibleToEmployee: true },
         { menuId: 'sales-stats', isVisibleToAdmin: true, isVisibleToEmployee: true },
         { menuId: 'absences', isVisibleToAdmin: true, isVisibleToEmployee: true },
-        { menuId: 'parameters', isVisibleToAdmin: true, isVisibleToEmployee: false },
-        { menuId: 'employee-status', isVisibleToAdmin: true, isVisibleToEmployee: true },
         { menuId: 'meal-expenses', isVisibleToAdmin: true, isVisibleToEmployee: true },
         { menuId: 'km-expenses', isVisibleToAdmin: true, isVisibleToEmployee: true },
-        { menuId: 'employee-status-print', isVisibleToAdmin: true, isVisibleToEmployee: false }
+        { menuId: 'employee-status-print', isVisibleToAdmin: true, isVisibleToEmployee: false },
+        { menuId: 'parameters', isVisibleToAdmin: true, isVisibleToEmployee: false }
       ];
     } else {
       return [
@@ -31,7 +30,6 @@ const Sidebar = () => {
         { menuId: 'planning', isVisibleToAdmin: false, isVisibleToEmployee: true },
         { menuId: 'sales-stats', isVisibleToAdmin: false, isVisibleToEmployee: true },
         { menuId: 'absences', isVisibleToAdmin: false, isVisibleToEmployee: true },
-        { menuId: 'employee-status', isVisibleToAdmin: false, isVisibleToEmployee: true },
         { menuId: 'meal-expenses', isVisibleToAdmin: false, isVisibleToEmployee: true },
         { menuId: 'km-expenses', isVisibleToAdmin: false, isVisibleToEmployee: true }
       ];
@@ -113,6 +111,8 @@ const Sidebar = () => {
 
     console.log('🔍 Filtrage des menus pour:', user.role);
     console.log('📋 Permissions disponibles:', menuPermissions);
+    console.log('👑 isAdmin():', isAdmin());
+    console.log('👤 isEmployee():', isEmployee());
 
     const filteredItems = menuItems.filter(item => {
       const permission = menuPermissions.find(p => p.menuId === item.menuId);

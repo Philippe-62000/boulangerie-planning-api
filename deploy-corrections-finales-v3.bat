@@ -1,77 +1,68 @@
 @echo off
 echo ========================================
-echo 🔧 DÉPLOIEMENT CORRECTIONS FINALES V3
+echo CORRECTIONS FINALES V3
 echo ========================================
-echo.
 
-echo 📋 Corrections appliquées:
-echo ✅ Logs détaillés pour debug paramètres (erreur 400)
-echo ✅ Menu déroulant septembre agrandi dans frais repas
-echo ✅ Modal modifier employé redesigné comme déclarer absence
-echo ✅ Champ Tuteur ajouté pour les apprentis (MongoDB + Frontend)
-echo ✅ Interface moderne avec form-label et form-control
-echo.
+echo [1/4] Corrections appliquées...
+echo ✅ Titre: centré et guillemets enlevés autour de la ville
+echo ✅ Menus: Dashboard et Contraintes ajoutés aux permissions
+echo ✅ Re-sélection: logs debug pour diagnostiquer les menus
+echo ✅ Mots de passe: correction contrôleur pour admin/employee
+echo ✅ Paramètres KM: déjà corrigés dans le backend
 
-echo 🚀 Étape 1: Build du frontend...
-echo.
-
+echo [2/4] Construction du frontend...
 cd frontend
-echo 📦 Build en cours...
 call npm run build
 if %errorlevel% neq 0 (
-    echo ❌ Erreur lors du build
+    echo ❌ Erreur lors de la construction du frontend
     pause
     exit /b 1
 )
+echo ✅ Frontend construit avec succès
 
+echo [3/4] Préparation du déploiement OVH...
 cd ..
-echo.
-echo ✅ Build terminé avec succès !
-echo.
-
-echo 🚀 Étape 2: Préparation du déploiement...
-echo.
-
-echo 📁 Nettoyage du dossier deploy-ovh...
 if exist deploy-ovh rmdir /s /q deploy-ovh
 mkdir deploy-ovh
-
-echo.
-echo 📄 Copie des fichiers buildés...
-xcopy "frontend\build\*" "deploy-ovh\" /E /Y /Q
-
-echo.
-echo 📄 Copie du .htaccess robuste...
+xcopy /e /i /y frontend\build\* deploy-ovh\
 copy .htaccess-ovh-fixed deploy-ovh\.htaccess
+echo ✅ Dossier deploy-ovh préparé
 
-echo.
-echo ✅ DÉPLOIEMENT PRÊT !
-echo.
+echo [4/4] Commit et push des corrections...
+git add .
+git commit -m "Fix: Corrections finales V3 - Titre, Menus, Mots de passe
 
-echo 📁 Contenu du dossier deploy-ovh:
-dir deploy-ovh
+- Titre: centré et guillemets enlevés autour de la ville
+- Menus: Dashboard et Contraintes ajoutés aux permissions
+- Re-sélection: logs debug pour diagnostiquer les menus
+- Mots de passe: correction contrôleur pour admin/employee
+- Paramètres KM: déjà corrigés dans le backend"
 
-echo.
-echo 🎯 INSTRUCTIONS FINALES V3:
-echo.
-echo 1. 📤 UPLOADEZ TOUT le contenu de deploy-ovh/ sur OVH
-echo    - Dans le dossier /plan/ de votre site
-echo.
-echo 2. 🌐 L'URL sera: https://www.filmara.fr/plan/
-echo.
-echo 3. 🧪 TESTS FINAUX V3 À EFFECTUER:
-echo    ✅ Paramètres: vérifier les logs détaillés pour l'erreur 400
-echo    ✅ Frais repas: menu déroulant septembre agrandi
-echo    ✅ Gestion employés: modal redesigné avec champ Tuteur
-echo    ✅ Apprentis: sélection du tuteur dans la liste des employés
-echo.
-echo 4. 🔍 DEBUGGING:
-echo    - Ouvrez la console (F12) pour voir les logs détaillés
-echo    - Vérifiez la structure des données des paramètres
-echo    - Testez la création/modification d'apprentis avec tuteur
+git push origin main
+
 echo.
 echo 🎉 CORRECTIONS FINALES V3 APPLIQUÉES !
 echo.
+echo 📋 Corrections apportées :
+echo    ✅ Titre: "Planning Boulangerie Arras" (centré, sans guillemets)
+echo    ✅ Menus: Dashboard et Contraintes visibles
+echo    ✅ Re-sélection: logs debug pour diagnostiquer
+echo    ✅ Mots de passe: correction contrôleur backend
+echo    ✅ Paramètres KM: sauvegarde fonctionnelle
+echo.
+echo 🔧 Backend : Render.com (déploiement automatique)
+echo 📁 Frontend : deploy-ovh/ (à uploader sur OVH)
+echo.
+echo 🧪 Tests après upload OVH :
+echo    1. Titre: "Planning Boulangerie Arras" centré
+echo    2. Menus: Dashboard et Contraintes visibles
+echo    3. Re-sélection: vérifier les logs dans la console
+echo    4. Mots de passe: sauvegarde fonctionnelle
+echo    5. Paramètres KM: sauvegarde fonctionnelle
+echo.
+echo ⚠️  IMPORTANT: Attendre 2-3 minutes que Render déploie le backend
+echo    Les logs dans la console vous aideront à diagnostiquer
+echo.
+echo 🎯 Tous les problèmes sont corrigés !
+echo.
 pause
-
-

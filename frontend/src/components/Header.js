@@ -31,7 +31,7 @@ const Header = () => {
       <div className="header-content">
         <div className="header-left">
           <h1 className="header-title">
-            Planning Boulangerie {siteName && `'${siteName}'`}
+            Planning Boulangerie {siteName && siteName}
           </h1>
         </div>
         
