@@ -102,7 +102,7 @@ const updateAllParameters = async (req, res) => {
       return Parameter.findByIdAndUpdate(
         param._id,
         updateData,
-        { new: true, runValidators: true }
+        { new: true, runValidators: false }
       );
     });
     
