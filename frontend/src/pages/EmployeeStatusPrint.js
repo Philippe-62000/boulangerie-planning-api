@@ -29,30 +29,39 @@ const EmployeeStatusPrint = () => {
   const handleExportExcel = () => {
     if (!data) return;
 
-    // Créer un fichier Excel simple
+    // Créer un fichier CSV avec les bonnes données
     let csvContent = "data:text/csv;charset=utf-8,";
     
     // En-têtes
-    const headers = ["Salarié", "Heures travaillées", "Heures supplémentaires", "Absences", "Statut"];
+    const headers = ["Salarié", "Frais Repas", "Total KM", "Total Général"];
     csvContent += headers.join(",") + "\n";
     
     // Données
-    data.employees.forEach(employee => {
-      const row = [
-        `"${employee.name}"`,
-        employee.hoursWorked || 0,
-        employee.overtimeHours || 0,
-        employee.absences || 0,
-        `"${employee.status || 'Actif'}"`
-      ];
-      csvContent += row.join(",") + "\n";
-    });
+    if (data.employees && data.employees.length > 0) {
+      data.employees.forEach(employee => {
+        const row = [
+          `"${employee.name || 'N/A'}"`,
+          `"${employee.mealExpenses || '0,00 €'}"`,
+          `"${employee.totalKm || '0 km'}"`,
+          `"${employee.totalGeneral || '0,00 €'}"`
+        ];
+        csvContent += row.join(",") + "\n";
+      });
+      
+      // Ajouter les totaux si disponibles
+      if (data.totals) {
+        csvContent += `"TOTAUX","${data.totals.mealExpenses || '0,00 €'}","${data.totals.totalKm || '0 km'}","${data.totals.totalGeneral || '0,00 €'}"\n`;
+      }
+    } else {
+      // Données par défaut si pas de données
+      csvContent += `"Aucune donnée disponible","","",""\n`;
+    }
     
     // Télécharger le fichier
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `etat_salaries_${month}_${year}.csv`);
+    link.setAttribute("download", `etat_salaries_${getMonthName(month)}_${year}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
