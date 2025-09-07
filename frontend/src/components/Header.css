@@ -21,7 +21,8 @@
 .header-left {
   flex: 1;
   text-align: left;
-  margin-left: 20px;
+  margin-left: 25px;
+  padding-left: 5px;
 }
 
 .header-title {

@@ -23,7 +23,8 @@ const Sidebar = () => {
         { menuId: 'km-expenses', isVisibleToAdmin: true, isVisibleToEmployee: true },
         { menuId: 'employee-status-print', isVisibleToAdmin: true, isVisibleToEmployee: false },
         { menuId: 'parameters', isVisibleToAdmin: true, isVisibleToEmployee: false },
-        { menuId: 'sick-leave-management', isVisibleToAdmin: true, isVisibleToEmployee: false }
+        { menuId: 'sick-leave-management', isVisibleToAdmin: true, isVisibleToEmployee: false },
+        { menuId: 'sick-leave-external', isVisibleToAdmin: true, isVisibleToEmployee: false }
       ];
     } else {
       return [
@@ -86,7 +87,8 @@ const Sidebar = () => {
     { path: '/km-expenses', label: 'Frais KM', icon: '🚗', menuId: 'km-expenses' },
     { path: '/employee-status-print', label: 'Imprimer État', icon: '🖨️', menuId: 'employee-status-print' },
     { path: '/parameters', label: 'Paramètres', icon: '⚙️', menuId: 'parameters' },
-    { path: '/sick-leave-management', label: 'Arrêts Maladie', icon: '🏥', menuId: 'sick-leave-management' }
+    { path: '/sick-leave-management', label: 'Arrêts Maladie', icon: '🏥', menuId: 'sick-leave-management' },
+    { path: 'https://www.filmara.fr/plan/sick-leave-management', label: 'Arrêt Maladie', icon: '🏥', menuId: 'sick-leave-external' }
   ];
 
   // Filtrer les menus selon les permissions
