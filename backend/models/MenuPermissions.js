@@ -155,6 +155,15 @@ menuPermissionsSchema.statics.createDefaultPermissions = async function() {
           isVisibleToEmployee: false,
           requiredPermissions: ['view_reports'],
           order: 10
+        },
+        {
+          menuId: 'sick-leave-management',
+          menuName: 'Gestion des Arrêts Maladie',
+          menuPath: '/sick-leave-management',
+          isVisibleToAdmin: true,
+          isVisibleToEmployee: false,
+          requiredPermissions: ['manage_employees'],
+          order: 11
         }
       ];
 
