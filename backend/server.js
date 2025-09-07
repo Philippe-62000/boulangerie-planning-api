@@ -11,12 +11,10 @@ const app = express();
 app.use(helmet());
 app.use(compression());
 
-// Configuration CORS pour la production
+// Configuration CORS pour la production - HTTPS uniquement
 const allowedOrigins = [
   'https://www.filmara.fr',
   'https://filmara.fr',
-  'http://www.filmara.fr',
-  'http://filmara.fr',
   'http://localhost:3000',
   'http://localhost:3001'
 ];
