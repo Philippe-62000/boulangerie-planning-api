@@ -1,11 +1,11 @@
-const { Client } = require('ssh2-sftp-client');
+const SftpClient = require('ssh2-sftp-client');
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
 
 class SFTPService {
   constructor() {
-    this.client = new Client();
+    this.client = new SftpClient();
     this.config = {
       host: 'philange.synology.me',
       username: 'nHEIGHTn',

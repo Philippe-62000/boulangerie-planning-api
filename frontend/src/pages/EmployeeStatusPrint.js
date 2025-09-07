@@ -26,6 +26,38 @@ const EmployeeStatusPrint = () => {
     window.print();
   };
 
+  const handleExportExcel = () => {
+    if (!data) return;
+
+    // Créer un fichier Excel simple
+    let csvContent = "data:text/csv;charset=utf-8,";
+    
+    // En-têtes
+    const headers = ["Salarié", "Heures travaillées", "Heures supplémentaires", "Absences", "Statut"];
+    csvContent += headers.join(",") + "\n";
+    
+    // Données
+    data.employees.forEach(employee => {
+      const row = [
+        `"${employee.name}"`,
+        employee.hoursWorked || 0,
+        employee.overtimeHours || 0,
+        employee.absences || 0,
+        `"${employee.status || 'Actif'}"`
+      ];
+      csvContent += row.join(",") + "\n";
+    });
+    
+    // Télécharger le fichier
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `etat_salaries_${month}_${year}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   const getMonthName = (monthNumber) => {
     const months = [
       'Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin',
@@ -99,6 +131,13 @@ const EmployeeStatusPrint = () => {
             disabled={!data}
           >
             🖨️ Imprimer
+          </button>
+          <button
+            className="btn btn-info"
+            onClick={handleExportExcel}
+            disabled={!data}
+          >
+            📊 Exporter Excel
           </button>
         </div>
       </div>

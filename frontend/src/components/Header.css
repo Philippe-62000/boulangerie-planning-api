@@ -10,7 +10,7 @@
 
 .header-content {
   display: flex;
-  justify-content: center;
+  justify-content: space-between;
   align-items: center;
   padding: 15px 30px;
   max-width: 1200px;
@@ -20,7 +20,8 @@
 
 .header-left {
   flex: 1;
-  text-align: center;
+  text-align: left;
+  margin-left: 20px;
 }
 
 .header-title {
@@ -33,8 +34,7 @@
 .header-right {
   display: flex;
   align-items: center;
-  position: absolute;
-  right: 30px;
+  flex-shrink: 0;
 }
 
 .user-info {
@@ -46,12 +46,12 @@
 .user-details {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
   background: rgba(255, 255, 255, 0.1);
-  padding: 6px 12px;
-  border-radius: 16px;
+  padding: 4px 8px;
+  border-radius: 12px;
   backdrop-filter: blur(10px);
-  font-size: 0.9rem;
+  font-size: 0.8rem;
 }
 
 .user-icon {
@@ -60,7 +60,7 @@
 
 .user-name {
   font-weight: 500;
-  font-size: 1rem;
+  font-size: 0.9rem;
 }
 
 .user-role {
