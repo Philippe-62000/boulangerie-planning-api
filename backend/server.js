@@ -72,6 +72,7 @@ app.use('/api/meal-expenses', require('./routes/mealExpenses'));
 app.use('/api/parameters', require('./routes/parameters'));
 app.use('/api/km-expenses', require('./routes/kmExpenses'));
 app.use('/api/employee-status', require('./routes/employeeStatus'));
+app.use('/api/sick-leaves', require('./routes/sickLeaves'));
 
 // Route de santé pour vérifier que l'API fonctionne
 app.get('/health', (req, res) => {

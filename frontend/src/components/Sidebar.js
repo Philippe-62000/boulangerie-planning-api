@@ -22,7 +22,8 @@ const Sidebar = () => {
         { menuId: 'meal-expenses', isVisibleToAdmin: true, isVisibleToEmployee: true },
         { menuId: 'km-expenses', isVisibleToAdmin: true, isVisibleToEmployee: true },
         { menuId: 'employee-status-print', isVisibleToAdmin: true, isVisibleToEmployee: false },
-        { menuId: 'parameters', isVisibleToAdmin: true, isVisibleToEmployee: false }
+        { menuId: 'parameters', isVisibleToAdmin: true, isVisibleToEmployee: false },
+        { menuId: 'sick-leave-management', isVisibleToAdmin: true, isVisibleToEmployee: false }
       ];
     } else {
       return [
@@ -84,7 +85,8 @@ const Sidebar = () => {
     { path: '/meal-expenses', label: 'Frais Repas', icon: '🍽️', menuId: 'meal-expenses' },
     { path: '/km-expenses', label: 'Frais KM', icon: '🚗', menuId: 'km-expenses' },
     { path: '/employee-status-print', label: 'Imprimer État', icon: '🖨️', menuId: 'employee-status-print' },
-    { path: '/parameters', label: 'Paramètres', icon: '⚙️', menuId: 'parameters' }
+    { path: '/parameters', label: 'Paramètres', icon: '⚙️', menuId: 'parameters' },
+    { path: '/sick-leave-management', label: 'Arrêts Maladie', icon: '🏥', menuId: 'sick-leave-management' }
   ];
 
   // Filtrer les menus selon les permissions

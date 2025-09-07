@@ -17,6 +17,9 @@ import KmExpenses from './pages/KmExpenses';
 import Parameters from './pages/Parameters';
 import EmployeeStatusPrint from './pages/EmployeeStatusPrint';
 import Tutors from './pages/Tutors';
+import SickLeaveUpload from './pages/SickLeaveUpload';
+import SickLeaveManagement from './pages/SickLeaveManagement';
+import SickLeaveHome from './pages/SickLeaveHome';
 
 const AppContent = () => {
   const { user } = useAuth();
@@ -86,6 +89,13 @@ const AppContent = () => {
             <Route path="/tutors" element={
               <ProtectedRoute adminOnly={true}>
                 <Tutors />
+              </ProtectedRoute>
+            } />
+            <Route path="/sick-leave" element={<SickLeaveHome />} />
+            <Route path="/sick-leave-upload" element={<SickLeaveUpload />} />
+            <Route path="/sick-leave-management" element={
+              <ProtectedRoute adminOnly={true}>
+                <SickLeaveManagement />
               </ProtectedRoute>
             } />
           </Routes>
