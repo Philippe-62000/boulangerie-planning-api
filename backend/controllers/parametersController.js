@@ -89,6 +89,8 @@ const updateAllParameters = async (req, res) => {
     }
     
     const updatePromises = parameters.map(param => {
+      console.log(`🔍 Traitement paramètre:`, param);
+      
       const updateData = {};
       
       // Toujours mettre à jour displayName (même si vide)
@@ -98,6 +100,8 @@ const updateAllParameters = async (req, res) => {
       updateData.kmValue = parseFloat(param.kmValue) || 0;
       
       console.log(`📝 Mise à jour paramètre ${param._id}:`, updateData);
+      console.log(`📝 displayName: "${updateData.displayName}" (type: ${typeof updateData.displayName})`);
+      console.log(`📝 kmValue: ${updateData.kmValue} (type: ${typeof updateData.kmValue})`);
       
       return Parameter.findByIdAndUpdate(
         param._id,
