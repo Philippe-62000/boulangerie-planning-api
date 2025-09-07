@@ -286,7 +286,7 @@
             <div class="form-group">
                 <label for="employeeEmail">Email *</label>
                 <input type="email" id="employeeEmail" name="employeeEmail" required 
-                       placeholder="votre.email@exemple.com" readonly class="readonly-input">
+                       placeholder="votre.email@exemple.com">
             </div>
 
             <div class="date-group">
@@ -340,10 +340,19 @@
         // Charger la liste des employés
         async function loadEmployees() {
             try {
+                console.log('🔄 Chargement des employés depuis:', `${API_URL}/employees`);
                 const response = await fetch(`${API_URL}/employees`);
-                const data = await response.json();
                 
-                if (data.success) {
+                console.log('📡 Réponse reçue:', response.status, response.statusText);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                console.log('📊 Données reçues:', data);
+                
+                if (data.success && data.data) {
                     employees = data.data;
                     const select = document.getElementById('employeeName');
                     select.innerHTML = '<option value="">Sélectionnez votre nom</option>';
@@ -352,22 +361,33 @@
                         const option = document.createElement('option');
                         option.value = employee.name;
                         option.textContent = employee.name;
+                        option.setAttribute('data-email', employee.email);
                         select.appendChild(option);
                     });
+                    
+                    console.log(`✅ ${employees.length} employés chargés`);
+                } else {
+                    console.error('❌ Réponse API invalide:', data);
+                    showMessage('Erreur: Format de réponse invalide de l\'API', 'error');
                 }
             } catch (error) {
-                console.error('Erreur chargement employés:', error);
-                showMessage('Erreur lors du chargement de la liste des employés', 'error');
+                console.error('❌ Erreur chargement employés:', error);
+                showMessage(`Erreur lors du chargement de la liste des employés: ${error.message}`, 'error');
+                
+                // En cas d'erreur, permettre la saisie manuelle
+                const select = document.getElementById('employeeName');
+                select.innerHTML = '<option value="">Erreur de chargement - Saisie manuelle</option>';
             }
         }
 
         // Gestion du changement de nom d'employé
         document.getElementById('employeeName').addEventListener('change', function() {
-            const selectedEmployee = employees.find(emp => emp.name === this.value);
+            const selectedOption = this.options[this.selectedIndex];
             const emailInput = document.getElementById('employeeEmail');
             
-            if (selectedEmployee) {
-                emailInput.value = selectedEmployee.email;
+            if (selectedOption && selectedOption.hasAttribute('data-email')) {
+                emailInput.value = selectedOption.getAttribute('data-email');
+                console.log('📧 Email auto-rempli:', selectedOption.getAttribute('data-email'));
             } else {
                 emailInput.value = '';
             }
