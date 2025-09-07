@@ -24,11 +24,18 @@ const Parameters = () => {
   const [site, setSite] = useState({ name: 'Boulangerie', city: 'Ville' });
   const [loadingSite, setLoadingSite] = useState(false);
   const [savingSite, setSavingSite] = useState(false);
+  
+  // États pour la gestion de la base de données
+  const [databaseStats, setDatabaseStats] = useState(null);
+  const [loadingStats, setLoadingStats] = useState(false);
+  const [exportingDatabase, setExportingDatabase] = useState(false);
+  const [importingDatabase, setImportingDatabase] = useState(false);
 
   useEffect(() => {
     fetchParameters();
     fetchMenuPermissions();
     fetchSite();
+    fetchDatabaseStats();
   }, []);
 
   const fetchParameters = async () => {
@@ -274,6 +281,87 @@ const Parameters = () => {
       toast.error('Erreur lors de la mise à jour du site');
     } finally {
       setSavingSite(false);
+    }
+  };
+
+  // Fonctions pour la gestion de la base de données
+  const fetchDatabaseStats = async () => {
+    setLoadingStats(true);
+    try {
+      const response = await api.get('/database/stats');
+      if (response.data.success) {
+        setDatabaseStats(response.data.stats);
+      }
+    } catch (error) {
+      console.error('❌ Erreur lors de la récupération des statistiques:', error);
+    } finally {
+      setLoadingStats(false);
+    }
+  };
+
+  const exportDatabase = async () => {
+    setExportingDatabase(true);
+    try {
+      const response = await api.get('/database/export', {
+        responseType: 'blob'
+      });
+      
+      // Créer un lien de téléchargement
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `boulangerie-backup-${new Date().toISOString().split('T')[0]}.json`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      
+      toast.success('Base de données exportée avec succès');
+    } catch (error) {
+      console.error('❌ Erreur lors de l\'export:', error);
+      toast.error('Erreur lors de l\'export de la base de données');
+    } finally {
+      setExportingDatabase(false);
+    }
+  };
+
+  const importDatabase = async (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    if (!file.name.endsWith('.json')) {
+      toast.error('Veuillez sélectionner un fichier JSON');
+      return;
+    }
+
+    setImportingDatabase(true);
+    try {
+      const formData = new FormData();
+      formData.append('backupFile', file);
+
+      const response = await api.post('/database/import', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        }
+      });
+
+      if (response.data.success) {
+        toast.success('Base de données importée avec succès');
+        // Recharger les données
+        fetchParameters();
+        fetchMenuPermissions();
+        fetchSite();
+        fetchDatabaseStats();
+      } else {
+        toast.error('Erreur lors de l\'import: ' + (response.data.error || 'Erreur inconnue'));
+      }
+    } catch (error) {
+      console.error('❌ Erreur lors de l\'import:', error);
+      toast.error('Erreur lors de l\'import de la base de données');
+    } finally {
+      setImportingDatabase(false);
+      // Réinitialiser l'input file
+      event.target.value = '';
     }
   };
 
@@ -525,6 +613,79 @@ const Parameters = () => {
             >
               {saving ? '💾 Sauvegarde...' : '💾 Sauvegarder les paramètres KM'}
             </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Section Gestion de la Base de Données */}
+      <div className="card">
+        <div className="card-header">
+          <h3>🗄️ Gestion de la Base de Données</h3>
+          <p>Sauvegarde et restauration complète de la base de données</p>
+        </div>
+        
+        <div className="card-body">
+          {/* Statistiques de la base de données */}
+          <div className="database-stats">
+            <h4>📊 Statistiques</h4>
+            {loadingStats ? (
+              <p>Chargement des statistiques...</p>
+            ) : databaseStats ? (
+              <div className="stats-grid">
+                <div className="stat-item">
+                  <span className="stat-label">Total documents:</span>
+                  <span className="stat-value">{databaseStats.totalDocuments}</span>
+                </div>
+                {Object.entries(databaseStats.collections).map(([collection, count]) => (
+                  <div key={collection} className="stat-item">
+                    <span className="stat-label">{collection}:</span>
+                    <span className="stat-value">{count}</span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p>Aucune statistique disponible</p>
+            )}
+          </div>
+
+          {/* Actions de sauvegarde/restauration */}
+          <div className="database-actions">
+            <h4>💾 Sauvegarde & Restauration</h4>
+            <div className="action-buttons">
+              <button
+                className="btn btn-primary"
+                onClick={exportDatabase}
+                disabled={exportingDatabase}
+              >
+                {exportingDatabase ? '📤 Export en cours...' : '📤 Exporter Base de Données'}
+              </button>
+              
+              <div className="import-section">
+                <input
+                  type="file"
+                  id="importFile"
+                  accept=".json"
+                  onChange={importDatabase}
+                  style={{ display: 'none' }}
+                />
+                <label
+                  htmlFor="importFile"
+                  className={`btn btn-warning ${importingDatabase ? 'disabled' : ''}`}
+                >
+                  {importingDatabase ? '📥 Import en cours...' : '📥 Importer Base de Données'}
+                </label>
+              </div>
+            </div>
+            
+            <div className="database-warning">
+              <h5>⚠️ Attention</h5>
+              <ul>
+                <li>L'export crée une sauvegarde complète de toutes les données</li>
+                <li>L'import remplace TOUTES les données existantes</li>
+                <li>Assurez-vous d'avoir une sauvegarde récente avant d'importer</li>
+                <li>L'opération d'import ne peut pas être annulée</li>
+              </ul>
+            </div>
           </div>
         </div>
       </div>

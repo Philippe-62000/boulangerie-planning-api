@@ -535,3 +535,130 @@
   from { opacity: 0; transform: translateY(20px); }
   to { opacity: 1; transform: translateY(0); }
 }
+
+/* Styles pour la gestion de la base de données */
+.database-stats {
+  margin-bottom: 2rem;
+}
+
+.database-stats h4 {
+  color: #2c3e50;
+  margin-bottom: 1rem;
+  font-size: 1.2rem;
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.stat-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem;
+  background: #f8f9fa;
+  border-radius: 6px;
+  border-left: 4px solid #007bff;
+}
+
+.stat-label {
+  font-weight: 500;
+  color: #495057;
+  text-transform: capitalize;
+}
+
+.stat-value {
+  font-weight: bold;
+  color: #007bff;
+  font-size: 1.1rem;
+}
+
+.database-actions h4 {
+  color: #2c3e50;
+  margin-bottom: 1rem;
+  font-size: 1.2rem;
+}
+
+.action-buttons {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 2rem;
+  flex-wrap: wrap;
+}
+
+.import-section {
+  position: relative;
+}
+
+.import-section label {
+  cursor: pointer;
+  display: inline-block;
+  padding: 0.75rem 1.5rem;
+  background: #ffc107;
+  color: #212529;
+  border: none;
+  border-radius: 6px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  text-decoration: none;
+}
+
+.import-section label:hover:not(.disabled) {
+  background: #e0a800;
+  transform: translateY(-1px);
+}
+
+.import-section label.disabled {
+  background: #6c757d;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.database-warning {
+  background: #fff3cd;
+  border: 1px solid #ffeaa7;
+  border-radius: 8px;
+  padding: 1.5rem;
+  margin-top: 1rem;
+}
+
+.database-warning h5 {
+  color: #856404;
+  margin-bottom: 1rem;
+  font-size: 1.1rem;
+}
+
+.database-warning ul {
+  margin: 0;
+  padding-left: 1.5rem;
+  color: #856404;
+}
+
+.database-warning li {
+  margin-bottom: 0.5rem;
+  line-height: 1.4;
+}
+
+.database-warning li:last-child {
+  margin-bottom: 0;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .action-buttons {
+    flex-direction: column;
+  }
+  
+  .stats-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .stat-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+}
