@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import './SickLeaveUpload.css';
 
-const SickLeaveUpload = () => {
+const SickLeaveUploadStandalone = () => {
   const [formData, setFormData] = useState({
     employeeName: '',
     employeeEmail: '',
@@ -154,7 +154,7 @@ const SickLeaveUpload = () => {
   };
 
   return (
-    <div className="sick-leave-upload">
+    <div className="sick-leave-upload-standalone">
       <div className="upload-container">
         <div className="upload-header">
           <h1>📋 Envoi d'Arrêt Maladie</h1>
@@ -299,4 +299,4 @@ const SickLeaveUpload = () => {
   );
 };
 
-export default SickLeaveUpload;
+export default SickLeaveUploadStandalone;

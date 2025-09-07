@@ -18,7 +18,8 @@ import Parameters from './pages/Parameters';
 import EmployeeStatusPrint from './pages/EmployeeStatusPrint';
 import Tutors from './pages/Tutors';
 import SickLeaveUpload from './pages/SickLeaveUpload';
-import SickLeaveManagement from './pages/SickLeaveManagement';
+import SickLeaveUploadStandalone from './pages/SickLeaveUploadStandalone';
+import SickLeaveAdmin from './pages/SickLeaveAdmin';
 import SickLeaveHome from './pages/SickLeaveHome';
 
 const AppContent = () => {
@@ -92,10 +93,10 @@ const AppContent = () => {
               </ProtectedRoute>
             } />
             <Route path="/sick-leave" element={<SickLeaveHome />} />
-            <Route path="/sick-leave-upload" element={<SickLeaveUpload />} />
+            <Route path="/sick-leave-upload" element={<SickLeaveUploadStandalone />} />
             <Route path="/sick-leave-management" element={
               <ProtectedRoute adminOnly={true}>
-                <SickLeaveManagement />
+                <SickLeaveAdmin />
               </ProtectedRoute>
             } />
           </Routes>
