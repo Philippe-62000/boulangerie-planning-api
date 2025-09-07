@@ -352,8 +352,16 @@
                 const data = await response.json();
                 console.log('📊 Données reçues:', data);
                 
+                // L'API peut retourner soit { success: true, data: [...] } soit directement [...]
+                let employeesData = null;
                 if (data.success && data.data) {
-                    employees = data.data;
+                    employeesData = data.data;
+                } else if (Array.isArray(data)) {
+                    employeesData = data;
+                }
+                
+                if (employeesData && Array.isArray(employeesData)) {
+                    employees = employeesData;
                     const select = document.getElementById('employeeName');
                     select.innerHTML = '<option value="">Sélectionnez votre nom</option>';
                     

@@ -43,12 +43,12 @@ const AppContent = () => {
               </ProtectedRoute>
             } />
             <Route path="/employees" element={
-              <ProtectedRoute adminOnly={true}>
+              <ProtectedRoute>
                 <EmployeeManagement />
               </ProtectedRoute>
             } />
             <Route path="/constraints" element={
-              <ProtectedRoute requiredPermission="manage_planning">
+              <ProtectedRoute>
                 <ConstraintsManager />
               </ProtectedRoute>
             } />
@@ -83,7 +83,7 @@ const AppContent = () => {
               </ProtectedRoute>
             } />
             <Route path="/employee-status-print" element={
-              <ProtectedRoute requiredPermission="view_reports">
+              <ProtectedRoute>
                 <EmployeeStatusPrint />
               </ProtectedRoute>
             } />
