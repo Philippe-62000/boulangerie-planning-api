@@ -29,9 +29,23 @@ const corsOrigins = process.env.CORS_ORIGIN ?
 console.log('🔧 CORS Origins configurés:', corsOrigins);
 
 const corsOptions = {
-  origin: corsOrigins,
+  origin: function (origin, callback) {
+    // Permettre les requêtes sans origine (ex: Postman, curl)
+    if (!origin) return callback(null, true);
+    
+    // Vérifier si l'origine est autorisée
+    if (corsOrigins.indexOf(origin) !== -1) {
+      console.log('✅ CORS autorisé pour:', origin);
+      callback(null, true);
+    } else {
+      console.log('❌ CORS refusé pour:', origin);
+      callback(new Error('Non autorisé par CORS'));
+    }
+  },
   credentials: true,
-  optionsSuccessStatus: 200
+  optionsSuccessStatus: 200,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'Origin', 'X-Requested-With', 'Accept']
 };
 app.use(cors(corsOptions));
 
