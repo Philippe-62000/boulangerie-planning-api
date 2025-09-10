@@ -75,12 +75,21 @@ exports.getEmployeeById = async (req, res) => {
 // Créer un nouvel employé
 exports.createEmployee = async (req, res) => {
   try {
+    console.log('🔍 Création employé - Données reçues:', req.body);
+    
     const employee = new Employee(req.body);
     await employee.save();
+    
+    console.log('✅ Employé créé avec succès:', employee);
     res.status(201).json(employee);
   } catch (error) {
+    console.error('❌ Erreur création employé:', error);
     if (error.name === 'ValidationError') {
-      return res.status(400).json({ error: error.message });
+      console.error('❌ Erreurs de validation:', error.errors);
+      return res.status(400).json({ 
+        error: error.message,
+        details: error.errors 
+      });
     }
     res.status(500).json({ error: error.message });
   }

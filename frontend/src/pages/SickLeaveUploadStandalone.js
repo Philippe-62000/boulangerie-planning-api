@@ -28,11 +28,19 @@ const SickLeaveUploadStandalone = () => {
         const response = await axios.get(`${API_URL}/employees`);
         console.log('📊 Réponse API employés:', response.data);
         
-        if (response.data.success) {
-          setEmployees(response.data.data);
-          console.log('✅ Employés chargés:', response.data.data);
+        // L'API peut retourner soit { success: true, data: [...] } soit directement [...]
+        let employeesData = null;
+        if (response.data.success && response.data.data) {
+          employeesData = response.data.data;
+        } else if (Array.isArray(response.data)) {
+          employeesData = response.data;
+        }
+        
+        if (employeesData) {
+          setEmployees(employeesData);
+          console.log('✅ Employés chargés:', employeesData);
         } else {
-          console.error('❌ Réponse API sans succès:', response.data);
+          console.error('❌ Réponse API invalide:', response.data);
           setMessage('Erreur: réponse API invalide');
           setMessageType('error');
         }

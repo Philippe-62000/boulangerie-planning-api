@@ -95,6 +95,7 @@ const AppContent = () => {
             <Route path="/sick-leave" element={<Navigate to="/plan/sick-leave" replace />} />
             <Route path="/plan/sick-leave" element={<SickLeaveHome />} />
             <Route path="/sick-leave-upload" element={<SickLeaveUploadStandalone />} />
+            <Route path="/plan/sick-leave-upload" element={<SickLeaveUploadStandalone />} />
             <Route path="/sick-leave-management" element={
               <ProtectedRoute adminOnly={true}>
                 <SickLeaveAdmin />

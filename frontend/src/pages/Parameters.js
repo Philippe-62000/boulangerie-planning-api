@@ -150,27 +150,17 @@ const Parameters = () => {
         return;
       }
 
-      // Mettre à jour le mot de passe administrateur
+      // Envoyer les mots de passe dans le bon format
+      const passwordData = {};
       if (passwords.admin) {
-        console.log('🔐 Mise à jour mot de passe admin...');
-        await api.put('/passwords/update', {
-          username: 'admin',
-          newPassword: passwords.admin,
-          role: 'admin'
-        });
-        console.log('✅ Mot de passe admin mis à jour');
+        passwordData.admin = passwords.admin;
+      }
+      if (passwords.employee) {
+        passwordData.employee = passwords.employee;
       }
 
-      // Mettre à jour le mot de passe salarié
-      if (passwords.employee) {
-        console.log('🔐 Mise à jour mot de passe salarié...');
-        await api.put('/passwords/update', {
-          username: 'salarie',
-          newPassword: passwords.employee,
-          role: 'employee'
-        });
-        console.log('✅ Mot de passe salarié mis à jour');
-      }
+      console.log('🔐 Envoi des mots de passe:', passwordData);
+      await api.put('/passwords/update', passwordData);
 
       toast.success('Mots de passe mis à jour avec succès');
       setPasswords({ admin: '', employee: '' });

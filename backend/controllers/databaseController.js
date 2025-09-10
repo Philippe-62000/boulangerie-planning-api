@@ -11,7 +11,6 @@ const Employee = require('../models/Employee');
 const Parameter = require('../models/Parameters');
 const MenuPermissions = require('../models/MenuPermissions');
 const SickLeave = require('../models/SickLeave');
-const SalesData = require('../models/SalesData');
 const Absence = require('../models/Absence');
 const MealExpense = require('../models/MealExpense');
 const KmExpense = require('../models/KmExpense');
@@ -34,7 +33,6 @@ const exportDatabase = async (req, res) => {
       { name: 'parameters', model: Parameter },
       { name: 'menupermissions', model: MenuPermissions },
       { name: 'sickleaves', model: SickLeave },
-      { name: 'salesdata', model: SalesData },
       { name: 'absences', model: Absence },
       { name: 'mealexpenses', model: MealExpense },
       { name: 'kmexpenses', model: KmExpense }
@@ -115,7 +113,6 @@ const importDatabase = async (req, res) => {
       'parameters': Parameter,
       'menupermissions': MenuPermissions,
       'sickleaves': SickLeave,
-      'salesdata': SalesData,
       'absences': Absence,
       'mealexpenses': MealExpense,
       'kmexpenses': KmExpense
@@ -200,7 +197,6 @@ const getDatabaseStats = async (req, res) => {
       { name: 'parameters', model: Parameter },
       { name: 'menupermissions', model: MenuPermissions },
       { name: 'sickleaves', model: SickLeave },
-      { name: 'salesdata', model: SalesData },
       { name: 'absences', model: Absence },
       { name: 'mealexpenses', model: MealExpense },
       { name: 'kmexpenses', model: KmExpense }
