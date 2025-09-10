@@ -53,18 +53,26 @@ const Employees = () => {
 
   const handleSaveEmployee = async (employeeData) => {
     try {
+      console.log('🔍 Données employé à sauvegarder:', employeeData);
+      
       if (editingEmployee) {
+        console.log('📝 Modification employé existant:', editingEmployee._id);
         await api.put(`/employees/${editingEmployee._id}`, employeeData);
         toast.success('Employé modifié avec succès');
       } else {
-        await api.post('/employees', employeeData);
+        console.log('➕ Création nouvel employé');
+        console.log('📤 Envoi POST vers /employees avec:', employeeData);
+        const response = await api.post('/employees', employeeData);
+        console.log('✅ Réponse API:', response.data);
         toast.success('Employé ajouté avec succès');
       }
       fetchEmployees();
       setShowModal(false);
     } catch (error) {
-      toast.error('Erreur lors de la sauvegarde');
-      console.error(error);
+      console.error('❌ Erreur détaillée:', error);
+      console.error('❌ Erreur response:', error.response);
+      console.error('❌ Erreur data:', error.response?.data);
+      toast.error(`Erreur lors de la sauvegarde: ${error.response?.data?.error || error.message}`);
     }
   };
 
