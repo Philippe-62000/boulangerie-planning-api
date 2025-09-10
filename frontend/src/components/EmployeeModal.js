@@ -60,6 +60,8 @@ const EmployeeModal = ({ employee, onSave, onClose, employees = [] }) => {
   const handleSubmit = (e) => {
     e.preventDefault();
 
+    console.log('🔍 Données du formulaire avant validation:', formData);
+
     // Validation de base
     if (!formData.name.trim()) {
       alert('Le nom est obligatoire');
@@ -94,7 +96,18 @@ const EmployeeModal = ({ employee, onSave, onClose, employees = [] }) => {
       }
     }
 
-    onSave(formData);
+    // Préparer les données pour l'envoi
+    const dataToSend = {
+      ...formData,
+      age: parseInt(formData.age),
+      weeklyHours: parseInt(formData.weeklyHours),
+      // S'assurer que les champs optionnels sont correctement formatés
+      contractEndDate: formData.contractEndDate || undefined,
+      tutor: formData.tutor || undefined
+    };
+
+    console.log('📤 Données préparées pour l\'envoi:', dataToSend);
+    onSave(dataToSend);
   };
 
   const daysOfWeek = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
