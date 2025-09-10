@@ -8,25 +8,35 @@ const HolidayStatus = () => {
   const [rejectedHolidays, setRejectedHolidays] = useState(new Set());
 
   // URL du Google Sheets (format CSV)
-  const GOOGLE_SHEETS_URL = 'https://docs.google.com/spreadsheets/d/1HEPOWUMdbdqzpsrjBjqquTVPlDbyQv_y34c30rIaikM/edit?gid=781548784&export=format=csv';
+  const GOOGLE_SHEETS_URL = 'https://docs.google.com/spreadsheets/d/1HEPOWUMdbdqzpsrjBjqquTVPlDbyQv_y34c30rIaikM/export?format=csv&gid=781548784';
 
   const fetchHolidays = async () => {
     setLoading(true);
     try {
+      console.log('🔄 Chargement des congés depuis Google Sheets...');
+      console.log('📡 URL:', GOOGLE_SHEETS_URL);
+      
       // Utiliser un proxy CORS ou une API backend pour récupérer les données
       const response = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(GOOGLE_SHEETS_URL)}`);
       const data = await response.json();
       
+      console.log('📊 Données reçues:', data);
+      
       // Parser le CSV
       const csvData = data.contents;
+      console.log('📄 CSV brut:', csvData.substring(0, 500) + '...');
+      
       const lines = csvData.split('\n');
+      console.log('📋 Nombre de lignes:', lines.length);
+      
       const headers = lines[0].split(',');
+      console.log('📋 En-têtes:', headers);
       
       const holidaysData = lines.slice(1)
         .filter(line => line.trim())
-        .map(line => {
+        .map((line, index) => {
           const values = line.split(',');
-          return {
+          const holiday = {
             id: values[0] || Math.random().toString(36).substr(2, 9),
             timestamp: values[0],
             boulangerie: values[1],
@@ -36,12 +46,19 @@ const HolidayStatus = () => {
             dateFin: values[5],
             commentaire: values[6] || ''
           };
+          console.log(`📋 Ligne ${index + 1}:`, holiday);
+          return holiday;
         })
-        .filter(holiday => holiday.boulangerie && holiday.boulangerie.toLowerCase().includes('arras'));
+        .filter(holiday => {
+          const isArras = holiday.boulangerie && holiday.boulangerie.toLowerCase().includes('arras');
+          console.log(`🏖️ ${holiday.prenom} ${holiday.nom} - ${holiday.boulangerie} - Arras: ${isArras}`);
+          return isArras;
+        });
 
+      console.log('✅ Congés filtrés pour Arras:', holidaysData);
       setHolidays(holidaysData);
     } catch (error) {
-      console.error('Erreur lors du chargement des congés:', error);
+      console.error('❌ Erreur lors du chargement des congés:', error);
     } finally {
       setLoading(false);
     }

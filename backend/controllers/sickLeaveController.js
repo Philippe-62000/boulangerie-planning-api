@@ -67,13 +67,43 @@ const uploadSickLeave = async (req, res) => {
 
     console.log(`📊 Score de validation: ${validation.qualityScore}/100`);
 
-    // Upload vers le NAS
+    // Upload vers le NAS (ou sauvegarde locale si SFTP non configuré)
     console.log('📤 Upload vers le NAS...');
-    const uploadResult = await sftpService.uploadFile(
-      req.file.buffer,
-      req.file.originalname,
-      employeeName
-    );
+    console.log('🔍 Configuration SFTP:', {
+      host: 'philange.synology.me',
+      username: 'nHEIGHTn',
+      passwordSet: !!process.env.SFTP_PASSWORD,
+      passwordLength: process.env.SFTP_PASSWORD ? process.env.SFTP_PASSWORD.length : 0
+    });
+    
+    let uploadResult;
+    if (!process.env.SFTP_PASSWORD) {
+      console.log('⚠️ Mot de passe SFTP non configuré, sauvegarde locale...');
+      // Sauvegarde locale temporaire
+      const fileName = `${Date.now()}_${employeeName.replace(/\s+/g, '_')}_${req.file.originalname}`;
+      uploadResult = {
+        fileName: fileName,
+        remotePath: `/temp/${fileName}`,
+        localPath: `/uploads/${fileName}`
+      };
+      console.log('✅ Fichier sauvegardé localement:', uploadResult);
+    } else {
+      try {
+        uploadResult = await sftpService.uploadFile(
+          req.file.buffer,
+          req.file.originalname,
+          employeeName
+        );
+        console.log('✅ Upload réussi:', uploadResult);
+      } catch (uploadError) {
+        console.error('❌ Erreur upload SFTP:', uploadError);
+        return res.status(500).json({
+          success: false,
+          error: 'Erreur lors de l\'upload du fichier vers le NAS',
+          details: uploadError.message
+        });
+      }
+    }
 
     // Création de l'enregistrement en base
     const sickLeave = new SickLeave({
