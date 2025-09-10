@@ -482,7 +482,11 @@ const Parameters = () => {
               <button
                 className="btn btn-primary"
                 onClick={savePasswords}
-                disabled={savingPasswords || (!passwords.admin && !passwords.employee)}
+                disabled={savingPasswords}
+                style={{ 
+                  opacity: (!passwords.admin && !passwords.employee) ? 0.6 : 1,
+                  cursor: (!passwords.admin && !passwords.employee) ? 'not-allowed' : 'pointer'
+                }}
               >
                 {savingPasswords ? '🔐 Mise à jour...' : '🔐 Mettre à jour les mots de passe'}
               </button>

@@ -188,8 +188,39 @@ const saveAllKmExpenses = async (req, res) => {
   }
 };
 
+// Réinitialiser les données d'un employé spécifique
+const resetEmployeeKmData = async (req, res) => {
+  try {
+    const { employeeId, month, year } = req.body;
+    
+    if (!employeeId || !month || !year) {
+      return res.status(400).json({ 
+        error: 'L\'ID employé, le mois et l\'année sont requis' 
+      });
+    }
+
+    // Supprimer les données existantes pour cet employé ce mois/année
+    await KmExpense.deleteOne({ 
+      employeeId, 
+      month: parseInt(month), 
+      year: parseInt(year) 
+    });
+
+    console.log(`🗑️ Données KM réinitialisées pour l'employé ${employeeId} - ${month}/${year}`);
+
+    res.json({ 
+      success: true, 
+      message: 'Données réinitialisées avec succès' 
+    });
+  } catch (error) {
+    console.error('Erreur lors de la réinitialisation des données KM:', error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
 module.exports = {
   getKmExpenses,
   saveKmExpenses,
-  saveAllKmExpenses
+  saveAllKmExpenses,
+  resetEmployeeKmData
 };

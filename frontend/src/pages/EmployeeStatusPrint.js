@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import api from '../services/api';
 import { toast } from 'react-toastify';
+import HolidayStatus from '../components/HolidayStatus';
 import './EmployeeStatusPrint.css';
 
 const EmployeeStatusPrint = () => {
@@ -23,7 +24,86 @@ const EmployeeStatusPrint = () => {
   };
 
   const handlePrint = () => {
-    window.print();
+    // Créer une nouvelle fenêtre pour l'impression
+    const printWindow = window.open('', '_blank');
+    const printContent = document.querySelector('.print-content');
+    
+    if (printContent) {
+      printWindow.document.write(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>État des Salariés - ${getMonthName(month)} ${year}</title>
+          <style>
+            body { 
+              font-family: Arial, sans-serif; 
+              margin: 0; 
+              padding: 20px; 
+              color: #000;
+            }
+            .print-header {
+              text-align: center;
+              margin-bottom: 30px;
+              border-bottom: 2px solid #000;
+              padding-bottom: 20px;
+            }
+            .print-header h1 {
+              margin: 0 0 10px 0;
+              font-size: 24px;
+              font-weight: bold;
+            }
+            .print-header h2 {
+              margin: 0 0 10px 0;
+              font-size: 18px;
+            }
+            .print-date {
+              font-size: 12px;
+              color: #666;
+            }
+            .status-table {
+              width: 100%;
+              border-collapse: collapse;
+              margin-bottom: 30px;
+            }
+            .status-table th,
+            .status-table td {
+              border: 1px solid #000;
+              padding: 8px;
+              text-align: left;
+            }
+            .status-table th {
+              background: #f0f0f0;
+              font-weight: bold;
+            }
+            .totals-row {
+              background: #f0f0f0;
+              font-weight: bold;
+            }
+            .print-summary {
+              margin-top: 20px;
+            }
+            .summary-item {
+              margin-bottom: 10px;
+            }
+            @media print {
+              body { margin: 0; padding: 15px; }
+              .status-table tbody tr { page-break-inside: avoid; }
+            }
+          </style>
+        </head>
+        <body>
+          ${printContent.outerHTML}
+        </body>
+        </html>
+      `);
+      printWindow.document.close();
+      printWindow.focus();
+      printWindow.print();
+      printWindow.close();
+    } else {
+      // Fallback vers l'impression normale
+      window.print();
+    }
   };
 
   const handleExportExcel = () => {
@@ -220,6 +300,11 @@ const EmployeeStatusPrint = () => {
           <p>Cliquez sur "Actualiser" pour charger les données du mois sélectionné.</p>
         </div>
       )}
+
+      {/* Section État des Congés */}
+      <div style={{ marginTop: '2rem' }}>
+        <HolidayStatus />
+      </div>
     </div>
   );
 };

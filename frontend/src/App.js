@@ -30,7 +30,7 @@ const AppContent = () => {
   }
 
   return (
-    <div className="App">
+      <div className="App">
       <Header />
       <div className="app-container">
         <Sidebar />
@@ -92,7 +92,8 @@ const AppContent = () => {
                 <Tutors />
               </ProtectedRoute>
             } />
-            <Route path="/sick-leave" element={<SickLeaveHome />} />
+            <Route path="/sick-leave" element={<Navigate to="/plan/sick-leave" replace />} />
+            <Route path="/plan/sick-leave" element={<SickLeaveHome />} />
             <Route path="/sick-leave-upload" element={<SickLeaveUploadStandalone />} />
             <Route path="/sick-leave-management" element={
               <ProtectedRoute adminOnly={true}>
@@ -114,7 +115,7 @@ function App() {
           <Route path="/login" element={<Login />} />
           <Route path="/*" element={<AppContent />} />
         </Routes>
-      </Router>
+    </Router>
     </AuthProvider>
   );
 }

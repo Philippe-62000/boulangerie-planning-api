@@ -95,22 +95,26 @@
   z-index: 1;
   border-right: 2px solid #dee2e6;
   position: relative;
-  min-width: 180px;
+  min-width: 200px;
+  padding: 0.75rem 0.5rem !important;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
 
 .employee-cell .employee-name {
-  display: inline-block;
-  margin-right: 10px;
+  flex: 1;
+  margin-right: 15px;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
 }
 
 .employee-cell .employee-total {
-  position: absolute;
-  right: 10px;
-  top: 50%;
-  transform: translateY(-50%);
+  flex-shrink: 0;
   font-weight: bold;
   color: #28a745;
   font-size: 0.9rem;
+  white-space: nowrap;
 }
 
 .day-column {

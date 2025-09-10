@@ -11,5 +11,8 @@ router.post('/', kmExpenseController.saveKmExpenses);
 // Sauvegarder tous les frais KM pour un mois/année (batch)
 router.post('/batch', kmExpenseController.saveAllKmExpenses);
 
+// Réinitialiser les données d'un employé spécifique
+router.post('/reset', kmExpenseController.resetEmployeeKmData);
+
 module.exports = router;
 

@@ -24,12 +24,20 @@ const SickLeaveUploadStandalone = () => {
   useEffect(() => {
     const fetchEmployees = async () => {
       try {
+        console.log('🔄 Chargement des employés depuis:', `${API_URL}/employees`);
         const response = await axios.get(`${API_URL}/employees`);
+        console.log('📊 Réponse API employés:', response.data);
+        
         if (response.data.success) {
           setEmployees(response.data.data);
+          console.log('✅ Employés chargés:', response.data.data);
+        } else {
+          console.error('❌ Réponse API sans succès:', response.data);
+          setMessage('Erreur: réponse API invalide');
+          setMessageType('error');
         }
       } catch (error) {
-        console.error('Erreur récupération employés:', error);
+        console.error('❌ Erreur récupération employés:', error);
         setMessage('Erreur lors du chargement de la liste des employés');
         setMessageType('error');
       } finally {

@@ -258,6 +258,22 @@
   transform: none;
 }
 
+.btn-warning {
+  background: #ffc107;
+  color: #212529;
+}
+
+.btn-warning:hover:not(:disabled) {
+  background: #e0a800;
+  transform: translateY(-1px);
+}
+
+.btn-warning:disabled {
+  background: #6c757d;
+  cursor: not-allowed;
+  transform: none;
+}
+
 /* Loading animation */
 .loading {
   width: 40px;

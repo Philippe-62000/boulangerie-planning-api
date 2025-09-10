@@ -105,6 +105,26 @@ const KmExpenses = () => {
     }
   };
 
+  const resetEmployeeData = async (employeeId, employeeName) => {
+    if (!window.confirm(`Êtes-vous sûr de vouloir réinitialiser les données de ${employeeName} pour ${month}/${year} ?`)) {
+      return;
+    }
+
+    try {
+      await api.post('/km-expenses/reset', {
+        employeeId,
+        month,
+        year
+      });
+      
+      toast.success(`Données de ${employeeName} réinitialisées avec succès`);
+      fetchExpenses(); // Recharger les données
+    } catch (error) {
+      console.error('Erreur lors de la réinitialisation:', error);
+      toast.error('Erreur lors de la réinitialisation des données');
+    }
+  };
+
   const getMonthName = (monthNumber) => {
     const months = [
       'Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin',
@@ -164,6 +184,24 @@ const KmExpenses = () => {
             disabled={saving}
           >
             {saving ? '💾 Sauvegarde...' : '💾 Sauvegarder'}
+          </button>
+          <button
+            className="btn btn-warning"
+            onClick={() => {
+              const adelaideEmployee = expenses.find(emp => 
+                emp.employeeName.toLowerCase().includes('adélaïde') || 
+                emp.employeeName.toLowerCase().includes('adelade')
+              );
+              if (adelaideEmployee) {
+                resetEmployeeData(adelaideEmployee.employeeId, adelaideEmployee.employeeName);
+              } else {
+                toast.error('Adélaïde non trouvée dans la liste');
+              }
+            }}
+            disabled={saving}
+            title="Réinitialiser les données d'Adélaïde pour ce mois"
+          >
+            🔄 Réinitialiser Adélaïde
           </button>
         </div>
       </div>

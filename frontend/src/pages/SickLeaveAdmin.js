@@ -237,7 +237,7 @@ const SickLeaveAdmin = () => {
         
         <div className="quick-actions">
           <a 
-            href="/plan/sick-leave-upload" 
+            href="/plan/sick-leave" 
             target="_blank" 
             rel="noopener noreferrer"
             className="action-link"

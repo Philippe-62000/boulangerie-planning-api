@@ -49,7 +49,10 @@ exports.getAllEmployees = async (req, res) => {
     );
     
     console.log(`📊 ${employeesWithAbsences.length} employés récupérés avec leurs absences`);
-    res.json(employeesWithAbsences);
+    res.json({ 
+      success: true, 
+      data: employeesWithAbsences 
+    });
   } catch (error) {
     console.error('❌ Erreur lors de la récupération des employés:', error);
     res.status(500).json({ error: error.message });
