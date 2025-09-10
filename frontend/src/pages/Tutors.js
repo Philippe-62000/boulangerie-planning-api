@@ -15,10 +15,25 @@ const Tutors = () => {
     try {
       setLoading(true);
       const response = await api.get('/employees');
-      setEmployees(response.data);
+      
+      // L'API peut retourner soit { success: true, data: [...] } soit directement [...]
+      let employeesData = null;
+      if (response.data.success && response.data.data) {
+        employeesData = response.data.data;
+      } else if (Array.isArray(response.data)) {
+        employeesData = response.data;
+      }
+      
+      if (employeesData) {
+        setEmployees(employeesData);
+      } else {
+        setEmployees([]);
+        toast.error('Format de données invalide');
+      }
     } catch (error) {
       toast.error('Erreur lors du chargement des employés');
       console.error(error);
+      setEmployees([]);
     } finally {
       setLoading(false);
     }

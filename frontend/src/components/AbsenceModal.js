@@ -23,10 +23,25 @@ const AbsenceModal = ({ show, onHide, onSuccess }) => {
   const loadEmployees = async () => {
     try {
       const response = await api.get('/employees');
-      setEmployees(response.data);
+      
+      // L'API peut retourner soit { success: true, data: [...] } soit directement [...]
+      let employeesData = null;
+      if (response.data.success && response.data.data) {
+        employeesData = response.data.data;
+      } else if (Array.isArray(response.data)) {
+        employeesData = response.data;
+      }
+      
+      if (employeesData) {
+        setEmployees(employeesData);
+      } else {
+        setEmployees([]);
+        setError('Format de données invalide');
+      }
     } catch (error) {
       console.error('Erreur lors du chargement des employés:', error);
       setError('Erreur lors du chargement des employés');
+      setEmployees([]);
     }
   };
 

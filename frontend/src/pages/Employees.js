@@ -22,10 +22,28 @@ const Employees = () => {
     try {
       setLoading(true);
       const response = await api.get('/employees');
-      setEmployees(response.data);
+      console.log('📊 Réponse API employés:', response.data);
+      
+      // L'API peut retourner soit { success: true, data: [...] } soit directement [...]
+      let employeesData = null;
+      if (response.data.success && response.data.data) {
+        employeesData = response.data.data;
+      } else if (Array.isArray(response.data)) {
+        employeesData = response.data;
+      }
+      
+      if (employeesData) {
+        setEmployees(employeesData);
+        console.log('✅ Employés chargés:', employeesData.length);
+      } else {
+        console.error('❌ Format de données invalide:', response.data);
+        setEmployees([]);
+        toast.error('Format de données invalide');
+      }
     } catch (error) {
       toast.error('Erreur lors du chargement des employés');
       console.error(error);
+      setEmployees([]);
     } finally {
       setLoading(false);
     }
