@@ -65,7 +65,7 @@ class SFTPService {
         `${this.basePath}/${year}`
       ];
 
-      console.log('🔍 Vérification de la structure de dossiers simplifiée...');
+      console.log('🔍 Vérification et création de la structure de dossiers...');
       
       for (const dirPath of paths) {
         try {
@@ -74,8 +74,14 @@ class SFTPService {
           console.log(`✅ Dossier existe: ${dirPath}`);
         } catch (statError) {
           console.log(`⚠️ Dossier n'existe pas: ${dirPath}`);
-          // Ne pas essayer de créer automatiquement, laisser l'utilisateur le faire
-          console.log(`ℹ️ Veuillez créer manuellement le dossier: ${dirPath}`);
+          try {
+            // Créer le dossier automatiquement
+            await this.client.mkdir(dirPath, true);
+            console.log(`✅ Dossier créé: ${dirPath}`);
+          } catch (mkdirError) {
+            console.log(`❌ Impossible de créer le dossier: ${dirPath}`);
+            console.log(`ℹ️ Vérifiez les permissions SFTP pour: ${dirPath}`);
+          }
         }
       }
       
@@ -106,8 +112,24 @@ class SFTPService {
       console.log(`📤 Upload vers: ${remotePath}`);
       
       // Vérifier et créer les dossiers de destination si nécessaires
+      const baseDir = this.basePath;
       const yearDir = `${this.basePath}/${year}`;
       const pendingDir = `${this.basePath}/${year}/pending`;
+      
+      // Créer le dossier racine si nécessaire
+      try {
+        await this.client.stat(baseDir);
+        console.log(`✅ Dossier racine existe: ${baseDir}`);
+      } catch (error) {
+        console.log(`⚠️ Dossier racine n'existe pas: ${baseDir}`);
+        try {
+          await this.client.mkdir(baseDir, true);
+          console.log(`✅ Dossier racine créé: ${baseDir}`);
+        } catch (mkdirError) {
+          console.log(`❌ Impossible de créer le dossier racine: ${baseDir}`);
+          throw new Error(`Impossible de créer le dossier racine: ${baseDir}. Vérifiez les permissions SFTP.`);
+        }
+      }
       
       // Créer le dossier année si nécessaire
       try {
