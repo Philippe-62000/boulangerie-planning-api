@@ -646,6 +646,26 @@ const Parameters = () => {
                   <p>💡 <strong>Utilisation :</strong> Cette adresse sera utilisée pour envoyer automatiquement les arrêts maladie validés au comptable.</p>
                   <p>🔒 <strong>Sécurité :</strong> Vous pouvez également configurer cette valeur via la variable d'environnement <code>ACCOUNTANT_EMAIL</code> dans Render.</p>
                 </div>
+                <div className="email-actions">
+                  <button
+                    className="btn btn-primary"
+                    onClick={async () => {
+                      try {
+                        const emailParam = parameters.find(p => p.name === 'accountantEmail');
+                        if (emailParam) {
+                          await api.put(`/parameters/${emailParam._id}`, {
+                            stringValue: emailParam.stringValue
+                          });
+                          toast.success('Email du comptable sauvegardé');
+                        }
+                      } catch (error) {
+                        toast.error('Erreur lors de la sauvegarde de l\'email');
+                      }
+                    }}
+                  >
+                    💾 Sauvegarder l'email du comptable
+                  </button>
+                </div>
               </div>
             ) : (
               <div className="no-email-param">

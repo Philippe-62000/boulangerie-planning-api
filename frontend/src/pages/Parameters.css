@@ -725,6 +725,17 @@
   font-weight: 500;
 }
 
+.email-actions {
+  text-align: center;
+  margin-top: 20px;
+}
+
+.email-actions .btn {
+  padding: 12px 24px;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
 @media (max-width: 768px) {
   .action-buttons {
     flex-direction: column;
