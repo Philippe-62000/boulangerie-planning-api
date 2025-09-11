@@ -178,13 +178,30 @@ const uploadSickLeave = async (req, res) => {
 
     // Validation automatique du fichier
     console.log('🔍 Validation automatique du fichier...');
-    const validation = await imageValidationService.validateFile(
-      req.file.buffer,
-      req.file.originalname,
-      req.file.mimetype
-    );
-
-    console.log(`📊 Score de validation: ${validation.qualityScore}/100`);
+    console.log('🔍 Fichier à valider:', {
+      originalname: req.file.originalname,
+      mimetype: req.file.mimetype,
+      size: req.file.size,
+      bufferLength: req.file.buffer ? req.file.buffer.length : 'undefined'
+    });
+    
+    let validation;
+    try {
+      validation = await imageValidationService.validateFile(
+        req.file.buffer,
+        req.file.originalname,
+        req.file.mimetype
+      );
+      console.log(`📊 Score de validation: ${validation.qualityScore}/100`);
+    } catch (validationError) {
+      console.error('❌ Erreur validation fichier:', validationError);
+      return res.status(500).json({
+        success: false,
+        error: 'Erreur lors de la validation du fichier',
+        details: validationError.message,
+        stack: validationError.stack
+      });
+    }
 
     // Upload vers le NAS (ou sauvegarde locale si SFTP non configuré)
     console.log('📤 Upload vers le NAS...');
@@ -225,7 +242,8 @@ const uploadSickLeave = async (req, res) => {
     }
 
     // Création de l'enregistrement en base
-    const sickLeave = new SickLeave({
+    console.log('💾 Création de l\'enregistrement en base...');
+    console.log('💾 Données à sauvegarder:', {
       employeeName: employeeName.trim(),
       employeeEmail: employeeEmail.trim().toLowerCase(),
       startDate: start,
@@ -234,17 +252,50 @@ const uploadSickLeave = async (req, res) => {
       originalFileName: req.file.originalname,
       fileSize: req.file.size,
       fileType: req.file.mimetype,
-      filePath: uploadResult.remotePath,
-      autoValidation: {
-        isReadable: validation.isReadable,
-        qualityScore: validation.qualityScore,
-        validationMessage: validation.message
-      }
+      filePath: uploadResult.remotePath
     });
+    
+    let sickLeave;
+    try {
+      sickLeave = new SickLeave({
+        employeeName: employeeName.trim(),
+        employeeEmail: employeeEmail.trim().toLowerCase(),
+        startDate: start,
+        endDate: end,
+        fileName: uploadResult.fileName,
+        originalFileName: req.file.originalname,
+        fileSize: req.file.size,
+        fileType: req.file.mimetype,
+        filePath: uploadResult.remotePath,
+        autoValidation: {
+          isReadable: validation.isReadable,
+          qualityScore: validation.qualityScore,
+          validationMessage: validation.message
+        }
+      });
+      console.log('✅ Objet SickLeave créé');
+    } catch (createError) {
+      console.error('❌ Erreur création objet SickLeave:', createError);
+      return res.status(500).json({
+        success: false,
+        error: 'Erreur lors de la création de l\'enregistrement',
+        details: createError.message,
+        stack: createError.stack
+      });
+    }
 
-    await sickLeave.save();
-
-    console.log('✅ Arrêt maladie enregistré:', sickLeave._id);
+    try {
+      await sickLeave.save();
+      console.log('✅ Arrêt maladie enregistré:', sickLeave._id);
+    } catch (saveError) {
+      console.error('❌ Erreur sauvegarde en base:', saveError);
+      return res.status(500).json({
+        success: false,
+        error: 'Erreur lors de la sauvegarde en base de données',
+        details: saveError.message,
+        stack: saveError.stack
+      });
+    }
 
     res.json({
       success: true,
