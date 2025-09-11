@@ -2,7 +2,11 @@ const express = require('express');
 const router = express.Router();
 const sickLeaveController = require('../controllers/sickLeaveController');
 
-// Test de connexion SFTP
+// Routes protégées (admin uniquement)
+// Récupérer tous les arrêts maladie
+router.get('/', sickLeaveController.getAllSickLeaves);
+
+// Test de connexion SFTP (doit être avant /:id pour éviter les conflits)
 router.get('/test-sftp', sickLeaveController.testSftpConnection);
 
 // Route publique pour l'upload d'arrêt maladie (salariés)
@@ -10,10 +14,6 @@ router.post('/upload',
   sickLeaveController.uploadMiddleware,
   sickLeaveController.uploadSickLeave
 );
-
-// Routes protégées (admin uniquement)
-// Récupérer tous les arrêts maladie
-router.get('/', sickLeaveController.getAllSickLeaves);
 
 // Récupérer un arrêt maladie par ID
 router.get('/:id', sickLeaveController.getSickLeaveById);

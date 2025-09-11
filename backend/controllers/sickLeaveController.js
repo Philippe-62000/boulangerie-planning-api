@@ -540,6 +540,7 @@ const deleteSickLeave = async (req, res) => {
 
 module.exports = {
   uploadMiddleware,
+  testSftpConnection,
   uploadSickLeave,
   getAllSickLeaves,
   getSickLeaveById,
