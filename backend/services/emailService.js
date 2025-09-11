@@ -1,4 +1,11 @@
-const nodemailer = require('nodemailer');
+// Import optionnel de nodemailer pour éviter les crashes si pas installé
+let nodemailer;
+try {
+  nodemailer = require('nodemailer');
+} catch (error) {
+  console.log('⚠️ Nodemailer non installé - service email désactivé');
+  nodemailer = null;
+}
 
 class EmailService {
   constructor() {
@@ -10,6 +17,13 @@ class EmailService {
   // Initialisation du service email
   init() {
     try {
+      // Vérifier si nodemailer est disponible
+      if (!nodemailer) {
+        console.log('⚠️ Nodemailer non disponible - service email désactivé');
+        this.isConfigured = false;
+        return;
+      }
+
       // Configuration SMTP
       const smtpConfig = {
         host: process.env.SMTP_HOST || 'smtp.gmail.com',
@@ -41,8 +55,8 @@ class EmailService {
 
   // Vérifier la connexion SMTP
   async verifyConnection() {
-    if (!this.isConfigured) {
-      return { success: false, error: 'Service email non configuré' };
+    if (!this.isConfigured || !nodemailer) {
+      return { success: false, error: 'Service email non configuré ou nodemailer non disponible' };
     }
 
     try {
@@ -55,7 +69,7 @@ class EmailService {
 
   // Envoyer un email de rejet d'arrêt maladie
   async sendSickLeaveRejection(sickLeave, rejectionReason, rejectedBy) {
-    if (!this.isConfigured) {
+    if (!this.isConfigured || !nodemailer) {
       console.log('⚠️ Service email non configuré - email non envoyé');
       return { success: false, error: 'Service email non configuré' };
     }
@@ -88,7 +102,7 @@ class EmailService {
 
   // Envoyer un email de validation d'arrêt maladie
   async sendSickLeaveValidation(sickLeave, validatedBy) {
-    if (!this.isConfigured) {
+    if (!this.isConfigured || !nodemailer) {
       console.log('⚠️ Service email non configuré - email non envoyé');
       return { success: false, error: 'Service email non configuré' };
     }
@@ -119,9 +133,42 @@ class EmailService {
     }
   }
 
+  // Envoyer une alerte à l'admin pour un nouvel arrêt maladie
+  async sendNewSickLeaveAlert(sickLeave, adminEmail) {
+    if (!this.isConfigured || !nodemailer) {
+      console.log('⚠️ Service email non configuré - alerte admin non envoyée');
+      return { success: false, error: 'Service email non configuré' };
+    }
+
+    try {
+      const mailOptions = {
+        from: {
+          name: 'Boulangerie Ange - Arras',
+          address: process.env.SMTP_USER || process.env.EMAIL_USER
+        },
+        to: adminEmail,
+        subject: `🚨 NOUVEL ARRÊT MALADIE - ${sickLeave.employeeName}`,
+        html: this.generateNewSickLeaveAlertHTML(sickLeave),
+        text: this.generateNewSickLeaveAlertText(sickLeave)
+      };
+
+      const result = await this.transporter.sendMail(mailOptions);
+      console.log('✅ Alerte admin envoyée:', result.messageId);
+      
+      return {
+        success: true,
+        messageId: result.messageId,
+        message: 'Alerte admin envoyée avec succès'
+      };
+    } catch (error) {
+      console.error('❌ Erreur envoi alerte admin:', error.message);
+      return { success: false, error: error.message };
+    }
+  }
+
   // Envoyer un email au comptable
   async sendToAccountant(sickLeave, accountantEmail) {
-    if (!this.isConfigured) {
+    if (!this.isConfigured || !nodemailer) {
       console.log('⚠️ Service email non configuré - email non envoyé');
       return { success: false, error: 'Service email non configuré' };
     }
