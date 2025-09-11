@@ -24,6 +24,55 @@ const upload = multer({
 // Middleware d'upload
 const uploadMiddleware = upload.single('sickLeaveFile');
 
+// Test de connexion SFTP
+const testSftpConnection = async (req, res) => {
+  try {
+    console.log('🔍 Test de connexion SFTP...');
+    console.log('🔍 Configuration SFTP:', {
+      host: 'philange.synology.me',
+      username: 'nHEIGHTn',
+      passwordSet: !!process.env.SFTP_PASSWORD,
+      passwordLength: process.env.SFTP_PASSWORD ? process.env.SFTP_PASSWORD.length : 0
+    });
+
+    if (!process.env.SFTP_PASSWORD) {
+      return res.json({
+        success: false,
+        error: 'SFTP_PASSWORD non configuré',
+        details: 'La variable d\'environnement SFTP_PASSWORD n\'est pas définie'
+      });
+    }
+
+    // Test de connexion
+    await sftpService.connect();
+    await sftpService.disconnect();
+    
+    res.json({
+      success: true,
+      message: 'Connexion SFTP réussie',
+      config: {
+        host: 'philange.synology.me',
+        username: 'nHEIGHTn',
+        passwordSet: true,
+        passwordLength: process.env.SFTP_PASSWORD.length
+      }
+    });
+  } catch (error) {
+    console.error('❌ Erreur test SFTP:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Erreur de connexion SFTP',
+      details: error.message,
+      config: {
+        host: 'philange.synology.me',
+        username: 'nHEIGHTn',
+        passwordSet: !!process.env.SFTP_PASSWORD,
+        passwordLength: process.env.SFTP_PASSWORD ? process.env.SFTP_PASSWORD.length : 0
+      }
+    });
+  }
+};
+
 // Upload d'un arrêt maladie par un salarié
 const uploadSickLeave = async (req, res) => {
   try {

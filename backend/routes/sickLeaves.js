@@ -2,6 +2,9 @@ const express = require('express');
 const router = express.Router();
 const sickLeaveController = require('../controllers/sickLeaveController');
 
+// Test de connexion SFTP
+router.get('/test-sftp', sickLeaveController.testSftpConnection);
+
 // Route publique pour l'upload d'arrêt maladie (salariés)
 router.post('/upload', 
   sickLeaveController.uploadMiddleware,
