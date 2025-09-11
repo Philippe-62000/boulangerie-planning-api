@@ -16,7 +16,7 @@ class SFTPService {
       retry_minTimeout: 2000
     };
     
-    this.basePath = 'sick-leaves';
+    this.basePath = './sick-leaves';
     this.isConnected = false;
   }
 
@@ -73,28 +73,34 @@ class SFTPService {
 
       for (const dirPath of paths) {
         try {
+          // Vérifier d'abord si le dossier existe
+          try {
+            await this.client.stat(dirPath);
+            console.log(`📁 Dossier existe déjà: ${dirPath}`);
+            continue;
+          } catch (statError) {
+            // Le dossier n'existe pas, on peut le créer
+            console.log(`📁 Dossier n'existe pas, création: ${dirPath}`);
+          }
+          
           // Créer le dossier récursivement
           await this.client.mkdir(dirPath, true);
-          console.log(`📁 Dossier créé/vérifié: ${dirPath}`);
+          console.log(`📁 Dossier créé: ${dirPath}`);
         } catch (error) {
-          if (error.code === 4) { // 4 = File already exists
-            console.log(`📁 Dossier existe déjà: ${dirPath}`);
-          } else {
-            console.log(`⚠️ Erreur création dossier ${dirPath}:`, error.message);
-            // Essayer de créer le dossier parent d'abord
-            const parentDir = dirPath.substring(0, dirPath.lastIndexOf('/'));
-            if (parentDir && parentDir !== this.basePath) {
-              try {
-                await this.client.mkdir(parentDir, true);
-                console.log(`📁 Dossier parent créé: ${parentDir}`);
-                // Réessayer de créer le dossier
-                await this.client.mkdir(dirPath, true);
-                console.log(`📁 Dossier créé après création parent: ${dirPath}`);
-              } catch (retryError) {
-                console.log(`❌ Impossible de créer ${dirPath}:`, retryError.message);
-              }
-            }
+          console.log(`⚠️ Erreur création dossier ${dirPath}:`, {
+            message: error.message,
+            code: error.code,
+            errno: error.errno
+          });
+          
+          // Si c'est une erreur "déjà existe", on continue
+          if (error.code === 4 || error.message.includes('already exists')) {
+            console.log(`📁 Dossier existe déjà (code 4): ${dirPath}`);
+            continue;
           }
+          
+          // Pour les autres erreurs, on essaie de continuer
+          console.log(`⚠️ Continuation malgré l'erreur pour ${dirPath}`);
         }
       }
       
