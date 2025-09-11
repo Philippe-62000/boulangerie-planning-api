@@ -2,6 +2,7 @@ const SickLeave = require('../models/SickLeave');
 const sftpService = require('../services/sftpService');
 const imageValidationService = require('../services/imageValidationService');
 const emailService = require('../services/emailService');
+const absenceService = require('../services/absenceService');
 const multer = require('multer');
 
 // Configuration Multer pour l'upload
@@ -458,6 +459,19 @@ const validateSickLeave = async (req, res) => {
       // Continuer même si le déplacement échoue
     }
 
+    // Créer automatiquement une absence dans "Gestion des salariés"
+    try {
+      const absenceResult = await absenceService.createAbsenceFromSickLeave(sickLeave);
+      if (absenceResult.success) {
+        console.log('✅ Absence créée automatiquement:', absenceResult.message);
+      } else {
+        console.log('⚠️ Absence non créée:', absenceResult.message);
+      }
+    } catch (absenceError) {
+      console.error('❌ Erreur création absence:', absenceError.message);
+      // Continuer même si la création d'absence échoue
+    }
+
     // Envoyer un email de validation au salarié
     try {
       const emailResult = await emailService.sendSickLeaveValidation(sickLeave, validatedBy);
@@ -510,6 +524,17 @@ const rejectSickLeave = async (req, res) => {
 
     // Marquer comme rejeté
     await sickLeave.markAsRejected(rejectedBy, reason);
+
+    // Supprimer l'absence si elle a été créée automatiquement
+    try {
+      const absenceResult = await absenceService.removeAbsenceFromSickLeave(sickLeave._id);
+      if (absenceResult.success) {
+        console.log('✅ Absence supprimée:', absenceResult.message);
+      }
+    } catch (absenceError) {
+      console.error('❌ Erreur suppression absence:', absenceError.message);
+      // Continuer même si la suppression échoue
+    }
 
     // Envoyer un email de rejet au salarié
     try {

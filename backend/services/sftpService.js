@@ -97,27 +97,45 @@ class SFTPService {
       const extension = path.extname(originalFileName);
       const fileName = `${timestamp}_${hash}_${employeeName.replace(/[^a-zA-Z0-9]/g, '_')}${extension}`;
       
-      // Déterminer le dossier de destination (simplifié)
+      // Déterminer le dossier de destination avec statut "pending"
       const currentDate = new Date();
       const year = currentDate.getFullYear();
       
-      const remotePath = `${this.basePath}/${year}/${fileName}`;
+      const remotePath = `${this.basePath}/${year}/pending/${fileName}`;
       
       console.log(`📤 Upload vers: ${remotePath}`);
       
-      // Vérifier et créer le dossier de destination si nécessaire
-      const targetDir = `${this.basePath}/${year}`;
+      // Vérifier et créer les dossiers de destination si nécessaires
+      const yearDir = `${this.basePath}/${year}`;
+      const pendingDir = `${this.basePath}/${year}/pending`;
+      
+      // Créer le dossier année si nécessaire
       try {
-        await this.client.stat(targetDir);
-        console.log(`✅ Dossier de destination existe: ${targetDir}`);
+        await this.client.stat(yearDir);
+        console.log(`✅ Dossier année existe: ${yearDir}`);
       } catch (error) {
-        console.log(`⚠️ Dossier de destination n'existe pas: ${targetDir}`);
+        console.log(`⚠️ Dossier année n'existe pas: ${yearDir}`);
         try {
-          await this.client.mkdir(targetDir, true);
-          console.log(`✅ Dossier créé automatiquement: ${targetDir}`);
+          await this.client.mkdir(yearDir, true);
+          console.log(`✅ Dossier année créé: ${yearDir}`);
         } catch (mkdirError) {
-          console.log(`❌ Impossible de créer le dossier: ${targetDir}`);
-          throw new Error(`Impossible de créer le dossier de destination: ${targetDir}. Vérifiez les permissions SFTP.`);
+          console.log(`❌ Impossible de créer le dossier année: ${yearDir}`);
+          throw new Error(`Impossible de créer le dossier année: ${yearDir}. Vérifiez les permissions SFTP.`);
+        }
+      }
+      
+      // Créer le dossier pending si nécessaire
+      try {
+        await this.client.stat(pendingDir);
+        console.log(`✅ Dossier pending existe: ${pendingDir}`);
+      } catch (error) {
+        console.log(`⚠️ Dossier pending n'existe pas: ${pendingDir}`);
+        try {
+          await this.client.mkdir(pendingDir, true);
+          console.log(`✅ Dossier pending créé: ${pendingDir}`);
+        } catch (mkdirError) {
+          console.log(`❌ Impossible de créer le dossier pending: ${pendingDir}`);
+          throw new Error(`Impossible de créer le dossier pending: ${pendingDir}. Vérifiez les permissions SFTP.`);
         }
       }
       
@@ -138,10 +156,46 @@ class SFTPService {
     }
   }
 
-  // Déplacer un fichier (fonctionnalité simplifiée - pas de changement de statut)
-  async moveFile(currentPath, newPath) {
+  // Déplacer un fichier entre les statuts
+  async moveFile(currentPath, newStatus) {
     try {
       await this.connect();
+      
+      // Extraire le nom du fichier du chemin actuel
+      const fileName = path.basename(currentPath);
+      const year = new Date().getFullYear();
+      
+      // Déterminer le nouveau chemin selon le statut
+      let newPath;
+      switch (newStatus) {
+        case 'validated':
+          newPath = `${this.basePath}/${year}/validated/${fileName}`;
+          break;
+        case 'declared':
+          newPath = `${this.basePath}/${year}/declared/${fileName}`;
+          break;
+        case 'rejected':
+          newPath = `${this.basePath}/${year}/rejected/${fileName}`;
+          break;
+        default:
+          throw new Error(`Statut invalide: ${newStatus}`);
+      }
+      
+      // Créer le dossier de destination si nécessaire
+      const targetDir = path.dirname(newPath);
+      try {
+        await this.client.stat(targetDir);
+        console.log(`✅ Dossier de destination existe: ${targetDir}`);
+      } catch (error) {
+        console.log(`⚠️ Dossier de destination n'existe pas: ${targetDir}`);
+        try {
+          await this.client.mkdir(targetDir, true);
+          console.log(`✅ Dossier créé: ${targetDir}`);
+        } catch (mkdirError) {
+          console.log(`❌ Impossible de créer le dossier: ${targetDir}`);
+          throw new Error(`Impossible de créer le dossier de destination: ${targetDir}. Vérifiez les permissions SFTP.`);
+        }
+      }
       
       // Déplacer le fichier
       await this.client.rename(currentPath, newPath);
