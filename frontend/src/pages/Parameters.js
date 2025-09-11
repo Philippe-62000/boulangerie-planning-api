@@ -651,14 +651,29 @@ const Parameters = () => {
                     className="btn btn-primary"
                     onClick={async () => {
                       try {
+                        console.log('🔍 Tous les paramètres:', parameters);
                         const emailParam = parameters.find(p => p.name === 'accountantEmail');
+                        console.log('📧 Paramètre email comptable trouvé:', emailParam);
+                        
                         if (emailParam) {
-                          await api.put(`/parameters/${emailParam._id}`, {
+                          console.log('📤 Envoi de la requête PUT avec:', {
+                            stringValue: emailParam.stringValue,
+                            _id: emailParam._id
+                          });
+                          
+                          const response = await api.put(`/parameters/${emailParam._id}`, {
                             stringValue: emailParam.stringValue
                           });
+                          
+                          console.log('✅ Réponse reçue:', response.data);
                           toast.success('Email du comptable sauvegardé');
+                        } else {
+                          console.log('❌ Paramètre email comptable non trouvé');
+                          toast.error('Paramètre email comptable non trouvé');
                         }
                       } catch (error) {
+                        console.error('❌ Erreur lors de la sauvegarde:', error);
+                        console.error('❌ Détails:', error.response?.data);
                         toast.error('Erreur lors de la sauvegarde de l\'email');
                       }
                     }}

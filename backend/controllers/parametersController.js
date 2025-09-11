@@ -65,7 +65,12 @@ const updateParameter = async (req, res) => {
     const { id } = req.params;
     const { displayName, kmValue, stringValue } = req.body;
     
+    console.log(`📝 Mise à jour du paramètre ${id}`);
+    console.log('📋 Données reçues:', { displayName, kmValue, stringValue });
+    console.log('📋 Body complet:', req.body);
+    
     if (displayName === undefined && kmValue === undefined && stringValue === undefined) {
+      console.log('❌ Aucun champ fourni pour la mise à jour');
       return res.status(400).json({ 
         error: 'Au moins un champ (displayName, kmValue ou stringValue) est requis' 
       });
@@ -76,6 +81,8 @@ const updateParameter = async (req, res) => {
     if (kmValue !== undefined) updateData.kmValue = parseFloat(kmValue);
     if (stringValue !== undefined) updateData.stringValue = stringValue;
     
+    console.log('📤 Données de mise à jour:', updateData);
+    
     const parameter = await Parameter.findByIdAndUpdate(
       id,
       updateData,
@@ -83,8 +90,11 @@ const updateParameter = async (req, res) => {
     );
     
     if (!parameter) {
+      console.log('❌ Paramètre non trouvé avec l\'ID:', id);
       return res.status(404).json({ error: 'Paramètre non trouvé' });
     }
+    
+    console.log('✅ Paramètre mis à jour:', parameter);
     
     res.json({
       message: 'Paramètre mis à jour avec succès',
