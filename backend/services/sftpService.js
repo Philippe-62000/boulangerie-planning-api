@@ -16,7 +16,7 @@ class SFTPService {
       retry_minTimeout: 2000
     };
     
-    this.basePath = '/n8n/volume1/sick-leaves';
+    this.basePath = '/n8n/sick-leaves';
     this.isConnected = false;
   }
 
@@ -52,26 +52,20 @@ class SFTPService {
     }
   }
 
-  // Créer la structure de dossiers
+  // Créer la structure de dossiers (simplifiée)
   async ensureDirectoryStructure() {
     try {
       await this.connect();
       
       const currentDate = new Date();
       const year = currentDate.getFullYear();
-      const month = String(currentDate.getMonth() + 1).padStart(2, '0');
-      const monthName = this.getMonthName(currentDate.getMonth());
       
       const paths = [
         this.basePath,
-        `${this.basePath}/${year}`,
-        `${this.basePath}/${year}/${month}-${monthName}`,
-        `${this.basePath}/pending`,
-        `${this.basePath}/validated`,
-        `${this.basePath}/declared`
+        `${this.basePath}/${year}`
       ];
 
-      console.log('🔍 Vérification de la structure de dossiers...');
+      console.log('🔍 Vérification de la structure de dossiers simplifiée...');
       
       for (const dirPath of paths) {
         try {
@@ -103,18 +97,16 @@ class SFTPService {
       const extension = path.extname(originalFileName);
       const fileName = `${timestamp}_${hash}_${employeeName.replace(/[^a-zA-Z0-9]/g, '_')}${extension}`;
       
-      // Déterminer le dossier de destination
+      // Déterminer le dossier de destination (simplifié)
       const currentDate = new Date();
       const year = currentDate.getFullYear();
-      const month = String(currentDate.getMonth() + 1).padStart(2, '0');
-      const monthName = this.getMonthName(currentDate.getMonth());
       
-      const remotePath = `${this.basePath}/${year}/${month}-${monthName}/${fileName}`;
+      const remotePath = `${this.basePath}/${year}/${fileName}`;
       
       console.log(`📤 Upload vers: ${remotePath}`);
       
       // Vérifier que le dossier de destination existe
-      const targetDir = `${this.basePath}/${year}/${month}-${monthName}`;
+      const targetDir = `${this.basePath}/${year}`;
       try {
         await this.client.stat(targetDir);
         console.log(`✅ Dossier de destination existe: ${targetDir}`);
@@ -140,16 +132,10 @@ class SFTPService {
     }
   }
 
-  // Déplacer un fichier (changement de statut)
-  async moveFile(currentPath, newStatus) {
+  // Déplacer un fichier (fonctionnalité simplifiée - pas de changement de statut)
+  async moveFile(currentPath, newPath) {
     try {
       await this.connect();
-      
-      const fileName = path.basename(currentPath);
-      const newPath = `${this.basePath}/${newStatus}/${fileName}`;
-      
-      // Créer le dossier de destination si nécessaire
-      await this.client.mkdir(`${this.basePath}/${newStatus}`, true);
       
       // Déplacer le fichier
       await this.client.rename(currentPath, newPath);
@@ -224,7 +210,7 @@ class SFTPService {
     }
   }
 
-  // Utilitaires
+  // Utilitaires (simplifiés)
   getMonthName(monthIndex) {
     const months = [
       'janvier', 'fevrier', 'mars', 'avril', 'mai', 'juin',
