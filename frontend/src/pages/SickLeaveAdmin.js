@@ -24,22 +24,31 @@ const SickLeaveAdmin = () => {
   const fetchSickLeaves = async () => {
     try {
       setLoading(true);
-      const params = new URLSearchParams({
-        page: currentPage,
-        limit: 10,
-        sortBy: 'uploadDate',
-        sortOrder: 'desc'
-      });
+      console.log('📋 Récupération des arrêts maladie...');
       
-      if (selectedStatus !== 'all') {
-        params.append('status', selectedStatus);
-      }
-
-      const response = await axios.get(`${API_URL}/sick-leaves?${params}`);
+      const response = await axios.get(`${API_URL}/sick-leaves`);
       
       if (response.data.success) {
-        setSickLeaves(response.data.data.sickLeaves);
-        setTotalPages(response.data.data.pagination.pages);
+        let allSickLeaves = response.data.data;
+        
+        // Filtrer par statut si nécessaire
+        if (selectedStatus !== 'all') {
+          allSickLeaves = allSickLeaves.filter(sl => sl.status === selectedStatus);
+        }
+        
+        // Tri par date d'upload (plus récents en premier)
+        allSickLeaves.sort((a, b) => new Date(b.uploadDate) - new Date(a.uploadDate));
+        
+        // Pagination côté client
+        const itemsPerPage = 12;
+        const startIndex = (currentPage - 1) * itemsPerPage;
+        const endIndex = startIndex + itemsPerPage;
+        const paginatedSickLeaves = allSickLeaves.slice(startIndex, endIndex);
+        
+        setSickLeaves(paginatedSickLeaves);
+        setTotalPages(Math.ceil(allSickLeaves.length / itemsPerPage));
+        
+        console.log(`✅ ${allSickLeaves.length} arrêts maladie récupérés, ${paginatedSickLeaves.length} affichés`);
       }
     } catch (error) {
       console.error('Erreur récupération arrêts maladie:', error);
@@ -52,12 +61,26 @@ const SickLeaveAdmin = () => {
 
   const fetchStats = async () => {
     try {
+      console.log('📊 Récupération des statistiques...');
       const response = await axios.get(`${API_URL}/sick-leaves/stats/overview`);
       if (response.data.success) {
         setStats(response.data.data);
+        console.log('✅ Statistiques récupérées:', response.data.data);
       }
     } catch (error) {
       console.error('Erreur récupération statistiques:', error);
+      // En cas d'erreur, calculer les stats côté client
+      if (sickLeaves.length > 0) {
+        const clientStats = {
+          total: sickLeaves.length,
+          pending: sickLeaves.filter(sl => sl.status === 'pending').length,
+          validated: sickLeaves.filter(sl => sl.status === 'validated').length,
+          declared: sickLeaves.filter(sl => sl.status === 'declared').length,
+          rejected: sickLeaves.filter(sl => sl.status === 'rejected').length,
+          overdue: 0
+        };
+        setStats(clientStats);
+      }
     }
   };
 

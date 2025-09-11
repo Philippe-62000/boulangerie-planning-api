@@ -611,6 +611,70 @@ const Parameters = () => {
         </div>
       </div>
 
+      {/* Section Configuration Email Comptable */}
+      <div className="card">
+        <div className="card-header">
+          <h3>📧 Configuration Email Comptable</h3>
+          <p>Adresse email pour l'envoi automatique des arrêts maladie validés</p>
+        </div>
+        <div className="card-body">
+          <div className="accountant-email-section">
+            {parameters.find(p => p.name === 'accountantEmail') ? (
+              <div className="email-config">
+                <div className="email-input-group">
+                  <label htmlFor="accountantEmail">Email du comptable :</label>
+                  <input
+                    type="email"
+                    id="accountantEmail"
+                    value={parameters.find(p => p.name === 'accountantEmail')?.stringValue || ''}
+                    onChange={(e) => {
+                      const emailParam = parameters.find(p => p.name === 'accountantEmail');
+                      if (emailParam) {
+                        const updatedParams = parameters.map(p => 
+                          p.name === 'accountantEmail' 
+                            ? { ...p, stringValue: e.target.value }
+                            : p
+                        );
+                        setParameters(updatedParams);
+                      }
+                    }}
+                    className="email-input"
+                    placeholder="comptable@boulangerie.fr"
+                  />
+                </div>
+                <div className="email-info">
+                  <p>💡 <strong>Utilisation :</strong> Cette adresse sera utilisée pour envoyer automatiquement les arrêts maladie validés au comptable.</p>
+                  <p>🔒 <strong>Sécurité :</strong> Vous pouvez également configurer cette valeur via la variable d'environnement <code>ACCOUNTANT_EMAIL</code> dans Render.</p>
+                </div>
+              </div>
+            ) : (
+              <div className="no-email-param">
+                <p>⚠️ Le paramètre email comptable n'a pas encore été créé.</p>
+                <button
+                  className="btn btn-secondary"
+                  onClick={async () => {
+                    try {
+                      await api.post('/parameters', {
+                        name: 'accountantEmail',
+                        displayName: 'Email du Comptable',
+                        stringValue: 'comptable@boulangerie.fr',
+                        kmValue: 0
+                      });
+                      toast.success('Paramètre email comptable créé');
+                      fetchParameters();
+                    } catch (error) {
+                      toast.error('Erreur lors de la création du paramètre');
+                    }
+                  }}
+                >
+                  Créer le paramètre email comptable
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
       {/* Section Gestion de la Base de Données */}
       <div className="card">
         <div className="card-header">
