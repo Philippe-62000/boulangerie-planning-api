@@ -105,17 +105,26 @@ const SickLeaveAdmin = () => {
   };
 
   const handleReject = async (id) => {
-    const reason = prompt('Raison du rejet:');
-    if (!reason) return;
+    // Créer un modal personnalisé pour le rejet
+    const reason = prompt('Raison du rejet (obligatoire):');
+    if (!reason || reason.trim() === '') {
+      setMessage('La raison du rejet est obligatoire');
+      setMessageType('error');
+      return;
+    }
+
+    // Confirmer le rejet
+    const confirmReject = confirm(`Êtes-vous sûr de vouloir rejeter cet arrêt maladie ?\n\nRaison : ${reason}\n\nUn email sera envoyé au salarié pour l'informer du rejet.`);
+    if (!confirmReject) return;
 
     try {
       const response = await axios.put(`${API_URL}/sick-leaves/${id}/reject`, {
         rejectedBy: 'Admin',
-        reason: reason
+        reason: reason.trim()
       });
 
       if (response.data.success) {
-        setMessage('Arrêt maladie rejeté');
+        setMessage('Arrêt maladie rejeté - Email envoyé au salarié');
         setMessageType('success');
         fetchSickLeaves();
         fetchStats();
@@ -129,6 +138,10 @@ const SickLeaveAdmin = () => {
 
   const handleDeclare = async (id) => {
     const notes = prompt('Notes de déclaration (optionnel):') || '';
+    
+    // Confirmer la déclaration
+    const confirmDeclare = confirm(`Êtes-vous sûr de vouloir marquer cet arrêt maladie comme déclaré ?\n\nUn email sera envoyé au comptable pour l'informer de la validation.`);
+    if (!confirmDeclare) return;
 
     try {
       const response = await axios.put(`${API_URL}/sick-leaves/${id}/declare`, {
@@ -137,7 +150,7 @@ const SickLeaveAdmin = () => {
       });
 
       if (response.data.success) {
-        setMessage('Arrêt maladie marqué comme déclaré');
+        setMessage('Arrêt maladie déclaré - Email envoyé au comptable');
         setMessageType('success');
         fetchSickLeaves();
         fetchStats();

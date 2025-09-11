@@ -1,6 +1,7 @@
 const SickLeave = require('../models/SickLeave');
 const sftpService = require('../services/sftpService');
 const imageValidationService = require('../services/imageValidationService');
+const emailService = require('../services/emailService');
 const multer = require('multer');
 
 // Configuration Multer pour l'upload
@@ -457,6 +458,19 @@ const validateSickLeave = async (req, res) => {
       // Continuer même si le déplacement échoue
     }
 
+    // Envoyer un email de validation au salarié
+    try {
+      const emailResult = await emailService.sendSickLeaveValidation(sickLeave, validatedBy);
+      if (emailResult.success) {
+        console.log('✅ Email de validation envoyé:', emailResult.messageId);
+      } else {
+        console.log('⚠️ Email de validation non envoyé:', emailResult.error);
+      }
+    } catch (emailError) {
+      console.error('❌ Erreur envoi email validation:', emailError.message);
+      // Continuer même si l'email échoue
+    }
+
     res.json({
       success: true,
       message: 'Arrêt maladie validé avec succès',
@@ -496,6 +510,19 @@ const rejectSickLeave = async (req, res) => {
 
     // Marquer comme rejeté
     await sickLeave.markAsRejected(rejectedBy, reason);
+
+    // Envoyer un email de rejet au salarié
+    try {
+      const emailResult = await emailService.sendSickLeaveRejection(sickLeave, reason, rejectedBy);
+      if (emailResult.success) {
+        console.log('✅ Email de rejet envoyé:', emailResult.messageId);
+      } else {
+        console.log('⚠️ Email de rejet non envoyé:', emailResult.error);
+      }
+    } catch (emailError) {
+      console.error('❌ Erreur envoi email rejet:', emailError.message);
+      // Continuer même si l'email échoue
+    }
 
     res.json({
       success: true,
@@ -545,6 +572,27 @@ const markAsDeclared = async (req, res) => {
     } catch (error) {
       console.error('❌ Erreur déplacement fichier:', error.message);
       // Continuer même si le déplacement échoue
+    }
+
+    // Envoyer un email au comptable
+    try {
+      // Récupérer l'email du comptable depuis les paramètres
+      const Parameter = require('../models/Parameters');
+      const accountantEmailParam = await Parameter.findOne({ name: 'accountantEmail' });
+      
+      if (accountantEmailParam && accountantEmailParam.stringValue) {
+        const emailResult = await emailService.sendToAccountant(sickLeave, accountantEmailParam.stringValue);
+        if (emailResult.success) {
+          console.log('✅ Email au comptable envoyé:', emailResult.messageId);
+        } else {
+          console.log('⚠️ Email au comptable non envoyé:', emailResult.error);
+        }
+      } else {
+        console.log('⚠️ Email du comptable non configuré');
+      }
+    } catch (emailError) {
+      console.error('❌ Erreur envoi email comptable:', emailError.message);
+      // Continuer même si l'email échoue
     }
 
     res.json({
@@ -660,10 +708,46 @@ const deleteSickLeave = async (req, res) => {
   }
 };
 
+// Test de la configuration email
+const testEmailConfiguration = async (req, res) => {
+  try {
+    console.log('📧 Test de la configuration email...');
+    
+    const emailConfig = {
+      smtpHost: process.env.SMTP_HOST || 'smtp.gmail.com',
+      smtpPort: process.env.SMTP_PORT || '587',
+      smtpUser: process.env.SMTP_USER || process.env.EMAIL_USER,
+      smtpPass: process.env.SMTP_PASS || process.env.EMAIL_PASSWORD,
+      configured: !!(process.env.SMTP_USER || process.env.EMAIL_USER) && !!(process.env.SMTP_PASS || process.env.EMAIL_PASSWORD)
+    };
+
+    // Vérifier la connexion SMTP
+    const connectionResult = await emailService.verifyConnection();
+    
+    res.json({
+      success: true,
+      message: 'Test de configuration email terminé',
+      config: {
+        ...emailConfig,
+        smtpPass: emailConfig.smtpPass ? '***' + emailConfig.smtpPass.slice(-3) : 'Non configuré',
+        connectionTest: connectionResult
+      },
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('❌ Erreur test configuration email:', error.message);
+    res.status(500).json({
+      success: false,
+      error: 'Erreur lors du test de configuration email'
+    });
+  }
+};
+
 module.exports = {
   uploadMiddleware,
   testSftpConnection,
   testUpload,
+  testEmailConfiguration,
   uploadSickLeave,
   getAllSickLeaves,
   getSickLeaveById,
