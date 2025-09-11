@@ -89,6 +89,49 @@
   color: rgba(255,255,255,0.8);
 }
 
+/* Actions Admin */
+.admin-actions {
+  text-align: center;
+  margin: 20px 0;
+  padding: 20px;
+  background: #fff3cd;
+  border: 1px solid #ffeaa7;
+  border-radius: 8px;
+}
+
+.admin-actions .btn {
+  padding: 12px 24px;
+  font-size: 1rem;
+  font-weight: 600;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.admin-actions .btn-danger {
+  background: #dc3545;
+  color: white;
+}
+
+.admin-actions .btn-danger:hover:not(:disabled) {
+  background: #c82333;
+  transform: translateY(-1px);
+}
+
+.admin-actions .btn-danger:disabled {
+  background: #6c757d;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.admin-warning {
+  margin: 10px 0 0 0;
+  font-size: 0.9rem;
+  color: #856404;
+  font-style: italic;
+}
+
 /* Filtres et actions */
 .filters-row {
   display: flex;

@@ -26,10 +26,25 @@ const SickLeaveAdmin = () => {
       setLoading(true);
       console.log('📋 Récupération des arrêts maladie...');
       
-      const response = await axios.get(`${API_URL}/sick-leaves`);
+      // Paramètres de pagination côté serveur
+      const params = {
+        page: currentPage,
+        limit: 50, // Limite élevée pour récupérer plus d'arrêts maladie
+        sortBy: 'uploadDate',
+        sortOrder: 'desc'
+      };
+      
+      // Ajouter le filtre de statut si nécessaire
+      if (selectedStatus !== 'all') {
+        params.status = selectedStatus;
+      }
+      
+      const response = await axios.get(`${API_URL}/sick-leaves`, { params });
       
       if (response.data.success) {
-        let allSickLeaves = response.data.data;
+        let allSickLeaves = response.data.data.sickLeaves || response.data.data;
+        
+        console.log('📋 Arrêts maladie reçus:', allSickLeaves);
         
         // Filtrer par statut si nécessaire
         if (selectedStatus !== 'all') {
@@ -49,10 +64,54 @@ const SickLeaveAdmin = () => {
         setTotalPages(Math.ceil(allSickLeaves.length / itemsPerPage));
         
         console.log(`✅ ${allSickLeaves.length} arrêts maladie récupérés, ${paginatedSickLeaves.length} affichés`);
+      } else {
+        console.log('❌ Réponse API sans succès:', response.data);
+        setMessage('Erreur: Réponse API invalide');
+        setMessageType('error');
       }
     } catch (error) {
-      console.error('Erreur récupération arrêts maladie:', error);
-      setMessage('Erreur lors du chargement des arrêts maladie');
+      console.error('❌ Erreur lors du chargement des arrêts maladie:', error);
+      console.error('❌ Détails de l\'erreur:', error.response?.data);
+      console.error('❌ Status:', error.response?.status);
+      setMessage(`Erreur lors du chargement des arrêts maladie: ${error.response?.data?.error || error.message}`);
+      setMessageType('error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Fonction pour effacer toutes les données des arrêts maladie
+  const clearAllSickLeaves = async () => {
+    const confirmMessage = `⚠️ ATTENTION : Cette action va supprimer TOUTES les données des arrêts maladie de la base de données.\n\n` +
+      `- Les fichiers sur le NAS seront conservés\n` +
+      `- Seuls les enregistrements de la base de données seront supprimés\n` +
+      `- Cette action est IRRÉVERSIBLE\n\n` +
+      `Êtes-vous sûr de vouloir continuer ?`;
+    
+    if (!window.confirm(confirmMessage)) {
+      return;
+    }
+
+    try {
+      console.log('🗑️ Suppression de tous les arrêts maladie...');
+      setLoading(true);
+      
+      const response = await axios.delete(`${API_URL}/sick-leaves/all`);
+      
+      if (response.data.success) {
+        setMessage(`✅ ${response.data.deletedCount} arrêts maladie supprimés de la base de données`);
+        setMessageType('success');
+        
+        // Recharger les données
+        await fetchSickLeaves();
+        await fetchStats();
+      } else {
+        setMessage('❌ Erreur lors de la suppression');
+        setMessageType('error');
+      }
+    } catch (error) {
+      console.error('❌ Erreur suppression arrêts maladie:', error);
+      setMessage(`❌ Erreur lors de la suppression: ${error.response?.data?.error || error.message}`);
       setMessageType('error');
     } finally {
       setLoading(false);
@@ -114,7 +173,7 @@ const SickLeaveAdmin = () => {
     }
 
     // Confirmer le rejet
-    const confirmReject = confirm(`Êtes-vous sûr de vouloir rejeter cet arrêt maladie ?\n\nRaison : ${reason}\n\nUn email sera envoyé au salarié pour l'informer du rejet.`);
+    const confirmReject = window.confirm(`Êtes-vous sûr de vouloir rejeter cet arrêt maladie ?\n\nRaison : ${reason}\n\nUn email sera envoyé au salarié pour l'informer du rejet.`);
     if (!confirmReject) return;
 
     try {
@@ -140,7 +199,7 @@ const SickLeaveAdmin = () => {
     const notes = prompt('Notes de déclaration (optionnel):') || '';
     
     // Confirmer la déclaration
-    const confirmDeclare = confirm(`Êtes-vous sûr de vouloir marquer cet arrêt maladie comme déclaré ?\n\nUn email sera envoyé au comptable pour l'informer de la validation.`);
+    const confirmDeclare = window.confirm(`Êtes-vous sûr de vouloir marquer cet arrêt maladie comme déclaré ?\n\nUn email sera envoyé au comptable pour l'informer de la validation.`);
     if (!confirmDeclare) return;
 
     try {
@@ -252,6 +311,25 @@ const SickLeaveAdmin = () => {
             <div className="stat-label">En retard</div>
           </div>
         )}
+      </div>
+
+      {/* Bouton d'effacement */}
+      <div className="admin-actions">
+        <button
+          className="btn btn-danger"
+          onClick={clearAllSickLeaves}
+          disabled={loading || (stats.total || 0) === 0}
+          style={{
+            opacity: (stats.total || 0) === 0 ? 0.5 : 1,
+            cursor: (stats.total || 0) === 0 ? 'not-allowed' : 'pointer'
+          }}
+        >
+          🗑️ Effacer toutes les données
+        </button>
+        <p className="admin-warning">
+          ⚠️ Attention : Ce bouton supprime uniquement les données de la base de données.<br/>
+          Les fichiers sur le NAS sont conservés.
+        </p>
       </div>
 
       {/* Filtres */}

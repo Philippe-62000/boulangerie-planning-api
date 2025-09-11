@@ -42,4 +42,7 @@ router.get('/stats/overview', sickLeaveController.getStats);
 // Supprimer un arrêt maladie
 router.delete('/:id', sickLeaveController.deleteSickLeave);
 
+// Supprimer tous les arrêts maladie (admin uniquement)
+router.delete('/all', sickLeaveController.deleteAllSickLeaves);
+
 module.exports = router;

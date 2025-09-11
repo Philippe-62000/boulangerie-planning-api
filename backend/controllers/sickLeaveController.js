@@ -768,6 +768,45 @@ const testEmailConfiguration = async (req, res) => {
   }
 };
 
+// Supprimer tous les arrêts maladie (admin uniquement)
+const deleteAllSickLeaves = async (req, res) => {
+  try {
+    console.log('🗑️ Suppression de tous les arrêts maladie...');
+    
+    // Compter les arrêts maladie avant suppression
+    const count = await SickLeave.countDocuments();
+    
+    if (count === 0) {
+      return res.json({
+        success: true,
+        message: 'Aucun arrêt maladie à supprimer',
+        deletedCount: 0
+      });
+    }
+    
+    // Supprimer tous les arrêts maladie de la base de données
+    // NOTE: On ne supprime PAS les fichiers du NAS pour des raisons légales
+    const result = await SickLeave.deleteMany({});
+    
+    console.log(`✅ ${result.deletedCount} arrêts maladie supprimés de la base de données`);
+    console.log('⚠️ Les fichiers sur le NAS sont conservés pour des raisons légales');
+    
+    res.json({
+      success: true,
+      message: `${result.deletedCount} arrêts maladie supprimés de la base de données`,
+      deletedCount: result.deletedCount,
+      note: 'Les fichiers sur le NAS sont conservés'
+    });
+
+  } catch (error) {
+    console.error('❌ Erreur suppression tous les arrêts maladie:', error.message);
+    res.status(500).json({
+      success: false,
+      error: 'Erreur lors de la suppression des arrêts maladie'
+    });
+  }
+};
+
 module.exports = {
   uploadMiddleware,
   testSftpConnection,
@@ -781,5 +820,6 @@ module.exports = {
   markAsDeclared,
   downloadFile,
   getStats,
-  deleteSickLeave
+  deleteSickLeave,
+  deleteAllSickLeaves
 };
