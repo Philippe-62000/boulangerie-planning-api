@@ -105,14 +105,20 @@ class SFTPService {
       
       console.log(`📤 Upload vers: ${remotePath}`);
       
-      // Vérifier que le dossier de destination existe
+      // Vérifier et créer le dossier de destination si nécessaire
       const targetDir = `${this.basePath}/${year}`;
       try {
         await this.client.stat(targetDir);
         console.log(`✅ Dossier de destination existe: ${targetDir}`);
       } catch (error) {
-        console.log(`❌ Dossier de destination n'existe pas: ${targetDir}`);
-        throw new Error(`Le dossier de destination n'existe pas: ${targetDir}. Veuillez le créer manuellement.`);
+        console.log(`⚠️ Dossier de destination n'existe pas: ${targetDir}`);
+        try {
+          await this.client.mkdir(targetDir, true);
+          console.log(`✅ Dossier créé automatiquement: ${targetDir}`);
+        } catch (mkdirError) {
+          console.log(`❌ Impossible de créer le dossier: ${targetDir}`);
+          throw new Error(`Impossible de créer le dossier de destination: ${targetDir}. Vérifiez les permissions SFTP.`);
+        }
       }
       
       // Upload du fichier

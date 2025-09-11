@@ -17,6 +17,11 @@ const parameterSchema = new mongoose.Schema({
     default: 0,
     min: 0
   },
+  stringValue: {
+    type: String,
+    required: false,
+    default: ''
+  },
   createdAt: {
     type: Date,
     default: Date.now

@@ -5,9 +5,9 @@ const getParameters = async (req, res) => {
   try {
     const parameters = await Parameter.find().sort({ name: 1 });
     
-    // Si aucun paramètre n'existe, créer les 12 paramètres par défaut
+    // Si aucun paramètre n'existe, créer les 12 paramètres par défaut + email comptable
     if (parameters.length === 0) {
-      console.log('📝 Création des 12 paramètres par défaut...');
+      console.log('📝 Création des 12 paramètres par défaut + email comptable...');
       const defaultParameters = [];
       for (let i = 1; i <= 12; i++) {
         defaultParameters.push({
@@ -17,10 +17,35 @@ const getParameters = async (req, res) => {
         });
       }
       
+      // Ajouter le paramètre email comptable
+      defaultParameters.push({
+        name: 'accountantEmail',
+        displayName: 'Email du Comptable',
+        stringValue: process.env.ACCOUNTANT_EMAIL || 'comptable@boulangerie.fr',
+        kmValue: 0
+      });
+      
       await Parameter.insertMany(defaultParameters);
       const newParameters = await Parameter.find().sort({ name: 1 });
       console.log(`✅ ${newParameters.length} paramètres créés`);
       return res.json(newParameters);
+    }
+    
+    // Vérifier si le paramètre email comptable existe, sinon le créer
+    const accountantEmailParam = parameters.find(p => p.name === 'accountantEmail');
+    if (!accountantEmailParam) {
+      console.log('📝 Création du paramètre email comptable...');
+      await Parameter.create({
+        name: 'accountantEmail',
+        displayName: 'Email du Comptable',
+        stringValue: process.env.ACCOUNTANT_EMAIL || 'comptable@boulangerie.fr',
+        kmValue: 0
+      });
+      
+      // Récupérer tous les paramètres mis à jour
+      const updatedParameters = await Parameter.find().sort({ name: 1 });
+      console.log(`✅ Paramètre email comptable créé`);
+      return res.json(updatedParameters);
     }
     
     console.log(`📊 ${parameters.length} paramètres récupérés`);
@@ -38,17 +63,18 @@ const getParameters = async (req, res) => {
 const updateParameter = async (req, res) => {
   try {
     const { id } = req.params;
-    const { displayName, kmValue } = req.body;
+    const { displayName, kmValue, stringValue } = req.body;
     
-    if (displayName === undefined && kmValue === undefined) {
+    if (displayName === undefined && kmValue === undefined && stringValue === undefined) {
       return res.status(400).json({ 
-        error: 'Au moins un champ (displayName ou kmValue) est requis' 
+        error: 'Au moins un champ (displayName, kmValue ou stringValue) est requis' 
       });
     }
     
     const updateData = {};
     if (displayName !== undefined) updateData.displayName = displayName;
     if (kmValue !== undefined) updateData.kmValue = parseFloat(kmValue);
+    if (stringValue !== undefined) updateData.stringValue = stringValue;
     
     const parameter = await Parameter.findByIdAndUpdate(
       id,
@@ -98,6 +124,11 @@ const updateAllParameters = async (req, res) => {
       
       // Toujours mettre à jour kmValue (même si 0)
       updateData.kmValue = parseFloat(param.kmValue) || 0;
+      
+      // Mettre à jour stringValue si présent
+      if (param.stringValue !== undefined) {
+        updateData.stringValue = param.stringValue;
+      }
       
       console.log(`📝 Mise à jour paramètre ${param._id}:`, updateData);
       console.log(`📝 displayName: "${updateData.displayName}" (type: ${typeof updateData.displayName})`);
