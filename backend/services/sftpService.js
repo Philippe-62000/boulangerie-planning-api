@@ -16,7 +16,7 @@ class SFTPService {
       retry_minTimeout: 2000
     };
     
-    this.basePath = '/home/nHEIGHTn/sick-leaves';
+    this.basePath = '/volume1/sick-leaves';
     this.isConnected = false;
   }
 
