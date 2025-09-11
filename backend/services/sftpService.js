@@ -16,7 +16,7 @@ class SFTPService {
       retry_minTimeout: 2000
     };
     
-    this.basePath = './sick-leaves';
+    this.basePath = '/volume1/sick-leaves';
     this.isConnected = false;
   }
 
@@ -71,42 +71,23 @@ class SFTPService {
         `${this.basePath}/declared`
       ];
 
+      console.log('🔍 Vérification de la structure de dossiers...');
+      
       for (const dirPath of paths) {
         try {
-          // Vérifier d'abord si le dossier existe
-          try {
-            await this.client.stat(dirPath);
-            console.log(`📁 Dossier existe déjà: ${dirPath}`);
-            continue;
-          } catch (statError) {
-            // Le dossier n'existe pas, on peut le créer
-            console.log(`📁 Dossier n'existe pas, création: ${dirPath}`);
-          }
-          
-          // Créer le dossier récursivement
-          await this.client.mkdir(dirPath, true);
-          console.log(`📁 Dossier créé: ${dirPath}`);
-        } catch (error) {
-          console.log(`⚠️ Erreur création dossier ${dirPath}:`, {
-            message: error.message,
-            code: error.code,
-            errno: error.errno
-          });
-          
-          // Si c'est une erreur "déjà existe", on continue
-          if (error.code === 4 || error.message.includes('already exists')) {
-            console.log(`📁 Dossier existe déjà (code 4): ${dirPath}`);
-            continue;
-          }
-          
-          // Pour les autres erreurs, on essaie de continuer
-          console.log(`⚠️ Continuation malgré l'erreur pour ${dirPath}`);
+          // Vérifier si le dossier existe
+          await this.client.stat(dirPath);
+          console.log(`✅ Dossier existe: ${dirPath}`);
+        } catch (statError) {
+          console.log(`⚠️ Dossier n'existe pas: ${dirPath}`);
+          // Ne pas essayer de créer automatiquement, laisser l'utilisateur le faire
+          console.log(`ℹ️ Veuillez créer manuellement le dossier: ${dirPath}`);
         }
       }
       
       return true;
     } catch (error) {
-      console.error('❌ Erreur création structure dossiers:', error.message);
+      console.error('❌ Erreur vérification structure dossiers:', error.message);
       throw error;
     }
   }
