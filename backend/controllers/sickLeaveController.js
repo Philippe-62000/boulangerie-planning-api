@@ -28,46 +28,73 @@ const uploadMiddleware = upload.single('sickLeaveFile');
 const testSftpConnection = async (req, res) => {
   try {
     console.log('🔍 Test de connexion SFTP...');
-    console.log('🔍 Configuration SFTP:', {
+    
+    // Vérification de la configuration
+    const config = {
       host: 'philange.synology.me',
       username: 'nHEIGHTn',
       passwordSet: !!process.env.SFTP_PASSWORD,
-      passwordLength: process.env.SFTP_PASSWORD ? process.env.SFTP_PASSWORD.length : 0
-    });
+      passwordLength: process.env.SFTP_PASSWORD ? process.env.SFTP_PASSWORD.length : 0,
+      port: 22
+    };
+    
+    console.log('🔍 Configuration SFTP:', config);
 
     if (!process.env.SFTP_PASSWORD) {
       return res.json({
         success: false,
         error: 'SFTP_PASSWORD non configuré',
-        details: 'La variable d\'environnement SFTP_PASSWORD n\'est pas définie'
+        details: 'La variable d\'environnement SFTP_PASSWORD n\'est pas définie',
+        config: config
       });
     }
 
-    // Test de connexion
-    await sftpService.connect();
-    await sftpService.disconnect();
+    // Test de connexion direct avec ssh2-sftp-client
+    const SftpClient = require('ssh2-sftp-client');
+    const client = new SftpClient();
+    
+    const sftpConfig = {
+      host: 'philange.synology.me',
+      username: 'nHEIGHTn',
+      password: process.env.SFTP_PASSWORD,
+      port: 22,
+      readyTimeout: 10000,
+      retries: 2,
+      retry_minTimeout: 1000
+    };
+    
+    console.log('🔌 Tentative de connexion SFTP...');
+    await client.connect(sftpConfig);
+    console.log('✅ Connexion SFTP réussie');
+    
+    // Test de listage du répertoire racine
+    const list = await client.list('/');
+    console.log('📁 Contenu du répertoire racine:', list.length, 'éléments');
+    
+    await client.end();
+    console.log('🔌 Déconnexion SFTP');
     
     res.json({
       success: true,
       message: 'Connexion SFTP réussie',
-      config: {
-        host: 'philange.synology.me',
-        username: 'nHEIGHTn',
-        passwordSet: true,
-        passwordLength: process.env.SFTP_PASSWORD.length
-      }
+      details: `Connexion établie avec succès. ${list.length} éléments trouvés dans le répertoire racine.`,
+      config: config,
+      rootDirectoryItems: list.length
     });
+    
   } catch (error) {
     console.error('❌ Erreur test SFTP:', error);
     res.status(500).json({
       success: false,
       error: 'Erreur de connexion SFTP',
       details: error.message,
+      stack: error.stack,
       config: {
         host: 'philange.synology.me',
         username: 'nHEIGHTn',
         passwordSet: !!process.env.SFTP_PASSWORD,
-        passwordLength: process.env.SFTP_PASSWORD ? process.env.SFTP_PASSWORD.length : 0
+        passwordLength: process.env.SFTP_PASSWORD ? process.env.SFTP_PASSWORD.length : 0,
+        port: 22
       }
     });
   }
