@@ -316,10 +316,11 @@ const Employees = () => {
                       }
                       
                       // Vérifier les absences de type "Arrêt maladie" créées automatiquement
-                      const maladieAbsences = employee.absences?.filter(absence => 
-                        absence.type === 'Arrêt maladie' && 
-                        new Date(absence.endDate) >= new Date() // Absence encore active
-                      );
+                      const maladieAbsences = (Array.isArray(employee.absences) ? employee.absences : [])
+                        .filter(absence => 
+                          absence.type === 'Arrêt maladie' && 
+                          new Date(absence.endDate) >= new Date() // Absence encore active
+                        );
                       
                       if (maladieAbsences && maladieAbsences.length > 0) {
                         // Prendre la première absence active
