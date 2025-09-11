@@ -650,7 +650,33 @@ const downloadFile = async (req, res) => {
     }
 
     // Télécharger le fichier depuis le NAS
-    const fileBuffer = await sftpService.downloadFile(sickLeave.filePath);
+    let fileBuffer;
+    try {
+      fileBuffer = await sftpService.downloadFile(sickLeave.filePath);
+    } catch (error) {
+      // Si le fichier n'est pas trouvé au chemin enregistré, essayer le chemin de l'ancien format
+      if (error.message.includes('No such file')) {
+        console.log('⚠️ Fichier non trouvé au chemin enregistré, essai avec l\'ancien format...');
+        
+        // Extraire le nom du fichier du chemin
+        const fileName = sickLeave.filePath.split('/').pop();
+        const year = new Date(sickLeave.uploadDate).getFullYear();
+        
+        // Essayer le chemin de l'ancien format (directement dans le dossier année)
+        const oldFormatPath = `/n8n/sick-leaves/${year}/${fileName}`;
+        console.log(`🔄 Essai avec l'ancien format: ${oldFormatPath}`);
+        
+        try {
+          fileBuffer = await sftpService.downloadFile(oldFormatPath);
+          console.log('✅ Fichier trouvé avec l\'ancien format');
+        } catch (oldFormatError) {
+          console.error('❌ Fichier non trouvé même avec l\'ancien format:', oldFormatError.message);
+          throw error; // Relancer l'erreur originale
+        }
+      } else {
+        throw error; // Relancer l'erreur si ce n'est pas un problème de fichier non trouvé
+      }
+    }
 
     res.set({
       'Content-Type': sickLeave.fileType,
