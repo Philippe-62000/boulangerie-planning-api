@@ -305,13 +305,34 @@ const Employees = () => {
                     }
                   </td>
                   <td>
-                    {employee.sickLeave?.isOnSickLeave ? (
-                      <span style={{ color: '#dc3545', fontWeight: 'bold' }}>
-                        {formatDate(employee.sickLeave.startDate)} - {formatDate(employee.sickLeave.endDate)}
-                      </span>
-                    ) : (
-                      '-'
-                    )}
+                    {(() => {
+                      // Vérifier d'abord l'ancien format (sickLeave.isOnSickLeave)
+                      if (employee.sickLeave?.isOnSickLeave) {
+                        return (
+                          <span style={{ color: '#dc3545', fontWeight: 'bold' }}>
+                            {formatDate(employee.sickLeave.startDate)} - {formatDate(employee.sickLeave.endDate)}
+                          </span>
+                        );
+                      }
+                      
+                      // Vérifier les absences de type "Arrêt maladie" créées automatiquement
+                      const maladieAbsences = employee.absences?.filter(absence => 
+                        absence.type === 'Arrêt maladie' && 
+                        new Date(absence.endDate) >= new Date() // Absence encore active
+                      );
+                      
+                      if (maladieAbsences && maladieAbsences.length > 0) {
+                        // Prendre la première absence active
+                        const activeAbsence = maladieAbsences[0];
+                        return (
+                          <span style={{ color: '#dc3545', fontWeight: 'bold' }}>
+                            {formatDate(activeAbsence.startDate)} - {formatDate(activeAbsence.endDate)}
+                          </span>
+                        );
+                      }
+                      
+                      return '-';
+                    })()}
                   </td>
                   <td>
                     <span style={{
