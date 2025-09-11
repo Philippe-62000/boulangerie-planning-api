@@ -16,7 +16,7 @@ class SFTPService {
       retry_minTimeout: 2000
     };
     
-    this.basePath = '/volume1/sick-leaves';
+    this.basePath = '/home/nHEIGHTn/sick-leaves';
     this.isConnected = false;
   }
 
@@ -119,9 +119,8 @@ class SFTPService {
         await this.client.stat(targetDir);
         console.log(`✅ Dossier de destination existe: ${targetDir}`);
       } catch (error) {
-        console.log(`⚠️ Dossier de destination n'existe pas, création: ${targetDir}`);
-        await this.client.mkdir(targetDir, true);
-        console.log(`✅ Dossier de destination créé: ${targetDir}`);
+        console.log(`❌ Dossier de destination n'existe pas: ${targetDir}`);
+        throw new Error(`Le dossier de destination n'existe pas: ${targetDir}. Veuillez le créer manuellement.`);
       }
       
       // Upload du fichier
