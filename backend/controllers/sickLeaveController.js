@@ -21,8 +21,36 @@ const upload = multer({
   }
 });
 
-// Middleware d'upload
-const uploadMiddleware = upload.single('sickLeaveFile');
+// Middleware d'upload avec gestion d'erreurs
+const uploadMiddleware = (req, res, next) => {
+  console.log('🔧 Middleware Multer - Début');
+  console.log('🔧 Headers:', req.headers);
+  console.log('🔧 Content-Type:', req.headers['content-type']);
+  console.log('🔧 Body (avant multer):', req.body);
+  
+  upload.single('sickLeaveFile')(req, res, (err) => {
+    if (err) {
+      console.error('❌ Erreur Multer:', err);
+      return res.status(400).json({
+        success: false,
+        error: 'Erreur lors de l\'upload du fichier',
+        details: err.message
+      });
+    }
+    
+    console.log('✅ Middleware Multer - Succès');
+    console.log('✅ File après Multer:', req.file ? {
+      fieldname: req.file.fieldname,
+      originalname: req.file.originalname,
+      mimetype: req.file.mimetype,
+      size: req.file.size,
+      bufferLength: req.file.buffer ? req.file.buffer.length : 'undefined'
+    } : 'Aucun fichier');
+    console.log('✅ Body après Multer:', req.body);
+    
+    next();
+  });
+};
 
 // Test de connexion SFTP
 const testSftpConnection = async (req, res) => {
