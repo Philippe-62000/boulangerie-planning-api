@@ -100,10 +100,53 @@ const testSftpConnection = async (req, res) => {
   }
 };
 
+// Test d'upload simple (sans fichier)
+const testUpload = async (req, res) => {
+  try {
+    console.log('🧪 Test d\'upload simple...');
+    
+    // Test de la configuration
+    const config = {
+      sftpPassword: !!process.env.SFTP_PASSWORD,
+      sftpPasswordLength: process.env.SFTP_PASSWORD ? process.env.SFTP_PASSWORD.length : 0,
+      multerAvailable: typeof require('multer') !== 'undefined',
+      sharpAvailable: typeof require('sharp') !== 'undefined',
+      pdfParseAvailable: typeof require('pdf-parse') !== 'undefined',
+      sftpClientAvailable: typeof require('ssh2-sftp-client') !== 'undefined'
+    };
+    
+    console.log('🔍 Configuration test:', config);
+    
+    res.json({
+      success: true,
+      message: 'Test d\'upload réussi',
+      config: config,
+      timestamp: new Date().toISOString()
+    });
+    
+  } catch (error) {
+    console.error('❌ Erreur test upload:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Erreur test upload',
+      details: error.message,
+      stack: error.stack
+    });
+  }
+};
+
 // Upload d'un arrêt maladie par un salarié
 const uploadSickLeave = async (req, res) => {
   try {
     console.log('📤 Upload arrêt maladie reçu');
+    console.log('📤 Headers:', req.headers);
+    console.log('📤 Body:', req.body);
+    console.log('📤 File:', req.file ? {
+      fieldname: req.file.fieldname,
+      originalname: req.file.originalname,
+      mimetype: req.file.mimetype,
+      size: req.file.size
+    } : 'Aucun fichier');
     
     // Vérification des données requises
     const { employeeName, employeeEmail, startDate, endDate } = req.body;
@@ -541,6 +584,7 @@ const deleteSickLeave = async (req, res) => {
 module.exports = {
   uploadMiddleware,
   testSftpConnection,
+  testUpload,
   uploadSickLeave,
   getAllSickLeaves,
   getSickLeaveById,

@@ -9,6 +9,9 @@ router.get('/', sickLeaveController.getAllSickLeaves);
 // Test de connexion SFTP (doit être avant /:id pour éviter les conflits)
 router.get('/test-sftp', sickLeaveController.testSftpConnection);
 
+// Test d'upload simple
+router.get('/test-upload', sickLeaveController.testUpload);
+
 // Route publique pour l'upload d'arrêt maladie (salariés)
 router.post('/upload', 
   sickLeaveController.uploadMiddleware,
