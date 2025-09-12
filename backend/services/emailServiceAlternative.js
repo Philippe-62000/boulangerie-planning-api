@@ -107,11 +107,13 @@ class EmailServiceAlternative {
         from_email: process.env.SMTP_USER || process.env.EMAIL_USER
       };
 
-      // Appel à l'API EmailJS
+      // Appel à l'API EmailJS avec headers pour applications non-browser
       const response = await fetch('https://api.emailjs.com/api/v1.0/email/send', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'User-Agent': 'Boulangerie-Planning-API/1.0',
+          'Origin': 'https://boulangerie-planning-api-3.onrender.com'
         },
         body: JSON.stringify({
           service_id: emailjsConfig.serviceId,
