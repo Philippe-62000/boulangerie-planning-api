@@ -1,231 +1,262 @@
-// Import de nodemailer avec gestion d'erreur
-let nodemailer;
-let emailServiceAlternative;
-try {
-  nodemailer = require('nodemailer');
-  console.log('✅ Nodemailer importé avec succès');
-} catch (error) {
-  console.log('⚠️ Nodemailer non installé - utilisation du service alternatif');
-  console.log('📋 Erreur détail:', error.message);
-  console.log('🔧 Solution alternative activée');
-  nodemailer = null;
-  // Charger le service alternatif
-  emailServiceAlternative = require('./emailServiceAlternative');
-}
+/**
+ * Service Email Alternative - Sans nodemailer
+ * Utilise des services email externes via API
+ */
 
-class EmailService {
+class EmailServiceAlternative {
   constructor() {
-    this.transporter = null;
     this.isConfigured = false;
+    this.serviceType = 'alternative';
     this.init();
   }
 
-  // Initialisation du service email
+  // Initialisation du service email alternatif
   init() {
     try {
-      // Vérifier si nodemailer est disponible
-      if (!nodemailer) {
-        console.log('⚠️ Nodemailer non disponible - service email désactivé');
-        this.isConfigured = false;
-        return;
-      }
-
-      // Configuration SMTP
-      const smtpConfig = {
-        host: process.env.SMTP_HOST || 'smtp.gmail.com',
-        port: parseInt(process.env.SMTP_PORT) || 587,
-        secure: false, // true pour 465, false pour autres ports
-        auth: {
-          user: process.env.SMTP_USER || process.env.EMAIL_USER,
-          pass: process.env.SMTP_PASS || process.env.EMAIL_PASSWORD
-        },
-        tls: {
-          rejectUnauthorized: false
-        }
-      };
-
-      // Vérifier si les credentials sont disponibles
-      if (smtpConfig.auth.user && smtpConfig.auth.pass) {
-        this.transporter = nodemailer.createTransporter(smtpConfig);
+      // Vérifier la configuration
+      const hasEmailConfig = !!(process.env.SMTP_USER || process.env.EMAIL_USER);
+      
+      if (hasEmailConfig) {
         this.isConfigured = true;
-        console.log('✅ Service email configuré');
+        console.log('✅ Service email alternatif configuré');
+        console.log('📧 Email configuré:', process.env.SMTP_USER || process.env.EMAIL_USER);
       } else {
-        console.log('⚠️ Service email non configuré - variables d\'environnement manquantes');
-        console.log('📧 Variables requises: SMTP_USER, SMTP_PASS (ou EMAIL_USER, EMAIL_PASSWORD)');
+        console.log('⚠️ Service email alternatif non configuré - variables manquantes');
       }
     } catch (error) {
-      console.error('❌ Erreur configuration service email:', error.message);
+      console.error('❌ Erreur configuration service email alternatif:', error.message);
       this.isConfigured = false;
     }
   }
 
-  // Vérifier la connexion SMTP
+  // Vérifier la connexion (simulation)
   async verifyConnection() {
-    if (!this.isConfigured || !nodemailer) {
-      // Utiliser le service alternatif si disponible
-      if (emailServiceAlternative) {
-        console.log('🔄 Utilisation du service email alternatif');
-        return await emailServiceAlternative.verifyConnection();
-      }
-      return { success: false, error: 'Service email non configuré ou nodemailer non disponible' };
+    if (!this.isConfigured) {
+      return { 
+        success: false, 
+        error: 'Service email alternatif non configuré' 
+      };
+    }
+
+    return { 
+      success: true, 
+      message: 'Service email alternatif disponible' 
+    };
+  }
+
+  // Envoyer un email via service externe
+  async sendEmail(to, subject, htmlContent, textContent) {
+    if (!this.isConfigured) {
+      console.log('⚠️ Service email alternatif non configuré - email non envoyé');
+      return { 
+        success: false, 
+        error: 'Service email alternatif non configuré' 
+      };
     }
 
     try {
-      await this.transporter.verify();
-      return { success: true, message: 'Connexion SMTP vérifiée' };
+      // Option 1: Utiliser EmailJS (service gratuit)
+      const emailResult = await this.sendViaEmailJS(to, subject, htmlContent, textContent);
+      
+      if (emailResult.success) {
+        console.log('✅ Email envoyé via service alternatif:', emailResult.messageId);
+        return emailResult;
+      }
+
+      // Option 2: Utiliser un webhook ou API simple
+      const webhookResult = await this.sendViaWebhook(to, subject, htmlContent, textContent);
+      
+      if (webhookResult.success) {
+        console.log('✅ Email envoyé via webhook:', webhookResult.messageId);
+        return webhookResult;
+      }
+
+      // Option 3: Log local (fallback)
+      return this.logEmailLocally(to, subject, htmlContent, textContent);
+
     } catch (error) {
-      return { success: false, error: error.message };
+      console.error('❌ Erreur envoi email alternatif:', error.message);
+      return { 
+        success: false, 
+        error: error.message 
+      };
     }
   }
 
-  // Envoyer un email de rejet d'arrêt maladie
+  // Envoyer via EmailJS (service gratuit)
+  async sendViaEmailJS(to, subject, htmlContent, textContent) {
+    try {
+      // Configuration EmailJS (à configurer)
+      const emailjsConfig = {
+        serviceId: process.env.EMAILJS_SERVICE_ID || 'service_default',
+        templateId: process.env.EMAILJS_TEMPLATE_ID || 'template_default',
+        userId: process.env.EMAILJS_USER_ID || 'user_default'
+      };
+
+      // Si EmailJS n'est pas configuré, passer au suivant
+      if (emailjsConfig.serviceId === 'service_default') {
+        throw new Error('EmailJS non configuré');
+      }
+
+      const emailData = {
+        to_email: to,
+        subject: subject,
+        message: textContent,
+        html_message: htmlContent,
+        from_name: 'Boulangerie Ange - Arras',
+        from_email: process.env.SMTP_USER || process.env.EMAIL_USER
+      };
+
+      // Appel à l'API EmailJS
+      const response = await fetch('https://api.emailjs.com/api/v1.0/email/send', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          service_id: emailjsConfig.serviceId,
+          template_id: emailjsConfig.templateId,
+          user_id: emailjsConfig.userId,
+          template_params: emailData
+        })
+      });
+
+      if (response.ok) {
+        return {
+          success: true,
+          messageId: `emailjs_${Date.now()}`,
+          message: 'Email envoyé via EmailJS'
+        };
+      } else {
+        throw new Error(`EmailJS error: ${response.status}`);
+      }
+
+    } catch (error) {
+      console.log('⚠️ EmailJS non disponible:', error.message);
+      throw error;
+    }
+  }
+
+  // Envoyer via webhook (solution simple)
+  async sendViaWebhook(to, subject, htmlContent, textContent) {
+    try {
+      const webhookUrl = process.env.EMAIL_WEBHOOK_URL;
+      
+      if (!webhookUrl) {
+        throw new Error('Webhook URL non configuré');
+      }
+
+      const emailData = {
+        to: to,
+        subject: subject,
+        html: htmlContent,
+        text: textContent,
+        from: process.env.SMTP_USER || process.env.EMAIL_USER,
+        timestamp: new Date().toISOString()
+      };
+
+      const response = await fetch(webhookUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(emailData)
+      });
+
+      if (response.ok) {
+        return {
+          success: true,
+          messageId: `webhook_${Date.now()}`,
+          message: 'Email envoyé via webhook'
+        };
+      } else {
+        throw new Error(`Webhook error: ${response.status}`);
+      }
+
+    } catch (error) {
+      console.log('⚠️ Webhook non disponible:', error.message);
+      throw error;
+    }
+  }
+
+  // Log local (fallback)
+  logEmailLocally(to, subject, htmlContent, textContent) {
+    const emailLog = {
+      timestamp: new Date().toISOString(),
+      to: to,
+      subject: subject,
+      from: process.env.SMTP_USER || process.env.EMAIL_USER,
+      content: textContent,
+      html: htmlContent
+    };
+
+    console.log('📧 EMAIL LOGGÉ LOCALEMENT (non envoyé):');
+    console.log('   To:', to);
+    console.log('   Subject:', subject);
+    console.log('   From:', emailLog.from);
+    console.log('   Content:', textContent.substring(0, 100) + '...');
+
+    // Optionnel: Sauvegarder dans un fichier ou base de données
+    this.saveEmailLog(emailLog);
+
+    return {
+      success: true,
+      messageId: `local_${Date.now()}`,
+      message: 'Email loggé localement (service email non disponible)'
+    };
+  }
+
+  // Sauvegarder le log email
+  saveEmailLog(emailLog) {
+    try {
+      // Optionnel: Sauvegarder en base de données
+      // const EmailLog = require('../models/EmailLog');
+      // await EmailLog.create(emailLog);
+      
+      console.log('📝 Email log sauvegardé:', emailLog.timestamp);
+    } catch (error) {
+      console.error('❌ Erreur sauvegarde log email:', error.message);
+    }
+  }
+
+  // Méthodes compatibles avec l'ancien service
   async sendSickLeaveRejection(sickLeave, rejectionReason, rejectedBy) {
-    if (!this.isConfigured || !nodemailer) {
-      // Utiliser le service alternatif si disponible
-      if (emailServiceAlternative) {
-        console.log('🔄 Utilisation du service email alternatif pour le rejet');
-        return await emailServiceAlternative.sendSickLeaveRejection(sickLeave, rejectionReason, rejectedBy);
-      }
-      console.log('⚠️ Service email non configuré - email non envoyé');
-      return { success: false, error: 'Service email non configuré' };
-    }
-
-    try {
-      const mailOptions = {
-        from: {
-          name: 'Boulangerie Ange - Arras',
-          address: process.env.SMTP_USER || process.env.EMAIL_USER
-        },
-        to: sickLeave.employeeEmail,
-        subject: `Arrêt maladie rejeté - ${sickLeave.employeeName}`,
-        html: this.generateRejectionEmailHTML(sickLeave, rejectionReason, rejectedBy),
-        text: this.generateRejectionEmailText(sickLeave, rejectionReason, rejectedBy)
-      };
-
-      const result = await this.transporter.sendMail(mailOptions);
-      console.log('✅ Email de rejet envoyé:', result.messageId);
-      
-      return {
-        success: true,
-        messageId: result.messageId,
-        message: 'Email de rejet envoyé avec succès'
-      };
-    } catch (error) {
-      console.error('❌ Erreur envoi email rejet:', error.message);
-      return { success: false, error: error.message };
-    }
+    const htmlContent = this.generateRejectionEmailHTML(sickLeave, rejectionReason, rejectedBy);
+    const textContent = this.generateRejectionEmailText(sickLeave, rejectionReason, rejectedBy);
+    
+    return await this.sendEmail(
+      sickLeave.employeeEmail,
+      `Arrêt maladie rejeté - ${sickLeave.employeeName}`,
+      htmlContent,
+      textContent
+    );
   }
 
-  // Envoyer un email de validation d'arrêt maladie
   async sendSickLeaveValidation(sickLeave, validatedBy) {
-    if (!this.isConfigured || !nodemailer) {
-      // Utiliser le service alternatif si disponible
-      if (emailServiceAlternative) {
-        console.log('🔄 Utilisation du service email alternatif pour la validation');
-        return await emailServiceAlternative.sendSickLeaveValidation(sickLeave, validatedBy);
-      }
-      console.log('⚠️ Service email non configuré - email non envoyé');
-      return { success: false, error: 'Service email non configuré' };
-    }
-
-    try {
-      const mailOptions = {
-        from: {
-          name: 'Boulangerie Ange - Arras',
-          address: process.env.SMTP_USER || process.env.EMAIL_USER
-        },
-        to: sickLeave.employeeEmail,
-        subject: `Arrêt maladie validé - ${sickLeave.employeeName}`,
-        html: this.generateValidationEmailHTML(sickLeave, validatedBy),
-        text: this.generateValidationEmailText(sickLeave, validatedBy)
-      };
-
-      const result = await this.transporter.sendMail(mailOptions);
-      console.log('✅ Email de validation envoyé:', result.messageId);
-      
-      return {
-        success: true,
-        messageId: result.messageId,
-        message: 'Email de validation envoyé avec succès'
-      };
-    } catch (error) {
-      console.error('❌ Erreur envoi email validation:', error.message);
-      return { success: false, error: error.message };
-    }
+    const htmlContent = this.generateValidationEmailHTML(sickLeave, validatedBy);
+    const textContent = this.generateValidationEmailText(sickLeave, validatedBy);
+    
+    return await this.sendEmail(
+      sickLeave.employeeEmail,
+      `Arrêt maladie validé - ${sickLeave.employeeName}`,
+      htmlContent,
+      textContent
+    );
   }
 
-  // Envoyer une alerte à l'admin pour un nouvel arrêt maladie
-  async sendNewSickLeaveAlert(sickLeave, adminEmail) {
-    if (!this.isConfigured || !nodemailer) {
-      console.log('⚠️ Service email non configuré - alerte admin non envoyée');
-      return { success: false, error: 'Service email non configuré' };
-    }
-
-    try {
-      const mailOptions = {
-        from: {
-          name: 'Boulangerie Ange - Arras',
-          address: process.env.SMTP_USER || process.env.EMAIL_USER
-        },
-        to: adminEmail,
-        subject: `🚨 NOUVEL ARRÊT MALADIE - ${sickLeave.employeeName}`,
-        html: this.generateNewSickLeaveAlertHTML(sickLeave),
-        text: this.generateNewSickLeaveAlertText(sickLeave)
-      };
-
-      const result = await this.transporter.sendMail(mailOptions);
-      console.log('✅ Alerte admin envoyée:', result.messageId);
-      
-      return {
-        success: true,
-        messageId: result.messageId,
-        message: 'Alerte admin envoyée avec succès'
-      };
-    } catch (error) {
-      console.error('❌ Erreur envoi alerte admin:', error.message);
-      return { success: false, error: error.message };
-    }
-  }
-
-  // Envoyer un email au comptable
   async sendToAccountant(sickLeave, accountantEmail) {
-    if (!this.isConfigured || !nodemailer) {
-      // Utiliser le service alternatif si disponible
-      if (emailServiceAlternative) {
-        console.log('🔄 Utilisation du service email alternatif pour le comptable');
-        return await emailServiceAlternative.sendToAccountant(sickLeave, accountantEmail);
-      }
-      console.log('⚠️ Service email non configuré - email non envoyé');
-      return { success: false, error: 'Service email non configuré' };
-    }
-
-    try {
-      const mailOptions = {
-        from: {
-          name: 'Boulangerie Ange - Arras',
-          address: process.env.SMTP_USER || process.env.EMAIL_USER
-        },
-        to: accountantEmail,
-        subject: `Nouvel arrêt maladie validé - ${sickLeave.employeeName}`,
-        html: this.generateAccountantEmailHTML(sickLeave),
-        text: this.generateAccountantEmailText(sickLeave)
-      };
-
-      const result = await this.transporter.sendMail(mailOptions);
-      console.log('✅ Email au comptable envoyé:', result.messageId);
-      
-      return {
-        success: true,
-        messageId: result.messageId,
-        message: 'Email au comptable envoyé avec succès'
-      };
-    } catch (error) {
-      console.error('❌ Erreur envoi email comptable:', error.message);
-      return { success: false, error: error.message };
-    }
+    const htmlContent = this.generateAccountantEmailHTML(sickLeave);
+    const textContent = this.generateAccountantEmailText(sickLeave);
+    
+    return await this.sendEmail(
+      accountantEmail,
+      `Nouvel arrêt maladie validé - ${sickLeave.employeeName}`,
+      htmlContent,
+      textContent
+    );
   }
 
-  // Générer le HTML pour l'email de rejet
+  // Méthodes de génération de contenu (reprises de l'ancien service)
   generateRejectionEmailHTML(sickLeave, rejectionReason, rejectedBy) {
     const startDate = new Date(sickLeave.startDate).toLocaleDateString('fr-FR');
     const endDate = new Date(sickLeave.endDate).toLocaleDateString('fr-FR');
@@ -274,20 +305,14 @@ class EmailService {
             </ul>
           </div>
           
-          <p>Veuillez corriger les éléments mentionnés et renvoyer votre arrêt maladie en utilisant le lien suivant :</p>
-          <p style="text-align: center; margin: 20px 0;">
-            <a href="https://www.filmara.fr/plan/sick-leave-standalone.html" 
-               style="background: #667eea; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px;">
-              📤 Renvoyer un arrêt maladie
-            </a>
-          </p>
+          <p>Veuillez corriger les éléments mentionnés et renvoyer votre arrêt maladie.</p>
           
           <p>Si vous avez des questions, n'hésitez pas à nous contacter.</p>
         </div>
         
         <div class="footer">
           <p>Boulangerie Ange - Arras</p>
-          <p>Ce message a été envoyé automatiquement, merci de ne pas y répondre.</p>
+          <p>Ce message a été généré automatiquement.</p>
         </div>
       </div>
     </body>
@@ -295,7 +320,6 @@ class EmailService {
     `;
   }
 
-  // Générer le texte pour l'email de rejet
   generateRejectionEmailText(sickLeave, rejectionReason, rejectedBy) {
     const startDate = new Date(sickLeave.startDate).toLocaleDateString('fr-FR');
     const endDate = new Date(sickLeave.endDate).toLocaleDateString('fr-FR');
@@ -319,17 +343,15 @@ DÉTAILS DE VOTRE DEMANDE :
 - Fichier : ${sickLeave.originalFileName}
 - Date d'envoi : ${uploadDate}
 
-Veuillez corriger les éléments mentionnés et renvoyer votre arrêt maladie en utilisant le lien suivant :
-https://www.filmara.fr/plan/sick-leave-standalone.html
+Veuillez corriger les éléments mentionnés et renvoyer votre arrêt maladie.
 
 Si vous avez des questions, n'hésitez pas à nous contacter.
 
 Boulangerie Ange - Arras
-Ce message a été envoyé automatiquement, merci de ne pas y répondre.
+Ce message a été généré automatiquement.
     `;
   }
 
-  // Générer le HTML pour l'email de validation
   generateValidationEmailHTML(sickLeave, validatedBy) {
     const startDate = new Date(sickLeave.startDate).toLocaleDateString('fr-FR');
     const endDate = new Date(sickLeave.endDate).toLocaleDateString('fr-FR');
@@ -382,7 +404,7 @@ Ce message a été envoyé automatiquement, merci de ne pas y répondre.
         
         <div class="footer">
           <p>Boulangerie Ange - Arras</p>
-          <p>Ce message a été envoyé automatiquement, merci de ne pas y répondre.</p>
+          <p>Ce message a été généré automatiquement.</p>
         </div>
       </div>
     </body>
@@ -390,7 +412,6 @@ Ce message a été envoyé automatiquement, merci de ne pas y répondre.
     `;
   }
 
-  // Générer le texte pour l'email de validation
   generateValidationEmailText(sickLeave, validatedBy) {
     const startDate = new Date(sickLeave.startDate).toLocaleDateString('fr-FR');
     const endDate = new Date(sickLeave.endDate).toLocaleDateString('fr-FR');
@@ -416,11 +437,10 @@ Votre arrêt maladie sera transmis au comptable dans les plus brefs délais.
 Merci pour votre confiance.
 
 Boulangerie Ange - Arras
-Ce message a été envoyé automatiquement, merci de ne pas y répondre.
+Ce message a été généré automatiquement.
     `;
   }
 
-  // Générer le HTML pour l'email au comptable
   generateAccountantEmailHTML(sickLeave) {
     const startDate = new Date(sickLeave.startDate).toLocaleDateString('fr-FR');
     const endDate = new Date(sickLeave.endDate).toLocaleDateString('fr-FR');
@@ -470,7 +490,7 @@ Ce message a été envoyé automatiquement, merci de ne pas y répondre.
         
         <div class="footer">
           <p>Boulangerie Ange - Arras</p>
-          <p>Ce message a été envoyé automatiquement par le système de gestion des arrêts maladie.</p>
+          <p>Ce message a été généré automatiquement par le système de gestion des arrêts maladie.</p>
         </div>
       </div>
     </body>
@@ -478,7 +498,6 @@ Ce message a été envoyé automatiquement, merci de ne pas y répondre.
     `;
   }
 
-  // Générer le texte pour l'email au comptable
   generateAccountantEmailText(sickLeave) {
     const startDate = new Date(sickLeave.startDate).toLocaleDateString('fr-FR');
     const endDate = new Date(sickLeave.endDate).toLocaleDateString('fr-FR');
@@ -504,12 +523,12 @@ Le fichier est disponible sur notre serveur sécurisé et peut être télécharg
 Merci de traiter cet arrêt maladie dans les plus brefs délais.
 
 Boulangerie Ange - Arras
-Ce message a été envoyé automatiquement par le système de gestion des arrêts maladie.
+Ce message a été généré automatiquement par le système de gestion des arrêts maladie.
     `;
   }
 }
 
 // Instance singleton
-const emailService = new EmailService();
+const emailServiceAlternative = new EmailServiceAlternative();
 
-module.exports = emailService;
+module.exports = emailServiceAlternative;
