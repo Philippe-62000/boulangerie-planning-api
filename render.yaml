@@ -3,7 +3,7 @@ services:
     name: boulangerie-planning-api
     env: node
     plan: free
-    buildCommand: npm install
+    buildCommand: npm install && npm install nodemailer --save
     startCommand: node server.js
     envVars:
       - key: NODE_ENV
@@ -15,4 +15,4 @@ services:
           name: boulangerie-mongodb
           property: connectionString
       - key: FORCE_RESTART
-        value: "2025-09-07-06-45"
+        value: "2025-01-07-12-00"
