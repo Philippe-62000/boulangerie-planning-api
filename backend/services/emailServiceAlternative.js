@@ -90,7 +90,8 @@ class EmailServiceAlternative {
       const emailjsConfig = {
         serviceId: process.env.EMAILJS_SERVICE_ID || 'service_default',
         templateId: process.env.EMAILJS_TEMPLATE_ID || 'template_default',
-        userId: process.env.EMAILJS_USER_ID || 'user_default'
+        userId: process.env.EMAILJS_USER_ID || 'user_default',
+        privateKey: process.env.EMAILJS_PRIVATE_KEY || 'jKt0•••••••••••••••••'
       };
 
       // Si EmailJS n'est pas configuré, passer au suivant
@@ -119,6 +120,7 @@ class EmailServiceAlternative {
           service_id: emailjsConfig.serviceId,
           template_id: emailjsConfig.templateId,
           user_id: emailjsConfig.userId,
+          accessToken: emailjsConfig.privateKey,
           template_params: emailData
         })
       });
