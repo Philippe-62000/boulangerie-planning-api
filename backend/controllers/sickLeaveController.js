@@ -769,7 +769,9 @@ const testEmailConfiguration = async (req, res) => {
       smtpPort: process.env.SMTP_PORT || '587',
       smtpUser: process.env.SMTP_USER || process.env.EMAIL_USER,
       smtpPass: process.env.SMTP_PASS || process.env.EMAIL_PASSWORD,
-      configured: !!(process.env.SMTP_USER || process.env.EMAIL_USER) && !!(process.env.SMTP_PASS || process.env.EMAIL_PASSWORD)
+      configured: !!(process.env.SMTP_USER || process.env.EMAIL_USER) && !!(process.env.SMTP_PASS || process.env.EMAIL_PASSWORD),
+      nodemailerAvailable: !!require('nodemailer'),
+      nodeModulesPath: require.resolve('nodemailer')
     };
 
     // Vérifier la connexion SMTP

@@ -1,9 +1,12 @@
-// Import optionnel de nodemailer pour éviter les crashes si pas installé
+// Import de nodemailer avec gestion d'erreur
 let nodemailer;
 try {
   nodemailer = require('nodemailer');
+  console.log('✅ Nodemailer importé avec succès');
 } catch (error) {
   console.log('⚠️ Nodemailer non installé - service email désactivé');
+  console.log('📋 Erreur détail:', error.message);
+  console.log('🔧 Solution: npm install nodemailer');
   nodemailer = null;
 }
 
