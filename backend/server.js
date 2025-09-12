@@ -73,6 +73,7 @@ app.use('/api/parameters', require('./routes/parameters'));
 app.use('/api/km-expenses', require('./routes/kmExpenses'));
 app.use('/api/employee-status', require('./routes/employeeStatus'));
 app.use('/api/sick-leaves', require('./routes/sickLeaves'));
+app.use('/api/email-templates', require('./routes/emailTemplates'));
 app.use('/api/database', require('./routes/database'));
 
 // Route de santé pour vérifier que l'API fonctionne

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import api from '../services/api';
 import { toast } from 'react-toastify';
 import './Parameters.css';
+import './Parameters-email-styles.css';
 
 const Parameters = () => {
   const [parameters, setParameters] = useState([]);
@@ -30,12 +31,20 @@ const Parameters = () => {
   const [loadingStats, setLoadingStats] = useState(false);
   const [exportingDatabase, setExportingDatabase] = useState(false);
   const [importingDatabase, setImportingDatabase] = useState(false);
+  
+  // États pour la gestion des templates d'email
+  const [emailTemplates, setEmailTemplates] = useState([]);
+  const [loadingTemplates, setLoadingTemplates] = useState(false);
+  const [savingTemplate, setSavingTemplate] = useState(false);
+  const [selectedTemplate, setSelectedTemplate] = useState(null);
+  const [showTemplateEditor, setShowTemplateEditor] = useState(false);
 
   useEffect(() => {
     fetchParameters();
     fetchMenuPermissions();
     fetchSite();
     fetchDatabaseStats();
+    fetchEmailTemplates();
   }, []);
 
   const fetchParameters = async () => {
@@ -353,6 +362,81 @@ const Parameters = () => {
       // Réinitialiser l'input file
       event.target.value = '';
     }
+  };
+
+  // Fonctions pour la gestion des templates d'email
+  const fetchEmailTemplates = async () => {
+    setLoadingTemplates(true);
+    try {
+      const response = await api.get('/email-templates');
+      if (response.data.success) {
+        setEmailTemplates(response.data.templates);
+      }
+    } catch (error) {
+      console.error('❌ Erreur lors du chargement des templates:', error);
+      toast.error('Erreur lors du chargement des templates d\'email');
+    } finally {
+      setLoadingTemplates(false);
+    }
+  };
+
+  const initializeDefaultTemplates = async () => {
+    setSavingTemplate(true);
+    try {
+      const response = await api.post('/email-templates/initialize-defaults');
+      if (response.data.success) {
+        toast.success(response.data.message);
+        fetchEmailTemplates();
+      }
+    } catch (error) {
+      console.error('❌ Erreur lors de l\'initialisation:', error);
+      toast.error('Erreur lors de l\'initialisation des templates');
+    } finally {
+      setSavingTemplate(false);
+    }
+  };
+
+  const handleTemplateChange = (field, value) => {
+    setSelectedTemplate(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
+
+  const saveTemplate = async () => {
+    if (!selectedTemplate) return;
+    
+    setSavingTemplate(true);
+    try {
+      await api.put(`/email-templates/${selectedTemplate._id}`, {
+        displayName: selectedTemplate.displayName,
+        subject: selectedTemplate.subject,
+        htmlContent: selectedTemplate.htmlContent,
+        textContent: selectedTemplate.textContent,
+        description: selectedTemplate.description,
+        variables: selectedTemplate.variables
+      });
+      
+      toast.success('Template sauvegardé avec succès');
+      setShowTemplateEditor(false);
+      setSelectedTemplate(null);
+      fetchEmailTemplates();
+    } catch (error) {
+      console.error('❌ Erreur lors de la sauvegarde:', error);
+      toast.error('Erreur lors de la sauvegarde du template');
+    } finally {
+      setSavingTemplate(false);
+    }
+  };
+
+  const openTemplateEditor = (template) => {
+    setSelectedTemplate({ ...template });
+    setShowTemplateEditor(true);
+  };
+
+  const closeTemplateEditor = () => {
+    setShowTemplateEditor(false);
+    setSelectedTemplate(null);
   };
 
   if (loading) {
@@ -710,6 +794,77 @@ const Parameters = () => {
         </div>
       </div>
 
+      {/* Section Gestion des Messages Email */}
+      <div className="card">
+        <div className="card-header">
+          <h3>📧 Gestion des Messages Email</h3>
+          <p>Personnalisez le contenu des emails envoyés automatiquement</p>
+        </div>
+        <div className="card-body">
+          {loadingTemplates ? (
+            <div style={{ textAlign: 'center', padding: '2rem' }}>
+              <div className="loading"></div>
+              <p>Chargement des templates d'email...</p>
+            </div>
+          ) : (
+            <div className="email-templates-section">
+              {emailTemplates.length === 0 ? (
+                <div className="no-templates">
+                  <p>⚠️ Aucun template d'email configuré.</p>
+                  <button
+                    className="btn btn-primary"
+                    onClick={initializeDefaultTemplates}
+                    disabled={savingTemplate}
+                  >
+                    {savingTemplate ? '🔄 Initialisation...' : '🚀 Créer les templates par défaut'}
+                  </button>
+                </div>
+              ) : (
+                <div className="templates-list">
+                  <div className="templates-header">
+                    <h4>📋 Templates disponibles</h4>
+                    <button
+                      className="btn btn-secondary"
+                      onClick={initializeDefaultTemplates}
+                      disabled={savingTemplate}
+                    >
+                      {savingTemplate ? '🔄 Mise à jour...' : '🔄 Mettre à jour les templates'}
+                    </button>
+                  </div>
+                  
+                  {emailTemplates.map(template => (
+                    <div key={template._id} className="template-item">
+                      <div className="template-info">
+                        <div className="template-header">
+                          <h5>{template.displayName}</h5>
+                          <span className="template-type">
+                            {template.name === 'sick_leave_validation' && '✅ Validation'}
+                            {template.name === 'sick_leave_rejection' && '❌ Rejet'}
+                            {template.name === 'sick_leave_accountant' && '📋 Comptable'}
+                          </span>
+                        </div>
+                        <p className="template-description">{template.description}</p>
+                        <div className="template-subject">
+                          <strong>Sujet :</strong> {template.subject}
+                        </div>
+                      </div>
+                      <div className="template-actions">
+                        <button
+                          className="btn btn-primary"
+                          onClick={() => openTemplateEditor(template)}
+                        >
+                          ✏️ Modifier
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+
       {/* Section Gestion de la Base de Données */}
       <div className="card">
         <div className="card-header">
@@ -782,6 +937,106 @@ const Parameters = () => {
           </div>
         </div>
       </div>
+
+      {/* Modal d'édition des templates */}
+      {showTemplateEditor && selectedTemplate && (
+        <div className="modal-overlay">
+          <div className="modal-content template-editor">
+            <div className="modal-header">
+              <h3>✏️ Modifier le Template : {selectedTemplate.displayName}</h3>
+              <button className="modal-close" onClick={closeTemplateEditor}>×</button>
+            </div>
+            
+            <div className="modal-body">
+              <div className="template-editor-form">
+                <div className="form-group">
+                  <label>Nom d'affichage :</label>
+                  <input
+                    type="text"
+                    value={selectedTemplate.displayName}
+                    onChange={(e) => handleTemplateChange('displayName', e.target.value)}
+                    className="form-input"
+                  />
+                </div>
+                
+                <div className="form-group">
+                  <label>Sujet de l'email :</label>
+                  <input
+                    type="text"
+                    value={selectedTemplate.subject}
+                    onChange={(e) => handleTemplateChange('subject', e.target.value)}
+                    className="form-input"
+                    placeholder="Utilisez {{variable}} pour les variables"
+                  />
+                </div>
+                
+                <div className="form-group">
+                  <label>Description :</label>
+                  <textarea
+                    value={selectedTemplate.description}
+                    onChange={(e) => handleTemplateChange('description', e.target.value)}
+                    className="form-textarea"
+                    rows="2"
+                  />
+                </div>
+                
+                <div className="form-group">
+                  <label>Contenu HTML :</label>
+                  <textarea
+                    value={selectedTemplate.htmlContent}
+                    onChange={(e) => handleTemplateChange('htmlContent', e.target.value)}
+                    className="form-textarea template-html"
+                    rows="15"
+                    placeholder="Contenu HTML de l'email"
+                  />
+                </div>
+                
+                <div className="form-group">
+                  <label>Contenu Texte :</label>
+                  <textarea
+                    value={selectedTemplate.textContent}
+                    onChange={(e) => handleTemplateChange('textContent', e.target.value)}
+                    className="form-textarea template-text"
+                    rows="10"
+                    placeholder="Version texte de l'email"
+                  />
+                </div>
+                
+                <div className="form-group">
+                  <label>Variables disponibles :</label>
+                  <div className="variables-list">
+                    {selectedTemplate.variables.map((variable, index) => (
+                      <div key={index} className="variable-item">
+                        <code>{`{{${variable.name}}}`}</code>
+                        <span className="variable-description">{variable.description}</span>
+                        {variable.example && (
+                          <span className="variable-example">Ex: {variable.example}</span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <div className="modal-footer">
+              <button
+                className="btn btn-secondary"
+                onClick={closeTemplateEditor}
+              >
+                Annuler
+              </button>
+              <button
+                className="btn btn-primary"
+                onClick={saveTemplate}
+                disabled={savingTemplate}
+              >
+                {savingTemplate ? '💾 Sauvegarde...' : '💾 Sauvegarder'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
