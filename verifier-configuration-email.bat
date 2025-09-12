@@ -51,7 +51,7 @@ echo.
 echo 🔧 Variables à ajouter:
 echo    SMTP_HOST = smtp.gmail.com
 echo    SMTP_PORT = 587
-echo    SMTP_USER = philangenpdc@gmail.com
+echo    SMTP_USER = votre-email@gmail.com
 echo    SMTP_PASS = [votre mot de passe d'application]
 echo.
 

@@ -50,3 +50,10 @@ coverage/
 # Temporary folders
 tmp/
 temp/
+# Fichiers de build avec credentials 
+frontend-ovh-*/ 
+deploy-ovh-*/ 
+test-ovh/ 
+test-htaccess/ 
+*.env 
+.env.* 

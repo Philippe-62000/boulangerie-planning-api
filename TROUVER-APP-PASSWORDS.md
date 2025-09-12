@@ -51,7 +51,7 @@ Une fois le mot de passe copié :
 ```bash
 SMTP_HOST=smtp.gmail.com
 SMTP_PORT=587
-SMTP_USER=philangenpdc@gmail.com
+SMTP_USER=votre-email@gmail.com
 SMTP_PASS=abcdefghijklmnop
 ```
 
@@ -60,7 +60,7 @@ SMTP_PASS=abcdefghijklmnop
 - **App passwords** n'apparaît que si 2-Step Verification est activé ✅
 - Le mot de passe ne s'affiche qu'**une seule fois**
 - Utiliser le mot de passe **sans espaces** dans Render
-- Votre email : `philangenpdc@gmail.com`
+- Votre email : `votre-email@gmail.com`
 
 ## 🧪 **Test de Configuration**
 
