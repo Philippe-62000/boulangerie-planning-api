@@ -14,6 +14,7 @@ router.get('/test-upload', sickLeaveController.testUpload);
 
 // Test de configuration email
 router.get('/test-email', sickLeaveController.testEmailConfiguration);
+router.get('/test-email-config', sickLeaveController.testEmailConfiguration);
 
 // Route publique pour l'upload d'arrêt maladie (salariés)
 router.post('/upload', 
