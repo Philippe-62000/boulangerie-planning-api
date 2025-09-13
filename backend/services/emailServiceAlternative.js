@@ -387,7 +387,7 @@ class EmailServiceAlternative {
         durationPlural: this.calculateDuration(sickLeave.startDate, sickLeave.endDate) > 1 ? 's' : '',
         fileName: sickLeave.fileName,
         uploadDate: new Date(sickLeave.uploadDate).toLocaleDateString('fr-FR'),
-        adminUrl: 'https://www.filmara.fr/admin'
+        adminUrl: 'https://www.filmara.fr/plan'
       });
 
       const textContent = this.replaceTemplateVariables(template.textContent, {
@@ -399,7 +399,7 @@ class EmailServiceAlternative {
         durationPlural: this.calculateDuration(sickLeave.startDate, sickLeave.endDate) > 1 ? 's' : '',
         fileName: sickLeave.fileName,
         uploadDate: new Date(sickLeave.uploadDate).toLocaleDateString('fr-FR'),
-        adminUrl: 'https://www.filmara.fr/admin'
+        adminUrl: 'https://www.filmara.fr/plan'
       });
       
       return await this.sendEmail(

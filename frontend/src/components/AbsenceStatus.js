@@ -86,6 +86,15 @@ const AbsenceStatus = ({ employees }) => {
         }
       }
       
+      // Ajouter les arrêts maladie depuis les absences (type: 'Arrêt maladie')
+      const sickLeaveAbsences = absences.filter(absence => 
+        absence.type === 'Arrêt maladie' && 
+        new Date(absence.startDate) <= endDate && 
+        new Date(absence.endDate) >= startDate
+      );
+      
+      employeeSickLeaves = employeeSickLeaves.concat(sickLeaveAbsences);
+      
       // Ajouter les arrêts maladie stockés dans sickLeaves
       if (Array.isArray(sickLeaves)) {
         const filteredSickLeaves = sickLeaves.filter(sickLeave => {
