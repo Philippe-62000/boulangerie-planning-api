@@ -526,7 +526,7 @@ const validateSickLeave = async (req, res) => {
       // Récupérer l'email du comptable depuis les paramètres
       const Parameter = require('../models/Parameters');
       const accountantParam = await Parameter.findOne({ name: 'accountantEmail' });
-      const accountantEmail = accountantParam?.stringValue || process.env.ACCOUNTANT_EMAIL;
+      let accountantEmail = accountantParam?.stringValue || process.env.ACCOUNTANT_EMAIL;
       
       console.log('🔍 Recherche email comptable:', {
         paramFound: !!accountantParam,
@@ -538,7 +538,6 @@ const validateSickLeave = async (req, res) => {
       // Si le paramètre n'existe pas, le créer
       if (!accountantParam) {
         console.log('📝 Création du paramètre accountantEmail...');
-        const Parameter = require('../models/Parameters');
         await Parameter.create({
           name: 'accountantEmail',
           displayName: 'Email du Comptable',
@@ -547,16 +546,12 @@ const validateSickLeave = async (req, res) => {
         });
         console.log('✅ Paramètre accountantEmail créé');
         // Utiliser la valeur par défaut
-        const defaultEmail = process.env.ACCOUNTANT_EMAIL || 'phimjc@gmail.com';
-        if (defaultEmail) {
-          const accountantResult = await emailService.sendToAccountant(sickLeave, defaultEmail);
-          if (accountantResult.success) {
-            console.log('✅ Email comptable envoyé:', accountantResult.messageId);
-          } else {
-            console.log('⚠️ Email comptable non envoyé:', accountantResult.error);
-          }
-        }
-      } else if (accountantEmail) {
+        accountantEmail = process.env.ACCOUNTANT_EMAIL || 'phimjc@gmail.com';
+      }
+      
+      // Envoyer l'email au comptable
+      if (accountantEmail) {
+        console.log('📧 Envoi email comptable à:', accountantEmail);
         const accountantResult = await emailService.sendToAccountant(sickLeave, accountantEmail);
         if (accountantResult.success) {
           console.log('✅ Email comptable envoyé:', accountantResult.messageId);
