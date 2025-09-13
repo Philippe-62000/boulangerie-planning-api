@@ -160,9 +160,12 @@ const SickLeaveAdmin = () => {
           if (sickLeave) {
             // Trouver l'employé par son nom
             const employeesResponse = await axios.get(`${API_URL}/employees`);
+            console.log('🔍 Recherche employé:', sickLeave.employeeName);
+            console.log('🔍 Employés disponibles:', employeesResponse.data.map(emp => ({ name: emp.name, id: emp._id })));
             const employee = employeesResponse.data.find(emp => emp.name === sickLeave.employeeName);
             
             if (employee) {
+              console.log('✅ Employé trouvé:', employee.name, 'ID:', employee._id);
               // Mettre à jour l'employé avec l'arrêt maladie
               await axios.put(`${API_URL}/employees/${employee._id}`, {
                 sickLeave: {

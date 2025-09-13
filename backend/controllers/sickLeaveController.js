@@ -329,11 +329,34 @@ const uploadSickLeave = async (req, res) => {
 
     // Envoyer une alerte aux administrateurs/magasin
     try {
-      const alertResult = await emailService.sendAlertEmail(sickLeave);
-      if (alertResult.success) {
-        console.log('✅ Alerte email envoyée:', alertResult.messageId);
+      // Récupérer les paramètres d'alerte
+      const Parameter = require('../models/Parameters');
+      const storeEmailParam = await Parameter.findOne({ name: 'storeEmail' });
+      const adminEmailParam = await Parameter.findOne({ name: 'adminEmail' });
+      const alertStoreParam = await Parameter.findOne({ name: 'alertStore' });
+      const alertAdminParam = await Parameter.findOne({ name: 'alertAdmin' });
+      
+      const recipientEmails = [];
+      
+      // Ajouter l'email du magasin si activé
+      if (alertStoreParam?.booleanValue && storeEmailParam?.stringValue) {
+        recipientEmails.push(storeEmailParam.stringValue);
+      }
+      
+      // Ajouter l'email de l'admin si activé
+      if (alertAdminParam?.booleanValue && adminEmailParam?.stringValue) {
+        recipientEmails.push(adminEmailParam.stringValue);
+      }
+      
+      if (recipientEmails.length > 0) {
+        const alertResult = await emailService.sendAlertEmail(sickLeave, recipientEmails);
+        if (alertResult.success) {
+          console.log('✅ Alerte email envoyée:', alertResult.messageId);
+        } else {
+          console.log('⚠️ Alerte email non envoyée:', alertResult.error);
+        }
       } else {
-        console.log('⚠️ Alerte email non envoyée:', alertResult.error);
+        console.log('⚠️ Aucun destinataire configuré pour les alertes');
       }
     } catch (alertError) {
       console.error('❌ Erreur envoi alerte email:', alertError.message);
@@ -500,11 +523,20 @@ const validateSickLeave = async (req, res) => {
 
     // Envoyer un email au comptable
     try {
-      const accountantResult = await emailService.sendToAccountant(sickLeave);
-      if (accountantResult.success) {
-        console.log('✅ Email comptable envoyé:', accountantResult.messageId);
+      // Récupérer l'email du comptable depuis les paramètres
+      const Parameter = require('../models/Parameters');
+      const accountantParam = await Parameter.findOne({ name: 'accountantEmail' });
+      const accountantEmail = accountantParam?.stringValue || process.env.ACCOUNTANT_EMAIL;
+      
+      if (accountantEmail) {
+        const accountantResult = await emailService.sendToAccountant(sickLeave, accountantEmail);
+        if (accountantResult.success) {
+          console.log('✅ Email comptable envoyé:', accountantResult.messageId);
+        } else {
+          console.log('⚠️ Email comptable non envoyé:', accountantResult.error);
+        }
       } else {
-        console.log('⚠️ Email comptable non envoyé:', accountantResult.error);
+        console.log('⚠️ Email comptable non configuré');
       }
     } catch (accountantError) {
       console.error('❌ Erreur envoi email comptable:', accountantError.message);
