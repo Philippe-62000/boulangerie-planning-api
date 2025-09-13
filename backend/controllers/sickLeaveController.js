@@ -500,6 +500,29 @@ const validateSickLeave = async (req, res) => {
       const absenceResult = await absenceService.createAbsenceFromSickLeave(sickLeave);
       if (absenceResult.success) {
         console.log('✅ Absence créée automatiquement:', absenceResult.message);
+        
+        // Synchroniser l'employé avec l'arrêt maladie
+        try {
+          const Employee = require('../models/Employee');
+          const employee = await Employee.findOne({
+            name: { $regex: new RegExp(sickLeave.employeeName, 'i') }
+          });
+          
+          if (employee) {
+            await Employee.findByIdAndUpdate(employee._id, {
+              $set: {
+                'sickLeave.isOnSickLeave': true,
+                'sickLeave.startDate': sickLeave.startDate,
+                'sickLeave.endDate': sickLeave.endDate
+              }
+            });
+            console.log('✅ Employé synchronisé avec l\'arrêt maladie:', employee.name);
+          } else {
+            console.log('⚠️ Employé non trouvé pour la synchronisation:', sickLeave.employeeName);
+          }
+        } catch (syncError) {
+          console.error('❌ Erreur synchronisation employé:', syncError.message);
+        }
       } else {
         console.log('⚠️ Absence non créée:', absenceResult.message);
       }

@@ -11,20 +11,21 @@ exports.getAllEmployees = async (req, res) => {
     // Récupérer les absences pour chaque employé
     const employeesWithAbsences = await Promise.all(
       employees.map(async (employee) => {
-        // Récupérer les absences actuelles et futures de l'employé
-        const absences = await Absence.find({ 
-          employeeId: employee._id,
-          endDate: { $gte: new Date() } // Absences qui ne sont pas encore terminées
-        }).sort({ startDate: 1 });
+        // Récupérer les absences depuis le modèle Employee
+        const absences = employee.absences || [];
         
-        // Séparer les différents types d'absences
-        const currentAbsences = absences.filter(a => 
-          a.startDate <= new Date() && a.endDate >= new Date()
-        );
+        // Filtrer les absences actuelles et futures
+        const currentAbsences = absences.filter(a => {
+          const startDate = new Date(a.startDate);
+          const endDate = new Date(a.endDate);
+          const now = new Date();
+          return startDate <= now && endDate >= now;
+        });
         
-        const futureAbsences = absences.filter(a => 
-          a.startDate > new Date()
-        );
+        const futureAbsences = absences.filter(a => {
+          const startDate = new Date(a.startDate);
+          return startDate > new Date();
+        });
         
         return {
           ...employee.toObject(),
