@@ -744,6 +744,107 @@ Boulangerie Ange - Arras
 Ce message a été généré automatiquement par le système de gestion des arrêts maladie.
     `;
   }
+
+  // Générer le HTML pour l'email d'alerte
+  generateAlertEmailHTML(sickLeave) {
+    const startDate = new Date(sickLeave.startDate).toLocaleDateString('fr-FR');
+    const endDate = new Date(sickLeave.endDate).toLocaleDateString('fr-FR');
+    const uploadDate = new Date(sickLeave.uploadDate).toLocaleDateString('fr-FR');
+
+    return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background: #e74c3c; color: white; padding: 20px; text-align: center; }
+        .content { padding: 20px; background: #f8f9fa; }
+        .alert-box { background: #fff3cd; border: 1px solid #ffeaa7; padding: 15px; border-radius: 5px; margin: 15px 0; }
+        .details { background: white; padding: 15px; border-radius: 5px; margin: 15px 0; }
+        .action-button { background: #3498db; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block; margin: 10px 0; }
+        .footer { text-align: center; padding: 20px; color: #666; font-size: 0.9em; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <h1>🚨 Nouvel Arrêt Maladie à Valider</h1>
+          <p>Boulangerie Ange - Arras</p>
+        </div>
+        
+        <div class="content">
+          <div class="alert-box">
+            <h3>⚠️ Action Requise</h3>
+            <p>Un nouvel arrêt maladie a été déposé et nécessite votre validation.</p>
+          </div>
+          
+          <div class="details">
+            <h3>📋 Détails de l'arrêt maladie :</h3>
+            <ul>
+              <li><strong>Salarié :</strong> ${sickLeave.employeeName}</li>
+              <li><strong>Email :</strong> ${sickLeave.employeeEmail}</li>
+              <li><strong>Période :</strong> ${startDate} au ${endDate}</li>
+              <li><strong>Durée :</strong> ${sickLeave.duration} jour${sickLeave.duration > 1 ? 's' : ''}</li>
+              <li><strong>Fichier :</strong> ${sickLeave.originalFileName}</li>
+              <li><strong>Date d'envoi :</strong> ${uploadDate}</li>
+              <li><strong>Statut :</strong> En attente de validation</li>
+            </ul>
+          </div>
+          
+          <p>Veuillez vous connecter à l'interface d'administration pour valider ou rejeter cet arrêt maladie.</p>
+          
+          <div style="text-align: center;">
+            <a href="https://www.filmara.fr/admin" class="action-button">🔗 Accéder à l'Administration</a>
+          </div>
+          
+          <p><strong>Important :</strong> Cet arrêt maladie doit être traité dans les plus brefs délais.</p>
+        </div>
+        
+        <div class="footer">
+          <p>Boulangerie Ange - Système de Gestion des Arrêts Maladie</p>
+          <p>Cet email a été envoyé automatiquement, merci de ne pas y répondre.</p>
+        </div>
+      </div>
+    </body>
+    </html>`;
+  }
+
+  // Générer le texte pour l'email d'alerte
+  generateAlertEmailText(sickLeave) {
+    const startDate = new Date(sickLeave.startDate).toLocaleDateString('fr-FR');
+    const endDate = new Date(sickLeave.endDate).toLocaleDateString('fr-FR');
+    const uploadDate = new Date(sickLeave.uploadDate).toLocaleDateString('fr-FR');
+
+    return `
+🚨 NOUVEL ARRÊT MALADIE À VALIDER
+
+Boulangerie Ange - Arras
+
+⚠️ ACTION REQUISE
+Un nouvel arrêt maladie a été déposé et nécessite votre validation.
+
+📋 DÉTAILS DE L'ARRÊT MALADIE :
+- Salarié : ${sickLeave.employeeName}
+- Email : ${sickLeave.employeeEmail}
+- Période : ${startDate} au ${endDate}
+- Durée : ${sickLeave.duration} jour${sickLeave.duration > 1 ? 's' : ''}
+- Fichier : ${sickLeave.originalFileName}
+- Date d'envoi : ${uploadDate}
+- Statut : En attente de validation
+
+Veuillez vous connecter à l'interface d'administration pour valider ou rejeter cet arrêt maladie.
+
+🔗 Accéder à l'Administration : https://www.filmara.fr/admin
+
+IMPORTANT : Cet arrêt maladie doit être traité dans les plus brefs délais.
+
+---
+Boulangerie Ange - Système de Gestion des Arrêts Maladie
+Cet email a été envoyé automatiquement, merci de ne pas y répondre.
+    `;
+  }
 }
 
 // Instance singleton
