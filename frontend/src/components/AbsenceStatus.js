@@ -16,6 +16,16 @@ const AbsenceStatus = ({ employees }) => {
 
   const calculateAbsenceStats = () => {
     try {
+      // Vérifier que employees est un tableau
+      if (!Array.isArray(employees)) {
+        console.log('⚠️ employees n\'est pas un tableau:', typeof employees, employees);
+        setAbsenceStats({
+          total: { absences: 0, sickLeave: 0, delays: 0, total: 0 },
+          byEmployee: []
+        });
+        return;
+      }
+
       let startDate, endDate;
       
       switch (selectedPeriod) {
@@ -136,6 +146,8 @@ const AbsenceStatus = ({ employees }) => {
       setAbsenceStats({ total, byEmployee });
     } catch (error) {
       console.error('❌ Erreur dans calculateAbsenceStats:', error);
+      console.error('❌ Type d\'erreur:', error.name, error.message);
+      console.error('❌ Stack trace:', error.stack);
       setAbsenceStats({
         total: { absences: 0, sickLeave: 0, delays: 0, total: 0 },
         byEmployee: []

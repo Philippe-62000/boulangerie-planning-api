@@ -33,7 +33,13 @@ const AbsenceStatusPage = () => {
         });
       }
       
-      setEmployees(response.data);
+      // Vérifier que response.data est un tableau
+      if (Array.isArray(response.data)) {
+        setEmployees(response.data);
+      } else {
+        console.error('❌ response.data n\'est pas un tableau:', response.data);
+        setEmployees([]);
+      }
     } catch (error) {
       toast.error('Erreur lors du chargement des employés');
       console.error(error);
