@@ -1,59 +1,73 @@
 @echo off
-echo 🚀 Déploiement des corrections finales complètes
+echo ========================================
+echo 🚀 DÉPLOIEMENT CORRECTIONS FINALES COMPLÈTES
+echo ========================================
 echo.
 
-echo 📦 Construction du frontend...
+echo 📋 Corrections apportées :
+echo    ✅ Réduction paramètres Frais KM (5 au lieu de 12)
+echo    ✅ Correction sauvegarde configuration alertes
+echo    ✅ Endpoint modification dates arrêts maladie
+echo    ✅ Amélioration téléchargement arrêts maladie
+echo    ✅ Suppression appel Nodemailer
+echo.
+
+echo 📁 Navigation vers le dossier frontend...
 cd frontend
-call npm run build
-if %errorlevel% neq 0 (
-    echo ❌ Erreur lors de la construction du frontend
+
+echo 🧹 Nettoyage du build précédent...
+if exist "build" (
+    rmdir /s /q build
+    echo    ✅ Ancien build supprimé
+)
+
+echo 🔨 Build de production...
+npm run build
+
+echo.
+echo 📋 Vérification du build...
+if exist "build\index.html" (
+    echo    ✅ Build réussi - index.html créé
+) else (
+    echo    ❌ Erreur build - index.html manquant
+    cd ..
     pause
     exit /b 1
 )
+
+echo.
+echo 📁 Retour au dossier racine...
 cd ..
 
 echo.
-echo 🔧 Ajout des fichiers au Git...
-git add .
-git commit -m "🔧 Corrections finales complètes
-
-✅ Frais repas: Correction superposition totaux (Adelaïde41.35 €)
-✅ Header: Décalage titre de 3cm vers la droite  
-✅ Impression: N'imprime que le tableau, pas toute la page
-✅ Mots de passe: Correction bouton 'Modifier mot de passe'
-✅ Arrêts maladie: Correction liens /sick-leave vers /plan/sick-leave
-✅ Liste employés: Correction API pour retourner {success: true, data: [...]}
-✅ Frais KM: Bouton réinitialisation données Adélaïde
-✅ État congés: Intégration Google Sheets avec validation/rejet
-✅ Planning A4: Génération automatique des congés validés
-
-🎯 Tous les problèmes utilisateur résolus"
-
+echo ========================================
+echo ✅ BUILD FRONTEND TERMINÉ !
+echo ========================================
 echo.
-echo 📤 Push vers GitHub...
-git push origin main
-if %errorlevel% neq 0 (
-    echo ❌ Erreur lors du push
-    pause
-    exit /b 1
-)
-
+echo 📋 Fichiers générés dans frontend/build/ :
+echo    - index.html (page principale)
+echo    - static/css/main.xxx.css (styles)
+echo    - static/js/main.xxx.js (JavaScript)
+echo    - sick-leave-standalone.html (avec titre dynamique)
 echo.
-echo ✅ Corrections finales complètes déployées !
+echo 🚀 Instructions de déploiement :
 echo.
-echo 🎯 Résumé des corrections:
-echo   • Frais repas: Espacement corrigé pour éviter superposition
-echo   • Header: Titre décalé de 3cm vers la droite
-echo   • Impression: Fenêtre dédiée pour n'imprimer que le tableau
-echo   • Mots de passe: Bouton fonctionnel (plus de disabled)
-echo   • Arrêts maladie: Redirection /sick-leave → /plan/sick-leave
-echo   • Liste employés: API corrigée pour structure {success, data}
-echo   • Frais KM: Bouton réinitialisation données Adélaïde
-echo   • État congés: Intégration Google Sheets + planning A4
+echo 1. 📤 BACKEND (Render) :
+echo    - Aller sur https://dashboard.render.com
+echo    - Sélectionner "boulangerie-planning-api-3"
+echo    - Cliquer "Manual Deploy" → "Deploy latest commit"
+echo    - Attendre la fin du déploiement
 echo.
-echo 📋 Prochaines étapes:
-echo   1. Déployer le backend sur Render
-echo   2. Uploader le frontend sur OVH
-echo   3. Tester toutes les fonctionnalités
+echo 2. 📤 FRONTEND (OVH) :
+echo    - Copier TOUT le dossier "frontend\build\" sur OVH
+echo    - Remplacer le contenu existant
+echo    - Tester sur https://www.filmara.fr
+echo.
+echo 🎯 Corrections apportées :
+echo    - ✅ Page Frais KM : seulement 5 paramètres (plus de 6-10)
+echo    - ✅ Configuration alertes : sauvegarde fonctionnelle
+echo    - ✅ Modification dates : bouton ✏️ fonctionnel
+echo    - ✅ Téléchargement : bouton 📥 fonctionnel
+echo    - ✅ Plus d'erreur Nodemailer sur Render
 echo.
 pause

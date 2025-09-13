@@ -13,6 +13,9 @@ const SickLeaveAdmin = () => {
   const [messageType, setMessageType] = useState('');
   const [selectedSickLeave, setSelectedSickLeave] = useState(null);
   const [showModal, setShowModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingSickLeave, setEditingSickLeave] = useState(null);
+  const [editFormData, setEditFormData] = useState({ startDate: '', endDate: '' });
 
   const API_URL = process.env.REACT_APP_API_URL || 'https://boulangerie-planning-api-3.onrender.com/api';
 
@@ -151,7 +154,34 @@ const SickLeaveAdmin = () => {
       });
 
       if (response.data.success) {
-        setMessage('Arrêt maladie validé avec succès');
+        // Synchronisation automatique avec la déclaration manuelle
+        try {
+          const sickLeave = sickLeaves.find(sl => sl._id === id);
+          if (sickLeave) {
+            // Trouver l'employé par son nom
+            const employeesResponse = await axios.get(`${API_URL}/employees`);
+            const employee = employeesResponse.data.find(emp => emp.name === sickLeave.employeeName);
+            
+            if (employee) {
+              // Mettre à jour l'employé avec l'arrêt maladie
+              await axios.put(`${API_URL}/employees/${employee._id}`, {
+                sickLeave: {
+                  isOnSickLeave: true,
+                  startDate: sickLeave.startDate,
+                  endDate: sickLeave.endDate
+                }
+              });
+              console.log('✅ Arrêt maladie synchronisé avec la déclaration manuelle');
+            } else {
+              console.warn('⚠️ Employé non trouvé pour la synchronisation:', sickLeave.employeeName);
+            }
+          }
+        } catch (syncError) {
+          console.error('⚠️ Erreur lors de la synchronisation:', syncError);
+          // Ne pas bloquer la validation si la synchronisation échoue
+        }
+
+        setMessage('Arrêt maladie validé et synchronisé avec succès');
         setMessageType('success');
         fetchSickLeaves();
         fetchStats();
@@ -221,23 +251,75 @@ const SickLeaveAdmin = () => {
     }
   };
 
+  const openEditModal = (sickLeave) => {
+    setEditingSickLeave(sickLeave);
+    setEditFormData({
+      startDate: sickLeave.startDate.split('T')[0], // Format YYYY-MM-DD
+      endDate: sickLeave.endDate.split('T')[0]
+    });
+    setShowEditModal(true);
+  };
+
+  const closeEditModal = () => {
+    setShowEditModal(false);
+    setEditingSickLeave(null);
+    setEditFormData({ startDate: '', endDate: '' });
+  };
+
+  const handleEditSubmit = async (e) => {
+    e.preventDefault();
+    
+    if (!editingSickLeave) return;
+    
+    try {
+      const response = await axios.put(`${API_URL}/sick-leaves/${editingSickLeave._id}`, {
+        startDate: editFormData.startDate,
+        endDate: editFormData.endDate
+      });
+      
+      if (response.data.success) {
+        setMessage('Dates modifiées avec succès');
+        setMessageType('success');
+        closeEditModal();
+        fetchSickLeaves();
+      }
+    } catch (error) {
+      console.error('Erreur lors de la modification:', error);
+      setMessage('Erreur lors de la modification des dates');
+      setMessageType('error');
+    }
+  };
+
   const handleDownload = async (id) => {
     try {
       const response = await axios.get(`${API_URL}/sick-leaves/${id}/download`, {
         responseType: 'blob'
       });
 
+      // Récupérer le nom du fichier depuis les headers ou utiliser un nom par défaut
+      const contentDisposition = response.headers['content-disposition'];
+      let fileName = `arret-maladie-${id}.pdf`;
+      
+      if (contentDisposition) {
+        const fileNameMatch = contentDisposition.match(/filename="(.+)"/);
+        if (fileNameMatch) {
+          fileName = fileNameMatch[1];
+        }
+      }
+
       const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement('a');
       link.href = url;
-      link.setAttribute('download', `arret-maladie-${id}.pdf`);
+      link.setAttribute('download', fileName);
       document.body.appendChild(link);
       link.click();
       link.remove();
       window.URL.revokeObjectURL(url);
+      
+      console.log('✅ Fichier téléchargé:', fileName);
     } catch (error) {
-      console.error('Erreur téléchargement:', error);
-      setMessage('Erreur lors du téléchargement');
+      console.error('❌ Erreur téléchargement:', error);
+      setMessage('Erreur lors du téléchargement du fichier');
       setMessageType('error');
     }
   };
@@ -427,6 +509,13 @@ const SickLeaveAdmin = () => {
                   {sickLeave.status === 'pending' && (
                     <>
                       <button 
+                        onClick={() => openEditModal(sickLeave)}
+                        className="btn btn-warning"
+                        title="Modifier les dates"
+                      >
+                        ✏️
+                      </button>
+                      <button 
                         onClick={() => handleValidate(sickLeave._id)}
                         className="btn btn-success"
                         title="Valider"
@@ -542,6 +631,57 @@ const SickLeaveAdmin = () => {
                 Fermer
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal d'édition des dates */}
+      {showEditModal && editingSickLeave && (
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <div className="modal-header">
+              <h3>✏️ Modifier les dates</h3>
+              <button onClick={closeEditModal} className="close-btn">×</button>
+            </div>
+            
+            <form onSubmit={handleEditSubmit}>
+              <div className="modal-body">
+                <div className="form-group">
+                  <label>Employé: {editingSickLeave.employeeName}</label>
+                </div>
+                
+                <div className="form-group">
+                  <label htmlFor="editStartDate">Date de début:</label>
+                  <input
+                    type="date"
+                    id="editStartDate"
+                    value={editFormData.startDate}
+                    onChange={(e) => setEditFormData({...editFormData, startDate: e.target.value})}
+                    required
+                  />
+                </div>
+                
+                <div className="form-group">
+                  <label htmlFor="editEndDate">Date de fin:</label>
+                  <input
+                    type="date"
+                    id="editEndDate"
+                    value={editFormData.endDate}
+                    onChange={(e) => setEditFormData({...editFormData, endDate: e.target.value})}
+                    required
+                  />
+                </div>
+              </div>
+              
+              <div className="modal-footer">
+                <button type="submit" className="btn btn-primary">
+                  💾 Sauvegarder
+                </button>
+                <button type="button" onClick={closeEditModal} className="btn btn-secondary">
+                  Annuler
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

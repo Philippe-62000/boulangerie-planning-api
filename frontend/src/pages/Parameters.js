@@ -56,6 +56,28 @@ const Parameters = () => {
     setActiveTab(tabName);
   };
 
+  // Fonction pour créer les paramètres manquants
+  const createMissingParameters = async () => {
+    try {
+      const requiredParams = ['storeEmail', 'adminEmail', 'alertStore', 'alertAdmin'];
+      const missingParams = requiredParams.filter(paramName => 
+        !parameters.find(p => p.name === paramName)
+      );
+
+      if (missingParams.length > 0) {
+        console.log('📝 Création des paramètres manquants:', missingParams);
+        
+        // Recharger les paramètres depuis le serveur
+        await fetchParameters();
+        
+        toast.success(`${missingParams.length} paramètres créés automatiquement`);
+      }
+    } catch (error) {
+      console.error('❌ Erreur lors de la création des paramètres:', error);
+      toast.error('Erreur lors de la création des paramètres');
+    }
+  };
+
   const fetchParameters = async () => {
     setLoading(true);
     try {
@@ -69,10 +91,23 @@ const Parameters = () => {
     }
   };
 
-  const handleParameterChange = (index, field, value) => {
+  const handleParameterChange = (idOrIndex, field, value) => {
     const newParameters = [...parameters];
-    newParameters[index][field] = value;
-    setParameters(newParameters);
+    
+    // Si c'est un ID (string), trouver l'index
+    if (typeof idOrIndex === 'string') {
+      const index = newParameters.findIndex(p => p._id === idOrIndex);
+      if (index !== -1) {
+        newParameters[index][field] = value;
+        setParameters(newParameters);
+      } else {
+        console.error('❌ Paramètre non trouvé avec l\'ID:', idOrIndex);
+      }
+    } else {
+      // Si c'est un index (number), utiliser directement
+      newParameters[idOrIndex][field] = value;
+      setParameters(newParameters);
+    }
   };
 
   const saveParameters = async () => {
@@ -766,6 +801,21 @@ const Parameters = () => {
               </div>
               <div className="card-body">
                 <div className="alert-email-section">
+                  {/* Vérifier si les paramètres existent */}
+                  {(!parameters.find(p => p.name === 'storeEmail') || 
+                    !parameters.find(p => p.name === 'adminEmail') || 
+                    !parameters.find(p => p.name === 'alertStore') || 
+                    !parameters.find(p => p.name === 'alertAdmin')) && (
+                    <div className="alert alert-warning">
+                      <p>⚠️ Certains paramètres d'alerte email sont manquants.</p>
+                      <button 
+                        className="btn btn-primary"
+                        onClick={createMissingParameters}
+                      >
+                        🔧 Créer les paramètres manquants
+                      </button>
+                    </div>
+                  )}
                   {/* Email du Magasin */}
                   <div className="email-config">
                     <div className="email-input-group">
@@ -777,7 +827,12 @@ const Parameters = () => {
                         onChange={(e) => {
                           const param = parameters.find(p => p.name === 'storeEmail');
                           if (param) {
-                            handleParameterChange(param._id, 'stringValue', e.target.value);
+                            const updatedParams = parameters.map(p => 
+                              p.name === 'storeEmail' 
+                                ? { ...p, stringValue: e.target.value }
+                                : p
+                            );
+                            setParameters(updatedParams);
                           }
                         }}
                         className="email-input"
@@ -797,7 +852,12 @@ const Parameters = () => {
                         onChange={(e) => {
                           const param = parameters.find(p => p.name === 'adminEmail');
                           if (param) {
-                            handleParameterChange(param._id, 'stringValue', e.target.value);
+                            const updatedParams = parameters.map(p => 
+                              p.name === 'adminEmail' 
+                                ? { ...p, stringValue: e.target.value }
+                                : p
+                            );
+                            setParameters(updatedParams);
                           }
                         }}
                         className="email-input"
@@ -846,19 +906,30 @@ const Parameters = () => {
                       className="btn btn-primary"
                       onClick={async () => {
                         try {
-                          const storeEmailParam = parameters.find(p => p.name === 'storeEmail');
-                          const adminEmailParam = parameters.find(p => p.name === 'adminEmail');
-                          const alertStoreParam = parameters.find(p => p.name === 'alertStore');
-                          const alertAdminParam = parameters.find(p => p.name === 'alertAdmin');
-
-                          if (storeEmailParam) await saveParameters();
-                          if (adminEmailParam) await saveParameters();
-                          if (alertStoreParam) await saveParameters();
-                          if (alertAdminParam) await saveParameters();
-
+                          // Sauvegarder seulement les paramètres d'alerte
+                          const alertParams = parameters.filter(p => 
+                            ['storeEmail', 'adminEmail', 'alertStore', 'alertAdmin'].includes(p.name)
+                          );
+                          
+                          if (alertParams.length === 0) {
+                            toast.error('Aucun paramètre d\'alerte trouvé');
+                            return;
+                          }
+                          
+                          const alertData = alertParams.map(param => ({
+                            _id: param._id,
+                            displayName: param.displayName,
+                            stringValue: param.stringValue,
+                            booleanValue: param.booleanValue,
+                            kmValue: param.kmValue
+                          }));
+                          
+                          console.log('📤 Sauvegarde des paramètres d\'alerte:', alertData);
+                          await api.put('/parameters/batch', { parameters: alertData });
                           toast.success('Configuration des alertes sauvegardée');
                         } catch (error) {
-                          toast.error('Erreur lors de la sauvegarde');
+                          console.error('❌ Erreur lors de la sauvegarde:', error);
+                          toast.error('Erreur lors de la sauvegarde des alertes');
                         }
                       }}
                     >
@@ -968,160 +1039,6 @@ const Parameters = () => {
         </div>
       </div>
 
-      {/* Section Configuration des Alertes Email */}
-      <div className="card">
-        <div className="card-header">
-          <h3>🚨 Configuration des Alertes Email</h3>
-          <p>Configurez les alertes pour les nouveaux arrêts maladie à valider</p>
-        </div>
-        <div className="card-body">
-          <div className="alert-email-section">
-            {/* Email du Magasin */}
-            <div className="email-config">
-              <div className="email-input-group">
-                <label htmlFor="storeEmail">📧 Email du Magasin :</label>
-                <input
-                  type="email"
-                  id="storeEmail"
-                  value={parameters.find(p => p.name === 'storeEmail')?.stringValue || ''}
-                  onChange={(e) => {
-                    const emailParam = parameters.find(p => p.name === 'storeEmail');
-                    if (emailParam) {
-                      const updatedParams = parameters.map(p => 
-                        p.name === 'storeEmail' 
-                          ? { ...p, stringValue: e.target.value }
-                          : p
-                      );
-                      setParameters(updatedParams);
-                    }
-                  }}
-                  className="email-input"
-                  placeholder="magasin@boulangerie.fr"
-                />
-              </div>
-            </div>
-
-            {/* Email de l'Admin */}
-            <div className="email-config">
-              <div className="email-input-group">
-                <label htmlFor="adminEmail">👑 Email de l'Administrateur :</label>
-                <input
-                  type="email"
-                  id="adminEmail"
-                  value={parameters.find(p => p.name === 'adminEmail')?.stringValue || ''}
-                  onChange={(e) => {
-                    const emailParam = parameters.find(p => p.name === 'adminEmail');
-                    if (emailParam) {
-                      const updatedParams = parameters.map(p => 
-                        p.name === 'adminEmail' 
-                          ? { ...p, stringValue: e.target.value }
-                          : p
-                      );
-                      setParameters(updatedParams);
-                    }
-                  }}
-                  className="email-input"
-                  placeholder="admin@boulangerie.fr"
-                />
-              </div>
-            </div>
-
-            {/* Choix des Destinataires */}
-            <div className="email-config">
-              <div className="email-input-group">
-                <label>🎯 Destinataires des Alertes :</label>
-                <div className="recipient-options">
-                  <label className="checkbox-option">
-                    <input
-                      type="checkbox"
-                      checked={parameters.find(p => p.name === 'alertStore')?.booleanValue || false}
-                      onChange={(e) => {
-                        const alertParam = parameters.find(p => p.name === 'alertStore');
-                        if (alertParam) {
-                          const updatedParams = parameters.map(p => 
-                            p.name === 'alertStore' 
-                              ? { ...p, booleanValue: e.target.checked }
-                              : p
-                          );
-                          setParameters(updatedParams);
-                        }
-                      }}
-                    />
-                    📧 Envoyer au Magasin
-                  </label>
-                  <label className="checkbox-option">
-                    <input
-                      type="checkbox"
-                      checked={parameters.find(p => p.name === 'alertAdmin')?.booleanValue || false}
-                      onChange={(e) => {
-                        const alertParam = parameters.find(p => p.name === 'alertAdmin');
-                        if (alertParam) {
-                          const updatedParams = parameters.map(p => 
-                            p.name === 'alertAdmin' 
-                              ? { ...p, booleanValue: e.target.checked }
-                              : p
-                          );
-                          setParameters(updatedParams);
-                        }
-                      }}
-                    />
-                    👑 Envoyer à l'Administrateur
-                  </label>
-                </div>
-              </div>
-            </div>
-
-            <div className="email-actions">
-              <button
-                className="btn btn-primary"
-                onClick={async () => {
-                  try {
-                    // Sauvegarder tous les paramètres d'alerte
-                    const storeEmailParam = parameters.find(p => p.name === 'storeEmail');
-                    const adminEmailParam = parameters.find(p => p.name === 'adminEmail');
-                    const alertStoreParam = parameters.find(p => p.name === 'alertStore');
-                    const alertAdminParam = parameters.find(p => p.name === 'alertAdmin');
-
-                    const promises = [];
-                    
-                    if (storeEmailParam) {
-                      promises.push(api.put(`/parameters/${storeEmailParam._id}`, {
-                        stringValue: storeEmailParam.stringValue
-                      }));
-                    }
-                    
-                    if (adminEmailParam) {
-                      promises.push(api.put(`/parameters/${adminEmailParam._id}`, {
-                        stringValue: adminEmailParam.stringValue
-                      }));
-                    }
-                    
-                    if (alertStoreParam) {
-                      promises.push(api.put(`/parameters/${alertStoreParam._id}`, {
-                        booleanValue: alertStoreParam.booleanValue
-                      }));
-                    }
-                    
-                    if (alertAdminParam) {
-                      promises.push(api.put(`/parameters/${alertAdminParam._id}`, {
-                        booleanValue: alertAdminParam.booleanValue
-                      }));
-                    }
-
-                    await Promise.all(promises);
-                    toast.success('Configuration des alertes sauvegardée');
-                  } catch (error) {
-                    console.error('❌ Erreur lors de la sauvegarde:', error);
-                    toast.error('Erreur lors de la sauvegarde des alertes');
-                  }
-                }}
-              >
-                💾 Sauvegarder la configuration des alertes
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
 
       {/* Section Gestion des Messages Email */}
       <div className="card">

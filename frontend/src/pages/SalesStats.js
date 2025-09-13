@@ -41,11 +41,13 @@ const SalesStats = () => {
       const response = await fetch('https://boulangerie-planning-api-3.onrender.com/api/employees');
       if (response.ok) {
         const data = await response.json();
-        setEmployees(data);
+        // S'assurer que data est un tableau
+        const employeesArray = Array.isArray(data) ? data : (data.employees || []);
+        setEmployees(employeesArray);
         
         // Initialiser les données de vente pour chaque employé
         const initialSalesData = {};
-        data.forEach(emp => {
+        employeesArray.forEach(emp => {
           initialSalesData[emp._id] = {
             caNetHt: 0,
             nbClients: 0,
@@ -296,7 +298,7 @@ const SalesStats = () => {
                  </tr>
                </thead>
                <tbody>
-                 {employees.map(emp => (
+                 {Array.isArray(employees) ? employees.map(emp => (
                    <tr key={emp._id}>
                      <td className="employee-name">{emp.name}</td>
                      <td>
@@ -392,7 +394,13 @@ const SalesStats = () => {
                        </button>
                      </td>
                    </tr>
-                 ))}
+                 )) : (
+                   <tr>
+                     <td colSpan="10" style={{textAlign: 'center', padding: '20px'}}>
+                       Aucun employé trouvé
+                     </td>
+                   </tr>
+                 )}
                </tbody>
             </table>
             

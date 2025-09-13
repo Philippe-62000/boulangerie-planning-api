@@ -26,3 +26,4 @@ echo 📋 Les logs détaillés nous diront exactement où ça plante
 pause
 
 
+ns la page ffacer l'information

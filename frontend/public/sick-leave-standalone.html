@@ -274,7 +274,7 @@
     <div class="container">
         <div class="header">
             <h1>🏥 Envoi d'Arrêt Maladie</h1>
-            <p>Boulangerie Ange - Arras</p>
+            <p id="siteName">Boulangerie Ange</p>
         </div>
 
         <div class="form-container">
@@ -548,9 +548,28 @@
             document.getElementById('submitBtn').disabled = show;
         }
 
+        // Charger le nom du site
+        async function loadSiteName() {
+            try {
+                const response = await fetch(`${API_URL}/site`);
+                const data = await response.json();
+                
+                if (data && data.city) {
+                    const fullSiteName = `Boulangerie Ange ${data.city}`;
+                    document.getElementById('siteName').textContent = fullSiteName;
+                    console.log('✅ Nom du site chargé:', fullSiteName);
+                } else {
+                    console.log('⚠️ Données du site incomplètes, utilisation du nom par défaut');
+                }
+            } catch (error) {
+                console.log('⚠️ Impossible de charger le nom du site, utilisation du nom par défaut');
+            }
+        }
+
         // Initialisation
         document.addEventListener('DOMContentLoaded', function() {
             loadEmployees();
+            loadSiteName();
             
             // Définir la date max pour les dates
             const today = new Date().toISOString().split('T')[0];

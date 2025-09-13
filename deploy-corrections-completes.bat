@@ -1,61 +1,111 @@
 @echo off
 echo ========================================
-echo CORRECTIONS COMPLÈTES
+echo 🚀 DÉPLOIEMENT CORRECTIONS COMPLÈTES
 echo ========================================
+echo.
 
-echo [1/4] Corrections appliquées...
-echo ✅ Validation paramètres KM (required: false)
-echo ✅ API site corrigée (création directe)
-echo ✅ Menus manquants ajoutés (Frais Repas, KM, Imprimer)
-echo ✅ Menu Dashboard visible pour admin et salarié
-echo ✅ Bouton Tuteurs ajouté dans gestion employés
-echo ✅ Page Tuteurs créée avec tableau tuteurs/apprentis
-echo ✅ Modal employé corrigé (plus de clignotement)
+echo 📋 Vérification des fichiers modifiés...
+echo.
 
-echo [2/4] Construction du frontend...
-cd frontend
-call npm run build
-if %errorlevel% neq 0 (
-    echo ❌ Erreur lors de la construction du frontend
+echo ✅ Dashboard.js - Masquage arrêts maladie après 8 jours
+if exist "frontend\src\pages\Dashboard.js" (
+    echo    ✅ Fichier trouvé
+) else (
+    echo    ❌ Fichier manquant
     pause
     exit /b 1
 )
-echo ✅ Frontend construit avec succès
 
-echo [3/4] Préparation du déploiement OVH...
+echo ✅ Employees.js - Masquage arrêts maladie après 8 jours
+if exist "frontend\src\pages\Employees.js" (
+    echo    ✅ Fichier trouvé
+) else (
+    echo    ❌ Fichier manquant
+    pause
+    exit /b 1
+)
+
+echo ✅ AbsenceStatus.js - Fix page État des absences
+if exist "frontend\src\components\AbsenceStatus.js" (
+    echo    ✅ Fichier trouvé
+) else (
+    echo    ❌ Fichier manquant
+    pause
+    exit /b 1
+)
+
+echo ✅ SickLeaveAdmin.js - Synchronisation automatique
+if exist "frontend\src\pages\SickLeaveAdmin.js" (
+    echo    ✅ Fichier trouvé
+) else (
+    echo    ❌ Fichier manquant
+    pause
+    exit /b 1
+)
+
+echo.
+echo 🔧 Build du frontend avec toutes les corrections...
+echo.
+
+echo 📁 Navigation vers le dossier frontend...
+cd frontend
+
+echo 🧹 Nettoyage du build précédent...
+if exist "build" (
+    rmdir /s /q build
+    echo    ✅ Ancien build supprimé
+) else (
+    echo    ℹ️ Aucun build précédent trouvé
+)
+
+echo 📦 Installation des dépendances...
+npm install
+
+echo 🔨 Build de production...
+npm run build
+
+echo.
+echo 📋 Vérification du nouveau build...
+if exist "build\index.html" (
+    echo    ✅ Build réussi - index.html créé
+) else (
+    echo    ❌ Erreur build - index.html manquant
+    cd ..
+    pause
+    exit /b 1
+)
+
+echo.
+echo 📊 Taille du nouveau dossier build...
+for /f "tokens=3" %%a in ('dir build /s /-c ^| find "File(s)"') do echo    📦 Taille totale: %%a octets
+
+echo.
+echo 📁 Retour au dossier racine...
 cd ..
-if exist deploy-ovh rmdir /s /q deploy-ovh
-mkdir deploy-ovh
-xcopy /e /i /y frontend\build\* deploy-ovh\
-copy .htaccess-ovh-fixed deploy-ovh\.htaccess
-echo ✅ Dossier deploy-ovh préparé
-
-echo [4/4] Déploiement backend sur Render...
-echo ✅ Backend sera déployé automatiquement via Git push
 
 echo.
-echo 🎉 CORRECTIONS COMPLÈTES APPLIQUÉES !
+echo ========================================
+echo ✅ BUILD CORRECTIONS COMPLÈTES TERMINÉ !
+echo ========================================
 echo.
-echo 📋 Corrections apportées :
-echo    ✅ Paramètres KM : validation corrigée (required: false)
-echo    ✅ API site : création directe au lieu de méthode statique
-echo    ✅ Menus : Frais Repas, Frais KM, Imprimer État visibles
-echo    ✅ Dashboard : visible pour admin et salarié
-echo    ✅ Tuteurs : bouton + page avec tableau tuteurs/apprentis
-echo    ✅ Modal employé : plus de clignotement (modal flottant)
+echo 📋 Fichiers générés dans frontend/build/ :
+echo    - index.html (page principale)
+echo    - static/css/main.xxx.css (styles avec corrections)
+echo    - static/js/main.xxx.js (JavaScript avec corrections)
+echo    - Autres fichiers de configuration
 echo.
-echo 🔧 Backend : Render.com (déploiement automatique)
-echo 📁 Frontend : deploy-ovh/ (à uploader sur OVH)
+echo 🚀 Prêt pour le déploiement !
 echo.
-echo 🧪 Tests après upload :
-echo    1. Paramètres KM : doit sauvegarder sans erreur 400
-echo    2. Mots de passe : doit sauvegarder correctement
-echo    3. Site : doit se charger sans erreur 404
-echo    4. Menus : Frais Repas, Frais KM, Imprimer État visibles
-echo    5. Dashboard : visible pour admin et salarié
-echo    6. Tuteurs : bouton dans gestion employés + page fonctionnelle
-echo    7. Modal employé : ne doit plus clignoter
+echo 💡 Instructions de déploiement OVH :
+echo    1. Copier TOUT le dossier "frontend\build\" sur OVH
+echo    2. Remplacer le contenu existant de votre site
+echo    3. Tester sur https://www.filmara.fr
 echo.
-echo 🎯 Tous les problèmes signalés sont corrigés !
+echo 🎯 Corrections apportées :
+echo    - ✅ Masquage arrêts maladie après 8 jours (Tableau de bord)
+echo    - ✅ Masquage arrêts maladie après 8 jours (Gestion des salariés)
+echo    - ✅ Fix page "État des absences" avec gestion d'erreur
+echo    - ✅ Synchronisation automatique validation → déclaration manuelle
+echo    - ✅ Amélioration de la logique de calcul des statistiques
 echo.
 pause

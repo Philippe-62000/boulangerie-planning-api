@@ -308,6 +308,18 @@ const Employees = () => {
                     {(() => {
                       // Vérifier d'abord l'ancien format (sickLeave.isOnSickLeave)
                       if (employee.sickLeave?.isOnSickLeave) {
+                        // Vérifier si l'arrêt maladie est terminé depuis plus de 8 jours
+                        if (employee.sickLeave?.endDate) {
+                          const endDate = new Date(employee.sickLeave.endDate);
+                          const today = new Date();
+                          const daysSinceReturn = Math.floor((today - endDate) / (1000 * 60 * 60 * 24));
+                          
+                          // Masquer si repris depuis plus de 8 jours
+                          if (daysSinceReturn > 8) {
+                            return '-';
+                          }
+                        }
+                        
                         return (
                           <span style={{ color: '#dc3545', fontWeight: 'bold' }}>
                             {formatDate(employee.sickLeave.startDate)} - {formatDate(employee.sickLeave.endDate)}
@@ -317,10 +329,17 @@ const Employees = () => {
                       
                       // Vérifier les absences de type "Arrêt maladie" créées automatiquement
                       const maladieAbsences = (Array.isArray(employee.absences) ? employee.absences : [])
-                        .filter(absence => 
-                          absence.type === 'Arrêt maladie' && 
-                          new Date(absence.endDate) >= new Date() // Absence encore active
-                        );
+                        .filter(absence => {
+                          if (absence.type !== 'Arrêt maladie') return false;
+                          
+                          // Vérifier si l'absence est terminée depuis plus de 8 jours
+                          const endDate = new Date(absence.endDate);
+                          const today = new Date();
+                          const daysSinceReturn = Math.floor((today - endDate) / (1000 * 60 * 60 * 24));
+                          
+                          // Inclure seulement si active ou terminée depuis moins de 8 jours
+                          return daysSinceReturn <= 8;
+                        });
                       
                       if (maladieAbsences && maladieAbsences.length > 0) {
                         // Prendre la première absence active

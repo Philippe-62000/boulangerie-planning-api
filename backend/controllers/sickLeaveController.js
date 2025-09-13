@@ -327,6 +327,19 @@ const uploadSickLeave = async (req, res) => {
       });
     }
 
+    // Envoyer une alerte aux administrateurs/magasin
+    try {
+      const alertResult = await emailService.sendAlertEmail(sickLeave);
+      if (alertResult.success) {
+        console.log('✅ Alerte email envoyée:', alertResult.messageId);
+      } else {
+        console.log('⚠️ Alerte email non envoyée:', alertResult.error);
+      }
+    } catch (alertError) {
+      console.error('❌ Erreur envoi alerte email:', alertError.message);
+      // Continuer même si l'alerte échoue
+    }
+
     res.json({
       success: true,
       message: 'Arrêt maladie uploadé avec succès',
@@ -483,6 +496,18 @@ const validateSickLeave = async (req, res) => {
     } catch (emailError) {
       console.error('❌ Erreur envoi email validation:', emailError.message);
       // Continuer même si l'email échoue
+    }
+
+    // Envoyer un email au comptable
+    try {
+      const accountantResult = await emailService.sendToAccountant(sickLeave);
+      if (accountantResult.success) {
+        console.log('✅ Email comptable envoyé:', accountantResult.messageId);
+      } else {
+        console.log('⚠️ Email comptable non envoyé:', accountantResult.error);
+      }
+    } catch (accountantError) {
+      console.error('❌ Erreur envoi email comptable:', accountantError.message);
     }
 
     res.json({

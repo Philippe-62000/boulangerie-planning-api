@@ -36,8 +36,22 @@ const Dashboard = () => {
     }
   };
 
-  // Filtrer les employés en arrêt maladie
-  const sickEmployees = employees.filter(emp => emp.sickLeave?.isOnSickLeave);
+  // Filtrer les employés en arrêt maladie (exclure ceux repris depuis plus de 8 jours)
+  const sickEmployees = employees.filter(emp => {
+    if (!emp.sickLeave?.isOnSickLeave) return false;
+    
+    // Si l'employé a une date de fin d'arrêt maladie
+    if (emp.sickLeave?.endDate) {
+      const endDate = new Date(emp.sickLeave.endDate);
+      const today = new Date();
+      const daysSinceReturn = Math.floor((today - endDate) / (1000 * 60 * 60 * 24));
+      
+      // Exclure si repris depuis plus de 8 jours
+      if (daysSinceReturn > 8) return false;
+    }
+    
+    return true;
+  });
 
   // Filtrer les employés mineurs (âge < 18)
   const minorEmployees = employees.filter(emp => emp.age < 18);

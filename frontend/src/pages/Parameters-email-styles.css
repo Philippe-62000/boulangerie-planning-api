@@ -270,6 +270,24 @@
   padding: 1rem 0;
 }
 
+.alert {
+  padding: 1rem;
+  margin-bottom: 1rem;
+  border-radius: 8px;
+  border: 1px solid;
+}
+
+.alert-warning {
+  background-color: #fff3cd;
+  border-color: #ffeaa7;
+  color: #856404;
+}
+
+.alert-warning p {
+  margin: 0 0 0.5rem 0;
+  font-weight: 500;
+}
+
 .recipient-options {
   display: flex;
   flex-direction: column;

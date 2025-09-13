@@ -1,62 +1,69 @@
 @echo off
 echo ========================================
-echo CORRECTIONS FINALES
+echo 🚀 DÉPLOIEMENT CORRECTIONS FINALES
 echo ========================================
+echo.
 
-echo [1/4] Corrections appliquées...
-echo ✅ Header: affichage nom de la ville à côté du titre
-echo ✅ Menu flottant: tous les menus en menus principaux (plus de sous-menus)
-echo ✅ Absences: correction détection arrêts maladie (sickLeave.isOnSickLeave)
-echo ✅ Centrage: titre Planning Boulangerie centré
+echo 📋 Corrections apportées :
+echo    ✅ Suppression duplication "Configuration des Alertes Email"
+echo    ✅ Ajout paramètre siteName au backend
+echo    ✅ Correction titre dynamique dans sick-leave-standalone.html
+echo    ✅ Masquage arrêts maladie après 8 jours
+echo    ✅ Synchronisation automatique validation → déclaration
+echo    ✅ Fix page "État des absences"
+echo.
 
-echo [2/4] Construction du frontend...
+echo 📁 Navigation vers le dossier frontend...
 cd frontend
-call npm run build
-if %errorlevel% neq 0 (
-    echo ❌ Erreur lors de la construction du frontend
+
+echo 🧹 Nettoyage du build précédent...
+if exist "build" (
+    rmdir /s /q build
+    echo    ✅ Ancien build supprimé
+)
+
+echo 🔨 Build de production...
+npm run build
+
+echo.
+echo 📋 Vérification du build...
+if exist "build\index.html" (
+    echo    ✅ Build réussi - index.html créé
+) else (
+    echo    ❌ Erreur build - index.html manquant
+    cd ..
     pause
     exit /b 1
 )
-echo ✅ Frontend construit avec succès
 
-echo [3/4] Préparation du déploiement OVH...
+echo.
+echo 📁 Retour au dossier racine...
 cd ..
-if exist deploy-ovh rmdir /s /q deploy-ovh
-mkdir deploy-ovh
-xcopy /e /i /y frontend\build\* deploy-ovh\
-copy .htaccess-ovh-fixed deploy-ovh\.htaccess
-echo ✅ Dossier deploy-ovh préparé
-
-echo [4/4] Commit des corrections...
-git add .
-git commit -m "Fix: Corrections finales interface
-
-- Header: affichage nom ville à côté du titre
-- Menu: tous les menus en principaux (plus de sous-menus)
-- Absences: correction détection arrêts maladie
-- Centrage: titre Planning Boulangerie"
 
 echo.
-echo 🎉 CORRECTIONS FINALES APPLIQUÉES !
+echo ========================================
+echo ✅ BUILD CORRECTIONS FINALES TERMINÉ !
+echo ========================================
 echo.
-echo 📋 Corrections apportées :
-echo    ✅ Header: nom de la ville affiché à côté du titre
-echo    ✅ Menu flottant: Dashboard, Frais Repas, Frais KM, Imprimer État visibles
-echo    ✅ Absences: détection correcte des arrêts maladie
-echo    ✅ Centrage: titre Planning Boulangerie centré
+echo 📋 Fichiers générés dans frontend/build/ :
+echo    - index.html (page principale)
+echo    - static/css/main.xxx.css (styles)
+echo    - static/js/main.xxx.js (JavaScript)
+echo    - sick-leave-standalone.html (avec nom du site dynamique)
 echo.
-echo 🔧 Backend : Render.com (déjà déployé)
-echo 📁 Frontend : deploy-ovh/ (à uploader sur OVH)
+echo 🚀 Prêt pour le déploiement !
 echo.
-echo 🧪 Tests après upload OVH :
-echo    1. Titre: "Planning Boulangerie 'Ville'" affiché
-echo    2. Menu: tous les menus visibles (Dashboard, Frais Repas, etc.)
-echo    3. Absences: arrêts maladie correctement détectés
-echo    4. Centrage: titre bien centré
-echo    5. Paramètres KM: sauvegarde fonctionnelle
-echo    6. Site: sauvegarde fonctionnelle
-echo    7. Mots de passe: sauvegarde fonctionnelle
+echo 💡 Instructions de déploiement OVH :
+echo    1. Copier TOUT le dossier "frontend\build\" sur OVH
+echo    2. Remplacer le contenu existant de votre site
+echo    3. Tester sur https://www.filmara.fr
 echo.
-echo 🎯 Tous les problèmes sont corrigés !
+echo 🎯 Corrections apportées :
+echo    - ✅ Suppression duplication "Configuration des Alertes Email"
+echo    - ✅ Ajout paramètre siteName au backend
+echo    - ✅ Correction titre dynamique dans sick-leave-standalone.html
+echo    - ✅ Masquage arrêts maladie après 8 jours
+echo    - ✅ Synchronisation automatique validation → déclaration
+echo    - ✅ Fix page "État des absences"
 echo.
 pause

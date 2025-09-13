@@ -15,33 +15,34 @@ const AbsenceStatus = ({ employees }) => {
   }, [employees, selectedPeriod, selectedMonth, selectedYear]);
 
   const calculateAbsenceStats = () => {
-    let startDate, endDate;
-    
-    switch (selectedPeriod) {
-      case 'year':
-        startDate = new Date(selectedYear, 0, 1);
-        endDate = new Date(selectedYear, 11, 31);
-        break;
-      case 'month':
-        startDate = new Date(selectedYear, selectedMonth - 1, 1);
-        endDate = new Date(selectedYear, selectedMonth, 0);
-        break;
-      case 'week':
-        const now = new Date();
-        const weekStart = new Date(now);
-        weekStart.setDate(now.getDate() - now.getDay() + 1);
-        const weekEnd = new Date(weekStart);
-        weekEnd.setDate(weekStart.getDate() + 6);
-        startDate = weekStart;
-        endDate = weekEnd;
-        break;
-      default:
-        startDate = new Date(selectedYear, selectedMonth - 1, 1);
-        endDate = new Date(selectedYear, selectedMonth, 0);
-    }
+    try {
+      let startDate, endDate;
+      
+      switch (selectedPeriod) {
+        case 'year':
+          startDate = new Date(selectedYear, 0, 1);
+          endDate = new Date(selectedYear, 11, 31);
+          break;
+        case 'month':
+          startDate = new Date(selectedYear, selectedMonth - 1, 1);
+          endDate = new Date(selectedYear, selectedMonth, 0);
+          break;
+        case 'week':
+          const now = new Date();
+          const weekStart = new Date(now);
+          weekStart.setDate(now.getDate() - now.getDay() + 1);
+          const weekEnd = new Date(weekStart);
+          weekEnd.setDate(weekStart.getDate() + 6);
+          startDate = weekStart;
+          endDate = weekEnd;
+          break;
+        default:
+          startDate = new Date(selectedYear, selectedMonth - 1, 1);
+          endDate = new Date(selectedYear, selectedMonth, 0);
+      }
 
-    console.log('📅 Période sélectionnée:', { selectedPeriod, startDate, endDate });
-    console.log('👥 Nombre d\'employés:', employees.length);
+      console.log('📅 Période sélectionnée:', { selectedPeriod, startDate, endDate });
+      console.log('👥 Nombre d\'employés:', employees.length);
     
     // Debug: Vérifier la structure des données pour tous les employés
     console.log('🔍 Debug complet des employés:');
@@ -123,7 +124,14 @@ const AbsenceStatus = ({ employees }) => {
       total: acc.total + emp.total
     }), { absences: 0, sickLeave: 0, delays: 0, total: 0 });
 
-    setAbsenceStats({ total, byEmployee });
+      setAbsenceStats({ total, byEmployee });
+    } catch (error) {
+      console.error('❌ Erreur dans calculateAbsenceStats:', error);
+      setAbsenceStats({
+        total: { absences: 0, sickLeave: 0, delays: 0, total: 0 },
+        byEmployee: []
+      });
+    }
   };
 
   const getPeriodLabel = () => {
