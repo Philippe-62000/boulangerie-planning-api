@@ -223,41 +223,196 @@ class EmailServiceAlternative {
     }
   }
 
-  // Méthodes compatibles avec l'ancien service
+  // Méthodes compatibles avec l'ancien service - Utilisent les templates de la DB
   async sendSickLeaveRejection(sickLeave, rejectionReason, rejectedBy) {
-    const htmlContent = this.generateRejectionEmailHTML(sickLeave, rejectionReason, rejectedBy);
-    const textContent = this.generateRejectionEmailText(sickLeave, rejectionReason, rejectedBy);
-    
-    return await this.sendEmail(
-      sickLeave.employeeEmail,
-      `Arrêt maladie rejeté - ${sickLeave.employeeName}`,
-      htmlContent,
-      textContent
-    );
+    try {
+      // Récupérer le template depuis la base de données
+      const EmailTemplate = require('../models/EmailTemplate');
+      const template = await EmailTemplate.findOne({ name: 'sick_leave_rejection' });
+      
+      if (!template) {
+        console.log('⚠️ Template de rejet non trouvé, utilisation du template par défaut');
+        return await this.sendEmail(
+          sickLeave.employeeEmail,
+          `Arrêt maladie rejeté - ${sickLeave.employeeName}`,
+          this.generateRejectionEmailHTML(sickLeave, rejectionReason, rejectedBy),
+          this.generateRejectionEmailText(sickLeave, rejectionReason, rejectedBy)
+        );
+      }
+
+      // Remplacer les variables dans le template
+      const htmlContent = this.replaceTemplateVariables(template.htmlContent, {
+        employeeName: sickLeave.employeeName,
+        rejectionReason: rejectionReason,
+        rejectedBy: rejectedBy,
+        startDate: new Date(sickLeave.startDate).toLocaleDateString('fr-FR'),
+        endDate: new Date(sickLeave.endDate).toLocaleDateString('fr-FR'),
+        duration: this.calculateDuration(sickLeave.startDate, sickLeave.endDate),
+        durationPlural: this.calculateDuration(sickLeave.startDate, sickLeave.endDate) > 1 ? 's' : '',
+        fileName: sickLeave.fileName,
+        uploadDate: new Date(sickLeave.uploadDate).toLocaleDateString('fr-FR')
+      });
+
+      const textContent = this.replaceTemplateVariables(template.textContent, {
+        employeeName: sickLeave.employeeName,
+        rejectionReason: rejectionReason,
+        rejectedBy: rejectedBy,
+        startDate: new Date(sickLeave.startDate).toLocaleDateString('fr-FR'),
+        endDate: new Date(sickLeave.endDate).toLocaleDateString('fr-FR'),
+        duration: this.calculateDuration(sickLeave.startDate, sickLeave.endDate),
+        durationPlural: this.calculateDuration(sickLeave.startDate, sickLeave.endDate) > 1 ? 's' : '',
+        fileName: sickLeave.fileName,
+        uploadDate: new Date(sickLeave.uploadDate).toLocaleDateString('fr-FR')
+      });
+      
+      return await this.sendEmail(
+        sickLeave.employeeEmail,
+        this.replaceTemplateVariables(template.subject, { employeeName: sickLeave.employeeName }),
+        htmlContent,
+        textContent
+      );
+    } catch (error) {
+      console.error('❌ Erreur envoi email de rejet:', error.message);
+      // Fallback vers l'ancien système
+      return await this.sendEmail(
+        sickLeave.employeeEmail,
+        `Arrêt maladie rejeté - ${sickLeave.employeeName}`,
+        this.generateRejectionEmailHTML(sickLeave, rejectionReason, rejectedBy),
+        this.generateRejectionEmailText(sickLeave, rejectionReason, rejectedBy)
+      );
+    }
   }
 
   async sendSickLeaveValidation(sickLeave, validatedBy) {
-    const htmlContent = this.generateValidationEmailHTML(sickLeave, validatedBy);
-    const textContent = this.generateValidationEmailText(sickLeave, validatedBy);
-    
-    return await this.sendEmail(
-      sickLeave.employeeEmail,
-      `Arrêt maladie validé - ${sickLeave.employeeName}`,
-      htmlContent,
-      textContent
-    );
+    try {
+      // Récupérer le template depuis la base de données
+      const EmailTemplate = require('../models/EmailTemplate');
+      const template = await EmailTemplate.findOne({ name: 'sick_leave_validation' });
+      
+      if (!template) {
+        console.log('⚠️ Template de validation non trouvé, utilisation du template par défaut');
+        return await this.sendEmail(
+          sickLeave.employeeEmail,
+          `Arrêt maladie validé - ${sickLeave.employeeName}`,
+          this.generateValidationEmailHTML(sickLeave, validatedBy),
+          this.generateValidationEmailText(sickLeave, validatedBy)
+        );
+      }
+
+      // Remplacer les variables dans le template
+      const htmlContent = this.replaceTemplateVariables(template.htmlContent, {
+        employeeName: sickLeave.employeeName,
+        validatedBy: validatedBy,
+        startDate: new Date(sickLeave.startDate).toLocaleDateString('fr-FR'),
+        endDate: new Date(sickLeave.endDate).toLocaleDateString('fr-FR'),
+        duration: this.calculateDuration(sickLeave.startDate, sickLeave.endDate),
+        durationPlural: this.calculateDuration(sickLeave.startDate, sickLeave.endDate) > 1 ? 's' : '',
+        fileName: sickLeave.fileName
+      });
+
+      const textContent = this.replaceTemplateVariables(template.textContent, {
+        employeeName: sickLeave.employeeName,
+        validatedBy: validatedBy,
+        startDate: new Date(sickLeave.startDate).toLocaleDateString('fr-FR'),
+        endDate: new Date(sickLeave.endDate).toLocaleDateString('fr-FR'),
+        duration: this.calculateDuration(sickLeave.startDate, sickLeave.endDate),
+        durationPlural: this.calculateDuration(sickLeave.startDate, sickLeave.endDate) > 1 ? 's' : '',
+        fileName: sickLeave.fileName
+      });
+      
+      return await this.sendEmail(
+        sickLeave.employeeEmail,
+        this.replaceTemplateVariables(template.subject, { employeeName: sickLeave.employeeName }),
+        htmlContent,
+        textContent
+      );
+    } catch (error) {
+      console.error('❌ Erreur envoi email de validation:', error.message);
+      // Fallback vers l'ancien système
+      return await this.sendEmail(
+        sickLeave.employeeEmail,
+        `Arrêt maladie validé - ${sickLeave.employeeName}`,
+        this.generateValidationEmailHTML(sickLeave, validatedBy),
+        this.generateValidationEmailText(sickLeave, validatedBy)
+      );
+    }
   }
 
   async sendToAccountant(sickLeave, accountantEmail) {
-    const htmlContent = this.generateAccountantEmailHTML(sickLeave);
-    const textContent = this.generateAccountantEmailText(sickLeave);
-    
-    return await this.sendEmail(
-      accountantEmail,
-      `Nouvel arrêt maladie validé - ${sickLeave.employeeName}`,
-      htmlContent,
-      textContent
-    );
+    try {
+      // Récupérer le template depuis la base de données
+      const EmailTemplate = require('../models/EmailTemplate');
+      const template = await EmailTemplate.findOne({ name: 'sick_leave_accountant' });
+      
+      if (!template) {
+        console.log('⚠️ Template comptable non trouvé, utilisation du template par défaut');
+        return await this.sendEmail(
+          accountantEmail,
+          `Nouvel arrêt maladie validé - ${sickLeave.employeeName}`,
+          this.generateAccountantEmailHTML(sickLeave),
+          this.generateAccountantEmailText(sickLeave)
+        );
+      }
+
+      // Remplacer les variables dans le template
+      const htmlContent = this.replaceTemplateVariables(template.htmlContent, {
+        employeeName: sickLeave.employeeName,
+        employeeEmail: sickLeave.employeeEmail,
+        startDate: new Date(sickLeave.startDate).toLocaleDateString('fr-FR'),
+        endDate: new Date(sickLeave.endDate).toLocaleDateString('fr-FR'),
+        duration: this.calculateDuration(sickLeave.startDate, sickLeave.endDate),
+        durationPlural: this.calculateDuration(sickLeave.startDate, sickLeave.endDate) > 1 ? 's' : '',
+        fileName: sickLeave.fileName,
+        uploadDate: new Date(sickLeave.uploadDate).toLocaleDateString('fr-FR'),
+        qualityScore: sickLeave.qualityScore || 85
+      });
+
+      const textContent = this.replaceTemplateVariables(template.textContent, {
+        employeeName: sickLeave.employeeName,
+        employeeEmail: sickLeave.employeeEmail,
+        startDate: new Date(sickLeave.startDate).toLocaleDateString('fr-FR'),
+        endDate: new Date(sickLeave.endDate).toLocaleDateString('fr-FR'),
+        duration: this.calculateDuration(sickLeave.startDate, sickLeave.endDate),
+        durationPlural: this.calculateDuration(sickLeave.startDate, sickLeave.endDate) > 1 ? 's' : '',
+        fileName: sickLeave.fileName,
+        uploadDate: new Date(sickLeave.uploadDate).toLocaleDateString('fr-FR'),
+        qualityScore: sickLeave.qualityScore || 85
+      });
+      
+      return await this.sendEmail(
+        accountantEmail,
+        this.replaceTemplateVariables(template.subject, { employeeName: sickLeave.employeeName }),
+        htmlContent,
+        textContent
+      );
+    } catch (error) {
+      console.error('❌ Erreur envoi email comptable:', error.message);
+      // Fallback vers l'ancien système
+      return await this.sendEmail(
+        accountantEmail,
+        `Nouvel arrêt maladie validé - ${sickLeave.employeeName}`,
+        this.generateAccountantEmailHTML(sickLeave),
+        this.generateAccountantEmailText(sickLeave)
+      );
+    }
+  }
+
+  // Méthodes utilitaires pour les templates
+  replaceTemplateVariables(template, variables) {
+    let result = template;
+    for (const [key, value] of Object.entries(variables)) {
+      const regex = new RegExp(`{{${key}}}`, 'g');
+      result = result.replace(regex, value || '');
+    }
+    return result;
+  }
+
+  calculateDuration(startDate, endDate) {
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    const diffTime = Math.abs(end - start);
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return diffDays + 1; // +1 pour inclure le jour de début
   }
 
   // Méthodes de génération de contenu (reprises de l'ancien service)
