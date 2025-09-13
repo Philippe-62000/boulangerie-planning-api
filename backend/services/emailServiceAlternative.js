@@ -717,6 +717,20 @@ Ce message a été généré automatiquement.
             </ul>
           </div>
           
+          <div class="details">
+            <h3>📎 Pièce jointe :</h3>
+            <p>Le document d'arrêt maladie est disponible au téléchargement :</p>
+            <p style="text-align: center; margin: 20px 0;">
+              <a href="https://boulangerie-planning-api-3.onrender.com/api/sick-leaves/${sickLeave._id}/download" 
+                 style="background: #28a745; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; display: inline-block;">
+                📥 Télécharger l'arrêt maladie
+              </a>
+            </p>
+            <p style="font-size: 0.9em; color: #666;">
+              <em>Lien direct vers le document validé</em>
+            </p>
+          </div>
+          
           <p>Le fichier est disponible sur notre serveur sécurisé et peut être téléchargé depuis l'interface d'administration.</p>
           
           <p>Merci de traiter cet arrêt maladie dans les plus brefs délais.</p>
@@ -751,6 +765,10 @@ INFORMATIONS DE L'ARRÊT :
 - Fichier : ${sickLeave.originalFileName}
 - Date d'envoi : ${uploadDate}
 - Score de qualité : ${sickLeave.autoValidation.qualityScore}/100
+
+PIÈCE JOINTE :
+Le document d'arrêt maladie est disponible au téléchargement :
+🔗 https://boulangerie-planning-api-3.onrender.com/api/sick-leaves/${sickLeave._id}/download
 
 Le fichier est disponible sur notre serveur sécurisé et peut être téléchargé depuis l'interface d'administration.
 

@@ -528,7 +528,35 @@ const validateSickLeave = async (req, res) => {
       const accountantParam = await Parameter.findOne({ name: 'accountantEmail' });
       const accountantEmail = accountantParam?.stringValue || process.env.ACCOUNTANT_EMAIL;
       
-      if (accountantEmail) {
+      console.log('🔍 Recherche email comptable:', {
+        paramFound: !!accountantParam,
+        paramValue: accountantParam?.stringValue,
+        envValue: process.env.ACCOUNTANT_EMAIL,
+        finalValue: accountantEmail
+      });
+      
+      // Si le paramètre n'existe pas, le créer
+      if (!accountantParam) {
+        console.log('📝 Création du paramètre accountantEmail...');
+        const Parameter = require('../models/Parameters');
+        await Parameter.create({
+          name: 'accountantEmail',
+          displayName: 'Email du Comptable',
+          stringValue: process.env.ACCOUNTANT_EMAIL || 'phimjc@gmail.com',
+          kmValue: -1
+        });
+        console.log('✅ Paramètre accountantEmail créé');
+        // Utiliser la valeur par défaut
+        const defaultEmail = process.env.ACCOUNTANT_EMAIL || 'phimjc@gmail.com';
+        if (defaultEmail) {
+          const accountantResult = await emailService.sendToAccountant(sickLeave, defaultEmail);
+          if (accountantResult.success) {
+            console.log('✅ Email comptable envoyé:', accountantResult.messageId);
+          } else {
+            console.log('⚠️ Email comptable non envoyé:', accountantResult.error);
+          }
+        }
+      } else if (accountantEmail) {
         const accountantResult = await emailService.sendToAccountant(sickLeave, accountantEmail);
         if (accountantResult.success) {
           console.log('✅ Email comptable envoyé:', accountantResult.messageId);
