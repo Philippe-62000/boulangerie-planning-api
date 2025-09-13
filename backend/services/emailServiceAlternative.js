@@ -86,6 +86,13 @@ class EmailServiceAlternative {
   // Envoyer via EmailJS (service gratuit)
   async sendViaEmailJS(to, subject, htmlContent, textContent) {
     try {
+      console.log('🔍 sendViaEmailJS - Paramètres reçus:', {
+        to: to,
+        subject: subject,
+        hasHtml: !!htmlContent,
+        hasText: !!textContent
+      });
+      
       // Configuration EmailJS (à configurer)
       const emailjsConfig = {
         serviceId: process.env.EMAILJS_SERVICE_ID || 'service_default',
@@ -415,9 +422,20 @@ class EmailServiceAlternative {
 
   async sendToAccountant(sickLeave, accountantEmail) {
     try {
+      console.log('🔍 sendToAccountant - Paramètres reçus:', {
+        employeeName: sickLeave.employeeName,
+        accountantEmail: accountantEmail
+      });
+      
       // Récupérer le template depuis la base de données
       const EmailTemplate = require('../models/EmailTemplate');
       const template = await EmailTemplate.findOne({ name: 'sick_leave_accountant' });
+      
+      console.log('🔍 Template comptable recherché:', {
+        templateFound: !!template,
+        templateName: template?.name,
+        templateId: template?._id
+      });
       
       if (!template) {
         console.log('⚠️ Template comptable non trouvé, utilisation du template par défaut');
