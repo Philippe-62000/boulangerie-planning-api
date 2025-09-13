@@ -108,6 +108,16 @@ class EmailServiceAlternative {
         from_email: process.env.SMTP_USER || process.env.EMAIL_USER
       };
 
+      console.log('📧 Données EmailJS:', {
+        serviceId: emailjsConfig.serviceId,
+        templateId: emailjsConfig.templateId,
+        userId: emailjsConfig.userId,
+        to: to,
+        subject: subject,
+        hasHtml: !!htmlContent,
+        hasText: !!textContent
+      });
+
       // Appel à l'API EmailJS avec headers pour applications non-browser
       const response = await fetch('https://api.emailjs.com/api/v1.0/email/send', {
         method: 'POST',
@@ -132,7 +142,13 @@ class EmailServiceAlternative {
           message: 'Email envoyé via EmailJS'
         };
       } else {
-        throw new Error(`EmailJS error: ${response.status}`);
+        const errorText = await response.text();
+        console.error('❌ Erreur EmailJS détaillée:', {
+          status: response.status,
+          statusText: response.statusText,
+          body: errorText
+        });
+        throw new Error(`EmailJS error: ${response.status} - ${errorText}`);
       }
 
     } catch (error) {
