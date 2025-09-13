@@ -338,6 +338,65 @@ class EmailServiceAlternative {
     }
   }
 
+  async sendAlertEmail(sickLeave, recipientEmails) {
+    try {
+      // Récupérer le template depuis la base de données
+      const EmailTemplate = require('../models/EmailTemplate');
+      const template = await EmailTemplate.findOne({ name: 'sick_leave_alert' });
+      
+      if (!template) {
+        console.log('⚠️ Template d\'alerte non trouvé, utilisation du template par défaut');
+        return await this.sendEmail(
+          recipientEmails.join(', '),
+          `🚨 Nouvel arrêt maladie à valider - ${sickLeave.employeeName}`,
+          this.generateAlertEmailHTML(sickLeave),
+          this.generateAlertEmailText(sickLeave)
+        );
+      }
+
+      // Remplacer les variables dans le template
+      const htmlContent = this.replaceTemplateVariables(template.htmlContent, {
+        employeeName: sickLeave.employeeName,
+        employeeEmail: sickLeave.employeeEmail,
+        startDate: new Date(sickLeave.startDate).toLocaleDateString('fr-FR'),
+        endDate: new Date(sickLeave.endDate).toLocaleDateString('fr-FR'),
+        duration: this.calculateDuration(sickLeave.startDate, sickLeave.endDate),
+        durationPlural: this.calculateDuration(sickLeave.startDate, sickLeave.endDate) > 1 ? 's' : '',
+        fileName: sickLeave.fileName,
+        uploadDate: new Date(sickLeave.uploadDate).toLocaleDateString('fr-FR'),
+        adminUrl: 'https://www.filmara.fr/admin'
+      });
+
+      const textContent = this.replaceTemplateVariables(template.textContent, {
+        employeeName: sickLeave.employeeName,
+        employeeEmail: sickLeave.employeeEmail,
+        startDate: new Date(sickLeave.startDate).toLocaleDateString('fr-FR'),
+        endDate: new Date(sickLeave.endDate).toLocaleDateString('fr-FR'),
+        duration: this.calculateDuration(sickLeave.startDate, sickLeave.endDate),
+        durationPlural: this.calculateDuration(sickLeave.startDate, sickLeave.endDate) > 1 ? 's' : '',
+        fileName: sickLeave.fileName,
+        uploadDate: new Date(sickLeave.uploadDate).toLocaleDateString('fr-FR'),
+        adminUrl: 'https://www.filmara.fr/admin'
+      });
+      
+      return await this.sendEmail(
+        recipientEmails.join(', '),
+        this.replaceTemplateVariables(template.subject, { employeeName: sickLeave.employeeName }),
+        htmlContent,
+        textContent
+      );
+    } catch (error) {
+      console.error('❌ Erreur envoi email d\'alerte:', error.message);
+      // Fallback vers l'ancien système
+      return await this.sendEmail(
+        recipientEmails.join(', '),
+        `🚨 Nouvel arrêt maladie à valider - ${sickLeave.employeeName}`,
+        this.generateAlertEmailHTML(sickLeave),
+        this.generateAlertEmailText(sickLeave)
+      );
+    }
+  }
+
   async sendToAccountant(sickLeave, accountantEmail) {
     try {
       // Récupérer le template depuis la base de données

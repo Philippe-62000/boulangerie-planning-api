@@ -25,26 +25,72 @@ const getParameters = async (req, res) => {
         kmValue: 0
       });
       
+      // Ajouter les paramètres pour les alertes email
+      defaultParameters.push({
+        name: 'storeEmail',
+        displayName: 'Email du Magasin',
+        stringValue: '',
+        kmValue: 0
+      });
+      
+      defaultParameters.push({
+        name: 'adminEmail',
+        displayName: 'Email de l\'Administrateur',
+        stringValue: '',
+        kmValue: 0
+      });
+      
+      defaultParameters.push({
+        name: 'alertStore',
+        displayName: 'Alerte au Magasin',
+        booleanValue: false,
+        kmValue: 0
+      });
+      
+      defaultParameters.push({
+        name: 'alertAdmin',
+        displayName: 'Alerte à l\'Administrateur',
+        booleanValue: false,
+        kmValue: 0
+      });
+      
       await Parameter.insertMany(defaultParameters);
       const newParameters = await Parameter.find().sort({ name: 1 });
       console.log(`✅ ${newParameters.length} paramètres créés`);
       return res.json(newParameters);
     }
     
-    // Vérifier si le paramètre email comptable existe, sinon le créer
-    const accountantEmailParam = parameters.find(p => p.name === 'accountantEmail');
-    if (!accountantEmailParam) {
-      console.log('📝 Création du paramètre email comptable...');
-      await Parameter.create({
-        name: 'accountantEmail',
-        displayName: 'Email du Comptable',
-        stringValue: process.env.ACCOUNTANT_EMAIL || 'comptable@boulangerie.fr',
-        kmValue: 0
-      });
+    // Vérifier si les paramètres manquants existent, sinon les créer
+    const missingParameters = [];
+    
+    const requiredParams = [
+      { name: 'accountantEmail', displayName: 'Email du Comptable', stringValue: process.env.ACCOUNTANT_EMAIL || 'comptable@boulangerie.fr' },
+      { name: 'storeEmail', displayName: 'Email du Magasin', stringValue: '' },
+      { name: 'adminEmail', displayName: 'Email de l\'Administrateur', stringValue: '' },
+      { name: 'alertStore', displayName: 'Alerte au Magasin', booleanValue: false },
+      { name: 'alertAdmin', displayName: 'Alerte à l\'Administrateur', booleanValue: false }
+    ];
+    
+    for (const requiredParam of requiredParams) {
+      const existingParam = parameters.find(p => p.name === requiredParam.name);
+      if (!existingParam) {
+        missingParameters.push({
+          name: requiredParam.name,
+          displayName: requiredParam.displayName,
+          stringValue: requiredParam.stringValue,
+          booleanValue: requiredParam.booleanValue,
+          kmValue: 0
+        });
+      }
+    }
+    
+    if (missingParameters.length > 0) {
+      console.log(`📝 Création de ${missingParameters.length} paramètres manquants...`);
+      await Parameter.insertMany(missingParameters);
       
       // Récupérer tous les paramètres mis à jour
       const updatedParameters = await Parameter.find().sort({ name: 1 });
-      console.log(`✅ Paramètre email comptable créé`);
+      console.log(`✅ ${missingParameters.length} paramètres créés`);
       return res.json(updatedParameters);
     }
     
@@ -63,16 +109,16 @@ const getParameters = async (req, res) => {
 const updateParameter = async (req, res) => {
   try {
     const { id } = req.params;
-    const { displayName, kmValue, stringValue } = req.body;
+    const { displayName, kmValue, stringValue, booleanValue } = req.body;
     
     console.log(`📝 Mise à jour du paramètre ${id}`);
-    console.log('📋 Données reçues:', { displayName, kmValue, stringValue });
+    console.log('📋 Données reçues:', { displayName, kmValue, stringValue, booleanValue });
     console.log('📋 Body complet:', req.body);
     
-    if (displayName === undefined && kmValue === undefined && stringValue === undefined) {
+    if (displayName === undefined && kmValue === undefined && stringValue === undefined && booleanValue === undefined) {
       console.log('❌ Aucun champ fourni pour la mise à jour');
       return res.status(400).json({ 
-        error: 'Au moins un champ (displayName, kmValue ou stringValue) est requis' 
+        error: 'Au moins un champ (displayName, kmValue, stringValue ou booleanValue) est requis' 
       });
     }
     
@@ -80,6 +126,7 @@ const updateParameter = async (req, res) => {
     if (displayName !== undefined) updateData.displayName = displayName;
     if (kmValue !== undefined) updateData.kmValue = parseFloat(kmValue);
     if (stringValue !== undefined) updateData.stringValue = stringValue;
+    if (booleanValue !== undefined) updateData.booleanValue = booleanValue;
     
     console.log('📤 Données de mise à jour:', updateData);
     
@@ -138,6 +185,11 @@ const updateAllParameters = async (req, res) => {
       // Mettre à jour stringValue si présent
       if (param.stringValue !== undefined) {
         updateData.stringValue = param.stringValue;
+      }
+      
+      // Mettre à jour booleanValue si présent
+      if (param.booleanValue !== undefined) {
+        updateData.booleanValue = param.booleanValue;
       }
       
       console.log(`📝 Mise à jour paramètre ${param._id}:`, updateData);

@@ -157,6 +157,103 @@ exports.initializeDefaultTemplates = async (req, res) => {
   try {
     const defaultTemplates = [
       {
+        name: 'sick_leave_alert',
+        displayName: 'Email d\'Alerte - Nouvel Arrêt Maladie',
+        subject: '🚨 Nouvel arrêt maladie à valider - {{employeeName}}',
+        htmlContent: `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+    .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+    .header { background: #ff6b6b; color: white; padding: 20px; text-align: center; }
+    .content { padding: 20px; background: #f8f9fa; }
+    .alert-box { background: #fff3cd; border: 1px solid #ffeaa7; padding: 15px; border-radius: 5px; margin: 15px 0; }
+    .details { background: white; padding: 15px; border-radius: 5px; margin: 15px 0; }
+    .footer { text-align: center; padding: 20px; color: #666; font-size: 0.9em; }
+    .action-button { background: #007bff; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block; margin: 10px 0; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>🚨 Nouvel Arrêt Maladie à Valider</h1>
+      <p>Boulangerie Ange - Arras</p>
+    </div>
+    
+    <div class="content">
+      <p>Un nouvel arrêt maladie a été déposé et nécessite votre validation.</p>
+      
+      <div class="alert-box">
+        <h3>⚠️ Action Requise</h3>
+        <p>Veuillez valider ou rejeter cet arrêt maladie dans les plus brefs délais.</p>
+      </div>
+      
+      <div class="details">
+        <h3>📋 Informations de l'arrêt :</h3>
+        <ul>
+          <li><strong>Salarié :</strong> {{employeeName}}</li>
+          <li><strong>Email :</strong> {{employeeEmail}}</li>
+          <li><strong>Période :</strong> {{startDate}} au {{endDate}}</li>
+          <li><strong>Durée :</strong> {{duration}} jour{{durationPlural}}</li>
+          <li><strong>Fichier :</strong> {{fileName}}</li>
+          <li><strong>Date de dépôt :</strong> {{uploadDate}}</li>
+        </ul>
+      </div>
+      
+      <div style="text-align: center; margin: 20px 0;">
+        <a href="{{adminUrl}}" class="action-button">🔍 Valider l'Arrêt Maladie</a>
+      </div>
+      
+      <p>Merci de traiter cette demande rapidement.</p>
+    </div>
+    
+    <div class="footer">
+      <p>Boulangerie Ange - Arras</p>
+      <p>Ce message a été généré automatiquement.</p>
+    </div>
+  </div>
+</body>
+</html>`,
+        textContent: `
+🚨 NOUVEL ARRÊT MALADIE À VALIDER
+Boulangerie Ange - Arras
+
+Un nouvel arrêt maladie a été déposé et nécessite votre validation.
+
+⚠️ ACTION REQUISE
+Veuillez valider ou rejeter cet arrêt maladie dans les plus brefs délais.
+
+📋 INFORMATIONS DE L'ARRÊT :
+- Salarié : {{employeeName}}
+- Email : {{employeeEmail}}
+- Période : {{startDate}} au {{endDate}}
+- Durée : {{duration}} jour{{durationPlural}}
+- Fichier : {{fileName}}
+- Date de dépôt : {{uploadDate}}
+
+🔍 Pour valider : {{adminUrl}}
+
+Merci de traiter cette demande rapidement.
+
+Boulangerie Ange - Arras
+Ce message a été généré automatiquement.`,
+        description: 'Email d\'alerte envoyé aux administrateurs lors du dépôt d\'un nouvel arrêt maladie',
+        variables: [
+          { name: 'employeeName', description: 'Nom du salarié', example: 'Marie Dupont' },
+          { name: 'employeeEmail', description: 'Email du salarié', example: 'marie@email.com' },
+          { name: 'startDate', description: 'Date de début de l\'arrêt', example: '15/09/2025' },
+          { name: 'endDate', description: 'Date de fin de l\'arrêt', example: '20/09/2025' },
+          { name: 'duration', description: 'Durée en jours', example: '6' },
+          { name: 'durationPlural', description: 'S pour le pluriel', example: 's' },
+          { name: 'fileName', description: 'Nom du fichier', example: 'arret_maladie.pdf' },
+          { name: 'uploadDate', description: 'Date de dépôt', example: '12/09/2025' },
+          { name: 'adminUrl', description: 'URL de l\'interface admin', example: 'https://www.filmara.fr/admin' }
+        ]
+      },
+      {
         name: 'sick_leave_validation',
         displayName: 'Email de Validation d\'Arrêt Maladie',
         subject: 'Arrêt maladie validé - {{employeeName}}',

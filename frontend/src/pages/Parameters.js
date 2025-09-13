@@ -3,8 +3,12 @@ import api from '../services/api';
 import { toast } from 'react-toastify';
 import './Parameters.css';
 import './Parameters-email-styles.css';
+import './Parameters-tabs-styles.css';
 
 const Parameters = () => {
+  // État pour la gestion des onglets
+  const [activeTab, setActiveTab] = useState('site');
+  
   const [parameters, setParameters] = useState([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -46,6 +50,11 @@ const Parameters = () => {
     fetchDatabaseStats();
     fetchEmailTemplates();
   }, []);
+
+  // Fonction pour changer d'onglet
+  const handleTabChange = (tabName) => {
+    setActiveTab(tabName);
+  };
 
   const fetchParameters = async () => {
     setLoading(true);
@@ -458,8 +467,52 @@ const Parameters = () => {
         <h2>⚙️ Paramètres</h2>
       </div>
 
-      {/* Section Informations du Site */}
-      <div className="card">
+      {/* Navigation par onglets */}
+      <div className="tabs-navigation">
+        <button 
+          className={`tab-button ${activeTab === 'site' ? 'active' : ''}`}
+          onClick={() => handleTabChange('site')}
+        >
+          🏪 Informations du Site
+        </button>
+        <button 
+          className={`tab-button ${activeTab === 'passwords' ? 'active' : ''}`}
+          onClick={() => handleTabChange('passwords')}
+        >
+          🔐 Gestion des Mots de Passe
+        </button>
+        <button 
+          className={`tab-button ${activeTab === 'permissions' ? 'active' : ''}`}
+          onClick={() => handleTabChange('permissions')}
+        >
+          🔐 Gestion des Permissions de Menu
+        </button>
+        <button 
+          className={`tab-button ${activeTab === 'km' ? 'active' : ''}`}
+          onClick={() => handleTabChange('km')}
+        >
+          🚗 Paramètres - Frais KM
+        </button>
+        <button 
+          className={`tab-button ${activeTab === 'templates' ? 'active' : ''}`}
+          onClick={() => handleTabChange('templates')}
+        >
+          📋 Templates disponibles
+        </button>
+        <button 
+          className={`tab-button ${activeTab === 'database' ? 'active' : ''}`}
+          onClick={() => handleTabChange('database')}
+        >
+          🗄️ Gestion de la Base de Données
+        </button>
+      </div>
+
+      {/* Contenu des onglets */}
+      <div className="tab-content">
+
+        {/* Onglet: Informations du Site */}
+        {activeTab === 'site' && (
+          <div className="card">
         <div className="card-header">
           <h3>🏪 Informations du Site</h3>
         </div>
@@ -513,10 +566,12 @@ const Parameters = () => {
             </div>
           )}
         </div>
-      </div>
+          </div>
+        )}
 
-      {/* Section Gestion des Mots de Passe */}
-      <div className="card">
+        {/* Onglet: Gestion des Mots de Passe */}
+        {activeTab === 'passwords' && (
+          <div className="card">
         <div className="card-header">
           <h3>🔐 Gestion des Mots de Passe</h3>
         </div>
@@ -567,10 +622,12 @@ const Parameters = () => {
             </div>
           </div>
         </div>
-      </div>
+          </div>
+        )}
 
-      {/* Section Gestion des Permissions de Menu */}
-      <div className="card">
+        {/* Onglet: Gestion des Permissions de Menu */}
+        {activeTab === 'permissions' && (
+          <div className="card">
         <div className="card-header">
           <h3>🔐 Gestion des Permissions de Menu</h3>
           <p>Configurez quels menus sont visibles pour les salariés</p>
@@ -646,10 +703,12 @@ const Parameters = () => {
             </div>
           )}
         </div>
-      </div>
+          </div>
+        )}
 
-      {/* Section Paramètres KM */}
-      <div className="card">
+        {/* Onglet: Paramètres - Frais KM */}
+        {activeTab === 'km' && (
+          <div className="card">
         <div className="card-header">
           <h3>🚗 Paramètres - Frais KM</h3>
         </div>
@@ -693,10 +752,125 @@ const Parameters = () => {
             </button>
           </div>
         </div>
-      </div>
+          </div>
+        )}
 
-      {/* Section Configuration Email Comptable */}
-      <div className="card">
+        {/* Onglet: Templates disponibles */}
+        {activeTab === 'templates' && (
+          <>
+            {/* Section Configuration des Alertes Email */}
+            <div className="card">
+              <div className="card-header">
+                <h3>🚨 Configuration des Alertes Email</h3>
+                <p>Configurez les alertes pour les nouveaux arrêts maladie à valider</p>
+              </div>
+              <div className="card-body">
+                <div className="alert-email-section">
+                  {/* Email du Magasin */}
+                  <div className="email-config">
+                    <div className="email-input-group">
+                      <label htmlFor="storeEmail">📧 Email du Magasin :</label>
+                      <input 
+                        type="email" 
+                        id="storeEmail"
+                        value={parameters.find(p => p.name === 'storeEmail')?.stringValue || ''}
+                        onChange={(e) => {
+                          const param = parameters.find(p => p.name === 'storeEmail');
+                          if (param) {
+                            handleParameterChange(param._id, 'stringValue', e.target.value);
+                          }
+                        }}
+                        className="email-input"
+                        placeholder="magasin@boulangerie.fr"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Email de l'Admin */}
+                  <div className="email-config">
+                    <div className="email-input-group">
+                      <label htmlFor="adminEmail">👑 Email de l'Administrateur :</label>
+                      <input 
+                        type="email" 
+                        id="adminEmail"
+                        value={parameters.find(p => p.name === 'adminEmail')?.stringValue || ''}
+                        onChange={(e) => {
+                          const param = parameters.find(p => p.name === 'adminEmail');
+                          if (param) {
+                            handleParameterChange(param._id, 'stringValue', e.target.value);
+                          }
+                        }}
+                        className="email-input"
+                        placeholder="admin@boulangerie.fr"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Choix des Destinataires */}
+                  <div className="email-config">
+                    <div className="email-input-group">
+                      <label>🎯 Destinataires des Alertes :</label>
+                      <div className="recipient-options">
+                        <label className="checkbox-option">
+                          <input 
+                            type="checkbox" 
+                            checked={parameters.find(p => p.name === 'alertStore')?.booleanValue || false}
+                            onChange={(e) => {
+                              const param = parameters.find(p => p.name === 'alertStore');
+                              if (param) {
+                                handleParameterChange(param._id, 'booleanValue', e.target.checked);
+                              }
+                            }}
+                          />
+                          <span>📧 Envoyer au Magasin</span>
+                        </label>
+                        <label className="checkbox-option">
+                          <input 
+                            type="checkbox" 
+                            checked={parameters.find(p => p.name === 'alertAdmin')?.booleanValue || false}
+                            onChange={(e) => {
+                              const param = parameters.find(p => p.name === 'alertAdmin');
+                              if (param) {
+                                handleParameterChange(param._id, 'booleanValue', e.target.checked);
+                              }
+                            }}
+                          />
+                          <span>👑 Envoyer à l'Administrateur</span>
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="email-actions">
+                    <button 
+                      className="btn btn-primary"
+                      onClick={async () => {
+                        try {
+                          const storeEmailParam = parameters.find(p => p.name === 'storeEmail');
+                          const adminEmailParam = parameters.find(p => p.name === 'adminEmail');
+                          const alertStoreParam = parameters.find(p => p.name === 'alertStore');
+                          const alertAdminParam = parameters.find(p => p.name === 'alertAdmin');
+
+                          if (storeEmailParam) await saveParameters();
+                          if (adminEmailParam) await saveParameters();
+                          if (alertStoreParam) await saveParameters();
+                          if (alertAdminParam) await saveParameters();
+
+                          toast.success('Configuration des alertes sauvegardée');
+                        } catch (error) {
+                          toast.error('Erreur lors de la sauvegarde');
+                        }
+                      }}
+                    >
+                      💾 Sauvegarder la configuration des alertes
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Section Configuration Email Comptable */}
+            <div className="card">
         <div className="card-header">
           <h3>📧 Configuration Email Comptable</h3>
           <p>Adresse email pour l'envoi automatique des arrêts maladie validés</p>
@@ -794,6 +968,161 @@ const Parameters = () => {
         </div>
       </div>
 
+      {/* Section Configuration des Alertes Email */}
+      <div className="card">
+        <div className="card-header">
+          <h3>🚨 Configuration des Alertes Email</h3>
+          <p>Configurez les alertes pour les nouveaux arrêts maladie à valider</p>
+        </div>
+        <div className="card-body">
+          <div className="alert-email-section">
+            {/* Email du Magasin */}
+            <div className="email-config">
+              <div className="email-input-group">
+                <label htmlFor="storeEmail">📧 Email du Magasin :</label>
+                <input
+                  type="email"
+                  id="storeEmail"
+                  value={parameters.find(p => p.name === 'storeEmail')?.stringValue || ''}
+                  onChange={(e) => {
+                    const emailParam = parameters.find(p => p.name === 'storeEmail');
+                    if (emailParam) {
+                      const updatedParams = parameters.map(p => 
+                        p.name === 'storeEmail' 
+                          ? { ...p, stringValue: e.target.value }
+                          : p
+                      );
+                      setParameters(updatedParams);
+                    }
+                  }}
+                  className="email-input"
+                  placeholder="magasin@boulangerie.fr"
+                />
+              </div>
+            </div>
+
+            {/* Email de l'Admin */}
+            <div className="email-config">
+              <div className="email-input-group">
+                <label htmlFor="adminEmail">👑 Email de l'Administrateur :</label>
+                <input
+                  type="email"
+                  id="adminEmail"
+                  value={parameters.find(p => p.name === 'adminEmail')?.stringValue || ''}
+                  onChange={(e) => {
+                    const emailParam = parameters.find(p => p.name === 'adminEmail');
+                    if (emailParam) {
+                      const updatedParams = parameters.map(p => 
+                        p.name === 'adminEmail' 
+                          ? { ...p, stringValue: e.target.value }
+                          : p
+                      );
+                      setParameters(updatedParams);
+                    }
+                  }}
+                  className="email-input"
+                  placeholder="admin@boulangerie.fr"
+                />
+              </div>
+            </div>
+
+            {/* Choix des Destinataires */}
+            <div className="email-config">
+              <div className="email-input-group">
+                <label>🎯 Destinataires des Alertes :</label>
+                <div className="recipient-options">
+                  <label className="checkbox-option">
+                    <input
+                      type="checkbox"
+                      checked={parameters.find(p => p.name === 'alertStore')?.booleanValue || false}
+                      onChange={(e) => {
+                        const alertParam = parameters.find(p => p.name === 'alertStore');
+                        if (alertParam) {
+                          const updatedParams = parameters.map(p => 
+                            p.name === 'alertStore' 
+                              ? { ...p, booleanValue: e.target.checked }
+                              : p
+                          );
+                          setParameters(updatedParams);
+                        }
+                      }}
+                    />
+                    📧 Envoyer au Magasin
+                  </label>
+                  <label className="checkbox-option">
+                    <input
+                      type="checkbox"
+                      checked={parameters.find(p => p.name === 'alertAdmin')?.booleanValue || false}
+                      onChange={(e) => {
+                        const alertParam = parameters.find(p => p.name === 'alertAdmin');
+                        if (alertParam) {
+                          const updatedParams = parameters.map(p => 
+                            p.name === 'alertAdmin' 
+                              ? { ...p, booleanValue: e.target.checked }
+                              : p
+                          );
+                          setParameters(updatedParams);
+                        }
+                      }}
+                    />
+                    👑 Envoyer à l'Administrateur
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            <div className="email-actions">
+              <button
+                className="btn btn-primary"
+                onClick={async () => {
+                  try {
+                    // Sauvegarder tous les paramètres d'alerte
+                    const storeEmailParam = parameters.find(p => p.name === 'storeEmail');
+                    const adminEmailParam = parameters.find(p => p.name === 'adminEmail');
+                    const alertStoreParam = parameters.find(p => p.name === 'alertStore');
+                    const alertAdminParam = parameters.find(p => p.name === 'alertAdmin');
+
+                    const promises = [];
+                    
+                    if (storeEmailParam) {
+                      promises.push(api.put(`/parameters/${storeEmailParam._id}`, {
+                        stringValue: storeEmailParam.stringValue
+                      }));
+                    }
+                    
+                    if (adminEmailParam) {
+                      promises.push(api.put(`/parameters/${adminEmailParam._id}`, {
+                        stringValue: adminEmailParam.stringValue
+                      }));
+                    }
+                    
+                    if (alertStoreParam) {
+                      promises.push(api.put(`/parameters/${alertStoreParam._id}`, {
+                        booleanValue: alertStoreParam.booleanValue
+                      }));
+                    }
+                    
+                    if (alertAdminParam) {
+                      promises.push(api.put(`/parameters/${alertAdminParam._id}`, {
+                        booleanValue: alertAdminParam.booleanValue
+                      }));
+                    }
+
+                    await Promise.all(promises);
+                    toast.success('Configuration des alertes sauvegardée');
+                  } catch (error) {
+                    console.error('❌ Erreur lors de la sauvegarde:', error);
+                    toast.error('Erreur lors de la sauvegarde des alertes');
+                  }
+                }}
+              >
+                💾 Sauvegarder la configuration des alertes
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Section Gestion des Messages Email */}
       <div className="card">
         <div className="card-header">
@@ -841,6 +1170,7 @@ const Parameters = () => {
                             {template.name === 'sick_leave_validation' && '✅ Validation'}
                             {template.name === 'sick_leave_rejection' && '❌ Rejet'}
                             {template.name === 'sick_leave_accountant' && '📋 Comptable'}
+                            {template.name === 'sick_leave_alert' && '🚨 Alerte'}
                           </span>
                         </div>
                         <p className="template-description">{template.description}</p>
@@ -863,10 +1193,13 @@ const Parameters = () => {
             </div>
           )}
         </div>
-      </div>
+            </div>
+          </>
+        )}
 
-      {/* Section Gestion de la Base de Données */}
-      <div className="card">
+        {/* Onglet: Gestion de la Base de Données */}
+        {activeTab === 'database' && (
+          <div className="card">
         <div className="card-header">
           <h3>🗄️ Gestion de la Base de Données</h3>
           <p>Sauvegarde et restauration complète de la base de données</p>
@@ -936,6 +1269,9 @@ const Parameters = () => {
             </div>
           </div>
         </div>
+          </div>
+        )}
+
       </div>
 
       {/* Modal d'édition des templates */}

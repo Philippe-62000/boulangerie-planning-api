@@ -22,6 +22,11 @@ const parameterSchema = new mongoose.Schema({
     required: false,
     default: ''
   },
+  booleanValue: {
+    type: Boolean,
+    required: false,
+    default: false
+  },
   createdAt: {
     type: Date,
     default: Date.now
