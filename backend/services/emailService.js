@@ -23,8 +23,8 @@ class EmailService {
   }
 
   // Envoyer un email au comptable
-  async sendToAccountant(sickLeave) {
-    return await emailServiceAlternative.sendToAccountant(sickLeave);
+  async sendToAccountant(sickLeave, accountantEmail) {
+    return await emailServiceAlternative.sendToAccountant(sickLeave, accountantEmail);
   }
 
   // Envoyer un email d'alerte
