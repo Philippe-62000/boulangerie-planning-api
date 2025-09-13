@@ -35,9 +35,9 @@ exports.getAllEmployees = async (req, res) => {
             all: absences.filter(a => a.type === 'ABS')
           },
           sickLeaves: {
-            current: currentAbsences.filter(a => a.type === 'MAL'),
-            future: futureAbsences.filter(a => a.type === 'MAL'),
-            all: absences.filter(a => a.type === 'MAL')
+            current: currentAbsences.filter(a => a.type === 'MAL' || a.type === 'Arrêt maladie'),
+            future: futureAbsences.filter(a => a.type === 'MAL' || a.type === 'Arrêt maladie'),
+            all: absences.filter(a => a.type === 'MAL' || a.type === 'Arrêt maladie')
           },
           delays: {
             current: currentAbsences.filter(a => a.type === 'RET'),
