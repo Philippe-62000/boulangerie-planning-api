@@ -652,10 +652,14 @@ const downloadFile = async (req, res) => {
     // Télécharger le fichier depuis le NAS
     let fileBuffer;
     try {
+      console.log('📥 Tentative de téléchargement:', sickLeave.filePath);
       fileBuffer = await sftpService.downloadFile(sickLeave.filePath);
+      console.log('✅ Fichier téléchargé avec succès, taille:', fileBuffer.length);
     } catch (error) {
+      console.error('❌ Erreur téléchargement fichier:', error.message);
+      
       // Si le fichier n'est pas trouvé au chemin enregistré, essayer le chemin de l'ancien format
-      if (error.message.includes('No such file')) {
+      if (error.message.includes('No such file') || error.message.includes('ENOENT')) {
         console.log('⚠️ Fichier non trouvé au chemin enregistré, essai avec l\'ancien format...');
         
         // Extraire le nom du fichier du chemin
@@ -668,13 +672,29 @@ const downloadFile = async (req, res) => {
         
         try {
           fileBuffer = await sftpService.downloadFile(oldFormatPath);
-          console.log('✅ Fichier trouvé avec l\'ancien format');
+          console.log('✅ Fichier trouvé avec l\'ancien format, taille:', fileBuffer.length);
         } catch (oldFormatError) {
           console.error('❌ Fichier non trouvé même avec l\'ancien format:', oldFormatError.message);
-          throw error; // Relancer l'erreur originale
+          
+          // Retourner une erreur plus claire
+          return res.status(404).json({
+            success: false,
+            error: 'Fichier non trouvé sur le serveur. Le fichier a peut-être été supprimé ou déplacé.',
+            details: {
+              originalPath: sickLeave.filePath,
+              alternativePath: oldFormatPath,
+              fileName: sickLeave.originalFileName
+            }
+          });
         }
       } else {
-        throw error; // Relancer l'erreur si ce n'est pas un problème de fichier non trouvé
+        // Autre erreur (connexion, permissions, etc.)
+        console.error('❌ Erreur de téléchargement:', error.message);
+        return res.status(500).json({
+          success: false,
+          error: 'Erreur lors du téléchargement du fichier',
+          details: error.message
+        });
       }
     }
 
@@ -835,6 +855,72 @@ const deleteAllSickLeaves = async (req, res) => {
   }
 };
 
+// Modifier les dates d'un arrêt maladie
+const updateSickLeave = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { startDate, endDate } = req.body;
+
+    console.log('📝 Modification arrêt maladie:', { id, startDate, endDate });
+
+    // Validation des dates
+    if (!startDate || !endDate) {
+      return res.status(400).json({
+        success: false,
+        error: 'Les dates de début et de fin sont requises'
+      });
+    }
+
+    // Vérifier que la date de fin est après la date de début
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    
+    if (end < start) {
+      return res.status(400).json({
+        success: false,
+        error: 'La date de fin doit être après la date de début'
+      });
+    }
+
+    // Calculer la durée
+    const duration = Math.ceil((end - start) / (1000 * 60 * 60 * 24)) + 1;
+
+    // Mettre à jour l'arrêt maladie
+    const updatedSickLeave = await SickLeave.findByIdAndUpdate(
+      id,
+      {
+        startDate: new Date(startDate),
+        endDate: new Date(endDate),
+        duration: duration,
+        updatedAt: new Date()
+      },
+      { new: true }
+    );
+
+    if (!updatedSickLeave) {
+      return res.status(404).json({
+        success: false,
+        error: 'Arrêt maladie non trouvé'
+      });
+    }
+
+    console.log('✅ Arrêt maladie modifié:', updatedSickLeave._id);
+
+    res.json({
+      success: true,
+      message: 'Dates modifiées avec succès',
+      data: updatedSickLeave
+    });
+
+  } catch (error) {
+    console.error('❌ Erreur modification arrêt maladie:', error.message);
+    res.status(500).json({
+      success: false,
+      error: 'Erreur lors de la modification des dates'
+    });
+  }
+};
+
 module.exports = {
   uploadMiddleware,
   testSftpConnection,
@@ -846,6 +932,7 @@ module.exports = {
   validateSickLeave,
   rejectSickLeave,
   markAsDeclared,
+  updateSickLeave,
   downloadFile,
   getStats,
   deleteSickLeave,

@@ -37,6 +37,9 @@ router.put('/:id/reject', sickLeaveController.rejectSickLeave);
 // Marquer comme déclaré
 router.put('/:id/declare', sickLeaveController.markAsDeclared);
 
+// Modifier les dates d'un arrêt maladie
+router.put('/:id', sickLeaveController.updateSickLeave);
+
 // Obtenir les statistiques
 router.get('/stats/overview', sickLeaveController.getStats);
 

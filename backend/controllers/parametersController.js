@@ -7,9 +7,9 @@ const getParameters = async (req, res) => {
     
     // Si aucun paramètre n'existe, créer les 12 paramètres par défaut + email comptable
     if (parameters.length === 0) {
-      console.log('📝 Création des 12 paramètres par défaut + email comptable...');
+      console.log('📝 Création des 5 paramètres par défaut + email comptable...');
       const defaultParameters = [];
-      for (let i = 1; i <= 12; i++) {
+      for (let i = 1; i <= 5; i++) {
         defaultParameters.push({
           name: `param${i}`,
           displayName: `Paramètre ${i}`,
@@ -17,41 +17,49 @@ const getParameters = async (req, res) => {
         });
       }
       
-      // Ajouter le paramètre email comptable
+      // Ajouter le paramètre nom du site (exclu des frais KM)
+      defaultParameters.push({
+        name: 'siteName',
+        displayName: 'Nom du Site',
+        stringValue: 'Boulangerie Ange',
+        kmValue: -1 // Valeur négative pour exclure des frais KM
+      });
+      
+      // Ajouter le paramètre email comptable (exclu des frais KM)
       defaultParameters.push({
         name: 'accountantEmail',
         displayName: 'Email du Comptable',
         stringValue: process.env.ACCOUNTANT_EMAIL || 'comptable@boulangerie.fr',
-        kmValue: 0
+        kmValue: -1 // Valeur négative pour exclure des frais KM
       });
       
-      // Ajouter les paramètres pour les alertes email
+      // Ajouter les paramètres pour les alertes email (exclus des frais KM)
       defaultParameters.push({
         name: 'storeEmail',
         displayName: 'Email du Magasin',
         stringValue: '',
-        kmValue: 0
+        kmValue: -1 // Valeur négative pour exclure des frais KM
       });
       
       defaultParameters.push({
         name: 'adminEmail',
         displayName: 'Email de l\'Administrateur',
         stringValue: '',
-        kmValue: 0
+        kmValue: -1 // Valeur négative pour exclure des frais KM
       });
       
       defaultParameters.push({
         name: 'alertStore',
         displayName: 'Alerte au Magasin',
         booleanValue: false,
-        kmValue: 0
+        kmValue: -1 // Valeur négative pour exclure des frais KM
       });
       
       defaultParameters.push({
         name: 'alertAdmin',
         displayName: 'Alerte à l\'Administrateur',
         booleanValue: false,
-        kmValue: 0
+        kmValue: -1 // Valeur négative pour exclure des frais KM
       });
       
       await Parameter.insertMany(defaultParameters);
@@ -64,11 +72,12 @@ const getParameters = async (req, res) => {
     const missingParameters = [];
     
     const requiredParams = [
-      { name: 'accountantEmail', displayName: 'Email du Comptable', stringValue: process.env.ACCOUNTANT_EMAIL || 'comptable@boulangerie.fr' },
-      { name: 'storeEmail', displayName: 'Email du Magasin', stringValue: '' },
-      { name: 'adminEmail', displayName: 'Email de l\'Administrateur', stringValue: '' },
-      { name: 'alertStore', displayName: 'Alerte au Magasin', booleanValue: false },
-      { name: 'alertAdmin', displayName: 'Alerte à l\'Administrateur', booleanValue: false }
+      { name: 'siteName', displayName: 'Nom du Site', stringValue: 'Boulangerie Ange', kmValue: -1 },
+      { name: 'accountantEmail', displayName: 'Email du Comptable', stringValue: process.env.ACCOUNTANT_EMAIL || 'comptable@boulangerie.fr', kmValue: -1 },
+      { name: 'storeEmail', displayName: 'Email du Magasin', stringValue: '', kmValue: -1 },
+      { name: 'adminEmail', displayName: 'Email de l\'Administrateur', stringValue: '', kmValue: -1 },
+      { name: 'alertStore', displayName: 'Alerte au Magasin', booleanValue: false, kmValue: -1 },
+      { name: 'alertAdmin', displayName: 'Alerte à l\'Administrateur', booleanValue: false, kmValue: -1 }
     ];
     
     for (const requiredParam of requiredParams) {
@@ -158,7 +167,8 @@ const updateParameter = async (req, res) => {
 // Mettre à jour tous les paramètres (batch)
 const updateAllParameters = async (req, res) => {
   try {
-    const { parameters } = req.body;
+    // Accepter soit req.body.parameters soit req.body directement
+    let parameters = req.body.parameters || req.body;
     
     console.log('📝 Mise à jour des paramètres en lot');
     console.log('📋 Données reçues:', req.body);
