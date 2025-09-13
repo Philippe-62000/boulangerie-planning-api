@@ -897,6 +897,314 @@ Boulangerie Ange - Système de Gestion des Arrêts Maladie
 Cet email a été envoyé automatiquement, merci de ne pas y répondre.
     `;
   }
+  // ===== MÉTHODES POUR LES CONGÉS =====
+
+  // Envoyer un email de confirmation de demande de congés
+  async sendVacationRequestConfirmation(vacationRequest) {
+    try {
+      return await this.sendEmail(
+        vacationRequest.employeeEmail,
+        `Demande de congés reçue - ${vacationRequest.employeeName}`,
+        this.generateVacationConfirmationHTML(vacationRequest),
+        this.generateVacationConfirmationText(vacationRequest)
+      );
+    } catch (error) {
+      console.error('❌ Erreur envoi email confirmation congés:', error.message);
+      return { success: false, error: error.message };
+    }
+  }
+
+  // Envoyer un email d'alerte pour demande de congés
+  async sendVacationRequestAlert(vacationRequest, recipientEmails) {
+    try {
+      return await this.sendEmail(
+        recipientEmails.join(', '),
+        `🚨 Nouvelle demande de congés - ${vacationRequest.employeeName}`,
+        this.generateVacationAlertHTML(vacationRequest),
+        this.generateVacationAlertText(vacationRequest)
+      );
+    } catch (error) {
+      console.error('❌ Erreur envoi email alerte congés:', error.message);
+      return { success: false, error: error.message };
+    }
+  }
+
+  // Envoyer un email de validation de congés
+  async sendVacationRequestValidation(vacationRequest, validatedBy) {
+    try {
+      return await this.sendEmail(
+        vacationRequest.employeeEmail,
+        `Congés validés - ${vacationRequest.employeeName}`,
+        this.generateVacationValidationHTML(vacationRequest, validatedBy),
+        this.generateVacationValidationText(vacationRequest, validatedBy)
+      );
+    } catch (error) {
+      console.error('❌ Erreur envoi email validation congés:', error.message);
+      return { success: false, error: error.message };
+    }
+  }
+
+  // Générer le HTML de confirmation de congés
+  generateVacationConfirmationHTML(vacationRequest) {
+    const startDate = new Date(vacationRequest.startDate).toLocaleDateString('fr-FR');
+    const endDate = new Date(vacationRequest.endDate).toLocaleDateString('fr-FR');
+    const requestDate = new Date(vacationRequest.uploadDate).toLocaleDateString('fr-FR');
+
+    return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background: #28a745; color: white; padding: 20px; text-align: center; }
+        .content { padding: 20px; background: #f8f9fa; }
+        .details { background: white; padding: 15px; border-radius: 5px; margin: 15px 0; }
+        .footer { text-align: center; padding: 20px; color: #666; font-size: 0.9em; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <h1>✅ Demande de Congés Reçue</h1>
+          <p>Boulangerie Ange - Arras</p>
+        </div>
+        
+        <div class="content">
+          <p>Bonjour ${vacationRequest.employeeName},</p>
+          
+          <p>Votre demande de congés a été reçue et sera traitée dans les plus brefs délais.</p>
+          
+          <div class="details">
+            <h3>📋 Détails de votre demande :</h3>
+            <ul>
+              <li><strong>Période :</strong> ${startDate} au ${endDate}</li>
+              <li><strong>Durée :</strong> ${vacationRequest.duration} jour${vacationRequest.duration > 1 ? 's' : ''}</li>
+              <li><strong>Type :</strong> ${vacationRequest.reason}</li>
+              <li><strong>Date de demande :</strong> ${requestDate}</li>
+            </ul>
+          </div>
+          
+          <p>Vous recevrez une confirmation par email une fois votre demande traitée.</p>
+        </div>
+        
+        <div class="footer">
+          <p>Boulangerie Ange - Arras</p>
+          <p>Ce message a été généré automatiquement.</p>
+        </div>
+      </div>
+    </body>
+    </html>`;
+  }
+
+  // Générer le texte de confirmation de congés
+  generateVacationConfirmationText(vacationRequest) {
+    const startDate = new Date(vacationRequest.startDate).toLocaleDateString('fr-FR');
+    const endDate = new Date(vacationRequest.endDate).toLocaleDateString('fr-FR');
+    const requestDate = new Date(vacationRequest.uploadDate).toLocaleDateString('fr-FR');
+
+    return `
+DEMANDE DE CONGÉS REÇUE
+Boulangerie Ange - Arras
+
+Bonjour ${vacationRequest.employeeName},
+
+Votre demande de congés a été reçue et sera traitée dans les plus brefs délais.
+
+DÉTAILS DE VOTRE DEMANDE :
+- Période : ${startDate} au ${endDate}
+- Durée : ${vacationRequest.duration} jour${vacationRequest.duration > 1 ? 's' : ''}
+- Type : ${vacationRequest.reason}
+- Date de demande : ${requestDate}
+
+Vous recevrez une confirmation par email une fois votre demande traitée.
+
+Boulangerie Ange - Arras
+Ce message a été généré automatiquement.
+    `;
+  }
+
+  // Générer le HTML d'alerte de congés
+  generateVacationAlertHTML(vacationRequest) {
+    const startDate = new Date(vacationRequest.startDate).toLocaleDateString('fr-FR');
+    const endDate = new Date(vacationRequest.endDate).toLocaleDateString('fr-FR');
+    const requestDate = new Date(vacationRequest.uploadDate).toLocaleDateString('fr-FR');
+
+    return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background: #ffc107; color: #212529; padding: 20px; text-align: center; }
+        .content { padding: 20px; background: #f8f9fa; }
+        .alert-box { background: #fff3cd; border: 1px solid #ffeaa7; padding: 15px; border-radius: 5px; margin: 15px 0; }
+        .details { background: white; padding: 15px; border-radius: 5px; margin: 15px 0; }
+        .footer { text-align: center; padding: 20px; color: #666; font-size: 0.9em; }
+        .action-button { background: #007bff; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block; margin: 10px 0; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <h1>🚨 Nouvelle Demande de Congés</h1>
+          <p>Boulangerie Ange - Arras</p>
+        </div>
+        
+        <div class="content">
+          <p>Une nouvelle demande de congés a été déposée et nécessite votre validation.</p>
+          
+          <div class="alert-box">
+            <h3>⚠️ Action Requise</h3>
+            <p>Veuillez valider ou rejeter cette demande de congés dans les plus brefs délais.</p>
+          </div>
+          
+          <div class="details">
+            <h3>📋 Informations de la demande :</h3>
+            <ul>
+              <li><strong>Salarié :</strong> ${vacationRequest.employeeName}</li>
+              <li><strong>Email :</strong> ${vacationRequest.employeeEmail}</li>
+              <li><strong>Période :</strong> ${startDate} au ${endDate}</li>
+              <li><strong>Durée :</strong> ${vacationRequest.duration} jour${vacationRequest.duration > 1 ? 's' : ''}</li>
+              <li><strong>Type :</strong> ${vacationRequest.reason}</li>
+              <li><strong>Date de demande :</strong> ${requestDate}</li>
+            </ul>
+          </div>
+          
+          <div style="text-align: center; margin: 20px 0;">
+            <a href="https://www.filmara.fr/plan" class="action-button">🔍 Gérer les Congés</a>
+          </div>
+          
+          <p>Merci de traiter cette demande rapidement.</p>
+        </div>
+        
+        <div class="footer">
+          <p>Boulangerie Ange - Arras</p>
+          <p>Ce message a été généré automatiquement.</p>
+        </div>
+      </div>
+    </body>
+    </html>`;
+  }
+
+  // Générer le texte d'alerte de congés
+  generateVacationAlertText(vacationRequest) {
+    const startDate = new Date(vacationRequest.startDate).toLocaleDateString('fr-FR');
+    const endDate = new Date(vacationRequest.endDate).toLocaleDateString('fr-FR');
+    const requestDate = new Date(vacationRequest.uploadDate).toLocaleDateString('fr-FR');
+
+    return `
+NOUVELLE DEMANDE DE CONGÉS
+Boulangerie Ange - Arras
+
+Une nouvelle demande de congés a été déposée et nécessite votre validation.
+
+INFORMATIONS DE LA DEMANDE :
+- Salarié : ${vacationRequest.employeeName}
+- Email : ${vacationRequest.employeeEmail}
+- Période : ${startDate} au ${endDate}
+- Durée : ${vacationRequest.duration} jour${vacationRequest.duration > 1 ? 's' : ''}
+- Type : ${vacationRequest.reason}
+- Date de demande : ${requestDate}
+
+🔍 Pour gérer : https://www.filmara.fr/plan
+
+Merci de traiter cette demande rapidement.
+
+Boulangerie Ange - Arras
+Ce message a été généré automatiquement.
+    `;
+  }
+
+  // Générer le HTML de validation de congés
+  generateVacationValidationHTML(vacationRequest, validatedBy) {
+    const startDate = new Date(vacationRequest.startDate).toLocaleDateString('fr-FR');
+    const endDate = new Date(vacationRequest.endDate).toLocaleDateString('fr-FR');
+    const validationDate = new Date(vacationRequest.validatedAt).toLocaleDateString('fr-FR');
+
+    return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background: #28a745; color: white; padding: 20px; text-align: center; }
+        .content { padding: 20px; background: #f8f9fa; }
+        .details { background: white; padding: 15px; border-radius: 5px; margin: 15px 0; }
+        .footer { text-align: center; padding: 20px; color: #666; font-size: 0.9em; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <h1>✅ Congés Validés</h1>
+          <p>Boulangerie Ange - Arras</p>
+        </div>
+        
+        <div class="content">
+          <p>Bonjour ${vacationRequest.employeeName},</p>
+          
+          <p>Votre demande de congés a été validée avec succès.</p>
+          
+          <div class="details">
+            <h3>📋 Détails de vos congés :</h3>
+            <ul>
+              <li><strong>Période :</strong> ${startDate} au ${endDate}</li>
+              <li><strong>Durée :</strong> ${vacationRequest.duration} jour${vacationRequest.duration > 1 ? 's' : ''}</li>
+              <li><strong>Type :</strong> ${vacationRequest.reason}</li>
+              <li><strong>Validé par :</strong> ${validatedBy}</li>
+              <li><strong>Date de validation :</strong> ${validationDate}</li>
+            </ul>
+          </div>
+          
+          <p>Vos congés ont été enregistrés dans le système de gestion du personnel.</p>
+          
+          <p>Bonnes vacances !</p>
+        </div>
+        
+        <div class="footer">
+          <p>Boulangerie Ange - Arras</p>
+          <p>Ce message a été généré automatiquement.</p>
+        </div>
+      </div>
+    </body>
+    </html>`;
+  }
+
+  // Générer le texte de validation de congés
+  generateVacationValidationText(vacationRequest, validatedBy) {
+    const startDate = new Date(vacationRequest.startDate).toLocaleDateString('fr-FR');
+    const endDate = new Date(vacationRequest.endDate).toLocaleDateString('fr-FR');
+    const validationDate = new Date(vacationRequest.validatedAt).toLocaleDateString('fr-FR');
+
+    return `
+CONGÉS VALIDÉS
+Boulangerie Ange - Arras
+
+Bonjour ${vacationRequest.employeeName},
+
+Votre demande de congés a été validée avec succès.
+
+DÉTAILS DE VOS CONGÉS :
+- Période : ${startDate} au ${endDate}
+- Durée : ${vacationRequest.duration} jour${vacationRequest.duration > 1 ? 's' : ''}
+- Type : ${vacationRequest.reason}
+- Validé par : ${validatedBy}
+- Date de validation : ${validationDate}
+
+Vos congés ont été enregistrés dans le système de gestion du personnel.
+
+Bonnes vacances !
+
+Boulangerie Ange - Arras
+Ce message a été généré automatiquement.
+    `;
+  }
 }
 
 // Instance singleton

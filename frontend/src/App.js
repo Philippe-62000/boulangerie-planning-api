@@ -21,6 +21,8 @@ import SickLeaveUpload from './pages/SickLeaveUpload';
 import SickLeaveUploadStandalone from './pages/SickLeaveUploadStandalone';
 import SickLeaveAdmin from './pages/SickLeaveAdmin';
 import SickLeaveHome from './pages/SickLeaveHome';
+import VacationRequestAdmin from './pages/VacationRequestAdmin';
+import VacationPlanning from './pages/VacationPlanning';
 
 const AppContent = () => {
   const { user } = useAuth();
@@ -99,6 +101,16 @@ const AppContent = () => {
             <Route path="/sick-leave-management" element={
               <ProtectedRoute adminOnly={true}>
                 <SickLeaveAdmin />
+              </ProtectedRoute>
+            } />
+            <Route path="/vacation-management" element={
+              <ProtectedRoute adminOnly={true}>
+                <VacationRequestAdmin />
+              </ProtectedRoute>
+            } />
+            <Route path="/vacation-planning" element={
+              <ProtectedRoute adminOnly={true}>
+                <VacationPlanning />
               </ProtectedRoute>
             } />
           </Routes>

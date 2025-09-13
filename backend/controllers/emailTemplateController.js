@@ -525,6 +525,277 @@ Ce message a été généré automatiquement par le système de gestion des arr�
           { name: 'uploadDate', description: 'Date d\'envoi', example: '12/09/2025' },
           { name: 'qualityScore', description: 'Score de qualité', example: '85' }
         ]
+      },
+      {
+        name: 'vacation_request_confirmation',
+        displayName: 'Email de Confirmation - Demande de Congés',
+        subject: '✅ Confirmation de votre demande de congés - {{employeeName}}',
+        htmlContent: `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+    .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+    .header { background: #28a745; color: white; padding: 20px; text-align: center; }
+    .content { padding: 20px; background: #f8f9fa; }
+    .details { background: white; padding: 15px; border-radius: 5px; margin: 15px 0; }
+    .footer { text-align: center; padding: 20px; color: #666; font-size: 0.9em; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>🏖️ Demande de Congés Reçue</h1>
+      <p>Boulangerie Ange - Arras</p>
+    </div>
+    
+    <div class="content">
+      <p>Bonjour {{employeeName}},</p>
+      
+      <p>Votre demande de congés a été reçue avec succès et sera traitée dans les plus brefs délais.</p>
+      
+      <div class="details">
+        <h3>📋 Détails de votre demande :</h3>
+        <ul>
+          <li><strong>Période :</strong> {{startDate}} au {{endDate}}</li>
+          <li><strong>Durée :</strong> {{duration}} jour{{durationPlural}}</li>
+          <li><strong>Type :</strong> {{reason}}</li>
+          <li><strong>Date de demande :</strong> {{requestDate}}</li>
+        </ul>
+      </div>
+      
+      <p>Vous recevrez une réponse par email une fois que votre demande aura été examinée.</p>
+      
+      <p>Merci de votre confiance.</p>
+    </div>
+    
+    <div class="footer">
+      <p>Boulangerie Ange - Arras</p>
+      <p>Ce message a été généré automatiquement.</p>
+    </div>
+  </div>
+</body>
+</html>`,
+        textContent: `
+DEMANDE DE CONGÉS REÇUE
+Boulangerie Ange - Arras
+
+Bonjour {{employeeName}},
+
+Votre demande de congés a été reçue avec succès et sera traitée dans les plus brefs délais.
+
+📋 DÉTAILS DE VOTRE DEMANDE :
+- Période : {{startDate}} au {{endDate}}
+- Durée : {{duration}} jour{{durationPlural}}
+- Type : {{reason}}
+- Date de demande : {{requestDate}}
+
+Vous recevrez une réponse par email une fois que votre demande aura été examinée.
+
+Merci de votre confiance.
+
+Boulangerie Ange - Arras
+Ce message a été généré automatiquement.`,
+        description: 'Email de confirmation envoyé aux employés lors de la réception d\'une demande de congés',
+        variables: [
+          { name: 'employeeName', description: 'Nom du salarié', example: 'Marie Dupont' },
+          { name: 'startDate', description: 'Date de début des congés', example: '15/09/2025' },
+          { name: 'endDate', description: 'Date de fin des congés', example: '20/09/2025' },
+          { name: 'duration', description: 'Durée en jours', example: '6' },
+          { name: 'durationPlural', description: 'S pour le pluriel', example: 's' },
+          { name: 'reason', description: 'Type de congés', example: 'Congés payés' },
+          { name: 'requestDate', description: 'Date de la demande', example: '12/09/2025' }
+        ]
+      },
+      {
+        name: 'vacation_request_alert',
+        displayName: 'Email d\'Alerte - Nouvelle Demande de Congés',
+        subject: '🏖️ Nouvelle demande de congés à valider - {{employeeName}}',
+        htmlContent: `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+    .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+    .header { background: #ffc107; color: #212529; padding: 20px; text-align: center; }
+    .content { padding: 20px; background: #f8f9fa; }
+    .alert-box { background: #fff3cd; border: 1px solid #ffeaa7; padding: 15px; border-radius: 5px; margin: 15px 0; }
+    .details { background: white; padding: 15px; border-radius: 5px; margin: 15px 0; }
+    .footer { text-align: center; padding: 20px; color: #666; font-size: 0.9em; }
+    .action-button { background: #007bff; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block; margin: 10px 0; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>🏖️ Nouvelle Demande de Congés</h1>
+      <p>Boulangerie Ange - Arras</p>
+    </div>
+    
+    <div class="content">
+      <p>Une nouvelle demande de congés a été soumise et nécessite votre validation.</p>
+      
+      <div class="alert-box">
+        <h3>⚠️ Action Requise</h3>
+        <p>Veuillez valider ou rejeter cette demande de congés dans les plus brefs délais.</p>
+      </div>
+      
+      <div class="details">
+        <h3>📋 Informations de la demande :</h3>
+        <ul>
+          <li><strong>Salarié :</strong> {{employeeName}}</li>
+          <li><strong>Email :</strong> {{employeeEmail}}</li>
+          <li><strong>Période :</strong> {{startDate}} au {{endDate}}</li>
+          <li><strong>Durée :</strong> {{duration}} jour{{durationPlural}}</li>
+          <li><strong>Type :</strong> {{reason}}</li>
+          <li><strong>Date de demande :</strong> {{requestDate}}</li>
+        </ul>
+      </div>
+      
+      <div style="text-align: center; margin: 20px 0;">
+        <a href="{{adminUrl}}" class="action-button">🔍 Gérer les Congés</a>
+      </div>
+      
+      <p>Merci de traiter cette demande rapidement.</p>
+    </div>
+    
+    <div class="footer">
+      <p>Boulangerie Ange - Arras</p>
+      <p>Ce message a été généré automatiquement.</p>
+    </div>
+  </div>
+</body>
+</html>`,
+        textContent: `
+NOUVELLE DEMANDE DE CONGÉS
+Boulangerie Ange - Arras
+
+Une nouvelle demande de congés a été soumise et nécessite votre validation.
+
+⚠️ ACTION REQUISE
+Veuillez valider ou rejeter cette demande de congés dans les plus brefs délais.
+
+📋 INFORMATIONS DE LA DEMANDE :
+- Salarié : {{employeeName}}
+- Email : {{employeeEmail}}
+- Période : {{startDate}} au {{endDate}}
+- Durée : {{duration}} jour{{durationPlural}}
+- Type : {{reason}}
+- Date de demande : {{requestDate}}
+
+🔍 Pour gérer : {{adminUrl}}
+
+Merci de traiter cette demande rapidement.
+
+Boulangerie Ange - Arras
+Ce message a été généré automatiquement.`,
+        description: 'Email d\'alerte envoyé aux administrateurs lors d\'une nouvelle demande de congés',
+        variables: [
+          { name: 'employeeName', description: 'Nom du salarié', example: 'Marie Dupont' },
+          { name: 'employeeEmail', description: 'Email du salarié', example: 'marie@email.com' },
+          { name: 'startDate', description: 'Date de début des congés', example: '15/09/2025' },
+          { name: 'endDate', description: 'Date de fin des congés', example: '20/09/2025' },
+          { name: 'duration', description: 'Durée en jours', example: '6' },
+          { name: 'durationPlural', description: 'S pour le pluriel', example: 's' },
+          { name: 'reason', description: 'Type de congés', example: 'Congés payés' },
+          { name: 'requestDate', description: 'Date de la demande', example: '12/09/2025' },
+          { name: 'adminUrl', description: 'URL de gestion', example: 'https://www.filmara.fr/plan' }
+        ]
+      },
+      {
+        name: 'vacation_request_validation',
+        displayName: 'Email de Validation - Congés Approuvés',
+        subject: '✅ Vos congés ont été approuvés - {{employeeName}}',
+        htmlContent: `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+    .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+    .header { background: #28a745; color: white; padding: 20px; text-align: center; }
+    .content { padding: 20px; background: #f8f9fa; }
+    .success-box { background: #d4edda; border: 1px solid #c3e6cb; padding: 15px; border-radius: 5px; margin: 15px 0; }
+    .details { background: white; padding: 15px; border-radius: 5px; margin: 15px 0; }
+    .footer { text-align: center; padding: 20px; color: #666; font-size: 0.9em; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>✅ Congés Approuvés</h1>
+      <p>Boulangerie Ange - Arras</p>
+    </div>
+    
+    <div class="content">
+      <p>Bonjour {{employeeName}},</p>
+      
+      <div class="success-box">
+        <h3>🎉 Excellente nouvelle !</h3>
+        <p>Votre demande de congés a été approuvée.</p>
+      </div>
+      
+      <div class="details">
+        <h3>📋 Détails de vos congés approuvés :</h3>
+        <ul>
+          <li><strong>Période :</strong> {{startDate}} au {{endDate}}</li>
+          <li><strong>Durée :</strong> {{duration}} jour{{durationPlural}}</li>
+          <li><strong>Type :</strong> {{reason}}</li>
+          <li><strong>Validé par :</strong> {{validatedBy}}</li>
+          <li><strong>Date de validation :</strong> {{validationDate}}</li>
+        </ul>
+      </div>
+      
+      <p>Vos congés ont été enregistrés dans votre dossier personnel et seront pris en compte dans le planning.</p>
+      
+      <p>Nous vous souhaitons d'excellentes vacances !</p>
+    </div>
+    
+    <div class="footer">
+      <p>Boulangerie Ange - Arras</p>
+      <p>Ce message a été généré automatiquement.</p>
+    </div>
+  </div>
+</body>
+</html>`,
+        textContent: `
+CONGÉS APPROUVÉS
+Boulangerie Ange - Arras
+
+Bonjour {{employeeName}},
+
+🎉 EXCELLENTE NOUVELLE !
+Votre demande de congés a été approuvée.
+
+📋 DÉTAILS DE VOS CONGÉS APPROUVÉS :
+- Période : {{startDate}} au {{endDate}}
+- Durée : {{duration}} jour{{durationPlural}}
+- Type : {{reason}}
+- Validé par : {{validatedBy}}
+- Date de validation : {{validationDate}}
+
+Vos congés ont été enregistrés dans votre dossier personnel et seront pris en compte dans le planning.
+
+Nous vous souhaitons d'excellentes vacances !
+
+Boulangerie Ange - Arras
+Ce message a été généré automatiquement.`,
+        description: 'Email de validation envoyé aux employés lors de l\'approbation de leurs congés',
+        variables: [
+          { name: 'employeeName', description: 'Nom du salarié', example: 'Marie Dupont' },
+          { name: 'startDate', description: 'Date de début des congés', example: '15/09/2025' },
+          { name: 'endDate', description: 'Date de fin des congés', example: '20/09/2025' },
+          { name: 'duration', description: 'Durée en jours', example: '6' },
+          { name: 'durationPlural', description: 'S pour le pluriel', example: 's' },
+          { name: 'reason', description: 'Type de congés', example: 'Congés payés' },
+          { name: 'validatedBy', description: 'Nom de la personne qui valide', example: 'Admin' },
+          { name: 'validationDate', description: 'Date de validation', example: '12/09/2025' }
+        ]
       }
     ];
     

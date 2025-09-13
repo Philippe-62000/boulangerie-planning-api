@@ -1088,6 +1088,9 @@ const Parameters = () => {
                             {template.name === 'sick_leave_rejection' && '❌ Rejet'}
                             {template.name === 'sick_leave_accountant' && '📋 Comptable'}
                             {template.name === 'sick_leave_alert' && '🚨 Alerte'}
+                            {template.name === 'vacation_request_confirmation' && '🏖️ Confirmation Congés'}
+                            {template.name === 'vacation_request_alert' && '🚨 Alerte Congés'}
+                            {template.name === 'vacation_request_validation' && '✅ Validation Congés'}
                           </span>
                         </div>
                         <p className="template-description">{template.description}</p>

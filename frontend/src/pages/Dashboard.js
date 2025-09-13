@@ -53,6 +53,23 @@ const Dashboard = () => {
     return true;
   });
 
+  // Filtrer les employés en congés (8 jours avant le début)
+  const vacationEmployees = employees.filter(emp => {
+    if (!emp.vacation?.isOnVacation) return false;
+    
+    // Si l'employé a une date de début de congés
+    if (emp.vacation?.startDate) {
+      const startDate = new Date(emp.vacation.startDate);
+      const today = new Date();
+      const daysUntilVacation = Math.floor((startDate - today) / (1000 * 60 * 60 * 24));
+      
+      // Afficher seulement si 8 jours ou moins avant le début
+      if (daysUntilVacation > 8) return false;
+    }
+    
+    return true;
+  });
+
   // Filtrer les employés mineurs (âge < 18)
   const minorEmployees = employees.filter(emp => emp.age < 18);
 
@@ -118,6 +135,49 @@ const Dashboard = () => {
                             fontWeight: 'bold'
                           }}>
                             {daysUntilReturn > 0 ? `${daysUntilReturn} jours` : 'Repris'}
+                          </span>
+                        );
+                      })()}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* Récapitulatif : Congés */}
+      <div className="card">
+        <h3>🏖️ Récapitulatif : Congés</h3>
+        {vacationEmployees.length === 0 ? (
+          <p>Aucun employé en congés dans les 8 prochains jours</p>
+        ) : (
+          <div style={{ overflowX: 'auto' }}>
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>Nom</th>
+                  <th>Date de début</th>
+                  <th>Date de fin</th>
+                  <th>Jours avant congés</th>
+                </tr>
+              </thead>
+              <tbody>
+                {vacationEmployees.map((employee) => (
+                  <tr key={employee._id}>
+                    <td>{employee.name}</td>
+                    <td>{formatDate(employee.vacation?.startDate)}</td>
+                    <td>{formatDate(employee.vacation?.endDate)}</td>
+                    <td>
+                      {(() => {
+                        const daysUntilVacation = calculateDaysUntil(employee.vacation?.startDate);
+                        return (
+                          <span style={{ 
+                            color: daysUntilVacation > 0 ? '#ffc107' : '#28a745',
+                            fontWeight: 'bold'
+                          }}>
+                            {daysUntilVacation > 0 ? `${daysUntilVacation} jours` : 'En congés'}
                           </span>
                         );
                       })()}
@@ -240,6 +300,10 @@ const Dashboard = () => {
           <div style={{ textAlign: 'center', padding: '1rem', backgroundColor: '#f8f9fa', borderRadius: '8px' }}>
             <h4>{sickEmployees.length}</h4>
             <p>En arrêt maladie</p>
+          </div>
+          <div style={{ textAlign: 'center', padding: '1rem', backgroundColor: '#f8f9fa', borderRadius: '8px' }}>
+            <h4>{vacationEmployees.length}</h4>
+            <p>En congés (8j)</p>
           </div>
           <div style={{ textAlign: 'center', padding: '1rem', backgroundColor: '#f8f9fa', borderRadius: '8px' }}>
             <h4>{minorEmployees.length}</h4>

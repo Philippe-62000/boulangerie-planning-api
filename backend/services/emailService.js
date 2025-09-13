@@ -32,6 +32,21 @@ class EmailService {
     return await emailServiceAlternative.sendAlertEmail(sickLeave, recipientEmails);
   }
 
+  // Envoyer un email de confirmation de demande de congés
+  async sendVacationRequestConfirmation(vacationRequest) {
+    return await emailServiceAlternative.sendVacationRequestConfirmation(vacationRequest);
+  }
+
+  // Envoyer un email d'alerte pour demande de congés
+  async sendVacationRequestAlert(vacationRequest, recipientEmails) {
+    return await emailServiceAlternative.sendVacationRequestAlert(vacationRequest, recipientEmails);
+  }
+
+  // Envoyer un email de validation de congés
+  async sendVacationRequestValidation(vacationRequest, validatedBy) {
+    return await emailServiceAlternative.sendVacationRequestValidation(vacationRequest, validatedBy);
+  }
+
   // Envoyer un email générique
   async sendEmail(to, subject, htmlContent, textContent) {
     return await emailServiceAlternative.sendEmail(to, subject, htmlContent, textContent);
