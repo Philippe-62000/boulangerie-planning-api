@@ -14,6 +14,9 @@ router.put('/batch', menuPermissionsController.updateAllMenuPermissions);
 // Route pour recréer les permissions par défaut
 router.post('/recreate', menuPermissionsController.recreateDefaultPermissions);
 
+// Route pour forcer la création des permissions par défaut
+router.post('/create-defaults', menuPermissionsController.createDefaultPermissions);
+
 // Route pour mettre à jour une permission spécifique (DOIT être après /batch)
 router.put('/:id', menuPermissionsController.updateMenuPermission);
 

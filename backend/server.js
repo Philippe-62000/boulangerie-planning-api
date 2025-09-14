@@ -55,7 +55,18 @@ mongoose.connect(config.MONGODB_URI, {
   useNewUrlParser: true,
   useUnifiedTopology: true,
 })
-.then(() => console.log('✅ Connecté à MongoDB'))
+.then(async () => {
+  console.log('✅ Connecté à MongoDB');
+  
+  // Initialiser les permissions de menu par défaut
+  try {
+    const MenuPermissions = require('./models/MenuPermissions');
+    await MenuPermissions.createDefaultPermissions();
+    console.log('✅ Permissions de menu initialisées');
+  } catch (error) {
+    console.error('❌ Erreur initialisation permissions:', error);
+  }
+})
 .catch(err => console.error('❌ Erreur de connexion MongoDB:', err));
 
 // Routes
