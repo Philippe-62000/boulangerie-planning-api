@@ -97,7 +97,9 @@ const Planning = () => {
       const response = await api.post('/planning/generate', {
         weekNumber: parseInt(weekNumber),
         year: parseInt(year),
-        affluenceLevels
+        affluenceLevels: {
+          Lundi: 2, Mardi: 2, Mercredi: 2, Jeudi: 2, Vendredi: 2, Samedi: 2, Dimanche: 2
+        }
       });
 
       toast.success('Planning généré avec succès !');
@@ -228,7 +230,7 @@ const Planning = () => {
                       <td style={{ fontWeight: 'bold' }}>{day}</td>
                       <td>{getStaffCountByDay(planning, day)} personnes</td>
                       <td>{getTotalHoursByDay(planning, day).toFixed(1)}h</td>
-                      <td>{affluenceLevels[day]}/4</td>
+                      <td>2/4</td>
                     </tr>
                   ))}
                 </tbody>
