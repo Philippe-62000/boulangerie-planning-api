@@ -1205,6 +1205,259 @@ Boulangerie Ange - Arras
 Ce message a été généré automatiquement.
     `;
   }
+  // Envoyer un mot de passe à un salarié
+  async sendEmployeePassword({ employeeName, employeeEmail, password, loginUrl }) {
+    try {
+      console.log('📧 Envoi mot de passe salarié à:', employeeEmail);
+      
+      const subject = `Vos identifiants de connexion - ${employeeName}`;
+      
+      const htmlContent = this.generateEmployeePasswordHTML({
+        employeeName,
+        password,
+        loginUrl
+      });
+      
+      const textContent = this.generateEmployeePasswordText({
+        employeeName,
+        password,
+        loginUrl
+      });
+      
+      const emailData = {
+        serviceId: 'gmail',
+        templateId: 'template_employee_password',
+        userId: 'EHw0fFSAwQ_4SfY6Z',
+        to: employeeEmail,
+        subject: subject,
+        hasHtml: true,
+        hasText: true,
+        templateParams: {
+          employee_name: employeeName,
+          password: password,
+          login_url: loginUrl,
+          html_content: htmlContent,
+          text_content: textContent
+        }
+      };
+      
+      console.log('📧 Données EmailJS:', emailData);
+      
+      const result = await this.sendEmailJS(emailData);
+      console.log('✅ Email mot de passe envoyé:', result);
+      
+      return {
+        success: true,
+        messageId: result,
+        to: employeeEmail
+      };
+      
+    } catch (error) {
+      console.error('❌ Erreur envoi mot de passe salarié:', error);
+      throw error;
+    }
+  }
+
+  // Générer le HTML pour l'email mot de passe salarié
+  generateEmployeePasswordHTML({ employeeName, employeeEmail, password, loginUrl }) {
+    return `
+    <!DOCTYPE html>
+    <html lang="fr">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Vos identifiants de connexion</title>
+        <style>
+            body {
+                font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                line-height: 1.6;
+                color: #333;
+                max-width: 600px;
+                margin: 0 auto;
+                padding: 20px;
+                background-color: #f4f4f4;
+            }
+            .container {
+                background: white;
+                border-radius: 10px;
+                padding: 30px;
+                box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            }
+            .header {
+                text-align: center;
+                margin-bottom: 30px;
+                padding-bottom: 20px;
+                border-bottom: 3px solid #007bff;
+            }
+            .logo {
+                font-size: 24px;
+                font-weight: bold;
+                color: #007bff;
+                margin-bottom: 10px;
+            }
+            .title {
+                color: #333;
+                font-size: 20px;
+                margin: 0;
+            }
+            .content {
+                margin-bottom: 30px;
+            }
+            .greeting {
+                font-size: 18px;
+                margin-bottom: 20px;
+                color: #007bff;
+            }
+            .credentials-box {
+                background: #f8f9fa;
+                border: 2px solid #007bff;
+                border-radius: 8px;
+                padding: 20px;
+                margin: 20px 0;
+                text-align: center;
+            }
+            .password {
+                font-size: 24px;
+                font-weight: bold;
+                color: #007bff;
+                letter-spacing: 2px;
+                background: white;
+                padding: 15px;
+                border-radius: 5px;
+                border: 1px solid #ddd;
+                margin: 10px 0;
+            }
+            .login-button {
+                display: inline-block;
+                background: #007bff;
+                color: white;
+                padding: 15px 30px;
+                text-decoration: none;
+                border-radius: 5px;
+                font-weight: bold;
+                margin: 20px 0;
+                transition: background-color 0.3s;
+            }
+            .login-button:hover {
+                background: #0056b3;
+            }
+            .instructions {
+                background: #fff3cd;
+                border: 1px solid #ffeaa7;
+                border-radius: 5px;
+                padding: 15px;
+                margin: 20px 0;
+            }
+            .instructions h3 {
+                color: #856404;
+                margin-top: 0;
+            }
+            .footer {
+                text-align: center;
+                margin-top: 30px;
+                padding-top: 20px;
+                border-top: 1px solid #ddd;
+                color: #666;
+                font-size: 14px;
+            }
+            .security-note {
+                background: #d1ecf1;
+                border: 1px solid #bee5eb;
+                border-radius: 5px;
+                padding: 15px;
+                margin: 20px 0;
+                color: #0c5460;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <div class="logo">🏢 Planning Boulangerie</div>
+                <h1 class="title">Vos identifiants de connexion</h1>
+            </div>
+            
+            <div class="content">
+                <div class="greeting">Bonjour ${employeeName},</div>
+                
+                <p>Votre administrateur vous a créé un compte pour accéder aux services en ligne de la boulangerie.</p>
+                
+                <div class="instructions">
+                    <h3>🎯 Pourquoi se connecter ?</h3>
+                    <p>En vous connectant, vous pourrez :</p>
+                    <ul>
+                        <li>📋 <strong>Déclarer vos arrêts maladie</strong> directement en ligne</li>
+                        <li>🏖️ <strong>Demander vos congés</strong> de manière simple et rapide</li>
+                        <li>📱 <strong>Accéder à vos informations</strong> depuis n'importe où</li>
+                        <li>⏰ <strong>Gagner du temps</strong> en évitant les formulaires papier</li>
+                    </ul>
+                </div>
+                
+                <div class="credentials-box">
+                    <h3>🔐 Vos identifiants de connexion</h3>
+                    <p><strong>Email :</strong> ${employeeEmail}</p>
+                    <p><strong>Mot de passe temporaire :</strong></p>
+                    <div class="password">${password}</div>
+                    <p><em>⚠️ Ce mot de passe est temporaire, changez-le lors de votre première connexion</em></p>
+                </div>
+                
+                <div style="text-align: center;">
+                    <a href="${loginUrl}" class="login-button">🚀 Se connecter maintenant</a>
+                </div>
+                
+                <div class="security-note">
+                    <h3>🔒 Sécurité</h3>
+                    <p>• Gardez vos identifiants confidentiels<br>
+                    • Ne partagez jamais votre mot de passe<br>
+                    • Déconnectez-vous après utilisation</p>
+                </div>
+            </div>
+            
+            <div class="footer">
+                <p>Cet email a été envoyé automatiquement par le système de gestion de la boulangerie.</p>
+                <p>Si vous n'avez pas demandé ces identifiants, contactez votre administrateur.</p>
+            </div>
+        </div>
+    </body>
+    </html>
+    `;
+  }
+
+  // Générer le texte pour l'email mot de passe salarié
+  generateEmployeePasswordText({ employeeName, employeeEmail, password, loginUrl }) {
+    return `
+VOS IDENTIFIANTS DE CONNEXION - ${employeeName}
+
+Bonjour ${employeeName},
+
+Votre administrateur vous a créé un compte pour accéder aux services en ligne de la boulangerie.
+
+🎯 POURQUOI SE CONNECTER ?
+En vous connectant, vous pourrez :
+- Déclarer vos arrêts maladie directement en ligne
+- Demander vos congés de manière simple et rapide
+- Accéder à vos informations depuis n'importe où
+- Gagner du temps en évitant les formulaires papier
+
+🔐 VOS IDENTIFIANTS DE CONNEXION
+Email : ${employeeEmail}
+Mot de passe temporaire : ${password}
+
+⚠️ Ce mot de passe est temporaire, changez-le lors de votre première connexion
+
+🚀 SE CONNECTER
+Cliquez sur ce lien pour vous connecter : ${loginUrl}
+
+🔒 SÉCURITÉ
+- Gardez vos identifiants confidentiels
+- Ne partagez jamais votre mot de passe
+- Déconnectez-vous après utilisation
+
+---
+Cet email a été envoyé automatiquement par le système de gestion de la boulangerie.
+Si vous n'avez pas demandé ces identifiants, contactez votre administrateur.
+    `;
+  }
 }
 
 // Instance singleton

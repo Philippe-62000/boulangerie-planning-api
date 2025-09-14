@@ -58,6 +58,23 @@ const employeeSchema = new mongoose.Schema({
       type: Date
     }
   },
+  email: {
+    type: String,
+    unique: true,
+    sparse: true,
+    lowercase: true,
+    trim: true,
+    validate: {
+      validator: function(v) {
+        return !v || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
+      },
+      message: 'Format d\'email invalide'
+    }
+  },
+  password: {
+    type: String,
+    select: false // Ne pas inclure par défaut dans les requêtes
+  },
   isActive: {
     type: Boolean,
     default: true

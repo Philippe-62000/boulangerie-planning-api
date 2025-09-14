@@ -1,70 +1,161 @@
-const User = require('../models/User');
+const jwt = require('jsonwebtoken');
+const bcrypt = require('bcryptjs');
+const Employee = require('../models/Employee');
+const emailService = require('../services/emailService');
 
-// Créer les utilisateurs par défaut au démarrage
-User.createDefaultUsers();
+// Générer un mot de passe aléatoire
+const generateRandomPassword = () => {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+  let password = '';
+  for (let i = 0; i < 8; i++) {
+    password += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return password;
+};
 
-const login = async (req, res) => {
+// Envoyer un mot de passe à un salarié
+const sendPasswordToEmployee = async (req, res) => {
   try {
-    const { username, password, role } = req.body;
-
-    console.log('🔐 Tentative de connexion:', { username, role });
-
-    // Validation des données
-    if (!username || !password || !role) {
+    const { id } = req.params;
+    
+    console.log('🔐 Envoi de mot de passe pour l\'employé:', id);
+    
+    // Récupérer l'employé avec le mot de passe
+    const employee = await Employee.findById(id).select('+password');
+    
+    if (!employee) {
+      return res.status(404).json({
+        success: false,
+        error: 'Employé non trouvé'
+      });
+    }
+    
+    if (!employee.email) {
       return res.status(400).json({
         success: false,
-        error: 'Nom d\'utilisateur, mot de passe et rôle requis'
+        error: 'Aucun email configuré pour cet employé'
       });
     }
-
-    // Rechercher l'utilisateur
-    const user = await User.findOne({ 
-      username: username.toLowerCase(),
-      role: role,
-      isActive: true 
+    
+    // Générer un nouveau mot de passe
+    const newPassword = generateRandomPassword();
+    
+    // Hasher le mot de passe
+    const saltRounds = 10;
+    const hashedPassword = await bcrypt.hash(newPassword, saltRounds);
+    
+    // Mettre à jour l'employé avec le nouveau mot de passe
+    employee.password = hashedPassword;
+    await employee.save();
+    
+    console.log('✅ Mot de passe généré et hashé pour:', employee.name);
+    
+    // Envoyer l'email avec le mot de passe
+    try {
+      await emailService.sendEmployeePassword({
+        employeeName: employee.name,
+        employeeEmail: employee.email,
+        password: newPassword,
+        loginUrl: 'https://www.filmara.fr/salarie-connexion.html'
+      });
+      
+      console.log('✅ Email envoyé à:', employee.email);
+      
+      res.json({
+        success: true,
+        message: `Mot de passe envoyé à ${employee.email}`,
+        email: employee.email
+      });
+      
+    } catch (emailError) {
+      console.error('❌ Erreur envoi email:', emailError);
+      res.status(500).json({
+        success: false,
+        error: 'Erreur lors de l\'envoi de l\'email'
+      });
+    }
+    
+  } catch (error) {
+    console.error('❌ Erreur sendPasswordToEmployee:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Erreur serveur lors de l\'envoi du mot de passe'
     });
+  }
+};
 
-    if (!user) {
-      console.log('❌ Utilisateur non trouvé:', { username, role });
-      return res.status(401).json({
+// Connexion d'un salarié
+const employeeLogin = async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    
+    console.log('🔐 Tentative de connexion salarié:', email);
+    
+    if (!email || !password) {
+      return res.status(400).json({
         success: false,
-        error: 'Identifiants incorrects'
+        error: 'Email et mot de passe requis'
       });
     }
-
-    // Vérifier le mot de passe (version simple pour le moment)
-    if (user.password !== password) {
-      console.log('❌ Mot de passe incorrect pour:', username);
+    
+    // Récupérer l'employé avec le mot de passe
+    const employee = await Employee.findOne({ 
+      email: email.toLowerCase(),
+      isActive: true 
+    }).select('+password');
+    
+    if (!employee) {
       return res.status(401).json({
         success: false,
-        error: 'Identifiants incorrects'
+        error: 'Email ou mot de passe incorrect'
       });
     }
-
-    // Mettre à jour la dernière connexion
-    user.lastLogin = new Date();
-    await user.save();
-
-    console.log('✅ Connexion réussie pour:', username);
-
-    // Retourner les informations utilisateur (sans le mot de passe)
-    const userResponse = {
-      id: user._id,
-      username: user.username,
-      role: user.role,
-      name: user.name,
-      permissions: user.permissions,
-      lastLogin: user.lastLogin
-    };
-
+    
+    if (!employee.password) {
+      return res.status(401).json({
+        success: false,
+        error: 'Aucun mot de passe configuré. Contactez votre administrateur.'
+      });
+    }
+    
+    // Vérifier le mot de passe
+    const isPasswordValid = await bcrypt.compare(password, employee.password);
+    
+    if (!isPasswordValid) {
+      return res.status(401).json({
+        success: false,
+        error: 'Email ou mot de passe incorrect'
+      });
+    }
+    
+    // Générer un token JWT
+    const token = jwt.sign(
+      { 
+        employeeId: employee._id,
+        email: employee.email,
+        name: employee.name,
+        role: 'employee'
+      },
+      process.env.JWT_SECRET || 'votre-cle-secrete-ici',
+      { expiresIn: '24h' }
+    );
+    
+    console.log('✅ Connexion réussie pour:', employee.name);
+    
     res.json({
       success: true,
-      user: userResponse,
-      message: 'Connexion réussie'
+      message: 'Connexion réussie',
+      token,
+      employee: {
+        id: employee._id,
+        name: employee.name,
+        email: employee.email,
+        role: employee.role
+      }
     });
-
+    
   } catch (error) {
-    console.error('❌ Erreur lors de la connexion:', error);
+    console.error('❌ Erreur employeeLogin:', error);
     res.status(500).json({
       success: false,
       error: 'Erreur serveur lors de la connexion'
@@ -72,71 +163,43 @@ const login = async (req, res) => {
   }
 };
 
-const verifyToken = async (req, res) => {
+// Récupérer les informations de l'employé connecté
+const getEmployeeProfile = async (req, res) => {
   try {
-    const { token } = req.body;
-
-    if (!token) {
-      return res.status(400).json({
+    const employeeId = req.employeeId; // Défini par le middleware d'authentification
+    
+    const employee = await Employee.findById(employeeId);
+    
+    if (!employee) {
+      return res.status(404).json({
         success: false,
-        error: 'Token requis'
+        error: 'Employé non trouvé'
       });
     }
-
-    // Pour l'instant, on accepte tous les tokens valides
-    // En production, implémenter JWT ou session
+    
     res.json({
       success: true,
-      message: 'Token valide'
+      employee: {
+        id: employee._id,
+        name: employee.name,
+        email: employee.email,
+        role: employee.role,
+        contractType: employee.contractType
+      }
     });
-
+    
   } catch (error) {
-    console.error('❌ Erreur lors de la vérification du token:', error);
+    console.error('❌ Erreur getEmployeeProfile:', error);
     res.status(500).json({
       success: false,
-      error: 'Erreur serveur lors de la vérification'
-    });
-  }
-};
-
-const logout = async (req, res) => {
-  try {
-    // En production, invalider le token côté serveur
-    res.json({
-      success: true,
-      message: 'Déconnexion réussie'
-    });
-  } catch (error) {
-    console.error('❌ Erreur lors de la déconnexion:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Erreur serveur lors de la déconnexion'
-    });
-  }
-};
-
-const getUsers = async (req, res) => {
-  try {
-    const users = await User.find({ isActive: true })
-      .select('-password')
-      .sort({ role: 1, name: 1 });
-
-    res.json({
-      success: true,
-      users: users
-    });
-  } catch (error) {
-    console.error('❌ Erreur lors de la récupération des utilisateurs:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Erreur serveur lors de la récupération des utilisateurs'
+      error: 'Erreur serveur'
     });
   }
 };
 
 module.exports = {
-  login,
-  verifyToken,
-  logout,
-  getUsers
+  sendPasswordToEmployee,
+  employeeLogin,
+  getEmployeeProfile,
+  generateRandomPassword
 };
