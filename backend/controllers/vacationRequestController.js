@@ -70,7 +70,7 @@ const createVacationRequest = async (req, res) => {
     console.log('📝 Création nouvelle demande de congés...');
     
     // Vérification des données requises
-    const { employeeName, employeeEmail, startDate, endDate, reason } = req.body;
+    const { employeeName, employeeEmail, startDate, endDate, reason, precisions } = req.body;
     
     if (!employeeName || !employeeEmail || !startDate || !endDate) {
       return res.status(400).json({
@@ -100,7 +100,8 @@ const createVacationRequest = async (req, res) => {
       startDate: start,
       endDate: end,
       duration,
-      reason: reason || 'Congés payés'
+      reason: reason || 'Congés payés',
+      precisions: precisions || null
     });
 
     await vacationRequest.save();

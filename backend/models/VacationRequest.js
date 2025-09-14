@@ -27,6 +27,10 @@ const vacationRequestSchema = new mongoose.Schema({
     type: String,
     default: 'Congés payés'
   },
+  precisions: {
+    type: String,
+    default: null
+  },
   status: {
     type: String,
     enum: ['pending', 'validated', 'rejected'],
