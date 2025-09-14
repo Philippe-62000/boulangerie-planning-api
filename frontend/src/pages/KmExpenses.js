@@ -13,7 +13,7 @@ const KmExpenses = () => {
 
   useEffect(() => {
     fetchExpenses();
-  }, [month, year]);
+  }, [month, year, fetchExpenses]);
 
   const fetchExpenses = async () => {
     setLoading(true);

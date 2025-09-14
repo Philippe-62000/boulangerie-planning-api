@@ -41,7 +41,7 @@ const Constraints = () => {
     if (weekNumber && year) {
       fetchConstraints();
     }
-  }, [weekNumber, year]);
+  }, [weekNumber, year, fetchConstraints]);
 
   // Appliquer automatiquement les jours de formation pour les apprentis
   useEffect(() => {
@@ -269,10 +269,10 @@ const Constraints = () => {
     return dayMap[day] || 1;
   };
 
-  const getConstraintLabel = (constraint) => {
-    const option = constraintOptions.find(opt => opt.value === constraint);
-    return option ? option.label : 'Travail normal';
-  };
+  // const getConstraintLabel = (constraint) => {
+  //   const option = constraintOptions.find(opt => opt.value === constraint);
+  //   return option ? option.label : 'Travail normal';
+  // };
 
   return (
     <div className="constraints fade-in">

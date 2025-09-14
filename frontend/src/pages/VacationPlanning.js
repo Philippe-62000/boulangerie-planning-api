@@ -12,7 +12,7 @@ const VacationPlanning = () => {
 
   useEffect(() => {
     fetchData();
-  }, [selectedYear]);
+  }, [selectedYear, fetchData]);
 
   const fetchData = async () => {
     try {

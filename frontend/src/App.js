@@ -17,7 +17,7 @@ import KmExpenses from './pages/KmExpenses';
 import Parameters from './pages/Parameters';
 import EmployeeStatusPrint from './pages/EmployeeStatusPrint';
 import Tutors from './pages/Tutors';
-import SickLeaveUpload from './pages/SickLeaveUpload';
+// import SickLeaveUpload from './pages/SickLeaveUpload'; // Non utilisé
 import SickLeaveUploadStandalone from './pages/SickLeaveUploadStandalone';
 import SickLeaveAdmin from './pages/SickLeaveAdmin';
 import SickLeaveHome from './pages/SickLeaveHome';

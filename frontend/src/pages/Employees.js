@@ -100,7 +100,7 @@ const Employees = () => {
       
       if (declarationData.type === 'maladie') {
         // Arrêt maladie
-        const response = await api.put(`/employees/${declarationData.employeeId}`, {
+        await api.put(`/employees/${declarationData.employeeId}`, {
           sickLeave: {
             isOnSickLeave: true,
             startDate: declarationData.startDate,
@@ -110,7 +110,7 @@ const Employees = () => {
         toast.success('Arrêt maladie déclaré avec succès');
       } else {
         // Absence
-        const response = await api.put(`/employees/${declarationData.employeeId}`, {
+        await api.put(`/employees/${declarationData.employeeId}`, {
           absence: {
             isAbsent: true,
             startDate: declarationData.startDate,

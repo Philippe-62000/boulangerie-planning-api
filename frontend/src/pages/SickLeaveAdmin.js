@@ -22,7 +22,7 @@ const SickLeaveAdmin = () => {
   useEffect(() => {
     fetchSickLeaves();
     fetchStats();
-  }, [selectedStatus, currentPage]);
+  }, [selectedStatus, currentPage, fetchSickLeaves, fetchStats]);
 
   const fetchSickLeaves = async () => {
     try {

@@ -12,7 +12,7 @@ const AbsenceStatus = ({ employees }) => {
 
   useEffect(() => {
     calculateAbsenceStats();
-  }, [employees, selectedPeriod, selectedMonth, selectedYear]);
+  }, [employees, selectedPeriod, selectedMonth, selectedYear, calculateAbsenceStats]);
 
   const calculateAbsenceStats = () => {
     try {

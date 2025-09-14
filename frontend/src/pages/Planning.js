@@ -7,10 +7,10 @@ const Planning = () => {
   const [year, setYear] = useState(new Date().getFullYear());
   const [planning, setPlanning] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
-  const [affluenceLevels, setAffluenceLevels] = useState({
-    Lundi: 2, Mardi: 2, Mercredi: 2, Jeudi: 2, Vendredi: 2, Samedi: 2, Dimanche: 2
-  });
+  // const [error, setError] = useState(null); // Non utilisé
+  // const [affluenceLevels, setAffluenceLevels] = useState({
+  //   Lundi: 2, Mardi: 2, Mercredi: 2, Jeudi: 2, Vendredi: 2, Samedi: 2, Dimanche: 2
+  // }); // Non utilisé
 
   const daysOfWeek = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
 
@@ -34,7 +34,7 @@ const Planning = () => {
     if (weekNumber && year) {
       fetchPlanning();
     }
-  }, [weekNumber, year]);
+  }, [weekNumber, year, fetchPlanning]);
 
   const getWeekNumber = (date) => {
     const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
@@ -47,7 +47,7 @@ const Planning = () => {
   // Fonction pour calculer la date de chaque jour
   const getDayDate = (weekNumber, year, dayIndex) => {
     const firstDayOfWeek = new Date(year, 0, 1);
-    const dayOfWeek = firstDayOfWeek.getDay();
+    // const dayOfWeek = firstDayOfWeek.getDay(); // Non utilisé
     const daysSinceStartOfYear = Math.floor((weekNumber - 1) * 7) + dayIndex;
     const date = new Date(firstDayOfWeek);
     date.setDate(firstDayOfWeek.getDate() + daysSinceStartOfYear);
@@ -110,15 +110,15 @@ const Planning = () => {
     }
   };
 
-  const validatePlanning = async (planningId) => {
-    try {
-      await api.patch(`/planning/${planningId}/validate`);
-      toast.success('Planning validé');
-      fetchPlanning();
-    } catch (error) {
-      toast.error('Erreur lors de la validation');
-    }
-  };
+  // const validatePlanning = async (planningId) => {
+  //   try {
+  //     await api.patch(`/planning/${planningId}/validate`);
+  //     toast.success('Planning validé');
+  //     fetchPlanning();
+  //   } catch (error) {
+  //     toast.error('Erreur lors de la validation');
+  //   }
+  // }; // Non utilisé
 
   const markAsRealized = async (planningId) => {
     try {

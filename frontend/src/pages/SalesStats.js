@@ -33,7 +33,7 @@ const SalesStats = () => {
     if (employees.length > 0 && currentMonth && currentYear) {
       loadSalesDataForPeriod();
     }
-  }, [employees, currentMonth, currentYear]);
+  }, [employees, currentMonth, currentYear, loadSalesDataForPeriod]);
 
   // Charger les employés
   const fetchEmployees = async () => {
@@ -84,24 +84,24 @@ const SalesStats = () => {
 
 
      // Supprimer les données du mois
-   const deleteSalesData = async () => {
-     try {
-       const response = await fetch(`https://boulangerie-planning-api-3.onrender.com/api/sales-stats/period/${currentMonth}/${currentYear}`, {
-         method: 'DELETE'
-       });
-       
-       if (response.ok) {
-         console.log('✅ Données supprimées avec succès');
-         alert('Données du mois supprimées avec succès !');
-       } else {
-         console.error('❌ Erreur lors de la suppression');
-         alert('Erreur lors de la suppression des données');
-       }
-     } catch (error) {
-       console.error('Erreur lors de la suppression:', error);
-       alert('Erreur lors de la suppression');
-     }
-   };
+   // const deleteSalesData = async () => {
+   //   try {
+   //     const response = await fetch(`https://boulangerie-planning-api-3.onrender.com/api/sales-stats/period/${currentMonth}/${currentYear}`, {
+   //       method: 'DELETE'
+   //     });
+   //     
+   //     if (response.ok) {
+   //       console.log('✅ Données supprimées avec succès');
+   //       alert('Données du mois supprimées avec succès !');
+   //     } else {
+   //       console.error('❌ Erreur lors de la suppression');
+   //       alert('Erreur lors de la suppression des données');
+   //     }
+   //   } catch (error) {
+   //     console.error('Erreur lors de la suppression:', error);
+   //     alert('Erreur lors de la suppression');
+   //   }
+   // }; // Non utilisé
 
    // Sauvegarder les données
    const saveSalesData = async () => {
@@ -210,7 +210,7 @@ const SalesStats = () => {
     if (currentYear) {
       loadMonthlyStats();
     }
-  }, [currentYear]);
+  }, [currentYear, loadMonthlyStats]);
 
   // Charger les données de la période actuelle au montage et au changement de période
   useEffect(() => {
@@ -220,7 +220,7 @@ const SalesStats = () => {
       // Puis charger les nouvelles données
       loadSalesDataForPeriod();
     }
-  }, [currentMonth, currentYear]);
+  }, [currentMonth, currentYear, loadSalesDataForPeriod]);
 
 
 

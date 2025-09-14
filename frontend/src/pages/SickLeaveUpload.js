@@ -38,7 +38,7 @@ const SickLeaveUpload = () => {
     };
 
     fetchEmployees();
-  }, []);
+  }, [API_URL]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
