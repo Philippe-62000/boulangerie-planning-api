@@ -15,7 +15,18 @@ const MealExpenses = () => {
     try {
       const response = await api.get(`/meal-expenses?month=${month}&year=${year}`);
       console.log('📊 Données frais repas reçues:', response.data);
-      setExpenses(response.data);
+      
+      // S'assurer que les données sont un tableau
+      let expensesData = [];
+      if (Array.isArray(response.data)) {
+        expensesData = response.data;
+      } else if (response.data.success && Array.isArray(response.data.data)) {
+        expensesData = response.data.data;
+      } else if (response.data.expenses && Array.isArray(response.data.expenses)) {
+        expensesData = response.data.expenses;
+      }
+      
+      setExpenses(expensesData);
     } catch (error) {
       console.error('Erreur lors du chargement des frais repas:', error);
       toast.error('Erreur lors du chargement des frais repas');

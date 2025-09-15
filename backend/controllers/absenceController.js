@@ -39,131 +39,83 @@ exports.getAbsenceStats = async (req, res) => {
   try {
     const { period, startDate, endDate, employeeId } = req.query;
 
-    let query = {};
-    let groupBy = {};
+    console.log('📊 Récupération des statistiques d\'absences avec filtres:', { period, startDate, endDate, employeeId });
 
-    // Filtrer par employé si spécifié
+    // Construire la requête pour les employés
+    let employeeQuery = { isActive: true };
     if (employeeId) {
-      query.employeeId = employeeId;
+      employeeQuery._id = employeeId;
     }
 
-    // Filtrer par période
-    if (startDate && endDate) {
-      query.startDate = {
-        $gte: new Date(startDate),
-        $lte: new Date(endDate)
-      };
-    }
+    // Récupérer tous les employés avec leurs absences
+    const employees = await Employee.find(employeeQuery)
+      .select('name role absences')
+      .sort({ name: 1 });
 
-    // Agrégation pour les statistiques
-    const stats = await Absence.aggregate([
-      { $match: query },
-      {
-        $group: {
-          _id: {
-            employeeId: '$employeeId',
-            employeeName: '$employeeName',
-            type: '$type'
-          },
-          count: { $sum: 1 },
-          totalDays: {
-            $sum: {
-              $ceil: {
-                $divide: [
-                  { $subtract: ['$endDate', '$startDate'] },
-                  1000 * 60 * 60 * 24
-                ]
-              }
-            }
-          }
-        }
-      },
-      {
-        $group: {
-          _id: {
-            employeeId: '$_id.employeeId',
-            employeeName: '$_id.employeeName'
-          },
-          absences: {
-            $push: {
-              type: '$_id.type',
-              count: '$count',
-              totalDays: '$totalDays'
-            }
-          },
-          totalAbsences: { $sum: '$count' },
-          totalDays: { $sum: '$totalDays' }
-        }
-      },
-      {
-        $project: {
-          employeeId: '$_id.employeeId',
-          employeeName: '$_id.employeeName',
-          absences: 1,
-          totalAbsences: 1,
-          totalDays: 1,
-          malCount: {
-            $sum: {
-              $map: {
-                input: {
-                  $filter: {
-                    input: '$absences',
-                    cond: { $eq: ['$$this.type', 'MAL'] }
-                  }
-                },
-                as: 'mal',
-                in: '$$mal.count'
-              }
-            }
-          },
-          absCount: {
-            $sum: {
-              $map: {
-                input: {
-                  $filter: {
-                    input: '$absences',
-                    cond: { $eq: ['$$this.type', 'ABS'] }
-                  }
-                },
-                as: 'abs',
-                in: '$$abs.count'
-              }
-            }
-          },
-          retCount: {
-            $sum: {
-              $map: {
-                input: {
-                  $filter: {
-                    input: '$absences',
-                    cond: { $eq: ['$$this.type', 'RET'] }
-                  }
-                },
-                as: 'ret',
-                in: '$$ret.count'
-              }
-            }
-          }
-        }
-      },
-      { $sort: { employeeName: 1 } }
-    ]);
+    console.log(`📊 ${employees.length} employés trouvés`);
 
-    // Calculer les totaux globaux
-    const globalTotals = stats.reduce((acc, stat) => {
-      acc.totalMal += stat.malCount || 0;
-      acc.totalAbs += stat.absCount || 0;
-      acc.totalRet += stat.retCount || 0;
-      acc.totalAbsences += stat.totalAbsences || 0;
-      acc.totalDays += stat.totalDays || 0;
-      return acc;
-    }, {
+    // Traiter les absences pour chaque employé
+    const stats = [];
+    let globalTotals = {
       totalMal: 0,
       totalAbs: 0,
       totalRet: 0,
       totalAbsences: 0,
       totalDays: 0
+    };
+
+    employees.forEach(employee => {
+      const employeeAbsences = employee.absences || [];
+      
+      // Filtrer par période si spécifiée
+      let filteredAbsences = employeeAbsences;
+      if (startDate && endDate) {
+        const start = new Date(startDate);
+        const end = new Date(endDate);
+        filteredAbsences = employeeAbsences.filter(absence => {
+          const absenceStart = new Date(absence.startDate);
+          const absenceEnd = new Date(absence.endDate);
+          return absenceStart <= end && absenceEnd >= start;
+        });
+      }
+
+      // Compter par type
+      const malCount = filteredAbsences.filter(a => a.type === 'MAL' || a.type === 'Arrêt maladie').length;
+      const absCount = filteredAbsences.filter(a => a.type === 'ABS').length;
+      const retCount = filteredAbsences.filter(a => a.type === 'RET').length;
+      const totalAbsences = filteredAbsences.length;
+
+      // Calculer le total de jours
+      const totalDays = filteredAbsences.reduce((sum, absence) => {
+        const start = new Date(absence.startDate);
+        const end = new Date(absence.endDate);
+        const days = Math.ceil((end - start) / (1000 * 60 * 60 * 24)) + 1;
+        return sum + days;
+      }, 0);
+
+      if (totalAbsences > 0) {
+        stats.push({
+          employeeId: employee._id,
+          employeeName: employee.name,
+          absences: filteredAbsences,
+          totalAbsences,
+          totalDays,
+          malCount,
+          absCount,
+          retCount
+        });
+
+        // Ajouter aux totaux globaux
+        globalTotals.totalMal += malCount;
+        globalTotals.totalAbs += absCount;
+        globalTotals.totalRet += retCount;
+        globalTotals.totalAbsences += totalAbsences;
+        globalTotals.totalDays += totalDays;
+      }
     });
+
+    console.log(`📊 ${stats.length} employés avec absences trouvés`);
+    console.log('📊 Totaux globaux:', globalTotals);
 
     res.json({
       stats,

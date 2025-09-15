@@ -105,7 +105,8 @@ const EmployeeModal = ({ employee, onSave, onClose, employees = [] }) => {
       weeklyHours: parseInt(formData.weeklyHours),
       // S'assurer que les champs optionnels sont correctement formatés
       contractEndDate: formData.contractEndDate || undefined,
-      tutor: formData.tutor || undefined
+      tutor: formData.tutor || undefined,
+      email: formData.email || undefined
     };
 
     console.log('📤 Données préparées pour l\'envoi:', dataToSend);
