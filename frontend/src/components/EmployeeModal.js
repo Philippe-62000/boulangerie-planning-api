@@ -78,7 +78,7 @@ const EmployeeModal = ({ employee, onSave, onClose, employees = [] }) => {
     try {
       console.log('📧 Envoi du mot de passe pour:', employee.name, employee.email);
       
-      const response = await fetch(`https://boulangerie-planning-api-4-pbfy.onrender.com/api/auth/send-password/${employee._id}`, {
+      const response = await fetch(`https://boulangerie-planning-api-4-pbfy.onrender.com/api/employees/send-password/${employee._id}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

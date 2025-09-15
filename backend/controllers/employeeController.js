@@ -198,3 +198,67 @@ exports.declareSickLeave = async (req, res) => {
   }
 };
 
+// Envoyer un mot de passe à un employé (temporaire - en attendant la résolution jsonwebtoken)
+const sendPasswordToEmployee = async (req, res) => {
+  try {
+    const { employeeId } = req.params;
+    
+    console.log('📧 Envoi de mot de passe pour employé:', employeeId);
+    
+    // Trouver l'employé
+    const employee = await Employee.findById(employeeId);
+    if (!employee) {
+      return res.status(404).json({
+        success: false,
+        error: 'Employé non trouvé'
+      });
+    }
+    
+    if (!employee.email) {
+      return res.status(400).json({
+        success: false,
+        error: 'Aucun email configuré pour cet employé'
+      });
+    }
+    
+    // Générer un mot de passe temporaire simple
+    const tempPassword = Math.random().toString(36).slice(-8);
+    
+    // Envoyer l'email (simulation - en attendant le service email)
+    console.log(`📧 Email simulé envoyé à ${employee.email}:`);
+    console.log(`   - Employé: ${employee.name}`);
+    console.log(`   - Mot de passe temporaire: ${tempPassword}`);
+    console.log(`   - URL de connexion: https://www.filmara.fr/plan/salarie-connexion.html`);
+    
+    // TODO: Implémenter l'envoi d'email réel quand le service sera configuré
+    // Pour l'instant, on retourne le mot de passe dans la réponse (à des fins de test)
+    
+    res.json({
+      success: true,
+      message: `Mot de passe envoyé à ${employee.email}`,
+      tempPassword: tempPassword, // À retirer en production
+      employeeName: employee.name,
+      employeeEmail: employee.email
+    });
+    
+  } catch (error) {
+    console.error('❌ Erreur envoi mot de passe:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Erreur serveur lors de l\'envoi du mot de passe'
+    });
+  }
+};
+
+module.exports = {
+  getAllEmployees,
+  getEmployeeById,
+  createEmployee,
+  updateEmployee,
+  deleteEmployee,
+  updateEmployeeSkills,
+  updateEmployeeAbsence,
+  updateEmployeeSickLeave,
+  sendPasswordToEmployee
+};
+

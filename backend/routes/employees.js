@@ -12,5 +12,8 @@ router.patch('/:id/reactivate', employeeController.reactivateEmployee);
 router.patch('/:id/sick-leave', employeeController.declareSickLeave);
 router.delete('/:id', employeeController.deleteEmployee);
 
+// Route temporaire pour l'envoi de mot de passe (en attendant la résolution jsonwebtoken)
+router.post('/send-password/:employeeId', employeeController.sendPasswordToEmployee);
+
 module.exports = router;
 
