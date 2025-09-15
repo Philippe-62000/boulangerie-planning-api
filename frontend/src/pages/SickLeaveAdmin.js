@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import './SickLeaveAdmin.css';
 
@@ -17,14 +17,9 @@ const SickLeaveAdmin = () => {
   const [editingSickLeave, setEditingSickLeave] = useState(null);
   const [editFormData, setEditFormData] = useState({ startDate: '', endDate: '' });
 
-  const API_URL = process.env.REACT_APP_API_URL || 'https://boulangerie-planning-api-3.onrender.com/api';
+  const API_URL = process.env.REACT_APP_API_URL || 'https://boulangerie-planning-api-4-pbfy.onrender.com/api';
 
-  useEffect(() => {
-    fetchSickLeaves();
-    fetchStats();
-  }, [selectedStatus, currentPage, fetchSickLeaves, fetchStats]);
-
-  const fetchSickLeaves = async () => {
+  const fetchSickLeaves = useCallback(async () => {
     try {
       setLoading(true);
       console.log('📋 Récupération des arrêts maladie...');
@@ -81,7 +76,7 @@ const SickLeaveAdmin = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [selectedStatus, currentPage, API_URL]);
 
   // Fonction pour effacer toutes les données des arrêts maladie
   const clearAllSickLeaves = async () => {
@@ -121,7 +116,7 @@ const SickLeaveAdmin = () => {
     }
   };
 
-  const fetchStats = async () => {
+  const fetchStats = useCallback(async () => {
     try {
       console.log('📊 Récupération des statistiques...');
       const response = await axios.get(`${API_URL}/sick-leaves/stats/overview`);
@@ -144,7 +139,12 @@ const SickLeaveAdmin = () => {
         setStats(clientStats);
       }
     }
-  };
+  }, [API_URL]);
+
+  useEffect(() => {
+    fetchSickLeaves();
+    fetchStats();
+  }, [selectedStatus, currentPage, fetchSickLeaves, fetchStats]);
 
   const handleValidate = async (id) => {
     try {

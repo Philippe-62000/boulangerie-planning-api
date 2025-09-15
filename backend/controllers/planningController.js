@@ -786,7 +786,7 @@ class PlanningGenerator {
       
       // ÉTAPE 1 : Calculer les contraintes avec constraint-calculator
       console.log('🧮 Étape 1: Calcul des contraintes...');
-      const constraintsResponse = await fetch('https://constraint-calculator.onrender.com/calculate-constraints', {
+      const constraintsResponse = await fetch('https://constraint-calculator-pbfy.onrender.com/calculate-constraints', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -815,7 +815,7 @@ class PlanningGenerator {
       
       // ÉTAPE 2 : Générer le planning avec planning-generator
       console.log('🚀 Étape 2: Génération du planning...');
-      const planningResponse = await fetch('https://planning-generator.onrender.com/generate-planning', {
+      const planningResponse = await fetch('https://planning-generator-pbfy.onrender.com/generate-planning', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -1838,13 +1838,13 @@ class PlanningGenerator {
     try {
       // Test du service constraint-calculator
       console.log('🧮 Test du service constraint-calculator...');
-      const constraintResponse = await fetch('https://constraint-calculator.onrender.com/health');
+      const constraintResponse = await fetch('https://constraint-calculator-pbfy.onrender.com/health');
       const constraintHealth = await constraintResponse.json();
       console.log('✅ Constraint Calculator:', constraintHealth.status);
       
       // Test du service planning-generator
       console.log('🚀 Test du service planning-generator...');
-      const planningResponse = await fetch('https://planning-generator.onrender.com/health');
+      const planningResponse = await fetch('https://planning-generator-pbfy.onrender.com/health');
       const planningHealth = await planningResponse.json();
       console.log('✅ Planning Generator:', planningHealth.status);
       

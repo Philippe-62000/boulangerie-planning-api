@@ -12,7 +12,7 @@ const SickLeaveManagement = () => {
   const [message, setMessage] = useState('');
   const [messageType, setMessageType] = useState('');
 
-  const API_URL = process.env.REACT_APP_API_URL || 'https://boulangerie-planning-api-3.onrender.com/api';
+  const API_URL = process.env.REACT_APP_API_URL || 'https://boulangerie-planning-api-4-pbfy.onrender.com/api';
 
   useEffect(() => {
     fetchSickLeaves();

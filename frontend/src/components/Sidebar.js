@@ -44,7 +44,7 @@ const Sidebar = () => {
       if (!user) return;
 
       try {
-        const response = await fetch(`https://boulangerie-planning-api-3.onrender.com/api/menu-permissions?role=${user.role}`);
+        const response = await fetch(`https://boulangerie-planning-api-4-pbfy.onrender.com/api/menu-permissions?role=${user.role}`);
         
         // Vérifier si la réponse est du JSON
         const contentType = response.headers.get('content-type');

@@ -69,6 +69,34 @@ const Employees = () => {
     setShowModal(true);
   };
 
+  const handleSendPassword = async (employee) => {
+    try {
+      if (!employee.email) {
+        toast.error('Aucun email configuré pour cet employé');
+        return;
+      }
+
+      const confirmMessage = `Envoyer un mot de passe par email à ${employee.name} (${employee.email}) ?`;
+      if (!window.confirm(confirmMessage)) {
+        return;
+      }
+
+      console.log('🔐 Envoi mot de passe pour:', employee.name);
+      
+      const response = await api.post(`/auth/send-password/${employee._id}`);
+      
+      if (response.data.success) {
+        toast.success(`Mot de passe envoyé à ${employee.email}`);
+        console.log('✅ Mot de passe envoyé avec succès');
+      } else {
+        toast.error('Erreur lors de l\'envoi du mot de passe');
+      }
+    } catch (error) {
+      console.error('❌ Erreur envoi mot de passe:', error);
+      toast.error(`Erreur: ${error.response?.data?.error || error.message}`);
+    }
+  };
+
   const handleSaveEmployee = async (employeeData) => {
     try {
       console.log('🔍 Données employé à sauvegarder:', employeeData);
@@ -370,6 +398,16 @@ const Employees = () => {
                     >
                       ✏️ Modifier
                     </button>
+                    {employee.email && (
+                      <button
+                        className="btn btn-info"
+                        onClick={() => handleSendPassword(employee)}
+                        style={{ fontSize: '0.9rem', padding: '0.5rem 1rem', marginLeft: '0.5rem' }}
+                        title="Envoyer un mot de passe par email"
+                      >
+                        🔐 Mot de passe
+                      </button>
+                    )}
                     {employee.isActive ? (
                       <button
                         className="btn btn-danger"

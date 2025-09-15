@@ -33,11 +33,11 @@ const AbsenceStatusPage = () => {
         });
       }
       
-      // Vérifier que response.data est un tableau
-      if (Array.isArray(response.data)) {
-        setEmployees(response.data);
+      // Vérifier que response.data.data est un tableau
+      if (response.data.success && Array.isArray(response.data.data)) {
+        setEmployees(response.data.data);
       } else {
-        console.error('❌ response.data n\'est pas un tableau:', response.data);
+        console.error('❌ response.data.data n\'est pas un tableau:', response.data);
         setEmployees([]);
       }
     } catch (error) {

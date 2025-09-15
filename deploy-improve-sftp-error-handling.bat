@@ -1,4 +1,4 @@
-@echo off
+ion des salariés@echo off
 echo ======================================== AMÉLIORATION GESTION ERREURS SFTP ========================================
 echo [1/3] Amélioration de la gestion des erreurs SFTP...
 echo ✅ Vérification d'existence avant création
@@ -24,6 +24,7 @@ echo 📁 Continuation du processus même en cas d'erreur
 echo ⏳ Attendez 2-3 minutes puis testez l'upload !
 echo 🎉 L'upload devrait maintenant être plus robuste !
 pause
+
 
 
 

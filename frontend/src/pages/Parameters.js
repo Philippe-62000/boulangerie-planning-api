@@ -696,6 +696,8 @@ const Parameters = () => {
                         {permission.menuId === 'meal-expenses' && '🍽️'}
                         {permission.menuId === 'km-expenses' && '🚗'}
                         {permission.menuId === 'employee-status-print' && '🖨️'}
+                        {permission.menuId === 'sick-leave-management' && '🏥'}
+                        {permission.menuId === 'vacation-management' && '🏖️'}
                       </span>
                       {permission.menuName}
                     </div>
@@ -1091,6 +1093,7 @@ const Parameters = () => {
                             {template.name === 'vacation_request_confirmation' && '🏖️ Confirmation Congés'}
                             {template.name === 'vacation_request_alert' && '🚨 Alerte Congés'}
                             {template.name === 'vacation_request_validation' && '✅ Validation Congés'}
+                            {template.name === 'employee_password' && '🔐 Mot de Passe Salarié'}
                           </span>
                         </div>
                         <p className="template-description">{template.description}</p>

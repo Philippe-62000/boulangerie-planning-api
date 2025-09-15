@@ -11,6 +11,7 @@ const EmployeeModal = ({ employee, onSave, onClose, employees = [] }) => {
     trainingDays: [],
     contractEndDate: '',
     tutor: '',
+    email: '',
     isActive: true
   });
 
@@ -26,6 +27,7 @@ const EmployeeModal = ({ employee, onSave, onClose, employees = [] }) => {
         trainingDays: employee.trainingDays || [],
         contractEndDate: employee.contractEndDate ? new Date(employee.contractEndDate).toISOString().split('T')[0] : '',
         tutor: employee.tutor || '',
+        email: employee.email || '',
         isActive: employee.isActive !== undefined ? employee.isActive : true
       });
     }
@@ -184,6 +186,19 @@ const EmployeeModal = ({ employee, onSave, onClose, employees = [] }) => {
                 max="65"
                 required
               />
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Email</label>
+              <input
+                type="email"
+                name="email"
+                value={formData.email}
+                onChange={handleInputChange}
+                className="form-control"
+                placeholder="exemple@email.com"
+              />
+              <small className="form-text">Email pour l'envoi des identifiants de connexion</small>
             </div>
           </div>
 

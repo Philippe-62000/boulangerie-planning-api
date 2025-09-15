@@ -18,7 +18,7 @@ const SickLeaveUpload = () => {
   const [employees, setEmployees] = useState([]);
   const [loadingEmployees, setLoadingEmployees] = useState(true);
 
-  const API_URL = process.env.REACT_APP_API_URL || 'https://boulangerie-planning-api-3.onrender.com/api';
+  const API_URL = process.env.REACT_APP_API_URL || 'https://boulangerie-planning-api-4-pbfy.onrender.com/api';
 
   // Charger la liste des employés
   useEffect(() => {

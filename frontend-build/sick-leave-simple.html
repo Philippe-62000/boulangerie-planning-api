@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Envoi d'Arrêt Maladie - Boulangerie</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .container {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            padding: 40px;
+            max-width: 600px;
+            width: 100%;
+            margin: 20px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 2.2em;
+        }
+
+        .header p {
+            color: #666;
+            font-size: 1.1em;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 8px;
+            font-size: 1em;
+        }
+
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid #e1e5e9;
+            border-radius: 8px;
+            font-size: 1em;
+            transition: border-color 0.3s ease;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .date-group {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        .file-upload-area {
+            position: relative;
+            margin-bottom: 20px;
+        }
+
+        .file-input {
+            position: absolute;
+            opacity: 0;
+            width: 100%;
+            height: 100%;
+            cursor: pointer;
+        }
+
+        .file-label {
+            display: block;
+            border: 2px dashed #e1e5e9;
+            border-radius: 8px;
+            padding: 30px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: #f8f9fa;
+        }
+
+        .file-label:hover {
+            border-color: #667eea;
+            background: #f0f2ff;
+        }
+
+        .file-placeholder {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+            color: #666;
+        }
+
+        .upload-icon {
+            font-size: 2em;
+        }
+
+        .file-selected {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: #333;
+            font-weight: 500;
+        }
+
+        .file-icon {
+            font-size: 1.5em;
+        }
+
+        .file-name {
+            flex: 1;
+            text-align: left;
+        }
+
+        .file-size {
+            color: #666;
+            font-size: 0.9em;
+        }
+
+        .submit-button {
+            width: 100%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 8px;
+            font-size: 1.1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .submit-button:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(102, 126, 234, 0.3);
+        }
+
+        .submit-button:disabled {
+            opacity: 0.7;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .spinner {
+            width: 20px;
+            height: 20px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-top: 2px solid white;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .message {
+            padding: 15px;
+            border-radius: 8px;
+            font-weight: 500;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .message.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .message.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .info {
+            margin-top: 30px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+        }
+
+        .info h3 {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 1.1em;
+        }
+
+        .info ul {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .info li {
+            color: #666;
+            margin-bottom: 8px;
+            padding-left: 20px;
+            position: relative;
+        }
+
+        .info li::before {
+            content: "✓";
+            position: absolute;
+            left: 0;
+            color: #667eea;
+            font-weight: bold;
+        }
+
+        .readonly-input {
+            background: #f8f9fa !important;
+            color: #666 !important;
+            cursor: not-allowed;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 20px;
+                margin: 10px;
+            }
+            
+            .header h1 {
+                font-size: 1.8em;
+            }
+            
+            .date-group {
+                grid-template-columns: 1fr;
+            }
+            
+            .file-label {
+                padding: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📋 Envoi d'Arrêt Maladie</h1>
+            <p>Envoyez votre arrêt maladie</p>
+        </div>
+
+        <form id="sickLeaveForm">
+            <div class="form-group">
+                <label for="employeeName">Nom complet *</label>
+                <select id="employeeName" name="employeeName" required>
+                    <option value="">Sélectionnez votre nom</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="employeeEmail">Email *</label>
+                <input type="email" id="employeeEmail" name="employeeEmail" required 
+                       placeholder="votre.email@exemple.com">
+            </div>
+
+            <div class="date-group">
+                <div class="form-group">
+                    <label for="startDate">Date de début d'arrêt *</label>
+                    <input type="date" id="startDate" name="startDate" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="endDate">Date de fin d'arrêt *</label>
+                    <input type="date" id="endDate" name="endDate" required>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="fileInput">Arrêt maladie (JPG ou PDF) *</label>
+                <div class="file-upload-area">
+                    <input type="file" id="fileInput" accept=".jpg,.jpeg,.pdf" required class="file-input">
+                    <label for="fileInput" class="file-label">
+                        <div id="filePlaceholder" class="file-placeholder">
+                            <span class="upload-icon">📤</span>
+                            <span>Cliquez pour sélectionner un fichier</span>
+                            <small>JPG, PDF (max 10MB)</small>
+                        </div>
+                    </label>
+                </div>
+            </div>
+
+            <div id="messageContainer"></div>
+
+            <button type="submit" class="submit-button" id="submitButton">
+                📤 Envoyer l'arrêt maladie
+            </button>
+        </form>
+
+        <div class="info">
+            <h3>ℹ️ Informations importantes</h3>
+            <ul>
+                <li>Seuls les fichiers JPG et PDF sont acceptés</li>
+                <li>Taille maximum : 10MB</li>
+                <li>Vous recevrez une confirmation par email si votre arrêt nous est bien transmis</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = 'https://boulangerie-planning-api-3.onrender.com/api';
+        let employees = [];
+        let uploading = false;
+
+        // Charger la liste des employés
+        async function loadEmployees() {
+            try {
+                console.log('🔄 Chargement des employés depuis:', `${API_URL}/employees`);
+                const response = await fetch(`${API_URL}/employees`);
+                
+                console.log('📡 Réponse reçue:', response.status, response.statusText);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                console.log('📊 Données reçues:', data);
+                
+                // L'API peut retourner soit { success: true, data: [...] } soit directement [...]
+                let employeesData = null;
+                if (data.success && data.data) {
+                    employeesData = data.data;
+                } else if (Array.isArray(data)) {
+                    employeesData = data;
+                }
+                
+                if (employeesData && Array.isArray(employeesData)) {
+                    employees = employeesData;
+                    const select = document.getElementById('employeeName');
+                    select.innerHTML = '<option value="">Sélectionnez votre nom</option>';
+                    
+                    employees.forEach(employee => {
+                        const option = document.createElement('option');
+                        option.value = employee.name;
+                        option.textContent = employee.name;
+                        option.setAttribute('data-email', employee.email);
+                        select.appendChild(option);
+                    });
+                    
+                    console.log(`✅ ${employees.length} employés chargés`);
+                } else {
+                    console.error('❌ Réponse API invalide:', data);
+                    showMessage('Erreur: Format de réponse invalide de l\'API', 'error');
+                }
+            } catch (error) {
+                console.error('❌ Erreur chargement employés:', error);
+                showMessage(`Erreur lors du chargement de la liste des employés: ${error.message}`, 'error');
+                
+                // En cas d'erreur, permettre la saisie manuelle
+                const select = document.getElementById('employeeName');
+                select.innerHTML = '<option value="">Erreur de chargement - Saisie manuelle</option>';
+            }
+        }
+
+        // Gestion du changement de nom d'employé
+        document.getElementById('employeeName').addEventListener('change', function() {
+            const selectedOption = this.options[this.selectedIndex];
+            const emailInput = document.getElementById('employeeEmail');
+            
+            if (selectedOption && selectedOption.hasAttribute('data-email')) {
+                emailInput.value = selectedOption.getAttribute('data-email');
+                console.log('📧 Email auto-rempli:', selectedOption.getAttribute('data-email'));
+            } else {
+                emailInput.value = '';
+            }
+        });
+
+        // Gestion du fichier
+        document.getElementById('fileInput').addEventListener('change', function() {
+            const file = this.files[0];
+            const placeholder = document.getElementById('filePlaceholder');
+            
+            if (file) {
+                // Vérification du type
+                const allowedTypes = ['image/jpeg', 'image/jpg', 'application/pdf'];
+                if (!allowedTypes.includes(file.type)) {
+                    showMessage('Seuls les fichiers JPG et PDF sont acceptés', 'error');
+                    this.value = '';
+                    return;
+                }
+
+                // Vérification de la taille
+                if (file.size > 10 * 1024 * 1024) {
+                    showMessage('Le fichier ne doit pas dépasser 10MB', 'error');
+                    this.value = '';
+                    return;
+                }
+
+                placeholder.innerHTML = `
+                    <div class="file-selected">
+                        <span class="file-icon">📄</span>
+                        <span class="file-name">${file.name}</span>
+                        <span class="file-size">(${(file.size / 1024 / 1024).toFixed(2)} MB)</span>
+                    </div>
+                `;
+            } else {
+                placeholder.innerHTML = `
+                    <div class="file-placeholder">
+                        <span class="upload-icon">📤</span>
+                        <span>Cliquez pour sélectionner un fichier</span>
+                        <small>JPG, PDF (max 10MB)</small>
+                    </div>
+                `;
+            }
+        });
+
+        // Gestion de la soumission
+        document.getElementById('sickLeaveForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            if (uploading) return;
+            
+            const formData = new FormData();
+            const fileInput = document.getElementById('fileInput');
+            
+            if (!fileInput.files[0]) {
+                showMessage('Veuillez sélectionner un fichier', 'error');
+                return;
+            }
+
+            uploading = true;
+            const submitButton = document.getElementById('submitButton');
+            submitButton.innerHTML = '<span class="spinner"></span> Envoi en cours...';
+            submitButton.disabled = true;
+
+            try {
+                formData.append('sickLeaveFile', fileInput.files[0]);
+                formData.append('employeeName', document.getElementById('employeeName').value);
+                formData.append('employeeEmail', document.getElementById('employeeEmail').value);
+                formData.append('startDate', document.getElementById('startDate').value);
+                formData.append('endDate', document.getElementById('endDate').value);
+
+                const response = await fetch(`${API_URL}/sick-leaves/upload`, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    showMessage('Arrêt maladie envoyé avec succès !', 'success');
+                    this.reset();
+                    document.getElementById('filePlaceholder').innerHTML = `
+                        <div class="file-placeholder">
+                            <span class="upload-icon">📤</span>
+                            <span>Cliquez pour sélectionner un fichier</span>
+                            <small>JPG, PDF (max 10MB)</small>
+                        </div>
+                    `;
+                } else {
+                    showMessage(result.error || 'Erreur lors de l\'envoi', 'error');
+                }
+            } catch (error) {
+                console.error('Erreur upload:', error);
+                showMessage('Erreur lors de l\'envoi de l\'arrêt maladie', 'error');
+            } finally {
+                uploading = false;
+                submitButton.innerHTML = '📤 Envoyer l\'arrêt maladie';
+                submitButton.disabled = false;
+            }
+        });
+
+        // Afficher un message
+        function showMessage(text, type) {
+            const container = document.getElementById('messageContainer');
+            container.innerHTML = `<div class="message ${type}">${text}</div>`;
+            
+            // Supprimer le message après 5 secondes
+            setTimeout(() => {
+                container.innerHTML = '';
+            }, 5000);
+        }
+
+        // Initialisation
+        document.addEventListener('DOMContentLoaded', function() {
+            loadEmployees();
+            
+            // Définir la date max pour les dates
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('startDate').max = today;
+            document.getElementById('endDate').min = today;
+        });
+    </script>
+</body>
+</html>

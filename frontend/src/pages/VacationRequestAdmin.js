@@ -143,6 +143,17 @@ const VacationRequestAdmin = () => {
       <div className="page-header">
         <h1>🏖️ Gestion des Congés</h1>
         <p>Validez ou rejetez les demandes de congés des employés</p>
+        <div style={{ marginTop: '10px' }}>
+          <a 
+            href="/vacation-request-standalone.html" 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="btn btn-primary"
+            style={{ textDecoration: 'none' }}
+          >
+            📝 Formulaire de demande de congés
+          </a>
+        </div>
       </div>
 
       <div className="filters">

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import api from '../services/api';
 import { toast } from 'react-toastify';
 import './MealExpenses.css';
@@ -10,14 +10,11 @@ const MealExpenses = () => {
   const [month, setMonth] = useState(new Date().getMonth() + 1);
   const [year, setYear] = useState(new Date().getFullYear());
 
-  useEffect(() => {
-    fetchExpenses();
-  }, [month, year, fetchExpenses]);
-
-  const fetchExpenses = async () => {
+  const fetchExpenses = useCallback(async () => {
     setLoading(true);
     try {
       const response = await api.get(`/meal-expenses?month=${month}&year=${year}`);
+      console.log('📊 Données frais repas reçues:', response.data);
       setExpenses(response.data);
     } catch (error) {
       console.error('Erreur lors du chargement des frais repas:', error);
@@ -25,7 +22,11 @@ const MealExpenses = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [month, year]);
+
+  useEffect(() => {
+    fetchExpenses();
+  }, [fetchExpenses]);
 
   const handleExpenseChange = (employeeIndex, day, value) => {
     const newExpenses = [...expenses];

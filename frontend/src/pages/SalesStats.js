@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import './SalesStats.css';
 
 const SalesStats = () => {
@@ -28,17 +28,10 @@ const SalesStats = () => {
     fetchEmployees();
   }, []);
 
-  // Charger les données de la période actuelle au montage
-  useEffect(() => {
-    if (employees.length > 0 && currentMonth && currentYear) {
-      loadSalesDataForPeriod();
-    }
-  }, [employees, currentMonth, currentYear, loadSalesDataForPeriod]);
-
   // Charger les employés
   const fetchEmployees = async () => {
     try {
-      const response = await fetch('https://boulangerie-planning-api-3.onrender.com/api/employees');
+      const response = await fetch('https://boulangerie-planning-api-4-pbfy.onrender.com/api/employees');
       if (response.ok) {
         const data = await response.json();
         // S'assurer que data est un tableau
@@ -86,7 +79,7 @@ const SalesStats = () => {
      // Supprimer les données du mois
    // const deleteSalesData = async () => {
    //   try {
-   //     const response = await fetch(`https://boulangerie-planning-api-3.onrender.com/api/sales-stats/period/${currentMonth}/${currentYear}`, {
+   //     const response = await fetch(`https://boulangerie-planning-api-4-pbfy.onrender.com/api/sales-stats/period/${currentMonth}/${currentYear}`, {
    //       method: 'DELETE'
    //     });
    //     
@@ -113,7 +106,7 @@ const SalesStats = () => {
         salesData: salesData
       };
 
-      const response = await fetch('https://boulangerie-planning-api-3.onrender.com/api/sales-stats', {
+      const response = await fetch('https://boulangerie-planning-api-4-pbfy.onrender.com/api/sales-stats', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -146,9 +139,9 @@ const SalesStats = () => {
   };
 
   // Charger les données de vente pour la période actuelle
-  const loadSalesDataForPeriod = async () => {
+  const loadSalesDataForPeriod = useCallback(async () => {
     try {
-      const response = await fetch(`https://boulangerie-planning-api-3.onrender.com/api/sales-stats/period/${currentMonth}/${currentYear}`);
+      const response = await fetch(`https://boulangerie-planning-api-4-pbfy.onrender.com/api/sales-stats/period/${currentMonth}/${currentYear}`);
       if (response.ok) {
         const data = await response.json();
         if (data.success && data.data && data.data.salesData) {
@@ -188,12 +181,19 @@ const SalesStats = () => {
     } catch (error) {
       console.error('Erreur lors du chargement des données de la période:', error);
     }
-  };
+  }, [currentMonth, currentYear]);
+
+  // Charger les données de la période actuelle au montage
+  useEffect(() => {
+    if (employees.length > 0 && currentMonth && currentYear) {
+      loadSalesDataForPeriod();
+    }
+  }, [employees, currentMonth, currentYear, loadSalesDataForPeriod]);
 
   // Charger les statistiques mensuelles
-  const loadMonthlyStats = async () => {
+  const loadMonthlyStats = useCallback(async () => {
     try {
-      const response = await fetch(`https://boulangerie-planning-api-3.onrender.com/api/sales-stats/monthly/${currentYear}`);
+      const response = await fetch(`https://boulangerie-planning-api-4-pbfy.onrender.com/api/sales-stats/monthly/${currentYear}`);
       if (response.ok) {
         const data = await response.json();
         if (data.success) {
@@ -203,7 +203,7 @@ const SalesStats = () => {
     } catch (error) {
       console.error('Erreur lors du chargement des stats mensuelles:', error);
     }
-  };
+  }, [currentYear]);
 
   // Charger les stats au changement d'année
   useEffect(() => {

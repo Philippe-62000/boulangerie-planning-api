@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import api from '../services/api';
 import { toast } from 'react-toastify';
 
@@ -29,12 +29,6 @@ const Planning = () => {
       setWeekNumber(currentWeek);
     }
   }, []);
-
-  useEffect(() => {
-    if (weekNumber && year) {
-      fetchPlanning();
-    }
-  }, [weekNumber, year, fetchPlanning]);
 
   const getWeekNumber = (date) => {
     const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
@@ -74,7 +68,7 @@ const Planning = () => {
     }
   };
 
-  const fetchPlanning = async () => {
+  const fetchPlanning = useCallback(async () => {
     try {
       setLoading(true);
       const response = await api.get(`/planning/${weekNumber}/${year}`);
@@ -84,7 +78,13 @@ const Planning = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [weekNumber, year]);
+
+  useEffect(() => {
+    if (weekNumber && year) {
+      fetchPlanning();
+    }
+  }, [weekNumber, year, fetchPlanning]);
 
   const generatePlanning = async () => {
     if (!weekNumber || !year) {

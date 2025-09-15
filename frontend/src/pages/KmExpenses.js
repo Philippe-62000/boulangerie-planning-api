@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import api from '../services/api';
 import { toast } from 'react-toastify';
 import './KmExpenses.css';
@@ -11,11 +11,7 @@ const KmExpenses = () => {
   const [month, setMonth] = useState(new Date().getMonth() + 1);
   const [year, setYear] = useState(new Date().getFullYear());
 
-  useEffect(() => {
-    fetchExpenses();
-  }, [month, year, fetchExpenses]);
-
-  const fetchExpenses = async () => {
+  const fetchExpenses = useCallback(async () => {
     setLoading(true);
     try {
       console.log('📊 Chargement des frais KM pour:', { month, year });
@@ -66,7 +62,11 @@ const KmExpenses = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [month, year]);
+
+  useEffect(() => {
+    fetchExpenses();
+  }, [fetchExpenses]);
 
   const handleCountChange = (employeeIndex, parameterIndex, value) => {
     const newExpenses = [...expenses];

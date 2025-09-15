@@ -37,12 +37,6 @@ const Constraints = () => {
     setWeekNumber(currentWeek);
   }, []);
 
-  useEffect(() => {
-    if (weekNumber && year) {
-      fetchConstraints();
-    }
-  }, [weekNumber, year, fetchConstraints]);
-
   // Appliquer automatiquement les jours de formation pour les apprentis
   useEffect(() => {
     if (employees.length > 0 && Object.keys(constraints).length > 0) {
@@ -120,6 +114,12 @@ const Constraints = () => {
       setConstraints(emptyConstraints);
     }
   };
+
+  useEffect(() => {
+    if (weekNumber && year) {
+      fetchConstraints();
+    }
+  }, [weekNumber, year, fetchConstraints]);
 
   const handleConstraintChange = (employeeId, day, value) => {
     setConstraints(prev => ({

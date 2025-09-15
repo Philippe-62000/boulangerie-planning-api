@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import './AbsenceStatus.css';
 
 const AbsenceStatus = ({ employees }) => {
@@ -10,11 +10,7 @@ const AbsenceStatus = ({ employees }) => {
     byEmployee: []
   });
 
-  useEffect(() => {
-    calculateAbsenceStats();
-  }, [employees, selectedPeriod, selectedMonth, selectedYear, calculateAbsenceStats]);
-
-  const calculateAbsenceStats = () => {
+  const calculateAbsenceStats = useCallback(() => {
     try {
       // Vérifier que employees est un tableau
       if (!Array.isArray(employees)) {
@@ -153,7 +149,11 @@ const AbsenceStatus = ({ employees }) => {
         byEmployee: []
       });
     }
-  };
+  }, [employees, selectedPeriod, selectedMonth, selectedYear]);
+
+  useEffect(() => {
+    calculateAbsenceStats();
+  }, [calculateAbsenceStats]);
 
   const getPeriodLabel = () => {
     const now = new Date();
