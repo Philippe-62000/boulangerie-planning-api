@@ -34,8 +34,15 @@ const SalesStats = () => {
       const response = await fetch('https://boulangerie-planning-api-4-pbfy.onrender.com/api/employees');
       if (response.ok) {
         const data = await response.json();
-        // S'assurer que data est un tableau
-        const employeesArray = Array.isArray(data) ? data : (data.employees || []);
+        // S'assurer que data est un tableau - gérer le nouveau format API
+        let employeesArray = [];
+        if (Array.isArray(data)) {
+          employeesArray = data;
+        } else if (data.success && Array.isArray(data.data)) {
+          employeesArray = data.data;
+        } else if (data.employees && Array.isArray(data.employees)) {
+          employeesArray = data.employees;
+        }
         setEmployees(employeesArray);
         
         // Initialiser les données de vente pour chaque employé

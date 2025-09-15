@@ -296,6 +296,7 @@ const Employees = () => {
                 <th>Compétences</th>
                 <th>Jours formation</th>
                 <th>Arrêt maladie</th>
+                <th>Absences</th>
                 <th>Statut</th>
                 <th>Actions</th>
               </tr>
@@ -379,6 +380,22 @@ const Employees = () => {
                         );
                       }
                       
+                      return '-';
+                    })()}
+                  </td>
+                  <td>
+                    {(() => {
+                      // Compter les absences non-maladie
+                      const otherAbsences = (Array.isArray(employee.absences) ? employee.absences : [])
+                        .filter(absence => absence.type !== 'Arrêt maladie');
+                      
+                      if (otherAbsences.length > 0) {
+                        return (
+                          <span style={{ color: '#ffc107', fontWeight: 'bold' }}>
+                            {otherAbsences.length} absence{otherAbsences.length > 1 ? 's' : ''}
+                          </span>
+                        );
+                      }
                       return '-';
                     })()}
                   </td>

@@ -248,3 +248,4 @@ En cas de problème :
 **Auteur** : Assistant IA  
 **Statut** : ✅ Déployé et opérationnel
 
+kl 

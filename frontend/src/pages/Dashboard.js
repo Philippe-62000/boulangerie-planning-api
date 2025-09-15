@@ -107,7 +107,7 @@ const Dashboard = () => {
       <h2>📊 Tableau de bord</h2>
 
       {/* Récapitulatif : Arrêts maladie */}
-      <div className="card">
+      <div className="card" style={{ marginBottom: '2rem' }}>
         <h3>🏥 Récapitulatif : Arrêts maladie</h3>
         {sickEmployees.length === 0 ? (
           <p>Aucun employé en arrêt maladie</p>
@@ -148,7 +148,7 @@ const Dashboard = () => {
       </div>
 
       {/* Récapitulatif : Congés */}
-      <div className="card">
+      <div className="card" style={{ marginBottom: '2rem' }}>
         <h3>🏖️ Récapitulatif : Congés</h3>
         {vacationEmployees.length === 0 ? (
           <p>Aucun employé en congés dans les 8 prochains jours</p>
@@ -191,7 +191,7 @@ const Dashboard = () => {
       </div>
 
       {/* État Âge : Salariés mineurs */}
-      <div className="card">
+      <div className="card" style={{ marginBottom: '2rem' }}>
         <h3>🎂 État Âge : Salariés mineurs</h3>
         {minorEmployees.length === 0 ? (
           <p>Aucun employé mineur</p>

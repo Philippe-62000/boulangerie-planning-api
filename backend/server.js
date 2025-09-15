@@ -66,6 +66,14 @@ mongoose.connect(config.MONGODB_URI, {
   } catch (error) {
     console.error('❌ Erreur initialisation permissions:', error);
   }
+  
+  // Nettoyage automatique des arrêts maladie expirés
+  try {
+    const cleanupController = require('./controllers/cleanupController');
+    await cleanupController.autoCleanup();
+  } catch (error) {
+    console.error('❌ Erreur nettoyage automatique:', error);
+  }
 })
 .catch(err => console.error('❌ Erreur de connexion MongoDB:', err));
 
@@ -84,6 +92,7 @@ app.use('/api/parameters', require('./routes/parameters'));
 app.use('/api/km-expenses', require('./routes/kmExpenses'));
 app.use('/api/employee-status', require('./routes/employeeStatus'));
 app.use('/api/sick-leaves', require('./routes/sickLeaves'));
+app.use('/api/cleanup', require('./routes/cleanup'));
 app.use('/api/vacation-requests', require('./routes/vacationRequests'));
 app.use('/api/email-templates', require('./routes/emailTemplates'));
 app.use('/api/database', require('./routes/database'));
