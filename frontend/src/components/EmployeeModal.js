@@ -59,6 +59,45 @@ const EmployeeModal = ({ employee, onSave, onClose, employees = [] }) => {
     }));
   };
 
+  const handleSendPassword = async () => {
+    if (!employee || !employee.email) {
+      alert('❌ Aucun email configuré pour cet employé');
+      return;
+    }
+
+    const confirmMessage = `📧 Envoyer les informations de connexion à ${employee.email} ?\n\n` +
+      `- Email: ${employee.email}\n` +
+      `- URL de connexion: https://www.filmara.fr/salarie-connexion\n` +
+      `- Mot de passe: [Généré automatiquement]\n\n` +
+      `Confirmer l'envoi ?`;
+    
+    if (!window.confirm(confirmMessage)) {
+      return;
+    }
+
+    try {
+      console.log('📧 Envoi du mot de passe pour:', employee.name, employee.email);
+      
+      const response = await fetch(`https://boulangerie-planning-api-4-pbfy.onrender.com/api/auth/send-password/${employee._id}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      });
+
+      const result = await response.json();
+      
+      if (result.success) {
+        alert(`✅ Mot de passe envoyé avec succès à ${employee.email}`);
+      } else {
+        alert(`❌ Erreur lors de l'envoi: ${result.error || 'Erreur inconnue'}`);
+      }
+    } catch (error) {
+      console.error('❌ Erreur envoi mot de passe:', error);
+      alert(`❌ Erreur lors de l'envoi: ${error.message}`);
+    }
+  };
+
   const handleSubmit = (e) => {
     e.preventDefault();
 
@@ -321,6 +360,16 @@ const EmployeeModal = ({ employee, onSave, onClose, employees = [] }) => {
             >
               Annuler
             </button>
+            {employee && (
+              <button
+                type="button"
+                className="btn btn-info"
+                onClick={handleSendPassword}
+                title="Envoyer les informations de connexion par email"
+              >
+                📧 Envoyer mot de passe
+              </button>
+            )}
             <button
               type="submit"
               className="btn btn-primary"

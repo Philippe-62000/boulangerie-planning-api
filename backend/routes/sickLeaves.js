@@ -22,6 +22,12 @@ router.post('/upload',
   sickLeaveController.uploadSickLeave
 );
 
+// Supprimer tous les arrêts maladie (admin uniquement) - DOIT être avant /:id
+router.delete('/all', sickLeaveController.deleteAllSickLeaves);
+
+// Obtenir les statistiques
+router.get('/stats/overview', sickLeaveController.getStats);
+
 // Récupérer un arrêt maladie par ID
 router.get('/:id', sickLeaveController.getSickLeaveById);
 
@@ -40,13 +46,7 @@ router.put('/:id/declare', sickLeaveController.markAsDeclared);
 // Modifier les dates d'un arrêt maladie
 router.put('/:id', sickLeaveController.updateSickLeave);
 
-// Obtenir les statistiques
-router.get('/stats/overview', sickLeaveController.getStats);
-
 // Supprimer un arrêt maladie
 router.delete('/:id', sickLeaveController.deleteSickLeave);
-
-// Supprimer tous les arrêts maladie (admin uniquement)
-router.delete('/all', sickLeaveController.deleteAllSickLeaves);
 
 module.exports = router;

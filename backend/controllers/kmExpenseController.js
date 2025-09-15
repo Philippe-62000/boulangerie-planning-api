@@ -18,8 +18,10 @@ const getKmExpenses = async (req, res) => {
     
     console.log(`📊 ${employees.length} employés récupérés pour les frais KM`);
     
-    // Récupérer tous les paramètres
-    const parameters = await Parameter.find().sort({ name: 1 });
+    // Récupérer uniquement les paramètres KM (ceux qui ont un kmValue > 0)
+    const parameters = await Parameter.find({ 
+      kmValue: { $gt: 0 } 
+    }).sort({ name: 1 });
     
     // Récupérer les frais KM existants pour ce mois/année
     const existingExpenses = await KmExpense.find({ 
