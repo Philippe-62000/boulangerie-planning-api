@@ -145,7 +145,7 @@ const VacationRequestAdmin = () => {
         <p>Validez ou rejetez les demandes de congés des employés</p>
         <div style={{ marginTop: '10px' }}>
           <a 
-            href="/vacation-request-standalone.html" 
+            href="/plan/vacation-request-standalone.html" 
             target="_blank" 
             rel="noopener noreferrer"
             className="btn btn-primary"

@@ -318,22 +318,7 @@
                     }, 1000);
                     
                 } else {
-                    // Améliorer le message d'erreur selon le type d'erreur
-                    let errorMessage = 'Erreur de connexion';
-                    if (data.error) {
-                        if (data.error.includes('email') || data.error.includes('Email')) {
-                            errorMessage = '❌ Email incorrect. Vérifiez votre adresse email.';
-                        } else if (data.error.includes('mot de passe') || data.error.includes('password') || data.error.includes('Mot de passe')) {
-                            errorMessage = '❌ Mot de passe incorrect. Vérifiez votre mot de passe.';
-                        } else if (data.error.includes('Employé non trouvé')) {
-                            errorMessage = '❌ Aucun compte trouvé avec cet email.';
-                        } else {
-                            errorMessage = `❌ ${data.error}`;
-                        }
-                    } else {
-                        errorMessage = '❌ Email ou mot de passe incorrect.';
-                    }
-                    showAlert(errorMessage);
+                    showAlert(data.error || 'Erreur de connexion');
                     setFormEnabled(true);
                 }
 

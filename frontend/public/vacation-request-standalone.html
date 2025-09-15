@@ -247,18 +247,26 @@
                 const response = await fetch(`${API_URL}/employees`);
                 const data = await response.json();
                 
-                if (data && Array.isArray(data)) {
-                    employees = data;
+                // L'API peut retourner soit { success: true, data: [...] } soit directement [...]
+                let employeesData = null;
+                if (data.success && data.data && Array.isArray(data.data)) {
+                    employeesData = data.data;
+                } else if (Array.isArray(data)) {
+                    employeesData = data;
+                }
+                
+                if (employeesData) {
+                    employees = employeesData;
                     const select = document.getElementById('employeeName');
                     select.innerHTML = '<option value="">Sélectionnez votre nom</option>';
                     
-                    data.forEach(employee => {
+                    employeesData.forEach(employee => {
                         const option = document.createElement('option');
                         option.value = employee.name;
                         option.textContent = `${employee.name} - ${employee.role}`;
                         select.appendChild(option);
                     });
-                    console.log('✅ Employés chargés:', data.length);
+                    console.log('✅ Employés chargés:', employeesData.length);
                 } else {
                     console.error('❌ Format de données invalide:', data);
                     showMessage('Erreur lors du chargement de la liste des employés', 'error');
