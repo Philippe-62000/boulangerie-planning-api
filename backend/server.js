@@ -70,7 +70,7 @@ mongoose.connect(config.MONGODB_URI, {
 .catch(err => console.error('❌ Erreur de connexion MongoDB:', err));
 
 // Routes
-app.use('/api/auth', require('./routes/auth'));
+// app.use('/api/auth', require('./routes/auth')); // Temporairement désactivé
 app.use('/api/menu-permissions', require('./routes/menuPermissions'));
 app.use('/api/passwords', require('./routes/passwords'));
 app.use('/api/site', require('./routes/site'));
@@ -103,11 +103,11 @@ app.get('/', (req, res) => {
   res.json({ 
     message: `${config.APP_NAME} v${config.APP_VERSION}`,
     environment: config.NODE_ENV,
-          endpoints: {
-        health: '/health',
-        auth: '/api/auth',
-        menuPermissions: '/api/menu-permissions',
-        employees: '/api/employees',
+    endpoints: {
+      health: '/health',
+      // auth: '/api/auth', // Temporairement désactivé
+      menuPermissions: '/api/menu-permissions',
+      employees: '/api/employees',
         planning: '/api/planning',
         constraints: '/api/constraints',
         salesStats: '/api/sales-stats',
