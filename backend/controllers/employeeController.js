@@ -61,7 +61,7 @@ const getAllEmployees = async (req, res) => {
 };
 
 // Obtenir un employé par ID
-exports.getEmployeeById = async (req, res) => {
+const getEmployeeById = async (req, res) => {
   try {
     const employee = await Employee.findById(req.params.id);
     if (!employee) {
@@ -74,7 +74,7 @@ exports.getEmployeeById = async (req, res) => {
 };
 
 // Créer un nouvel employé
-exports.createEmployee = async (req, res) => {
+const createEmployee = async (req, res) => {
   try {
     console.log('🔍 Création employé - Données reçues:', req.body);
     
@@ -97,7 +97,7 @@ exports.createEmployee = async (req, res) => {
 };
 
 // Mettre à jour un employé
-exports.updateEmployee = async (req, res) => {
+const updateEmployee = async (req, res) => {
   try {
     console.log('Update employee - ID:', req.params.id);
     console.log('Update employee - Body:', req.body);
@@ -122,7 +122,7 @@ exports.updateEmployee = async (req, res) => {
 };
 
 // Désactiver un employé (soft delete)
-exports.deactivateEmployee = async (req, res) => {
+const deactivateEmployee = async (req, res) => {
   try {
     const employee = await Employee.findByIdAndUpdate(
       req.params.id,
@@ -139,7 +139,7 @@ exports.deactivateEmployee = async (req, res) => {
 };
 
 // Réactiver un employé
-exports.reactivateEmployee = async (req, res) => {
+const reactivateEmployee = async (req, res) => {
   try {
     const employee = await Employee.findByIdAndUpdate(
       req.params.id,
@@ -156,7 +156,7 @@ exports.reactivateEmployee = async (req, res) => {
 };
 
 // Supprimer définitivement un employé
-exports.deleteEmployee = async (req, res) => {
+const deleteEmployee = async (req, res) => {
   try {
     const employee = await Employee.findByIdAndDelete(req.params.id);
     if (!employee) {
@@ -169,7 +169,7 @@ exports.deleteEmployee = async (req, res) => {
 };
 
 // Déclarer un arrêt maladie
-exports.declareSickLeave = async (req, res) => {
+const declareSickLeave = async (req, res) => {
   try {
     const { startDate, endDate } = req.body;
     
@@ -255,10 +255,10 @@ module.exports = {
   getEmployeeById,
   createEmployee,
   updateEmployee,
+  deactivateEmployee,
+  reactivateEmployee,
   deleteEmployee,
-  updateEmployeeSkills,
-  updateEmployeeAbsence,
-  updateEmployeeSickLeave,
+  declareSickLeave,
   sendPasswordToEmployee
 };
 
