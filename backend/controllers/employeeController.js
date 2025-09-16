@@ -257,11 +257,11 @@ const employeeLogin = async (req, res) => {
     
     console.log('🔐 Tentative de connexion employé:', email);
     
-    // Trouver l'employé par email
+    // Trouver l'employé par email (inclure le champ password)
     const employee = await Employee.findOne({ 
       email: email,
       isActive: true 
-    });
+    }).select('+password');
     
     if (!employee) {
       console.log('❌ Employé non trouvé:', email);
@@ -270,6 +270,10 @@ const employeeLogin = async (req, res) => {
         error: 'Email ou mot de passe incorrect'
       });
     }
+    
+    // Debug: Afficher les mots de passe (temporaire)
+    console.log('🔍 Mot de passe saisi:', password);
+    console.log('🔍 Mot de passe en base:', employee.password);
     
     // Vérification simple du mot de passe (pour les mots de passe temporaires)
     // En production, il faudrait hasher et comparer
