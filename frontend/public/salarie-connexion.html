@@ -291,7 +291,7 @@
             try {
                 console.log('🔐 Tentative de connexion pour:', email);
                 
-                const response = await fetch(`${API_URL}/auth/employee-login`, {
+                const response = await fetch(`${API_URL}/employees/login`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',

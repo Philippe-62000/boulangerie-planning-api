@@ -15,5 +15,8 @@ router.delete('/:id', employeeController.deleteEmployee);
 // Route temporaire pour l'envoi de mot de passe (en attendant la résolution jsonwebtoken)
 router.post('/send-password/:employeeId', employeeController.sendPasswordToEmployee);
 
+// Route temporaire pour la connexion employé (sans JWT)
+router.post('/login', employeeController.employeeLogin);
+
 module.exports = router;
 

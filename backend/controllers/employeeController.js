@@ -250,6 +250,61 @@ const sendPasswordToEmployee = async (req, res) => {
   }
 };
 
+// Connexion employé simple (sans JWT)
+const employeeLogin = async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    
+    console.log('🔐 Tentative de connexion employé:', email);
+    
+    // Trouver l'employé par email
+    const employee = await Employee.findOne({ 
+      email: email,
+      isActive: true 
+    });
+    
+    if (!employee) {
+      console.log('❌ Employé non trouvé:', email);
+      return res.status(401).json({
+        success: false,
+        error: 'Email ou mot de passe incorrect'
+      });
+    }
+    
+    // Vérification simple du mot de passe (pour les mots de passe temporaires)
+    // En production, il faudrait hasher et comparer
+    if (employee.password !== password) {
+      console.log('❌ Mot de passe incorrect pour:', email);
+      return res.status(401).json({
+        success: false,
+        error: 'Email ou mot de passe incorrect'
+      });
+    }
+    
+    console.log('✅ Connexion réussie pour:', employee.name);
+    
+    // Retourner les informations de l'employé (sans JWT pour l'instant)
+    res.json({
+      success: true,
+      employee: {
+        id: employee._id,
+        name: employee.name,
+        email: employee.email,
+        role: employee.role || 'employee',
+        skills: employee.skills,
+        weeklyHours: employee.weeklyHours
+      }
+    });
+    
+  } catch (error) {
+    console.error('❌ Erreur connexion employé:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Erreur serveur lors de la connexion'
+    });
+  }
+};
+
 module.exports = {
   getAllEmployees,
   getEmployeeById,
@@ -259,6 +314,7 @@ module.exports = {
   reactivateEmployee,
   deleteEmployee,
   declareSickLeave,
-  sendPasswordToEmployee
+  sendPasswordToEmployee,
+  employeeLogin
 };
 

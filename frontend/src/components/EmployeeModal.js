@@ -83,9 +83,9 @@ const EmployeeModal = ({ employee, onSave, onClose, employees = [] }) => {
       
       // Configuration EmailJS
       const emailjsConfig = {
-        serviceId: 'gmail',
-        templateId: 'template_password', // Template pour les mots de passe
-        userId: 'EHw0fFSAwQ_4SfY6Z'
+        serviceId: process.env.REACT_APP_EMAILJS_SERVICE_ID || 'gmail',
+        templateId: process.env.REACT_APP_EMAILJS_TEMPLATE_ID || 'template_password',
+        userId: process.env.REACT_APP_EMAILJS_USER_ID || 'EHw0fFSAwQ_4SfY6Z'
       };
 
       // Données pour le template EmailJS
@@ -111,10 +111,34 @@ const EmployeeModal = ({ employee, onSave, onClose, employees = [] }) => {
       });
 
       if (response.ok) {
+        // EmailJS peut retourner "OK" ou du JSON
+        let responseData;
+        try {
+          const responseText = await response.text();
+          console.log('📡 Réponse EmailJS brute (Modal):', responseText);
+          
+          if (responseText === 'OK') {
+            responseData = { status: 'OK', message: 'Email envoyé avec succès' };
+          } else {
+            responseData = JSON.parse(responseText);
+          }
+        } catch (parseError) {
+          console.log('📡 Réponse non-JSON, traitement comme succès');
+          responseData = { status: 'OK', message: 'Email envoyé avec succès' };
+        }
+        
         alert(`✅ Mot de passe envoyé avec succès à ${employee.email}\nMot de passe: ${tempPassword}`);
         console.log('✅ Mot de passe envoyé via EmailJS:', tempPassword);
       } else {
-        const errorData = await response.json();
+        let errorData;
+        try {
+          const errorText = await response.text();
+          console.log('❌ Erreur EmailJS brute (Modal):', errorText);
+          errorData = JSON.parse(errorText);
+        } catch (parseError) {
+          errorData = { error: `Erreur HTTP ${response.status}: ${response.statusText}` };
+        }
+        
         console.error('❌ Erreur EmailJS:', errorData);
         alert(`❌ Erreur lors de l'envoi: ${errorData.error || 'Erreur EmailJS'}`);
       }

@@ -306,7 +306,9 @@ const SalesStats = () => {
                  </tr>
                </thead>
                <tbody>
-                 {Array.isArray(employees) && employees.length > 0 ? (console.log('🔍 Rendu tableau SalesStats - employés:', employees.length), employees.map(emp => (
+                 {(() => {
+                   console.log('🔍 Rendu tableau SalesStats - employés:', employees.length, employees);
+                   return Array.isArray(employees) && employees.length > 0 ? employees.map(emp => (
                    <tr key={emp._id}>
                      <td className="employee-name">{emp.name}</td>
                      <td>
@@ -408,7 +410,8 @@ const SalesStats = () => {
                        Aucun employé trouvé
                      </td>
                    </tr>
-                 )}
+                 );
+                 })()}
                </tbody>
             </table>
             

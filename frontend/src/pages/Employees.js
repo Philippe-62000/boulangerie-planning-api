@@ -88,9 +88,9 @@ const Employees = () => {
       
       // Configuration EmailJS
       const emailjsConfig = {
-        serviceId: 'gmail',
-        templateId: 'template_password',
-        userId: 'EHw0fFSAwQ_4SfY6Z'
+        serviceId: process.env.REACT_APP_EMAILJS_SERVICE_ID || 'gmail',
+        templateId: process.env.REACT_APP_EMAILJS_TEMPLATE_ID || 'template_password',
+        userId: process.env.REACT_APP_EMAILJS_USER_ID || 'EHw0fFSAwQ_4SfY6Z'
       };
 
       // Données pour le template EmailJS
@@ -100,6 +100,13 @@ const Employees = () => {
         temp_password: tempPassword,
         login_url: 'https://www.filmara.fr/plan/salarie-connexion.html'
       };
+
+      // Debug: Afficher la configuration
+      console.log('🔧 Configuration EmailJS:', emailjsConfig);
+      console.log('📧 Paramètres template:', templateParams);
+      console.log('📧 Template ID utilisé:', emailjsConfig.templateId);
+      console.log('📧 Service ID utilisé:', emailjsConfig.serviceId);
+      console.log('📧 User ID utilisé:', emailjsConfig.userId);
 
       // Envoyer via EmailJS
       const response = await fetch('https://api.emailjs.com/api/v1.0/email/send', {
@@ -115,13 +122,43 @@ const Employees = () => {
         })
       });
 
+      console.log('📡 Réponse EmailJS status:', response.status);
+      console.log('📡 Réponse EmailJS headers:', response.headers);
+
       if (response.ok) {
+        // EmailJS peut retourner "OK" ou du JSON
+        let responseData;
+        try {
+          const responseText = await response.text();
+          console.log('📡 Réponse EmailJS brute:', responseText);
+          
+          if (responseText === 'OK') {
+            responseData = { status: 'OK', message: 'Email envoyé avec succès' };
+          } else {
+            responseData = JSON.parse(responseText);
+          }
+        } catch (parseError) {
+          console.log('📡 Réponse non-JSON, traitement comme succès');
+          responseData = { status: 'OK', message: 'Email envoyé avec succès' };
+        }
+        
+        console.log('✅ Réponse EmailJS traitée:', responseData);
         toast.success(`Mot de passe envoyé à ${employee.email} (${tempPassword})`);
         console.log('✅ Mot de passe envoyé via EmailJS:', tempPassword);
       } else {
-        const errorData = await response.json();
-        console.error('❌ Erreur EmailJS:', errorData);
-        toast.error('Erreur lors de l\'envoi du mot de passe');
+        let errorData;
+        try {
+          const errorText = await response.text();
+          console.log('❌ Erreur EmailJS brute:', errorText);
+          errorData = JSON.parse(errorText);
+        } catch (parseError) {
+          errorData = { error: `Erreur HTTP ${response.status}: ${response.statusText}` };
+        }
+        
+        console.error('❌ Erreur EmailJS complète:', errorData);
+        console.error('❌ Status:', response.status);
+        console.error('❌ Status Text:', response.statusText);
+        toast.error(`Erreur EmailJS: ${errorData.error || 'Erreur inconnue'}`);
       }
     } catch (error) {
       console.error('❌ Erreur envoi mot de passe:', error);

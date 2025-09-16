@@ -27,6 +27,7 @@ const MealExpenses = () => {
       }
       
       setExpenses(expensesData);
+      console.log('✅ Frais repas chargés:', expensesData.length, 'employés,', daysInMonth, 'jours');
     } catch (error) {
       console.error('Erreur lors du chargement des frais repas:', error);
       toast.error('Erreur lors du chargement des frais repas');
