@@ -44,6 +44,7 @@ const SalesStats = () => {
           employeesArray = data.employees;
         }
         setEmployees(employeesArray);
+        console.log('✅ Employés chargés pour SalesStats:', employeesArray.length, employeesArray);
         
         // Initialiser les données de vente pour chaque employé
         const initialSalesData = {};
@@ -305,7 +306,7 @@ const SalesStats = () => {
                  </tr>
                </thead>
                <tbody>
-                 {Array.isArray(employees) ? employees.map(emp => (
+                 {Array.isArray(employees) && employees.length > 0 ? (console.log('🔍 Rendu tableau SalesStats - employés:', employees.length), employees.map(emp => (
                    <tr key={emp._id}>
                      <td className="employee-name">{emp.name}</td>
                      <td>
