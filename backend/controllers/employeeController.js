@@ -2,7 +2,7 @@ const Employee = require('../models/Employee');
 const Absence = require('../models/Absence');
 
 // Obtenir tous les employés avec leurs absences
-exports.getAllEmployees = async (req, res) => {
+const getAllEmployees = async (req, res) => {
   try {
     // Récupérer les employés actifs
     const employees = await Employee.find({ isActive: true })

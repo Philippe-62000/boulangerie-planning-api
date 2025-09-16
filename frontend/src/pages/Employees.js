@@ -83,7 +83,7 @@ const Employees = () => {
 
       console.log('🔐 Envoi mot de passe pour:', employee.name);
       
-      const response = await api.post(`/auth/send-password/${employee._id}`);
+      const response = await api.post(`/employees/send-password/${employee._id}`);
       
       if (response.data.success) {
         toast.success(`Mot de passe envoyé à ${employee.email}`);
