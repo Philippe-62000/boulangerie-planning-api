@@ -76,21 +76,47 @@ const EmployeeModal = ({ employee, onSave, onClose, employees = [] }) => {
     }
 
     try {
-      console.log('📧 Envoi du mot de passe pour:', employee.name, employee.email);
+      console.log('📧 Envoi du mot de passe via EmailJS pour:', employee.name, employee.email);
       
-      const response = await fetch(`https://boulangerie-planning-api-4-pbfy.onrender.com/api/employees/send-password/${employee._id}`, {
+      // Générer un mot de passe temporaire
+      const tempPassword = Math.random().toString(36).slice(-8);
+      
+      // Configuration EmailJS
+      const emailjsConfig = {
+        serviceId: 'gmail',
+        templateId: 'template_password', // Template pour les mots de passe
+        userId: 'EHw0fFSAwQ_4SfY6Z'
+      };
+
+      // Données pour le template EmailJS
+      const templateParams = {
+        to_email: employee.email,
+        to_name: employee.name,
+        temp_password: tempPassword,
+        login_url: 'https://www.filmara.fr/plan/salarie-connexion.html'
+      };
+
+      // Envoyer via EmailJS
+      const response = await fetch('https://api.emailjs.com/api/v1.0/email/send', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-        }
+        },
+        body: JSON.stringify({
+          service_id: emailjsConfig.serviceId,
+          template_id: emailjsConfig.templateId,
+          user_id: emailjsConfig.userId,
+          template_params: templateParams
+        })
       });
 
-      const result = await response.json();
-      
-      if (result.success) {
-        alert(`✅ Mot de passe envoyé avec succès à ${employee.email}`);
+      if (response.ok) {
+        alert(`✅ Mot de passe envoyé avec succès à ${employee.email}\nMot de passe: ${tempPassword}`);
+        console.log('✅ Mot de passe envoyé via EmailJS:', tempPassword);
       } else {
-        alert(`❌ Erreur lors de l'envoi: ${result.error || 'Erreur inconnue'}`);
+        const errorData = await response.json();
+        console.error('❌ Erreur EmailJS:', errorData);
+        alert(`❌ Erreur lors de l'envoi: ${errorData.error || 'Erreur EmailJS'}`);
       }
     } catch (error) {
       console.error('❌ Erreur envoi mot de passe:', error);

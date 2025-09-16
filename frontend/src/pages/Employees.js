@@ -83,12 +83,44 @@ const Employees = () => {
 
       console.log('🔐 Envoi mot de passe pour:', employee.name);
       
-      const response = await api.post(`/employees/send-password/${employee._id}`);
+      // Générer un mot de passe temporaire
+      const tempPassword = Math.random().toString(36).slice(-8);
       
-      if (response.data.success) {
-        toast.success(`Mot de passe envoyé à ${employee.email}`);
-        console.log('✅ Mot de passe envoyé avec succès');
+      // Configuration EmailJS
+      const emailjsConfig = {
+        serviceId: 'gmail',
+        templateId: 'template_password',
+        userId: 'EHw0fFSAwQ_4SfY6Z'
+      };
+
+      // Données pour le template EmailJS
+      const templateParams = {
+        to_email: employee.email,
+        to_name: employee.name,
+        temp_password: tempPassword,
+        login_url: 'https://www.filmara.fr/plan/salarie-connexion.html'
+      };
+
+      // Envoyer via EmailJS
+      const response = await fetch('https://api.emailjs.com/api/v1.0/email/send', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          service_id: emailjsConfig.serviceId,
+          template_id: emailjsConfig.templateId,
+          user_id: emailjsConfig.userId,
+          template_params: templateParams
+        })
+      });
+
+      if (response.ok) {
+        toast.success(`Mot de passe envoyé à ${employee.email} (${tempPassword})`);
+        console.log('✅ Mot de passe envoyé via EmailJS:', tempPassword);
       } else {
+        const errorData = await response.json();
+        console.error('❌ Erreur EmailJS:', errorData);
         toast.error('Erreur lors de l\'envoi du mot de passe');
       }
     } catch (error) {
