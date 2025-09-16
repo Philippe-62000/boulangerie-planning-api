@@ -224,6 +224,12 @@ const sendPasswordToEmployee = async (req, res) => {
     // Générer un mot de passe temporaire simple
     const tempPassword = Math.random().toString(36).slice(-8);
     
+    // Sauvegarder le mot de passe temporaire en base de données
+    employee.password = tempPassword;
+    await employee.save();
+    
+    console.log(`📧 Mot de passe temporaire sauvegardé pour ${employee.name}: ${tempPassword}`);
+    
     // Envoyer l'email (simulation - en attendant le service email)
     console.log(`📧 Email simulé envoyé à ${employee.email}:`);
     console.log(`   - Employé: ${employee.name}`);
