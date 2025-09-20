@@ -42,7 +42,7 @@ const authenticateEmployee = async (req, res, next) => {
 router.post('/send-password/:id', authController.sendPasswordToEmployee);
 
 // Route de connexion pour les salariés
-router.post('/employee-login', authController.employeeLogin);
+router.post('/login', authController.employeeLogin);
 
 // Route pour récupérer le profil de l'employé connecté
 router.get('/employee-profile', authenticateEmployee, authController.getEmployeeProfile);
