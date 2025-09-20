@@ -274,6 +274,18 @@ const rejectVacationRequest = async (req, res) => {
     // Marquer comme rejeté
     await vacationRequest.markAsRejected(rejectedBy, reason);
 
+    // Envoyer un email de rejet
+    try {
+      const emailResult = await emailService.sendVacationRequestRejection(vacationRequest, rejectedBy, reason);
+      if (emailResult.success) {
+        console.log('✅ Email de rejet envoyé:', emailResult.messageId);
+      } else {
+        console.log('⚠️ Email de rejet non envoyé:', emailResult.error);
+      }
+    } catch (emailError) {
+      console.error('❌ Erreur envoi email rejet:', emailError.message);
+    }
+
     res.json({
       success: true,
       message: 'Demande de congés rejetée avec succès',

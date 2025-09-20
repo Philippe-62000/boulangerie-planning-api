@@ -47,6 +47,11 @@ class EmailService {
     return await emailServiceAlternative.sendVacationRequestValidation(vacationRequest, validatedBy);
   }
 
+  // Envoyer un email de rejet de congés
+  async sendVacationRequestRejection(vacationRequest, rejectedBy, reason) {
+    return await emailServiceAlternative.sendVacationRequestRejection(vacationRequest, rejectedBy, reason);
+  }
+
   // Envoyer un mot de passe à un salarié
   async sendEmployeePassword({ employeeName, employeeEmail, password, loginUrl }) {
     return await emailServiceAlternative.sendEmployeePassword({ employeeName, employeeEmail, password, loginUrl });

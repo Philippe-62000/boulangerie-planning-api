@@ -1481,6 +1481,77 @@ Cet email a été envoyé automatiquement par le système de gestion de la boula
 Si vous n'avez pas demandé ces identifiants, contactez votre administrateur.
     `;
   }
+
+  // Envoyer un email de rejet de demande de congés
+  async sendVacationRequestRejection(vacationRequest, rejectedBy, reason) {
+    try {
+      console.log('📧 Envoi email rejet congés à:', vacationRequest.employeeEmail);
+      
+      const subject = `❌ Demande de congés rejetée - ${vacationRequest.employeeName}`;
+      
+      const htmlContent = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <div style="background: #f8f9fa; border-radius: 8px; padding: 30px; text-align: center;">
+            <h2 style="color: #dc3545; margin-bottom: 20px;">❌ Demande de congés rejetée</h2>
+            
+            <p>Bonjour ${vacationRequest.employeeName},</p>
+            
+            <div style="background: white; border-radius: 5px; padding: 20px; margin: 20px 0;">
+              <h3 style="color: #333; margin-top: 0;">Détails de votre demande :</h3>
+              <p><strong>Période :</strong> ${new Date(vacationRequest.startDate).toLocaleDateString('fr-FR')} - ${new Date(vacationRequest.endDate).toLocaleDateString('fr-FR')}</p>
+              <p><strong>Durée :</strong> ${vacationRequest.duration} jours</p>
+              <p><strong>Type :</strong> ${vacationRequest.reason}</p>
+            </div>
+            
+            <div style="background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 5px; padding: 15px; margin: 20px 0;">
+              <h3 style="color: #856404; margin-top: 0;">Raison du rejet :</h3>
+              <p style="margin: 0;">${reason || 'Aucune raison spécifiée'}</p>
+            </div>
+            
+            <p>Si vous avez des questions, n'hésitez pas à contacter votre responsable.</p>
+            
+            <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #ddd; color: #666; font-size: 14px;">
+              <p>Rejeté par : ${rejectedBy}</p>
+              <p>Date : ${new Date().toLocaleDateString('fr-FR')}</p>
+            </div>
+          </div>
+        </div>
+      `;
+      
+      const textContent = `
+DEMANDE DE CONGÉS REJETÉE - ${vacationRequest.employeeName}
+
+Bonjour ${vacationRequest.employeeName},
+
+Votre demande de congés a été rejetée.
+
+DÉTAILS DE VOTRE DEMANDE :
+- Période : ${new Date(vacationRequest.startDate).toLocaleDateString('fr-FR')} - ${new Date(vacationRequest.endDate).toLocaleDateString('fr-FR')}
+- Durée : ${vacationRequest.duration} jours
+- Type : ${vacationRequest.reason}
+
+RAISON DU REJET :
+${reason || 'Aucune raison spécifiée'}
+
+Si vous avez des questions, n'hésitez pas à contacter votre responsable.
+
+Rejeté par : ${rejectedBy}
+Date : ${new Date().toLocaleDateString('fr-FR')}
+      `;
+      
+      const result = await this.sendViaEmailJS(vacationRequest.employeeEmail, subject, htmlContent, textContent);
+      console.log('✅ Email rejet congés envoyé:', result);
+      
+      return {
+        success: true,
+        messageId: result,
+        email: vacationRequest.employeeEmail
+      };
+    } catch (error) {
+      console.error('❌ Erreur envoi email rejet congés:', error);
+      throw error;
+    }
+  }
 }
 
 // Instance singleton
