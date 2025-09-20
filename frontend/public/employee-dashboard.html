@@ -367,6 +367,14 @@
                         </ul>
                     </div>
 
+                    <div class="info-box" style="background: #e3f2fd; border: 1px solid #2196f3;">
+                        <h4>📄 Déclaration avec document</h4>
+                        <p>Pour envoyer un arrêt maladie avec un document (PDF, JPG), utilisez le formulaire complet :</p>
+                        <a href="/plan/sick-leave-standalone.html" class="btn btn-primary" style="margin-top: 10px;">
+                            📤 Ouvrir le formulaire complet
+                        </a>
+                    </div>
+
                     <form id="sickLeaveForm">
                         <div class="form-group">
                             <label class="form-label" for="sickLeaveType">Type de déclaration *</label>
@@ -418,7 +426,7 @@
             <div class="tab-panel" id="vacation-panel">
                 <div class="form-container">
                     <h2 class="form-title">🏖️ Demande de Congés</h2>
-                    <p class="form-subtitle">Demandez vos congés de manière simple et rapide</p>
+                    <p class="form-subtitle">Remplissez le formulaire ci-dessous pour faire votre demande</p>
 
                     <div id="vacationAlert"></div>
 
@@ -651,9 +659,10 @@
             const formData = new FormData(e.target);
             const data = {
                 employeeName: currentEmployee.name,
+                employeeEmail: currentEmployee.email,
                 startDate: formData.get('startDate'),
                 endDate: formData.get('endDate'),
-                type: formData.get('type'),
+                reason: formData.get('type'),
                 precisions: formData.get('precisions') || ''
             };
 
@@ -704,6 +713,10 @@
     </script>
 </body>
 </html>
+
+
+
+
 
 
 
