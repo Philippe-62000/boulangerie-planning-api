@@ -1216,16 +1216,20 @@ Ce message a été généré automatiquement.
       
       let htmlContent, textContent;
       
-      if (template && template.content) {
+      if (template && template.htmlContent) {
         console.log('✅ Utilisation du template de la base de données');
         // Remplacer les variables dans le template
-        htmlContent = template.content
+        htmlContent = template.htmlContent
           .replace(/{{employeeName}}/g, employeeName)
           .replace(/{{employeeEmail}}/g, employeeEmail)
           .replace(/{{password}}/g, password)
           .replace(/{{loginUrl}}/g, loginUrl);
         
-        textContent = htmlContent.replace(/<[^>]*>/g, ''); // Supprimer les balises HTML
+        textContent = template.textContent
+          .replace(/{{employeeName}}/g, employeeName)
+          .replace(/{{employeeEmail}}/g, employeeEmail)
+          .replace(/{{password}}/g, password)
+          .replace(/{{loginUrl}}/g, loginUrl);
       } else {
         console.log('⚠️ Template non trouvé, utilisation du template par défaut');
         htmlContent = this.generateEmployeePasswordHTML({
