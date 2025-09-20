@@ -1266,7 +1266,7 @@ Ce message a été généré automatiquement.
       
       console.log('📧 Données EmailJS:', emailData);
       
-      const result = await this.sendEmailJS(emailData);
+      const result = await this.sendViaEmailJS(emailData.to, emailData.subject, emailData.templateParams.html_content, emailData.templateParams.text_content);
       console.log('✅ Email mot de passe envoyé:', result);
       
       return {
