@@ -30,7 +30,7 @@ const uploadMiddleware = (req, res, next) => {
   console.log('🔧 Content-Type:', req.headers['content-type']);
   console.log('🔧 Body (avant multer):', req.body);
   
-  upload.single('sickLeaveFile')(req, res, (err) => {
+  upload.single('document')(req, res, (err) => {
     if (err) {
       console.error('❌ Erreur Multer:', err);
       return res.status(400).json({

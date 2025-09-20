@@ -11,6 +11,11 @@ const vacationRequestSchema = new mongoose.Schema({
     required: true,
     trim: true
   },
+  city: {
+    type: String,
+    required: true,
+    default: 'Arras'
+  },
   startDate: {
     type: Date,
     required: true

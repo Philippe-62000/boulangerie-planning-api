@@ -6,9 +6,9 @@ const sftpService = require('../services/sftpService');
 // Récupérer toutes les demandes de congés
 const getAllVacationRequests = async (req, res) => {
   try {
-    const { status, page = 1, limit = 20 } = req.query;
+    const { status, page = 1, limit = 20, city = 'Arras' } = req.query;
     
-    let query = {};
+    let query = { city: city };
     if (status) {
       query.status = status;
     }
@@ -70,7 +70,7 @@ const createVacationRequest = async (req, res) => {
     console.log('📝 Création nouvelle demande de congés...');
     
     // Vérification des données requises
-    const { employeeName, employeeEmail, startDate, endDate, reason, precisions } = req.body;
+    const { employeeName, employeeEmail, startDate, endDate, reason, precisions, city = 'Arras' } = req.body;
     
     if (!employeeName || !employeeEmail || !startDate || !endDate) {
       return res.status(400).json({
@@ -97,6 +97,7 @@ const createVacationRequest = async (req, res) => {
     const vacationRequest = new VacationRequest({
       employeeName,
       employeeEmail,
+      city,
       startDate: start,
       endDate: end,
       duration,
