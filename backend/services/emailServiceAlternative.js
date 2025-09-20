@@ -1210,19 +1210,38 @@ Ce message a été généré automatiquement.
     try {
       console.log('📧 Envoi mot de passe salarié à:', employeeEmail);
       
-      const subject = `Vos identifiants de connexion - ${employeeName}`;
+      // 🎯 Récupérer le template depuis la base de données
+      const EmailTemplate = require('../models/EmailTemplate');
+      const template = await EmailTemplate.findOne({ name: 'employee_password' });
       
-      const htmlContent = this.generateEmployeePasswordHTML({
-        employeeName,
-        password,
-        loginUrl
-      });
+      let htmlContent, textContent;
       
-      const textContent = this.generateEmployeePasswordText({
-        employeeName,
-        password,
-        loginUrl
-      });
+      if (template && template.content) {
+        console.log('✅ Utilisation du template de la base de données');
+        // Remplacer les variables dans le template
+        htmlContent = template.content
+          .replace(/{{employeeName}}/g, employeeName)
+          .replace(/{{employeeEmail}}/g, employeeEmail)
+          .replace(/{{password}}/g, password)
+          .replace(/{{loginUrl}}/g, loginUrl);
+        
+        textContent = htmlContent.replace(/<[^>]*>/g, ''); // Supprimer les balises HTML
+      } else {
+        console.log('⚠️ Template non trouvé, utilisation du template par défaut');
+        htmlContent = this.generateEmployeePasswordHTML({
+          employeeName,
+          password,
+          loginUrl
+        });
+        
+        textContent = this.generateEmployeePasswordText({
+          employeeName,
+          password,
+          loginUrl
+        });
+      }
+      
+      const subject = `VOS IDENTIFIANTS DE CONNEXION - ${employeeName}`;
       
       const emailData = {
         serviceId: 'gmail',
@@ -1396,9 +1415,9 @@ Ce message a été généré automatiquement.
                 <div class="credentials-box">
                     <h3>🔐 Vos identifiants de connexion</h3>
                     <p><strong>Email :</strong> ${employeeEmail}</p>
-                    <p><strong>Mot de passe temporaire :</strong></p>
+                    <p><strong>Mot de passe :</strong></p>
                     <div class="password">${password}</div>
-                    <p><em>⚠️ Ce mot de passe est temporaire, changez-le lors de votre première connexion</em></p>
+                    <p><em>💡 Conservez ces identifiants en lieu sûr</em></p>
                 </div>
                 
                 <div style="text-align: center;">
@@ -1441,9 +1460,9 @@ En vous connectant, vous pourrez :
 
 🔐 VOS IDENTIFIANTS DE CONNEXION
 Email : ${employeeEmail}
-Mot de passe temporaire : ${password}
+Mot de passe : ${password}
 
-⚠️ Ce mot de passe est temporaire, changez-le lors de votre première connexion
+💡 Conservez ces identifiants en lieu sûr
 
 🚀 SE CONNECTER
 Cliquez sur ce lien pour vous connecter : ${loginUrl}

@@ -102,9 +102,15 @@ const updateEmployee = async (req, res) => {
     console.log('Update employee - ID:', req.params.id);
     console.log('Update employee - Body:', req.body);
     
+    // ⚠️ IMPORTANT: Supprimer le champ password du body pour éviter de l'écraser
+    const updateData = { ...req.body };
+    delete updateData.password;
+    
+    console.log('🔐 Champ password préservé lors de la mise à jour');
+    
     const employee = await Employee.findByIdAndUpdate(
       req.params.id,
-      req.body,
+      updateData,
       { new: true, runValidators: true }
     );
     if (!employee) {
@@ -238,7 +244,7 @@ const sendPasswordToEmployee = async (req, res) => {
     console.log(`📧 Email simulé envoyé à ${employee.email}:`);
     console.log(`   - Employé: ${employee.name}`);
     console.log(`   - Mot de passe temporaire: ${tempPassword}`);
-    console.log(`   - URL de connexion: https://www.filmara.fr/plan/salarie-connexion.html`);
+    console.log(`   - URL de connexion: https://www.filmara.fr/salarie-connexion.html`);
     
     // TODO: Implémenter l'envoi d'email réel quand le service sera configuré
     // Pour l'instant, on retourne le mot de passe dans la réponse (à des fins de test)
