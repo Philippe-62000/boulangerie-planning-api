@@ -71,12 +71,14 @@ const VacationRequestAdmin = () => {
   };
 
   const openEditModal = (vacationRequest) => {
+    console.log('🔧 Ouverture modal modification pour:', vacationRequest);
     setEditingVacationRequest(vacationRequest);
     setEditFormData({
       startDate: new Date(vacationRequest.startDate).toISOString().split('T')[0],
       endDate: new Date(vacationRequest.endDate).toISOString().split('T')[0]
     });
     setShowEditModal(true);
+    console.log('🔧 Modal ouvert:', true);
   };
 
   const closeEditModal = () => {
