@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import api from '../services/api';
 import './HolidayStatus.css';
 
 const HolidayStatus = () => {
@@ -7,58 +8,42 @@ const HolidayStatus = () => {
   const [validatedHolidays, setValidatedHolidays] = useState(new Set());
   const [rejectedHolidays, setRejectedHolidays] = useState(new Set());
 
-  // URL du Google Sheets (format CSV)
-  const GOOGLE_SHEETS_URL = 'https://docs.google.com/spreadsheets/d/1HEPOWUMdbdqzpsrjBjqquTVPlDbyQv_y34c30rIaikM/export?format=csv&gid=781548784';
-
   const fetchHolidays = async () => {
     setLoading(true);
     try {
-      console.log('🔄 Chargement des congés depuis Google Sheets...');
-      console.log('📡 URL:', GOOGLE_SHEETS_URL);
+      console.log('🔄 Chargement des congés depuis l\'API backend...');
       
-      // Utiliser un proxy CORS ou une API backend pour récupérer les données
-      const response = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(GOOGLE_SHEETS_URL)}`);
-      const data = await response.json();
+      // Utiliser l'API backend pour récupérer les demandes de congés
+      const response = await api.get('/vacation-requests?city=Arras');
+      const data = response.data;
       
       console.log('📊 Données reçues:', data);
       
-      // Parser le CSV
-      const csvData = data.contents;
-      console.log('📄 CSV brut:', csvData.substring(0, 500) + '...');
-      
-      const lines = csvData.split('\n');
-      console.log('📋 Nombre de lignes:', lines.length);
-      
-      const headers = lines[0].split(',');
-      console.log('📋 En-têtes:', headers);
-      
-      const holidaysData = lines.slice(1)
-        .filter(line => line.trim())
-        .map((line, index) => {
-          const values = line.split(',');
-          const holiday = {
-            id: values[0] || Math.random().toString(36).substr(2, 9),
-            timestamp: values[0],
-            boulangerie: values[1],
-            nom: values[2],
-            prenom: values[3],
-            dateDebut: values[4],
-            dateFin: values[5],
-            commentaire: values[6] || ''
-          };
-          console.log(`📋 Ligne ${index + 1}:`, holiday);
-          return holiday;
-        })
-        .filter(holiday => {
-          const isArras = holiday.boulangerie && holiday.boulangerie.toLowerCase().includes('arras');
-          console.log(`🏖️ ${holiday.prenom} ${holiday.nom} - ${holiday.boulangerie} - Arras: ${isArras}`);
-          return isArras;
-        });
+      if (data.success && data.data) {
+        const holidaysData = data.data.map(vacation => ({
+          id: vacation._id,
+          timestamp: new Date(vacation.uploadDate).toLocaleString('fr-FR'),
+          boulangerie: vacation.city || 'Arras',
+          nom: vacation.employeeName.split(' ')[1] || '',
+          prenom: vacation.employeeName.split(' ')[0] || '',
+          dateDebut: new Date(vacation.startDate).toLocaleDateString('fr-FR'),
+          dateFin: new Date(vacation.endDate).toLocaleDateString('fr-FR'),
+          commentaire: vacation.precisions || '',
+          status: vacation.status,
+          duration: vacation.duration,
+          reason: vacation.reason,
+          employeeEmail: vacation.employeeEmail
+        }));
 
-      console.log('✅ Congés filtrés pour Arras:', holidaysData);
-      setHolidays(holidaysData);
+        console.log('✅ Congés récupérés depuis l\'API:', holidaysData);
+        setHolidays(holidaysData);
+      } else {
+        console.log('⚠️ Aucune donnée reçue ou format invalide');
+        setHolidays([]);
+      }
     } catch (error) {
       console.error('❌ Erreur lors du chargement des congés:', error);
+      setHolidays([]);
     } finally {
       setLoading(false);
     }
@@ -68,28 +53,48 @@ const HolidayStatus = () => {
     fetchHolidays();
   }, []);
 
-  const handleValidate = (holidayId) => {
-    setValidatedHolidays(prev => new Set([...prev, holidayId]));
-    setRejectedHolidays(prev => {
-      const newSet = new Set(prev);
-      newSet.delete(holidayId);
-      return newSet;
-    });
+  const handleValidate = async (holidayId) => {
+    try {
+      console.log('✅ Validation de la demande:', holidayId);
+      await api.patch(`/vacation-requests/${holidayId}/validate`, {
+        validatedBy: 'Admin',
+        notes: 'Validé via tableau de bord'
+      });
+      
+      // Recharger les données
+      await fetchHolidays();
+      console.log('✅ Demande validée avec succès');
+    } catch (error) {
+      console.error('❌ Erreur lors de la validation:', error);
+    }
   };
 
-  const handleReject = (holidayId) => {
-    setRejectedHolidays(prev => new Set([...prev, holidayId]));
-    setValidatedHolidays(prev => {
-      const newSet = new Set(prev);
-      newSet.delete(holidayId);
-      return newSet;
-    });
+  const handleReject = async (holidayId) => {
+    const reason = prompt('Raison du rejet:');
+    if (!reason) return;
+    
+    try {
+      console.log('❌ Rejet de la demande:', holidayId);
+      await api.patch(`/vacation-requests/${holidayId}/reject`, {
+        rejectedBy: 'Admin',
+        reason: reason
+      });
+      
+      // Recharger les données
+      await fetchHolidays();
+      console.log('❌ Demande rejetée avec succès');
+    } catch (error) {
+      console.error('❌ Erreur lors du rejet:', error);
+    }
   };
 
-  const getStatus = (holidayId) => {
-    if (validatedHolidays.has(holidayId)) return 'validated';
-    if (rejectedHolidays.has(holidayId)) return 'rejected';
-    return 'pending';
+  const handleEdit = (holidayId) => {
+    // Ouvrir la page de gestion des congés pour modifier
+    window.open(`/vacation-request-admin`, '_blank');
+  };
+
+  const getStatus = (holiday) => {
+    return holiday.status || 'pending';
   };
 
   const getStatusText = (status) => {
@@ -109,7 +114,7 @@ const HolidayStatus = () => {
   };
 
   const generatePlanning = () => {
-    const validatedHolidaysList = holidays.filter(h => validatedHolidays.has(h.id));
+    const validatedHolidaysList = holidays.filter(h => h.status === 'validated');
     
     // Créer un planning A4 paysage
     const planningWindow = window.open('', '_blank');
@@ -229,7 +234,7 @@ const HolidayStatus = () => {
           <button 
             className="btn btn-success"
             onClick={generatePlanning}
-            disabled={validatedHolidays.size === 0}
+            disabled={holidays.filter(h => h.status === 'validated').length === 0}
           >
             🖨️ Imprimer Planning
           </button>
@@ -242,15 +247,15 @@ const HolidayStatus = () => {
           <span className="stat-label">Total</span>
         </div>
         <div className="stat-item">
-          <span className="stat-number">{validatedHolidays.size}</span>
+          <span className="stat-number">{holidays.filter(h => h.status === 'validated').length}</span>
           <span className="stat-label">Validés</span>
         </div>
         <div className="stat-item">
-          <span className="stat-number">{rejectedHolidays.size}</span>
+          <span className="stat-number">{holidays.filter(h => h.status === 'rejected').length}</span>
           <span className="stat-label">Rejetés</span>
         </div>
         <div className="stat-item">
-          <span className="stat-number">{holidays.length - validatedHolidays.size - rejectedHolidays.size}</span>
+          <span className="stat-number">{holidays.filter(h => h.status === 'pending').length}</span>
           <span className="stat-label">En attente</span>
         </div>
       </div>
@@ -262,18 +267,20 @@ const HolidayStatus = () => {
           </div>
         ) : (
           holidays.map((holiday) => {
-            const status = getStatus(holiday.id);
+            const status = getStatus(holiday);
             return (
               <div key={holiday.id} className={`holiday-card ${getStatusClass(status)}`}>
                 <div className="holiday-info">
                   <div className="employee-info">
                     <strong>{holiday.prenom} {holiday.nom}</strong>
                     <span className="boulangerie">{holiday.boulangerie}</span>
+                    <span className="email">{holiday.employeeEmail}</span>
                   </div>
                   <div className="dates-info">
                     <span className="date-range">
                       {holiday.dateDebut} → {holiday.dateFin}
                     </span>
+                    <span className="duration">{holiday.duration} jours - {holiday.reason}</span>
                     {holiday.commentaire && (
                       <span className="comment">{holiday.commentaire}</span>
                     )}
@@ -289,14 +296,21 @@ const HolidayStatus = () => {
                       onClick={() => handleValidate(holiday.id)}
                       disabled={status === 'validated'}
                     >
-                      ✅ Valider
+                      ✅
+                    </button>
+                    <button
+                      className="btn btn-warning btn-sm"
+                      onClick={() => handleEdit(holiday.id)}
+                      disabled={status === 'rejected'}
+                    >
+                      ✏️
                     </button>
                     <button
                       className="btn btn-danger btn-sm"
                       onClick={() => handleReject(holiday.id)}
                       disabled={status === 'rejected'}
                     >
-                      ❌ Rejeter
+                      ❌
                     </button>
                   </div>
                 </div>
