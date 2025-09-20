@@ -291,7 +291,7 @@
             try {
                 console.log('🔐 Tentative de connexion pour:', email);
                 
-                const response = await fetch(`${API_URL}/employees/login`, {
+                const response = await fetch(`${API_URL}/auth/login`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -314,7 +314,7 @@
                     
                     // Rediriger vers le dashboard après 1 seconde
                     setTimeout(() => {
-                        window.location.href = '/employee-dashboard.html';
+                        window.location.href = '/plan/employee-dashboard.html';
                     }, 1000);
                     
                 } else {
@@ -358,7 +358,7 @@
                 .then(data => {
                     if (data.success) {
                         // Token valide, rediriger vers le dashboard
-                        window.location.href = '/employee-dashboard.html';
+                        window.location.href = '/plan/employee-dashboard.html';
                     } else {
                         // Token invalide, le supprimer
                         localStorage.removeItem('employeeToken');

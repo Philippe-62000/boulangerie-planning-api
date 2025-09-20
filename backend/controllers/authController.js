@@ -56,7 +56,7 @@ const sendPasswordToEmployee = async (req, res) => {
         employeeName: employee.name,
         employeeEmail: employee.email,
         password: newPassword,
-        loginUrl: 'https://www.filmara.fr/salarie-connexion.html'
+        loginUrl: 'https://www.filmara.fr/plan/salarie-connexion.html'
       });
       
       console.log('✅ Email envoyé à:', employee.email);
