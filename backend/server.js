@@ -78,7 +78,7 @@ mongoose.connect(config.MONGODB_URI, {
 .catch(err => console.error('❌ Erreur de connexion MongoDB:', err));
 
 // Routes
-// app.use('/api/auth', require('./routes/auth')); // Désactivé temporairement - problème jsonwebtoken sur Render
+app.use('/api/auth', require('./routes/auth'));
 app.use('/api/menu-permissions', require('./routes/menuPermissions'));
 app.use('/api/passwords', require('./routes/passwords'));
 app.use('/api/site', require('./routes/site'));
