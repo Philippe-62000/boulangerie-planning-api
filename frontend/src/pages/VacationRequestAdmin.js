@@ -156,6 +156,13 @@ const VacationRequestAdmin = () => {
           >
             📝 Formulaire de demande de congés
           </a>
+          <button 
+            onClick={() => window.open('/vacation-planning', '_blank')}
+            className="btn btn-secondary"
+            style={{ marginLeft: '10px' }}
+          >
+            📅 Impression Calendrier
+          </button>
         </div>
       </div>
 
@@ -224,13 +231,6 @@ const VacationRequestAdmin = () => {
                           ✅
                         </button>
                         <button 
-                          className="btn btn-warning btn-sm"
-                          onClick={() => openEditModal(request)}
-                          title="Modifier"
-                        >
-                          ✏️
-                        </button>
-                        <button 
                           className="btn btn-danger btn-sm"
                           onClick={() => handleReject(request._id)}
                           title="Rejeter"
@@ -238,6 +238,15 @@ const VacationRequestAdmin = () => {
                           ❌
                         </button>
                       </>
+                    )}
+                    {(request.status === 'pending' || request.status === 'validated') && (
+                      <button 
+                        className="btn btn-warning btn-sm"
+                        onClick={() => openEditModal(request)}
+                        title="Modifier"
+                      >
+                        ✏️
+                      </button>
                     )}
                     {request.status === 'validated' && (
                       <span className="text-success">✅ Validé le {formatDate(request.validatedAt)}</span>
