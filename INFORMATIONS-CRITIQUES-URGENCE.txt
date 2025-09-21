@@ -35,6 +35,12 @@ EMAILJS_TEMPLATE_ID=[VOTRE_TEMPLATE_ID]
   * menupermissions (permissions menu)
   * parameters (paramètres système)
 
+🖥️ SAUVEGARDE NAS :
+- Chemin : \\nas\sauvegarde\
+- Scripts : sauvegarde-nas.bat / restaurer-depuis-nas.bat
+- Format : backup-YYYY-MM-DD\
+- Avantages : Local, rapide, contrôle total
+
 🚀 RÉCUPÉRATION RAPIDE (5 MINUTES) :
 1. Installer Git : https://git-scm.com/download/win
 2. Installer Node.js : https://nodejs.org/en/download/
@@ -64,10 +70,13 @@ EMAILJS_TEMPLATE_ID=[VOTRE_TEMPLATE_ID]
 
 🛠️ SCRIPTS DE RÉCUPÉRATION :
 - recuperation-urgence.bat (récupération automatique)
+- sauvegarde-nas.bat (sauvegarde sur NAS)
+- restaurer-depuis-nas.bat (restauration depuis NAS)
 - GUIDE-RECUPERATION-URGENCE.md (guide complet)
 - RECUPERATION-URGENCE-GITHUB.md (via GitHub)
 - RECUPERATION-URGENCE-RENDER.md (via Render)
 - RECUPERATION-URGENCE-CLOUD.md (via Cloud)
+- RECUPERATION-URGENCE-NAS.md (via NAS local)
 
 ⚡ TEMPS DE RÉCUPÉRATION :
 - Code source : 5 minutes

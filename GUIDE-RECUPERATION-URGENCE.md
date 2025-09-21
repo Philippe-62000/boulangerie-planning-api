@@ -35,7 +35,7 @@ cd backend && npm start
 
 ---
 
-## 🛡️ **3 MÉTHODES DE RÉCUPÉRATION**
+## 🛡️ **4 MÉTHODES DE RÉCUPÉRATION**
 
 ### **🥇 MÉTHODE 1 : GitHub (Recommandée)**
 - ✅ **Disponibilité** : 24h/7j depuis partout
@@ -45,7 +45,15 @@ cd backend && npm start
 
 **📋 Guide détaillé :** `RECUPERATION-URGENCE-GITHUB.md`
 
-### **🥈 MÉTHODE 2 : Render Dashboard**
+### **🥈 MÉTHODE 2 : NAS Local (Votre Préférée)**
+- ✅ **Sauvegarde complète** : Code + configurations
+- ✅ **Accès local** : Réseau interne rapide
+- ✅ **Contrôle total** : Vos propres sauvegardes
+- ✅ **Hors ligne** : Fonctionne sans internet
+
+**📋 Scripts :** `sauvegarde-nas.bat` et `restaurer-depuis-nas.bat`
+
+### **🥉 MÉTHODE 3 : Render Dashboard**
 - ✅ **Backend actif** : Déjà en ligne
 - ✅ **Variables** : Configuration préservée
 - ✅ **Base de données** : Si MongoDB Atlas
@@ -53,7 +61,7 @@ cd backend && npm start
 
 **📋 Guide détaillé :** `RECUPERATION-URGENCE-RENDER.md`
 
-### **🥉 MÉTHODE 3 : Sauvegarde Cloud**
+### **🏅 MÉTHODE 4 : Sauvegarde Cloud**
 - ✅ **Sauvegarde complète** : Code + configurations
 - ✅ **Accessible** : Google Drive, OneDrive, Email
 - ✅ **Hors ligne** : Fonctionne sans internet
