@@ -439,11 +439,13 @@ class EmailServiceAlternative {
       
       if (!template) {
         console.log('⚠️ Template comptable non trouvé, utilisation du template par défaut');
-        return await this.sendEmail(
+        return await this.sendEmailWithAttachment(
           accountantEmail,
           `Nouvel arrêt maladie validé - ${sickLeave.employeeName}`,
           this.generateAccountantEmailHTML(sickLeave),
-          this.generateAccountantEmailText(sickLeave)
+          this.generateAccountantEmailText(sickLeave),
+          sickLeave.fileName,
+          sickLeave.fileBuffer
         );
       }
 

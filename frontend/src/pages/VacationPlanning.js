@@ -33,11 +33,13 @@ const VacationPlanning = () => {
 
       // Récupérer les demandes de congés validées
       const vacationResponse = await api.get('/vacation-requests');
+      console.log('📅 Données congés reçues:', vacationResponse.data);
       if (vacationResponse.data.success) {
         const validatedVacations = vacationResponse.data.data.filter(
           req => req.status === 'validated' && 
           new Date(req.startDate).getFullYear() === selectedYear
         );
+        console.log('📅 Congés validés filtrés:', validatedVacations);
         setVacationRequests(validatedVacations);
       }
     } catch (error) {

@@ -260,64 +260,9 @@ const HolidayStatus = () => {
         </div>
       </div>
 
-      <div className="holiday-list">
-        {holidays.length === 0 ? (
-          <div className="no-data">
-            <p>Aucune demande de congé trouvée pour Arras</p>
-          </div>
-        ) : (
-          holidays.map((holiday) => {
-            const status = getStatus(holiday);
-            return (
-              <div key={holiday.id} className={`holiday-card ${getStatusClass(status)}`}>
-                <div className="holiday-info">
-                  <div className="employee-info">
-                    <strong>{holiday.prenom} {holiday.nom}</strong>
-                    <span className="boulangerie">{holiday.boulangerie}</span>
-                    <span className="email">{holiday.employeeEmail}</span>
-                  </div>
-                  <div className="dates-info">
-                    <span className="date-range">
-                      {holiday.dateDebut} → {holiday.dateFin}
-                    </span>
-                    <span className="duration">{holiday.duration} jours - {holiday.reason}</span>
-                    {holiday.commentaire && (
-                      <span className="comment">{holiday.commentaire}</span>
-                    )}
-                  </div>
-                </div>
-                <div className="holiday-actions">
-                  <span className={`status ${getStatusClass(status)}`}>
-                    {getStatusText(status)}
-                  </span>
-                  <div className="action-buttons">
-                    <button
-                      className="btn btn-success btn-sm"
-                      onClick={() => handleValidate(holiday.id)}
-                      disabled={status === 'validated'}
-                    >
-                      ✅
-                    </button>
-                    <button
-                      className="btn btn-warning btn-sm"
-                      onClick={() => handleEdit(holiday.id)}
-                      disabled={status === 'rejected'}
-                    >
-                      ✏️
-                    </button>
-                    <button
-                      className="btn btn-danger btn-sm"
-                      onClick={() => handleReject(holiday.id)}
-                      disabled={status === 'rejected'}
-                    >
-                      ❌
-                    </button>
-                  </div>
-                </div>
-              </div>
-            );
-          })
-        )}
+      <div className="holiday-info">
+        <p>📊 Utilisez le bouton "Imprimer Planning" pour voir le calendrier des congés validés.</p>
+        <p>📋 Pour gérer les demandes de congés, utilisez la page "Gestion des congés".</p>
       </div>
     </div>
   );
