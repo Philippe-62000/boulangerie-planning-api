@@ -34,6 +34,13 @@ const VacationPlanning = () => {
       // Récupérer les demandes de congés validées
       const vacationResponse = await api.get('/vacation-requests');
       console.log('📅 Données congés reçues:', vacationResponse.data);
+      console.log('📅 Structure de la réponse:', {
+        success: vacationResponse.data.success,
+        hasData: !!vacationResponse.data.data,
+        dataLength: vacationResponse.data.data?.length || 0,
+        firstItem: vacationResponse.data.data?.[0]
+      });
+      
       if (vacationResponse.data.success) {
         const validatedVacations = vacationResponse.data.data.filter(
           req => req.status === 'validated' && 
@@ -41,6 +48,9 @@ const VacationPlanning = () => {
         );
         console.log('📅 Congés validés filtrés:', validatedVacations);
         setVacationRequests(validatedVacations);
+      } else {
+        console.log('⚠️ Pas de succès dans la réponse API');
+        setVacationRequests([]);
       }
     } catch (error) {
       console.error('❌ Erreur chargement données:', error);

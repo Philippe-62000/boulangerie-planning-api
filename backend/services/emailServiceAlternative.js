@@ -743,7 +743,7 @@ Ce message a été généré automatiquement.
             <h3>📎 Pièce jointe :</h3>
             <p>Le document d'arrêt maladie est disponible au téléchargement :</p>
             <p style="text-align: center; margin: 20px 0;">
-              <a href="https://boulangerie-planning-api-3.onrender.com/api/sick-leaves/${sickLeave._id}/download" 
+              <a href="https://boulangerie-planning-api-4-pbfy.onrender.com/api/sick-leaves/${sickLeave._id}/download" 
                  style="background: #28a745; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; display: inline-block;">
                 📥 Télécharger l'arrêt maladie
               </a>

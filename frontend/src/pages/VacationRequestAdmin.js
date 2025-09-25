@@ -92,15 +92,25 @@ const VacationRequestAdmin = () => {
     e.preventDefault();
     
     try {
+      console.log('🔧 Envoi modification:', {
+        id: editingVacationRequest._id,
+        startDate: editFormData.startDate,
+        endDate: editFormData.endDate
+      });
+      
       const response = await api.put(`/vacation-requests/${editingVacationRequest._id}`, {
         startDate: editFormData.startDate,
         endDate: editFormData.endDate
       });
       
+      console.log('🔧 Réponse modification:', response.data);
+      
       if (response.data.success) {
         toast.success('Demande de congés modifiée avec succès');
         closeEditModal();
         fetchVacationRequests();
+      } else {
+        toast.error('Erreur: ' + (response.data.error || 'Modification échouée'));
       }
     } catch (error) {
       console.error('❌ Erreur modification:', error);
