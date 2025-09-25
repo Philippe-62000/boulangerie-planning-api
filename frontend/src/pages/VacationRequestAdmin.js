@@ -91,7 +91,6 @@ const VacationRequestAdmin = () => {
     e.preventDefault();
     
     try {
-      setLoading(true);
       const response = await api.put(`/vacation-requests/${editingVacationRequest._id}`, {
         startDate: editFormData.startDate,
         endDate: editFormData.endDate
@@ -105,8 +104,6 @@ const VacationRequestAdmin = () => {
     } catch (error) {
       console.error('❌ Erreur modification:', error);
       toast.error('Erreur lors de la modification');
-    } finally {
-      setLoading(false);
     }
   };
 
