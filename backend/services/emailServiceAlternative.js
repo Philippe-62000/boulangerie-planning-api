@@ -790,7 +790,7 @@ INFORMATIONS DE L'ARRÊT :
 
 PIÈCE JOINTE :
 Le document d'arrêt maladie est disponible au téléchargement :
-🔗 https://boulangerie-planning-api-3.onrender.com/api/sick-leaves/${sickLeave._id}/download
+🔗 https://boulangerie-planning-api-4-pbfy.onrender.com/api/sick-leaves/${sickLeave._id}/download
 
 Le fichier est disponible sur notre serveur sécurisé et peut être téléchargé depuis l'interface d'administration.
 

@@ -4,6 +4,7 @@ import { toast } from 'react-toastify';
 import './VacationPlanning.css';
 
 const VacationPlanning = () => {
+  console.log('📅 VacationPlanning - Composant chargé');
   const [employees, setEmployees] = useState([]);
   const [vacationRequests, setVacationRequests] = useState([]);
   const [loading, setLoading] = useState(true);
