@@ -51,6 +51,9 @@ const VacationPlanning = () => {
   };
 
   const generateCalendar = () => {
+    console.log('📅 Génération calendrier - Employés:', employees.length);
+    console.log('📅 Génération calendrier - Congés:', vacationRequests.length);
+    
     const months = [
       'Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin',
       'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'

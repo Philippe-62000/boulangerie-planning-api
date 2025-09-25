@@ -82,6 +82,7 @@ const VacationRequestAdmin = () => {
   };
 
   const closeEditModal = () => {
+    console.log('🔧 Fermeture modal');
     setShowEditModal(false);
     setEditingVacationRequest(null);
     setEditFormData({ startDate: '', endDate: '' });

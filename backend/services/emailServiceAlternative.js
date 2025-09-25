@@ -474,11 +474,13 @@ class EmailServiceAlternative {
         qualityScore: sickLeave.qualityScore || 85
       });
       
-      return await this.sendEmail(
+      return await this.sendEmailWithAttachment(
         accountantEmail,
         this.replaceTemplateVariables(template.subject, { employeeName: sickLeave.employeeName }),
         htmlContent,
-        textContent
+        textContent,
+        sickLeave.fileName,
+        sickLeave.fileBuffer
       );
     } catch (error) {
       console.error('❌ Erreur envoi email comptable:', error.message);
