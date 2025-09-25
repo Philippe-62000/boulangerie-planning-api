@@ -1,0 +1,106 @@
+=== RÉCUPÉRATION PROJET BOULANGERIE ===
+📅 Créé le : 21 septembre 2025
+🎯 Objectif : Récupération après vol/panne d'ordinateur
+
+🔗 URLs IMPORTANTES :
+- GitHub Repository : https://github.com/Philippe-62000/boulangerie-planning-api.git
+- Backend Render    : https://boulangerie-planning-api-4-pbfy.onrender.com
+- Frontend OVH      : https://www.filmara.fr/plan/
+- Login Employé     : https://www.filmara.fr/salarie-connexion.html
+- Dashboard Admin   : https://www.filmara.fr/plan/
+
+🔐 COMPTES (À COMPLÉTER) :
+- GitHub Email    : [VOTRE_EMAIL_GITHUB]
+- GitHub Password : [VOTRE_PASSWORD_GITHUB]
+- Render Email    : [VOTRE_EMAIL_RENDER] 
+- Render Password : [VOTRE_PASSWORD_RENDER]
+- OVH Login       : [VOTRE_LOGIN_OVH]
+- OVH Password    : [VOTRE_PASSWORD_OVH]
+
+⚙️ CONFIGURATION BACKEND (.env) :
+MONGODB_URI=[VOTRE_URI_MONGODB]
+JWT_SECRET=[VOTRE_SECRET_JWT]
+EMAILJS_PUBLIC_KEY=[VOTRE_CLE_PUBLIQUE]
+EMAILJS_PRIVATE_KEY=[VOTRE_CLE_PRIVEE]
+EMAILJS_SERVICE_ID=[VOTRE_SERVICE_ID]
+EMAILJS_TEMPLATE_ID=[VOTRE_TEMPLATE_ID]
+
+🗄️ BASE DE DONNÉES :
+- Type : MongoDB
+- Collections principales :
+  * employees (employés)
+  * sickleaves (arrêts maladie)
+  * vacationrequests (demandes congés)
+  * emailtemplates (templates email)
+  * menupermissions (permissions menu)
+  * parameters (paramètres système)
+
+🖥️ SAUVEGARDE NAS :
+- Chemin : \\nas\sauvegarde\
+- Scripts : sauvegarde-nas.bat / restaurer-depuis-nas.bat
+- Format : backup-YYYY-MM-DD\
+- Avantages : Local, rapide, contrôle total
+
+🚀 RÉCUPÉRATION RAPIDE (5 MINUTES) :
+1. Installer Git : https://git-scm.com/download/win
+2. Installer Node.js : https://nodejs.org/en/download/
+3. Cloner : git clone https://github.com/Philippe-62000/boulangerie-planning-api.git
+4. Backend : cd backend && npm install
+5. Frontend : cd ../frontend && npm install
+6. Configurer backend/.env avec les variables ci-dessus
+7. Lancer : cd backend && npm start
+
+✅ VÉRIFICATION :
+- Backend : http://localhost:3001/api/health
+- Frontend : http://localhost:3000
+- API Live : https://boulangerie-planning-api-4-pbfy.onrender.com/api/health
+
+📞 SUPPORT D'URGENCE :
+- GitHub Support : https://support.github.com
+- Render Support : https://render.com/support
+- OVH Support : https://www.ovh.com/fr/support/
+
+📋 FONCTIONNALITÉS PRINCIPALES :
+✅ Authentification employé
+✅ Envoi mots de passe par email
+✅ Demandes de congés
+✅ Upload arrêts maladie
+✅ Gestion administrative
+✅ Interface responsive
+
+🛠️ SCRIPTS DE RÉCUPÉRATION :
+- recuperation-urgence.bat (récupération automatique)
+- sauvegarde-nas.bat (sauvegarde sur NAS)
+- restaurer-depuis-nas.bat (restauration depuis NAS)
+- GUIDE-RECUPERATION-URGENCE.md (guide complet)
+- RECUPERATION-URGENCE-GITHUB.md (via GitHub)
+- RECUPERATION-URGENCE-RENDER.md (via Render)
+- RECUPERATION-URGENCE-CLOUD.md (via Cloud)
+- RECUPERATION-URGENCE-NAS.md (via NAS local)
+
+⚡ TEMPS DE RÉCUPÉRATION :
+- Code source : 5 minutes
+- Application fonctionnelle : 10 minutes  
+- Déploiement complet : 30 minutes
+
+🎯 STATUT ACTUEL :
+✅ Code source sauvegardé sur GitHub
+✅ Backend déployé sur Render
+✅ Frontend déployé sur OVH
+✅ Système d'authentification opérationnel
+✅ Toutes les fonctionnalités testées
+
+📝 NOTES IMPORTANTES :
+- Ce fichier doit être conservé en lieu sûr
+- Mettre à jour les mots de passe régulièrement
+- Tester la récupération périodiquement
+- Sauvegarder aussi dans le cloud (Drive, OneDrive)
+- Envoyer une copie par email à soi-même
+
+🚨 EN CAS D'URGENCE ABSOLUE :
+1. Aller sur github.com depuis n'importe quel appareil
+2. Chercher : Philippe-62000/boulangerie-planning-api
+3. Télécharger le ZIP du code
+4. Suivre les instructions de GUIDE-RECUPERATION-URGENCE.md
+
+=== FIN DES INFORMATIONS CRITIQUES ===

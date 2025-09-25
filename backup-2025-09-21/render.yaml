@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: boulangerie-planning-api
+    env: node
+    plan: free
+    buildCommand: npm install --force && npm install nodemailer jsonwebtoken --save
+    startCommand: node server.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: MONGODB_URI
+        fromDatabase:
+          name: boulangerie-mongodb
+          property: connectionString
+      - key: FORCE_RESTART
+        value: "2025-01-07-15-45"

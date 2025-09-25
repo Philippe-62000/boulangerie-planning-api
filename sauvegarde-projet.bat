@@ -47,3 +47,8 @@ echo   ❌ Dépendances (npm install requis)
 echo   ❌ Base de données (séparée)
 echo.
 pause
+
+
+
+
+

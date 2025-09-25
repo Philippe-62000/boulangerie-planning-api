@@ -89,3 +89,8 @@ echo    2. Testez les fonctionnalités principales
 echo    3. Redémarrez l'application si nécessaire
 echo.
 pause
+
+
+
+
+

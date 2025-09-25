@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: planning-generator
+    env: python
+    plan: free
+    buildCommand: pip install -r planning-generator-requirements.txt
+    startCommand: python planning-generator.py
+    envVars:
+      - key: MONGODB_URI
+        value: mongodb+srv://votre_uri_mongodb
+      - key: PORT
+        value: 5002
+    healthCheckPath: /health
+    autoDeploy: true

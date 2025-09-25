@@ -1,0 +1,145 @@
+.sick-leave-home {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  padding: 20px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.home-container {
+  background: white;
+  border-radius: 15px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+  padding: 40px;
+  max-width: 800px;
+  width: 100%;
+  margin: 20px;
+}
+
+.home-header {
+  text-align: center;
+  margin-bottom: 40px;
+}
+
+.home-header h1 {
+  color: #333;
+  margin-bottom: 10px;
+  font-size: 2.5em;
+}
+
+.home-header p {
+  color: #666;
+  font-size: 1.2em;
+}
+
+.home-content {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 30px;
+  margin-bottom: 40px;
+}
+
+.info-card,
+.requirements-card,
+.security-card {
+  background: #f8f9fa;
+  border-radius: 10px;
+  padding: 25px;
+  border-left: 4px solid #667eea;
+}
+
+.requirements-card {
+  border-left-color: #28a745;
+}
+
+.security-card {
+  border-left-color: #17a2b8;
+}
+
+.info-card h2,
+.requirements-card h2,
+.security-card h2 {
+  color: #333;
+  margin-bottom: 15px;
+  font-size: 1.3em;
+}
+
+.info-card ol,
+.requirements-card ul,
+.security-card ul {
+  margin: 0;
+  padding-left: 20px;
+}
+
+.info-card li,
+.requirements-card li,
+.security-card li {
+  color: #666;
+  margin-bottom: 8px;
+  line-height: 1.5;
+}
+
+.action-section {
+  text-align: center;
+  margin-bottom: 30px;
+}
+
+.upload-button {
+  display: inline-block;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  text-decoration: none;
+  padding: 15px 40px;
+  border-radius: 50px;
+  font-size: 1.2em;
+  font-weight: 600;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+}
+
+.upload-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
+  text-decoration: none;
+  color: white;
+}
+
+.contact-info {
+  text-align: center;
+  padding: 20px;
+  background: #f8f9fa;
+  border-radius: 10px;
+  border: 1px solid #e1e5e9;
+}
+
+.contact-info h3 {
+  color: #333;
+  margin-bottom: 10px;
+}
+
+.contact-info p {
+  color: #666;
+  margin: 0;
+}
+
+@media (max-width: 768px) {
+  .home-container {
+    padding: 20px;
+    margin: 10px;
+  }
+  
+  .home-header h1 {
+    font-size: 2em;
+  }
+  
+  .home-content {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+  
+  .upload-button {
+    padding: 12px 30px;
+    font-size: 1.1em;
+  }
+}

@@ -338,3 +338,6 @@ restaurer-projet.bat
 ---
 
 **📝 Note :** Ce guide est sauvegardé et peut être mis à jour selon les évolutions du projet.
+
+
+

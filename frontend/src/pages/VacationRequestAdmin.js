@@ -269,8 +269,8 @@ const VacationRequestAdmin = () => {
 
       {/* Modal de modification */}
       {showEditModal && (
-        <div className="modal-overlay">
-          <div className="modal">
+        <div className="modal-overlay" onClick={closeEditModal}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h3>Modifier les dates de congés</h3>
               <button className="close-btn" onClick={closeEditModal}>×</button>

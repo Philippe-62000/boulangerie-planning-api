@@ -87,3 +87,8 @@ echo    - parameters (paramètres)
 echo    - Et toutes les autres collections...
 echo.
 pause
+
+
+
+
+

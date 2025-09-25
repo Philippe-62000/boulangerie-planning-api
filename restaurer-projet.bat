@@ -72,3 +72,8 @@ echo - Vérifiez les fichiers de configuration
 echo - Redéployez sur Render si nécessaire
 echo.
 pause
+
+
+
+
+

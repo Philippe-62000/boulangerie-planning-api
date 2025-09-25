@@ -171,3 +171,6 @@ pause
 - 🚫 **Un seul endroit** : Risque de perte unique
 - 🚫 **Pas de test** : Récupération non vérifiée
 ```
+
+
+

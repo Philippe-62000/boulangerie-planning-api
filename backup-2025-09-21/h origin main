@@ -1,0 +1,5 @@
+[33m0be1504[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m)[m  Ajout de l'ajustement automatique des heures contractuelles après génération OR-Tools
+[33m67e502f[m[33m ([m[1;31morigin/main[m[33m)[m Refonte complète du design : interface moderne et professionnelle avec composants améliorés
+[33mebdda06[m Correction équilibrage weekends: personnel minimum garanti et réduction surcharge semaine
+[33mdd86f9d[m Amélioration équilibrage weekends et personnel minimum garanti
+[33mc3d28e1[m Correction structure des données pour architecture distribuée

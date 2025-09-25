@@ -183,3 +183,6 @@ echo ⚠️  IMPORTANT : Redémarrez votre terminal pour que la
 echo    variable d'environnement soit prise en compte.
 echo.
 pause
+
+
+
