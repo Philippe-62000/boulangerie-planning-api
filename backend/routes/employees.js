@@ -18,8 +18,8 @@ router.post('/send-password/:employeeId', employeeController.sendPasswordToEmplo
 // Route temporaire pour la connexion employé (sans JWT)
 router.post('/login', employeeController.employeeLogin);
 
-// Route de debug pour vérifier le mot de passe d'un employé
-router.get('/debug-password/:email', employeeController.debugPassword);
+// Route de debug pour vérifier le mot de passe d'un employé (désactivée)
+// router.get('/debug-password/:email', employeeController.debugPassword);
 
 module.exports = router;
 
