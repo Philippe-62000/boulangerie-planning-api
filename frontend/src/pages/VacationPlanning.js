@@ -12,17 +12,30 @@ const VacationPlanning = () => {
   const [printMode, setPrintMode] = useState(false);
   const [error, setError] = useState(null);
 
+  console.log('📅 VacationPlanning - État initial:', {
+    loading,
+    error,
+    employeesCount: employees.length,
+    vacationRequestsCount: vacationRequests.length,
+    selectedYear
+  });
+
   useEffect(() => {
+    console.log('📅 VacationPlanning - useEffect déclenché');
     fetchData();
   }, [selectedYear]);
 
   const fetchData = async () => {
+    console.log('📅 VacationPlanning - fetchData démarré');
     try {
       setLoading(true);
       setError(null);
+      console.log('📅 VacationPlanning - Loading mis à true');
       
       // Récupérer les employés
+      console.log('📅 VacationPlanning - Récupération employés...');
       const employeesResponse = await api.get('/employees');
+      console.log('📅 VacationPlanning - Réponse employés:', employeesResponse.data);
       let employeesData = null;
       if (employeesResponse.data.success && employeesResponse.data.data) {
         employeesData = employeesResponse.data.data;
@@ -31,10 +44,12 @@ const VacationPlanning = () => {
       }
       
       if (employeesData) {
+        console.log('📅 VacationPlanning - Employés chargés:', employeesData.length);
         setEmployees(employeesData);
       }
 
       // Récupérer les demandes de congés validées
+      console.log('📅 VacationPlanning - Récupération congés...');
       const vacationResponse = await api.get('/vacation-requests');
       console.log('📅 Données congés reçues:', vacationResponse.data);
       console.log('📅 Structure de la réponse:', {
@@ -55,6 +70,8 @@ const VacationPlanning = () => {
         console.log('⚠️ Pas de succès dans la réponse API');
         setVacationRequests([]);
       }
+      
+      console.log('📅 VacationPlanning - fetchData terminé, loading mis à false');
     } catch (error) {
       console.error('❌ Erreur chargement données:', error);
       setError('Erreur lors du chargement des données: ' + error.message);
@@ -142,8 +159,16 @@ const VacationPlanning = () => {
     }
   };
 
+  console.log('📅 VacationPlanning - Rendu du composant:', {
+    loading,
+    error,
+    employeesCount: employees.length,
+    vacationRequestsCount: vacationRequests.length
+  });
+
   // Affichage d'erreur
   if (error) {
+    console.log('📅 VacationPlanning - Affichage erreur:', error);
     return (
       <div className="vacation-planning">
         <div className="error-message" style={{ 
@@ -175,6 +200,7 @@ const VacationPlanning = () => {
   }
 
   if (loading) {
+    console.log('📅 VacationPlanning - Affichage loading');
     return (
       <div className="vacation-planning">
         <div className="loading-container">

@@ -8,6 +8,12 @@ const HolidayStatus = () => {
   const [validatedHolidays, setValidatedHolidays] = useState(new Set());
   const [rejectedHolidays, setRejectedHolidays] = useState(new Set());
 
+  // Charger automatiquement les données au montage du composant
+  useEffect(() => {
+    console.log('🏖️ HolidayStatus - Chargement automatique des données');
+    fetchHolidays();
+  }, []);
+
   const fetchHolidays = async () => {
     setLoading(true);
     try {
@@ -18,6 +24,12 @@ const HolidayStatus = () => {
       const data = response.data;
       
       console.log('📊 Données reçues:', data);
+      console.log('📊 Structure des données:', {
+        success: data.success,
+        hasData: !!data.data,
+        dataLength: data.data?.length || 0,
+        firstItem: data.data?.[0]
+      });
       
       if (data.success && data.data) {
         const holidaysData = data.data.map(vacation => ({
@@ -36,6 +48,8 @@ const HolidayStatus = () => {
         }));
 
         console.log('✅ Congés récupérés depuis l\'API:', holidaysData);
+        console.log('✅ Nombre de congés:', holidaysData.length);
+        console.log('✅ Congés validés:', holidaysData.filter(h => h.status === 'validated').length);
         setHolidays(holidaysData);
       } else {
         console.log('⚠️ Aucune donnée reçue ou format invalide');
@@ -48,10 +62,6 @@ const HolidayStatus = () => {
       setLoading(false);
     }
   };
-
-  useEffect(() => {
-    fetchHolidays();
-  }, []);
 
   const handleValidate = async (holidayId) => {
     try {
