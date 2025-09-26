@@ -13,9 +13,21 @@ const VacationRequestAdmin = () => {
     startDate: '',
     endDate: ''
   });
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     fetchVacationRequests();
+  }, []);
+
+  // Gestion d'erreur globale
+  useEffect(() => {
+    const handleError = (error) => {
+      console.error('❌ Erreur globale:', error);
+      setError('Une erreur est survenue. Veuillez recharger la page.');
+    };
+
+    window.addEventListener('error', handleError);
+    return () => window.removeEventListener('error', handleError);
   }, []);
 
   const fetchVacationRequests = async () => {
@@ -71,17 +83,32 @@ const VacationRequestAdmin = () => {
   };
 
   const openEditModal = (vacationRequest) => {
-    console.log('🔧 Ouverture modal modification pour:', vacationRequest);
-    setEditingVacationRequest(vacationRequest);
-    const startDate = new Date(vacationRequest.startDate).toISOString().split('T')[0];
-    const endDate = new Date(vacationRequest.endDate).toISOString().split('T')[0];
-    console.log('🔧 Dates extraites:', { startDate, endDate });
-    setEditFormData({
-      startDate: startDate,
-      endDate: endDate
-    });
-    setShowEditModal(true);
-    console.log('🔧 Modal ouvert:', true);
+    try {
+      console.log('🔧 Ouverture modal modification pour:', vacationRequest);
+      setEditingVacationRequest(vacationRequest);
+      
+      // Vérification des dates
+      console.log('🔧 Dates originales:', {
+        startDate: vacationRequest.startDate,
+        endDate: vacationRequest.endDate,
+        startDateType: typeof vacationRequest.startDate,
+        endDateType: typeof vacationRequest.endDate
+      });
+      
+      const startDate = new Date(vacationRequest.startDate).toISOString().split('T')[0];
+      const endDate = new Date(vacationRequest.endDate).toISOString().split('T')[0];
+      console.log('🔧 Dates extraites:', { startDate, endDate });
+      
+      setEditFormData({
+        startDate: startDate,
+        endDate: endDate
+      });
+      setShowEditModal(true);
+      console.log('🔧 Modal ouvert:', true);
+    } catch (error) {
+      console.error('❌ Erreur ouverture modal:', error);
+      toast.error('Erreur lors de l\'ouverture du modal');
+    }
   };
 
   const closeEditModal = () => {
@@ -113,11 +140,17 @@ const VacationRequestAdmin = () => {
         closeEditModal();
         fetchVacationRequests();
       } else {
+        console.error('❌ Erreur API:', response.data.error);
         toast.error('Erreur: ' + (response.data.error || 'Modification échouée'));
       }
     } catch (error) {
-      console.error('❌ Erreur modification:', error);
-      toast.error('Erreur lors de la modification');
+      console.error('❌ Erreur modification complète:', error);
+      console.error('❌ Détails erreur:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status
+      });
+      toast.error('Erreur lors de la modification: ' + (error.response?.data?.error || error.message));
     }
   };
 
@@ -142,6 +175,38 @@ const VacationRequestAdmin = () => {
     if (filter === 'all') return true;
     return request.status === filter;
   });
+
+  // Affichage d'erreur
+  if (error) {
+    return (
+      <div className="vacation-request-admin">
+        <div className="error-message" style={{ 
+          padding: '20px', 
+          backgroundColor: '#f8d7da', 
+          color: '#721c24', 
+          border: '1px solid #f5c6cb',
+          borderRadius: '5px',
+          margin: '20px'
+        }}>
+          <h3>❌ Erreur</h3>
+          <p>{error}</p>
+          <button 
+            onClick={() => window.location.reload()} 
+            style={{
+              padding: '10px 20px',
+              backgroundColor: '#dc3545',
+              color: 'white',
+              border: 'none',
+              borderRadius: '5px',
+              cursor: 'pointer'
+            }}
+          >
+            Recharger la page
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   if (loading) {
     return (

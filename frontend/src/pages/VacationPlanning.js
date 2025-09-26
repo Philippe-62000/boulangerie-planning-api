@@ -10,6 +10,7 @@ const VacationPlanning = () => {
   const [loading, setLoading] = useState(true);
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [printMode, setPrintMode] = useState(false);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     fetchData();
@@ -18,6 +19,7 @@ const VacationPlanning = () => {
   const fetchData = async () => {
     try {
       setLoading(true);
+      setError(null);
       
       // Récupérer les employés
       const employeesResponse = await api.get('/employees');
@@ -55,6 +57,7 @@ const VacationPlanning = () => {
       }
     } catch (error) {
       console.error('❌ Erreur chargement données:', error);
+      setError('Erreur lors du chargement des données: ' + error.message);
       toast.error('Erreur lors du chargement des données');
     } finally {
       setLoading(false);
@@ -138,6 +141,38 @@ const VacationPlanning = () => {
       default: return '#6c757d';
     }
   };
+
+  // Affichage d'erreur
+  if (error) {
+    return (
+      <div className="vacation-planning">
+        <div className="error-message" style={{ 
+          padding: '20px', 
+          backgroundColor: '#f8d7da', 
+          color: '#721c24', 
+          border: '1px solid #f5c6cb',
+          borderRadius: '5px',
+          margin: '20px'
+        }}>
+          <h3>❌ Erreur</h3>
+          <p>{error}</p>
+          <button 
+            onClick={() => window.location.reload()} 
+            style={{
+              padding: '10px 20px',
+              backgroundColor: '#dc3545',
+              color: 'white',
+              border: 'none',
+              borderRadius: '5px',
+              cursor: 'pointer'
+            }}
+          >
+            Recharger la page
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   if (loading) {
     return (
