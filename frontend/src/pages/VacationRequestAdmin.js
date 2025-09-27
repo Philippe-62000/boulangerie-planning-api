@@ -105,6 +105,11 @@ const VacationRequestAdmin = () => {
       });
       setShowEditModal(true);
       console.log('🔧 Modal ouvert:', true);
+      
+      // Debug pour vérifier si le modal se ferme automatiquement
+      setTimeout(() => {
+        console.log('🔧 Vérification modal après 1 seconde:', showEditModal);
+      }, 1000);
     } catch (error) {
       console.error('❌ Erreur ouverture modal:', error);
       toast.error('Erreur lors de l\'ouverture du modal');
@@ -112,7 +117,7 @@ const VacationRequestAdmin = () => {
   };
 
   const closeEditModal = () => {
-    console.log('🔧 Fermeture modal');
+    console.log('🔧 Fermeture modal - Appelée depuis:', new Error().stack);
     setShowEditModal(false);
     setEditingVacationRequest(null);
     setEditFormData({ startDate: '', endDate: '' });
@@ -348,11 +353,20 @@ const VacationRequestAdmin = () => {
 
       {/* Modal de modification */}
       {showEditModal && (
-        <div className="modal-overlay" onClick={closeEditModal}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-overlay" onClick={(e) => {
+          console.log('🔧 Clic sur overlay - fermeture modal');
+          closeEditModal();
+        }}>
+          <div className="modal" onClick={(e) => {
+          console.log('🔧 Clic sur modal - propagation stoppée');
+          e.stopPropagation();
+        }}>
             <div className="modal-header">
               <h3>Modifier les dates de congés</h3>
-              <button className="close-btn" onClick={closeEditModal}>×</button>
+              <button className="close-btn" onClick={(e) => {
+                console.log('🔧 Clic sur bouton fermer');
+                closeEditModal();
+              }}>×</button>
             </div>
             <form onSubmit={handleEditSubmit}>
               <div className="form-group">
