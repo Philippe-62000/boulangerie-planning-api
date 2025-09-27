@@ -197,21 +197,44 @@ const validateVacationRequest = async (req, res) => {
         
         // Synchroniser l'employé avec les congés
         try {
+          console.log('🔍 Recherche employé pour synchronisation:', vacationRequest.employeeName);
+          
+          // Recherche plus flexible par nom (sans accents, insensible à la casse)
           const employee = await Employee.findOne({
-            name: { $regex: new RegExp(vacationRequest.employeeName, 'i') }
+            $or: [
+              { name: { $regex: new RegExp(vacationRequest.employeeName.replace(/[àâäéèêëïîôöùûüÿç]/gi, '[àâäéèêëïîôöùûüÿça]'), 'i') } },
+              { name: { $regex: new RegExp(vacationRequest.employeeName, 'i') } }
+            ]
           });
           
+          console.log('🔍 Employé trouvé:', employee ? `${employee.name} (ID: ${employee._id})` : 'Aucun');
+          
           if (employee) {
-            await Employee.findByIdAndUpdate(employee._id, {
-              $set: {
-                'vacation.isOnVacation': true,
-                'vacation.startDate': vacationRequest.startDate,
-                'vacation.endDate': vacationRequest.endDate
-              }
-            });
-            console.log('✅ Employé synchronisé avec les congés:', employee.name);
+            const updateResult = await Employee.findByIdAndUpdate(
+              employee._id, 
+              {
+                $set: {
+                  'vacation.isOnVacation': true,
+                  'vacation.startDate': vacationRequest.startDate,
+                  'vacation.endDate': vacationRequest.endDate,
+                  'vacation.vacationRequestId': vacationRequest._id
+                }
+              },
+              { new: true }
+            );
+            
+            if (updateResult) {
+              console.log('✅ Employé synchronisé avec les congés:', employee.name);
+              console.log('📅 Période de congés:', vacationRequest.startDate, '→', vacationRequest.endDate);
+            } else {
+              console.log('❌ Échec de la mise à jour de l\'employé');
+            }
           } else {
             console.log('⚠️ Employé non trouvé pour la synchronisation:', vacationRequest.employeeName);
+            
+            // Lister tous les employés pour debug
+            const allEmployees = await Employee.find({}, 'name role');
+            console.log('👥 Employés disponibles:', allEmployees.map(emp => `${emp.name} (${emp.role})`));
           }
         } catch (syncError) {
           console.error('❌ Erreur synchronisation employé:', syncError.message);
