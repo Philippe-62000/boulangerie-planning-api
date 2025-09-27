@@ -235,7 +235,7 @@ const VacationRequestAdmin = () => {
             📝 Formulaire de demande de congés
           </a>
           <button 
-            onClick={() => window.open('/vacation-planning', '_blank')}
+            onClick={() => window.open('/plan/vacation-planning', '_blank')}
             className="btn btn-secondary"
             style={{ marginLeft: '10px' }}
           >

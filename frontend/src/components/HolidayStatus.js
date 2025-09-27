@@ -3,6 +3,9 @@ import api from '../services/api';
 import './HolidayStatus.css';
 
 const HolidayStatus = () => {
+  console.log('🏖️ HolidayStatus - Composant chargé');
+  console.log('🏖️ HolidayStatus - URL actuelle:', window.location.href);
+  
   const [holidays, setHolidays] = useState([]);
   const [loading, setLoading] = useState(false);
   const [validatedHolidays, setValidatedHolidays] = useState(new Set());
@@ -233,6 +236,17 @@ const HolidayStatus = () => {
     <div className="holiday-status">
       <div className="holiday-header">
         <h3>🏖️ État des Congés</h3>
+        <div style={{ 
+          background: '#17a2b8', 
+          color: 'white', 
+          padding: '5px 10px', 
+          margin: '5px 0',
+          borderRadius: '3px',
+          fontSize: '12px',
+          fontWeight: 'bold'
+        }}>
+          🚀 DÉPLOIEMENT #002 - {new Date().toLocaleString()}
+        </div>
         <div className="holiday-actions">
           <button 
             className="btn btn-primary"
