@@ -12,4 +12,7 @@ router.patch('/:id/validate', vacationRequestController.validateVacationRequest)
 router.patch('/:id/accept', vacationRequestController.validateVacationRequest);
 router.patch('/:id/reject', vacationRequestController.rejectVacationRequest);
 
+// Route pour forcer la synchronisation des congés
+router.post('/sync-employees', vacationRequestController.syncVacationsWithEmployees);
+
 module.exports = router;

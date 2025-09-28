@@ -199,6 +199,10 @@ const validateVacationRequest = async (req, res) => {
         try {
           console.log('🔍 Recherche employé pour synchronisation:', vacationRequest.employeeName);
           
+          // Lister tous les employés pour debug
+          const allEmployees = await Employee.find({}, 'name role');
+          console.log('👥 Employés disponibles:', allEmployees.map(emp => `${emp.name} (${emp.role})`));
+          
           // Recherche plus flexible par nom (sans accents, insensible à la casse)
           const employee = await Employee.findOne({
             $or: [
@@ -461,11 +465,68 @@ const createAbsenceFromVacationRequest = async (vacationRequest) => {
   }
 };
 
+// Forcer la synchronisation des congés avec les employés
+const syncVacationsWithEmployees = async (req, res) => {
+  try {
+    console.log('🔄 SYNCHRONISATION FORCÉE DES CONGÉS');
+    
+    // Récupérer toutes les demandes de congés validées
+    const validatedVacations = await VacationRequest.find({ status: 'validated' });
+    console.log(`📋 ${validatedVacations.length} demandes de congés validées trouvées`);
+    
+    let syncCount = 0;
+    
+    for (const vacation of validatedVacations) {
+      try {
+        console.log(`🔍 Synchronisation: ${vacation.employeeName}`);
+        
+        // Rechercher l'employé
+        const employee = await Employee.findOne({
+          $or: [
+            { name: { $regex: new RegExp(vacation.employeeName.replace(/[àâäéèêëïîôöùûüÿç]/gi, '[àâäéèêëïîôöùûüÿça]'), 'i') } },
+            { name: { $regex: new RegExp(vacation.employeeName, 'i') } }
+          ]
+        });
+        
+        if (employee) {
+          // Mettre à jour l'employé avec les congés
+          await Employee.findByIdAndUpdate(employee._id, {
+            $set: {
+              'vacation.isOnVacation': true,
+              'vacation.startDate': vacation.startDate,
+              'vacation.endDate': vacation.endDate,
+              'vacation.vacationRequestId': vacation._id
+            }
+          });
+          
+          console.log(`✅ ${employee.name} synchronisé avec les congés`);
+          syncCount++;
+        } else {
+          console.log(`❌ Employé non trouvé: ${vacation.employeeName}`);
+        }
+      } catch (error) {
+        console.error(`❌ Erreur synchronisation ${vacation.employeeName}:`, error.message);
+      }
+    }
+    
+    res.json({ 
+      success: true, 
+      message: `Synchronisation terminée: ${syncCount} employés mis à jour`,
+      syncedCount: syncCount,
+      totalVacations: validatedVacations.length
+    });
+  } catch (error) {
+    console.error('❌ Erreur synchronisation forcée:', error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
 module.exports = {
   getAllVacationRequests,
   getVacationRequestById,
   createVacationRequest,
   validateVacationRequest,
   rejectVacationRequest,
-  updateVacationRequest
+  updateVacationRequest,
+  syncVacationsWithEmployees
 };
