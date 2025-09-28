@@ -81,6 +81,31 @@ const employeeSchema = new mongoose.Schema({
       comment: 'Référence vers la demande de congés validée'
     }
   },
+  // CHAMP DELAYS - POUR LE SUIVI DES RETARDS
+  // Stocke les retards de l'employé avec date et durée
+  delays: [{
+    date: {
+      type: Date,
+      required: true,
+      comment: 'Date du retard'
+    },
+    duration: {
+      type: Number,
+      required: true,
+      min: 1,
+      comment: 'Durée du retard en minutes'
+    },
+    reason: {
+      type: String,
+      default: '',
+      comment: 'Raison du retard (optionnel)'
+    },
+    createdAt: {
+      type: Date,
+      default: Date.now,
+      comment: 'Date de création de l\'enregistrement'
+    }
+  }],
   email: {
     type: String,
     unique: true,

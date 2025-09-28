@@ -94,6 +94,7 @@ app.use('/api/employee-status', require('./routes/employeeStatus'));
 app.use('/api/sick-leaves', require('./routes/sickLeaves'));
 app.use('/api/cleanup', require('./routes/cleanup'));
 app.use('/api/vacation-requests', require('./routes/vacationRequests'));
+app.use('/api/delays', require('./routes/delays'));
 app.use('/api/email-templates', require('./routes/emailTemplates'));
 app.use('/api/database', require('./routes/database'));
 
