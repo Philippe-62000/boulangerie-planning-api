@@ -489,17 +489,27 @@ const syncVacationsWithEmployees = async (req, res) => {
         });
         
         if (employee) {
-          // Mettre à jour l'employé avec les congés
-          await Employee.findByIdAndUpdate(employee._id, {
-            $set: {
-              'vacation.isOnVacation': true,
-              'vacation.startDate': vacation.startDate,
-              'vacation.endDate': vacation.endDate,
-              'vacation.vacationRequestId': vacation._id
-            }
-          });
+          // Vérifier si l'employé a déjà des congés
+          const currentVacation = employee.vacation || {};
+          console.log(`🔍 État actuel vacation pour ${employee.name}:`, currentVacation);
           
-          console.log(`✅ ${employee.name} synchronisé avec les congés`);
+          // Mettre à jour l'employé avec les congés
+          const updateData = {
+            vacation: {
+              isOnVacation: true,
+              startDate: vacation.startDate,
+              endDate: vacation.endDate,
+              vacationRequestId: vacation._id
+            }
+          };
+          
+          console.log(`📝 Mise à jour pour ${employee.name}:`, updateData);
+          
+          await Employee.findByIdAndUpdate(employee._id, { $set: updateData });
+          
+          // Vérifier la mise à jour
+          const updatedEmployee = await Employee.findById(employee._id);
+          console.log(`✅ ${employee.name} synchronisé - vacation après update:`, updatedEmployee.vacation);
           syncCount++;
         } else {
           console.log(`❌ Employé non trouvé: ${vacation.employeeName}`);
