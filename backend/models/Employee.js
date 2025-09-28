@@ -58,6 +58,22 @@ const employeeSchema = new mongoose.Schema({
       type: Date
     }
   },
+  vacation: {
+    isOnVacation: {
+      type: Boolean,
+      default: false
+    },
+    startDate: {
+      type: Date
+    },
+    endDate: {
+      type: Date
+    },
+    vacationRequestId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'VacationRequest'
+    }
+  },
   email: {
     type: String,
     unique: true,
