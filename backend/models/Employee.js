@@ -58,20 +58,27 @@ const employeeSchema = new mongoose.Schema({
       type: Date
     }
   },
+  // CHAMP VACATION - CRÉÉ POUR LA SYNCHRONISATION DES CONGÉS
+  // Ce champ permet de stocker l'état des congés de l'employé directement dans le modèle Employee
+  // Il est synchronisé avec les VacationRequest validées via la route /sync-employees
   vacation: {
     isOnVacation: {
       type: Boolean,
-      default: false
+      default: false,
+      comment: 'Indique si l\'employé est actuellement en congés'
     },
     startDate: {
-      type: Date
+      type: Date,
+      comment: 'Date de début des congés actuels'
     },
     endDate: {
-      type: Date
+      type: Date,
+      comment: 'Date de fin des congés actuels'
     },
     vacationRequestId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: 'VacationRequest'
+      ref: 'VacationRequest',
+      comment: 'Référence vers la demande de congés validée'
     }
   },
   email: {
