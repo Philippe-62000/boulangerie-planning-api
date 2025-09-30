@@ -97,10 +97,40 @@ const TicketRestaurant = () => {
   };
 
   const extractAmountFromBarcode = (barcode) => {
-    // Simulation d'extraction du montant depuis le code-barres
-    // En réalité, cela dépendrait du format du code-barres de chaque fournisseur
-    const amount = Math.random() * 10 + 5; // Simulation: montant entre 5€ et 15€
-    return Math.round(amount * 100) / 100; // Arrondir à 2 décimales
+    console.log('🔍 Code-barres scanné:', barcode);
+    
+    // Extraction du montant depuis le code-barres
+    // Format des codes-barres fournis :
+    // 041222212300070028300005 → 7€ (positions 12-13: 07)
+    // 045906168640115220700005 → 11,52€ (positions 12-15: 1152)
+    
+    if (!barcode || barcode.length < 15) {
+      console.warn('⚠️ Code-barres trop court:', barcode);
+      return null;
+    }
+    
+    try {
+      // Extraire les 4 derniers chiffres avant les 5 derniers
+      const amountString = barcode.substring(12, 16);
+      console.log('🔍 Chaîne de montant extraite:', amountString);
+      
+      // Convertir en montant (diviser par 100 pour avoir les euros)
+      const amount = parseInt(amountString) / 100;
+      
+      console.log('💰 Montant extrait:', amount, '€');
+      
+      // Vérifier que le montant est valide (entre 0.01€ et 50€)
+      if (amount < 0.01 || amount > 50) {
+        console.warn('⚠️ Montant invalide:', amount);
+        return null;
+      }
+      
+      return Math.round(amount * 100) / 100; // Arrondir à 2 décimales
+      
+    } catch (error) {
+      console.error('❌ Erreur lors de l\'extraction du montant:', error);
+      return null;
+    }
   };
 
   const removeTicket = async (ticketId) => {
@@ -129,8 +159,15 @@ const TicketRestaurant = () => {
   };
 
   const simulateScan = () => {
-    const simulatedBarcode = `TR${Date.now()}${Math.floor(Math.random() * 1000)}`;
-    handleScanTicket(simulatedBarcode);
+    // Simuler un vrai code-barres de ticket restaurant
+    const testBarcodes = [
+      '041222212300070028300005', // 7€
+      '045906168640115220700005'  // 11,52€
+    ];
+    
+    const randomBarcode = testBarcodes[Math.floor(Math.random() * testBarcodes.length)];
+    console.log('🧪 Simulation avec code-barres:', randomBarcode);
+    handleScanTicket(randomBarcode);
   };
 
   const formatAmount = (amount) => {
