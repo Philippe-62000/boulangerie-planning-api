@@ -22,7 +22,7 @@ router.get('/', async (req, res) => {
       });
     }
 
-    const tickets = await TicketRestaurant.find({ month }).sort({ date: -1 });
+    const tickets = await TicketRestaurant.find({ month }).sort({ createdAt: -1 });
     
     res.json({
       success: true,
