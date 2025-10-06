@@ -96,3 +96,5 @@ Fonction : `syncVacationsWithEmployees` dans `vacationRequestController.js`
 ---
 
 **Note :** Cette documentation doit être conservée pour éviter de reproduire le même problème à l'avenir.
+
+

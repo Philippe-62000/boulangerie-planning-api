@@ -43,8 +43,11 @@ router.post('/', async (req, res) => {
   try {
     const { provider, amount, date, month, barcode } = req.body;
     
+    console.log('📤 Données reçues:', { provider, amount, date, month, barcode });
+    
     // Validation des données
     if (!provider || !amount || !date || !month || !barcode) {
+      console.log('❌ Champs manquants:', { provider: !!provider, amount: !!amount, date: !!date, month: !!month, barcode: !!barcode });
       return res.status(400).json({
         success: false,
         error: 'Tous les champs sont requis (provider, amount, date, month, barcode)'
@@ -66,13 +69,16 @@ router.post('/', async (req, res) => {
     }
 
     // Vérifier si le ticket existe déjà (même code-barres)
+    console.log('🔍 Vérification ticket existant pour barcode:', barcode);
     const existingTicket = await TicketRestaurant.findOne({ barcode });
     if (existingTicket) {
+      console.log('❌ Ticket déjà existant:', existingTicket);
       return res.status(400).json({
         success: false,
         error: 'Ce ticket a déjà été scanné'
       });
     }
+    console.log('✅ Ticket unique, création autorisée');
 
     const ticket = new TicketRestaurant({
       provider,
@@ -178,4 +184,6 @@ router.get('/stats/:month', async (req, res) => {
 });
 
 module.exports = router;
+
+
 
