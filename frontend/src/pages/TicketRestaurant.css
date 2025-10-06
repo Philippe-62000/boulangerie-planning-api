@@ -303,3 +303,170 @@
   }
 }
 
+/* Mode Test - Diagnostic Scanner */
+.test-mode-section {
+  margin-top: 30px;
+  padding: 20px;
+  background: #f8f9fa;
+  border-radius: 10px;
+  border: 2px solid #ffc107;
+}
+
+.test-header {
+  margin-bottom: 20px;
+}
+
+.test-header h3 {
+  color: #856404;
+  margin-bottom: 10px;
+}
+
+.test-info {
+  margin-bottom: 20px;
+}
+
+.test-format {
+  background: white;
+  padding: 15px;
+  border-radius: 8px;
+  border-left: 4px solid #17a2b8;
+}
+
+.test-format code {
+  background: #e9ecef;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-family: 'Courier New', monospace;
+  font-size: 16px;
+  color: #495057;
+}
+
+.test-format ul {
+  margin: 10px 0;
+  padding-left: 20px;
+}
+
+.test-format li {
+  margin: 5px 0;
+  color: #6c757d;
+}
+
+.test-results h4 {
+  color: #495057;
+  margin-bottom: 15px;
+}
+
+.test-codes {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.test-code {
+  background: white;
+  border-radius: 8px;
+  padding: 15px;
+  border-left: 4px solid #28a745;
+  transition: all 0.3s ease;
+}
+
+.test-code.has-issues {
+  border-left-color: #dc3545;
+  background: #fff5f5;
+}
+
+.test-code.no-issues {
+  border-left-color: #28a745;
+  background: #f8fff8;
+}
+
+.test-code-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.test-time {
+  font-size: 12px;
+  color: #6c757d;
+  font-family: 'Courier New', monospace;
+}
+
+.test-status {
+  font-weight: bold;
+  font-size: 14px;
+}
+
+.test-code-content {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.test-barcode {
+  font-family: 'Courier New', monospace;
+  background: #f8f9fa;
+  padding: 8px;
+  border-radius: 4px;
+  border: 1px solid #dee2e6;
+}
+
+.test-barcode code {
+  font-size: 14px;
+  color: #495057;
+}
+
+.test-details {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 8px;
+  font-size: 14px;
+}
+
+.test-details div {
+  padding: 4px 0;
+  color: #495057;
+}
+
+.test-issues {
+  background: #fff3cd;
+  border: 1px solid #ffeaa7;
+  border-radius: 6px;
+  padding: 10px;
+  margin-top: 10px;
+}
+
+.test-issues strong {
+  color: #856404;
+  display: block;
+  margin-bottom: 8px;
+}
+
+.test-issues ul {
+  margin: 0;
+  padding-left: 20px;
+}
+
+.test-issues li {
+  color: #856404;
+  margin: 4px 0;
+}
+
+.test-waiting {
+  text-align: center;
+  padding: 30px;
+  color: #6c757d;
+  background: white;
+  border-radius: 8px;
+  border: 2px dashed #dee2e6;
+}
+
+.test-waiting p {
+  margin: 10px 0;
+  font-size: 16px;
+}
+
+

@@ -4,6 +4,7 @@ import api from '../services/api';
 import { toast } from 'react-toastify';
 import EmployeeModal from '../components/EmployeeModal';
 import DeclarationModal from '../components/DeclarationModal';
+import DelayModal from '../components/DelayModal';
 import './Employees.css';
 
 const Employees = () => {
@@ -11,6 +12,7 @@ const Employees = () => {
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [showDeclarationModal, setShowDeclarationModal] = useState(false);
+  const [showDelayModal, setShowDelayModal] = useState(false);
   const [editingEmployee, setEditingEmployee] = useState(null);
   const navigate = useNavigate();
 
@@ -58,6 +60,10 @@ const Employees = () => {
 
   const handleDeclareMaladieAbsence = () => {
     setShowDeclarationModal(true);
+  };
+
+  const handleDeclareDelay = () => {
+    setShowDelayModal(true);
   };
 
   const handleViewTutors = () => {
@@ -169,6 +175,22 @@ const Employees = () => {
     }
   };
 
+  const handleSaveDelay = async (delayData) => {
+    try {
+      console.log('🕐 Sauvegarde retard:', delayData);
+      
+      await api.post('/delays', delayData);
+      toast.success('Retard déclaré avec succès');
+      
+      // Recharger les données
+      fetchEmployees();
+      setShowDelayModal(false);
+    } catch (error) {
+      console.error('❌ Erreur sauvegarde retard:', error);
+      toast.error('Erreur lors de la déclaration du retard');
+    }
+  };
+
   const handleDeactivateEmployee = async (employeeId) => {
     if (window.confirm('Êtes-vous sûr de vouloir désactiver cet employé ?')) {
       try {
@@ -244,6 +266,12 @@ const Employees = () => {
               <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 14h-2v-2h2v2zm0-4h-2V7h2v6z"/>
             </svg>
             Déclarer maladie/absence
+          </button>
+          <button className="btn btn-warning" onClick={handleDeclareDelay}>
+            <svg viewBox="0 0 24 24" fill="currentColor" className="btn-icon">
+              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+            </svg>
+            Déclarer retard
           </button>
           <button className="btn btn-primary" onClick={handleAddEmployee}>
             <svg viewBox="0 0 24 24" fill="currentColor" className="btn-icon">
@@ -477,6 +505,14 @@ const Employees = () => {
         show={showDeclarationModal}
         onClose={() => setShowDeclarationModal(false)}
         onSave={handleSaveDeclaration}
+        employees={employees.filter(emp => emp.isActive)}
+      />
+      
+      {/* Modal de déclaration retard */}
+      <DelayModal
+        show={showDelayModal}
+        onClose={() => setShowDelayModal(false)}
+        onSave={handleSaveDelay}
         employees={employees.filter(emp => emp.isActive)}
       />
     </div>

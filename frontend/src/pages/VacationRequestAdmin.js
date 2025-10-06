@@ -1,123 +1,127 @@
 import React, { useState, useEffect } from 'react';
 import api from '../services/api';
 import { toast } from 'react-toastify';
-import './VacationRequestAdmin.css';
 
 const VacationRequestAdmin = () => {
   const [vacationRequests, setVacationRequests] = useState([]);
+  const [filteredRequests, setFilteredRequests] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState('all');
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingVacationRequest, setEditingVacationRequest] = useState(null);
-  const [editFormData, setEditFormData] = useState({
-    startDate: '',
-    endDate: ''
-  });
-  const [error, setError] = useState(null);
+  const [editFormData, setEditFormData] = useState({ startDate: '', endDate: '' });
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [yearFilter, setYearFilter] = useState(new Date().getFullYear());
 
+  console.log('🔧 VacationRequestAdmin - Rendu du composant');
+
+  // Gestion d'erreur globale désactivée temporairement
+  // useEffect(() => {
+  //   const handleError = (error) => {
+  //     console.error('🚨 Erreur JavaScript globale:', error);
+  //     setError('Une erreur est survenue. Veuillez recharger la page.');
+  //   };
+
+  //   window.addEventListener('error', handleError);
+  //   return () => window.removeEventListener('error', handleError);
+  // }, []);
+
+  // Debug pour les changements d'état du modal
   useEffect(() => {
-    fetchVacationRequests();
-  }, []);
-
-  // Gestion d'erreur globale
-  useEffect(() => {
-    const handleError = (error) => {
-      console.error('❌ Erreur globale:', error);
-      setError('Une erreur est survenue. Veuillez recharger la page.');
-    };
-
-    window.addEventListener('error', handleError);
-    return () => window.removeEventListener('error', handleError);
-  }, []);
+    console.log('🔧 État showEditModal changé:', showEditModal);
+    if (!showEditModal) {
+      console.log('🔧 Modal fermé - Stack trace:', new Error().stack);
+    }
+  }, [showEditModal]);
 
   const fetchVacationRequests = async () => {
     try {
       setLoading(true);
+      console.log('📅 Récupération des demandes de congés...');
+      
       const response = await api.get('/vacation-requests');
+      
       if (response.data.success) {
         setVacationRequests(response.data.data);
+        console.log('✅ Demandes de congés chargées:', response.data.data.length);
+        applyFilters(response.data.data);
+      } else {
+        setVacationRequests([]);
+        setFilteredRequests([]);
+        console.error('❌ Format de données invalide');
       }
     } catch (error) {
-      console.error('❌ Erreur récupération demandes congés:', error);
+      console.error('❌ Erreur lors du chargement:', error);
       toast.error('Erreur lors du chargement des demandes de congés');
+      setVacationRequests([]);
+      setFilteredRequests([]);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleValidate = async (id) => {
-    try {
-      const response = await api.patch(`/vacation-requests/${id}/validate`, {
-        validatedBy: 'Administrateur',
-        notes: 'Demande validée'
-      });
-      
-      if (response.data.success) {
-        toast.success('Demande de congés validée avec succès');
-        fetchVacationRequests();
-      }
-    } catch (error) {
-      console.error('❌ Erreur validation:', error);
-      toast.error('Erreur lors de la validation');
+  // Appliquer les filtres
+  const applyFilters = (requests = vacationRequests) => {
+    let filtered = requests;
+
+    // Filtre par statut
+    if (statusFilter !== 'all') {
+      filtered = filtered.filter(req => req.status === statusFilter);
     }
+
+    // Filtre par année (basé sur la date de début des congés)
+    filtered = filtered.filter(req => {
+      const vacationYear = new Date(req.startDate).getFullYear();
+      return vacationYear === yearFilter;
+    });
+
+    setFilteredRequests(filtered);
   };
 
-  const handleReject = async (id) => {
-    const reason = prompt('Raison du refus:');
-    if (!reason) return;
-    
-    try {
-      const response = await api.patch(`/vacation-requests/${id}/reject`, {
-        rejectedBy: 'Administrateur',
-        reason: reason
-      });
-      
-      if (response.data.success) {
-        toast.success('Demande de congés rejetée');
-        fetchVacationRequests();
-      }
-    } catch (error) {
-      console.error('❌ Erreur rejet:', error);
-      toast.error('Erreur lors du rejet');
-    }
-  };
+  // Gérer les changements de filtres
+  useEffect(() => {
+    applyFilters();
+  }, [statusFilter, yearFilter, vacationRequests]);
+
+  useEffect(() => {
+    fetchVacationRequests();
+  }, []);
 
   const openEditModal = (vacationRequest) => {
-    try {
-      console.log('🔧 Ouverture modal modification pour:', vacationRequest);
-      setEditingVacationRequest(vacationRequest);
-      
-      // Vérification des dates
-      console.log('🔧 Dates originales:', {
-        startDate: vacationRequest.startDate,
-        endDate: vacationRequest.endDate,
-        startDateType: typeof vacationRequest.startDate,
-        endDateType: typeof vacationRequest.endDate
-      });
-      
-      const startDate = new Date(vacationRequest.startDate).toISOString().split('T')[0];
-      const endDate = new Date(vacationRequest.endDate).toISOString().split('T')[0];
-      console.log('🔧 Dates extraites:', { startDate, endDate });
-      
-      setEditFormData({
-        startDate: startDate,
-        endDate: endDate
-      });
-      setShowEditModal(true);
-      console.log('🔧 Modal ouvert:', true);
-      
-      // Debug pour vérifier si le modal se ferme automatiquement
-      setTimeout(() => {
-        console.log('🔧 Vérification modal après 1 seconde:', showEditModal);
-      }, 1000);
-    } catch (error) {
-      console.error('❌ Erreur ouverture modal:', error);
-      toast.error('Erreur lors de l\'ouverture du modal');
-    }
+    console.log('🔧 Ouverture modal modification pour:', vacationRequest);
+    
+    // Extraction des dates
+    const originalDates = {
+      startDate: vacationRequest.startDate,
+      endDate: vacationRequest.endDate,
+      startDateType: typeof vacationRequest.startDate,
+      endDateType: typeof vacationRequest.endDate
+    };
+    console.log('🔧 Dates originales:', originalDates);
+    
+    const extractedDates = {
+      startDate: vacationRequest.startDate.split('T')[0],
+      endDate: vacationRequest.endDate.split('T')[0]
+    };
+    console.log('🔧 Dates extraites:', extractedDates);
+    
+    setEditingVacationRequest(vacationRequest);
+    setEditFormData(extractedDates);
+    setShowEditModal(true);
+    
+    console.log('🔧 Modal ouvert:', true);
+    
+    // Vérification après 1 seconde
+    setTimeout(() => {
+      console.log('🔧 Vérification modal après 1 seconde - Modal devrait être ouvert');
+      if (!showEditModal) {
+        console.log('🔧 MODAL FERMÉ AUTOMATIQUEMENT - Raison possible: re-render ou autre événement');
+      }
+    }, 1000);
   };
 
   const closeEditModal = () => {
     console.log('🔧 Fermeture modal - Appelée depuis:', new Error().stack);
+    console.log('🔧 État showEditModal avant fermeture:', showEditModal);
     setShowEditModal(false);
     setEditingVacationRequest(null);
     setEditFormData({ startDate: '', endDate: '' });
@@ -126,279 +130,293 @@ const VacationRequestAdmin = () => {
   const handleEditSubmit = async (e) => {
     e.preventDefault();
     
+    if (!editingVacationRequest) return;
+    
     try {
-      console.log('🔧 Envoi modification:', {
-        id: editingVacationRequest._id,
+      console.log('🔧 Soumission modification pour:', editingVacationRequest._id);
+      console.log('🔧 Nouvelles dates:', editFormData);
+      
+      const response = await api.patch(`/vacation-requests/${editingVacationRequest._id}`, {
         startDate: editFormData.startDate,
         endDate: editFormData.endDate
       });
       
-      const response = await api.put(`/vacation-requests/${editingVacationRequest._id}`, {
-        startDate: editFormData.startDate,
-        endDate: editFormData.endDate
-      });
-      
-      console.log('🔧 Réponse modification:', response.data);
+      console.log('🔧 Réponse API modification:', response.data);
       
       if (response.data.success) {
         toast.success('Demande de congés modifiée avec succès');
         closeEditModal();
         fetchVacationRequests();
       } else {
-        console.error('❌ Erreur API:', response.data.error);
-        toast.error('Erreur: ' + (response.data.error || 'Modification échouée'));
+        toast.error('Erreur lors de la modification');
       }
     } catch (error) {
-      console.error('❌ Erreur modification complète:', error);
-      console.error('❌ Détails erreur:', {
-        message: error.message,
-        response: error.response?.data,
-        status: error.response?.status
-      });
-      toast.error('Erreur lors de la modification: ' + (error.response?.data?.error || error.message));
+      console.error('❌ Erreur lors de la modification:', error);
+      toast.error('Erreur lors de la modification de la demande');
+    }
+  };
+
+  const handleAccept = async (id) => {
+    try {
+      const response = await api.patch(`/vacation-requests/${id}/accept`);
+      if (response.data.success) {
+        toast.success('Demande acceptée');
+        fetchVacationRequests();
+      }
+    } catch (error) {
+      console.error('Erreur acceptation:', error);
+      toast.error('Erreur lors de l\'acceptation');
+    }
+  };
+
+  const handleReject = async (id) => {
+    try {
+      const response = await api.patch(`/vacation-requests/${id}/reject`);
+      if (response.data.success) {
+        toast.success('Demande rejetée');
+        fetchVacationRequests();
+      }
+    } catch (error) {
+      console.error('Erreur rejet:', error);
+      toast.error('Erreur lors du rejet');
     }
   };
 
   const getStatusBadge = (status) => {
-    switch (status) {
-      case 'pending':
-        return <span className="badge badge-warning">En attente</span>;
-      case 'validated':
-        return <span className="badge badge-success">Validé</span>;
-      case 'rejected':
-        return <span className="badge badge-danger">Rejeté</span>;
-      default:
-        return <span className="badge badge-secondary">{status}</span>;
-    }
+    const badges = {
+      pending: { text: 'En attente', class: 'badge-warning' },
+      accepted: { text: 'Accepté', class: 'badge-success' },
+      rejected: { text: 'Rejeté', class: 'badge-danger' }
+    };
+    
+    const badge = badges[status] || { text: status, class: 'badge-secondary' };
+    return <span className={`badge ${badge.class}`}>{badge.text}</span>;
   };
 
-  const formatDate = (date) => {
-    return new Date(date).toLocaleDateString('fr-FR');
+  const formatDate = (dateString) => {
+    return new Date(dateString).toLocaleDateString('fr-FR');
   };
 
-  const filteredRequests = vacationRequests.filter(request => {
-    if (filter === 'all') return true;
-    return request.status === filter;
-  });
-
-  // Affichage d'erreur
-  if (error) {
-    return (
-      <div className="vacation-request-admin">
-        <div className="error-message" style={{ 
-          padding: '20px', 
-          backgroundColor: '#f8d7da', 
-          color: '#721c24', 
-          border: '1px solid #f5c6cb',
-          borderRadius: '5px',
-          margin: '20px'
-        }}>
-          <h3>❌ Erreur</h3>
-          <p>{error}</p>
-          <button 
-            onClick={() => window.location.reload()} 
-            style={{
-              padding: '10px 20px',
-              backgroundColor: '#dc3545',
-              color: 'white',
-              border: 'none',
-              borderRadius: '5px',
-              cursor: 'pointer'
-            }}
-          >
-            Recharger la page
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  if (loading) {
-    return (
-      <div className="vacation-request-admin">
-        <div className="loading-container">
-          <div className="loading-spinner"></div>
-          <p>Chargement des demandes de congés...</p>
-        </div>
-      </div>
-    );
-  }
+  const calculateDuration = (startDate, endDate) => {
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    const diffTime = Math.abs(end - start);
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+    return diffDays;
+  };
 
   return (
     <div className="vacation-request-admin">
-      <div className="page-header">
-        <h1>🏖️ Gestion des Congés</h1>
-        <p>Validez ou rejetez les demandes de congés des employés</p>
-        <div style={{ marginTop: '10px' }}>
-          <a 
-            href="/plan/vacation-request-standalone.html" 
-            target="_blank" 
-            rel="noopener noreferrer"
-            className="btn btn-primary"
-            style={{ textDecoration: 'none' }}
+      <div className="admin-header">
+        <h1>🏖️ Gestion des Demandes de Congés</h1>
+        <p>Validation et suivi des demandes de congés des employés</p>
+      </div>
+
+      <div className="admin-actions">
+        <button 
+          className="btn btn-primary"
+          onClick={() => window.open('/plan/vacation-planning', '_blank')}
+        >
+          🖨️ Impression Calendrier
+        </button>
+        
+        <button 
+          className="btn btn-warning"
+          onClick={async () => {
+            try {
+              const response = await api.post('/vacation-requests/sync-employees');
+              if (response.data.success) {
+                toast.success(`Synchronisation terminée: ${response.data.syncedCount} employés mis à jour`);
+                fetchVacationRequests(); // Recharger les données
+              }
+            } catch (error) {
+              toast.error('Erreur lors de la synchronisation');
+            }
+          }}
+        >
+          🔄 Synchroniser Congés
+        </button>
+      </div>
+
+      {/* Filtres */}
+      <div className="filters-section">
+        <div className="filter-group">
+          <label>Statut:</label>
+          <select 
+            value={statusFilter} 
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="form-control"
           >
-            📝 Formulaire de demande de congés
-          </a>
-          <button 
-            onClick={() => window.open('/plan/vacation-planning', '_blank')}
-            className="btn btn-secondary"
-            style={{ marginLeft: '10px' }}
+            <option value="all">Toutes ({vacationRequests.length})</option>
+            <option value="pending">En attente ({vacationRequests.filter(r => r.status === 'pending').length})</option>
+            <option value="validated">Validées ({vacationRequests.filter(r => r.status === 'validated').length})</option>
+            <option value="rejected">Rejetées ({vacationRequests.filter(r => r.status === 'rejected').length})</option>
+          </select>
+        </div>
+        
+        <div className="filter-group">
+          <label>Année des congés:</label>
+          <select 
+            value={yearFilter} 
+            onChange={(e) => setYearFilter(parseInt(e.target.value))}
+            className="form-control"
           >
-            📅 Impression Calendrier
-          </button>
+            <option value={new Date().getFullYear()}>{new Date().getFullYear()}</option>
+            <option value={new Date().getFullYear() + 1}>{new Date().getFullYear() + 1}</option>
+            <option value={new Date().getFullYear() - 1}>{new Date().getFullYear() - 1}</option>
+          </select>
         </div>
       </div>
 
-      <div className="filters">
-        <button 
-          className={`filter-btn ${filter === 'all' ? 'active' : ''}`}
-          onClick={() => setFilter('all')}
-        >
-          Toutes ({vacationRequests.length})
-        </button>
-        <button 
-          className={`filter-btn ${filter === 'pending' ? 'active' : ''}`}
-          onClick={() => setFilter('pending')}
-        >
-          En attente ({vacationRequests.filter(r => r.status === 'pending').length})
-        </button>
-        <button 
-          className={`filter-btn ${filter === 'validated' ? 'active' : ''}`}
-          onClick={() => setFilter('validated')}
-        >
-          Validées ({vacationRequests.filter(r => r.status === 'validated').length})
-        </button>
-        <button 
-          className={`filter-btn ${filter === 'rejected' ? 'active' : ''}`}
-          onClick={() => setFilter('rejected')}
-        >
-          Rejetées ({vacationRequests.filter(r => r.status === 'rejected').length})
-        </button>
-      </div>
-
-      <div className="vacation-requests-table">
-        <table>
-          <thead>
-            <tr>
-              <th>Employé</th>
-              <th>Email</th>
-              <th>Période</th>
-              <th>Durée</th>
-              <th>Type</th>
-              <th>Statut</th>
-              <th>Date demande</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
+      <div className="vacation-requests-list">
+        {loading ? (
+          <div className="loading">Chargement des demandes de congés...</div>
+        ) : filteredRequests.length === 0 ? (
+          <div className="no-data">
+            <p>Aucune demande de congés trouvée pour les filtres sélectionnés</p>
+          </div>
+        ) : (
+          <div className="requests-grid">
             {filteredRequests.map((request) => (
-              <tr key={request._id}>
-                <td>{request.employeeName}</td>
-                <td>{request.employeeEmail}</td>
-                <td>
-                  {formatDate(request.startDate)} - {formatDate(request.endDate)}
-                </td>
-                <td>{request.duration} jour{request.duration > 1 ? 's' : ''}</td>
-                <td>{request.reason}</td>
-                <td>{getStatusBadge(request.status)}</td>
-                <td>{formatDate(request.uploadDate)}</td>
-                <td>
-                  <div className="actions">
-                    {request.status === 'pending' && (
-                      <>
-                        <button 
-                          className="btn btn-success btn-sm"
-                          onClick={() => handleValidate(request._id)}
-                          title="Valider"
-                        >
-                          ✅
-                        </button>
-                        <button 
-                          className="btn btn-danger btn-sm"
-                          onClick={() => handleReject(request._id)}
-                          title="Rejeter"
-                        >
-                          ❌
-                        </button>
-                      </>
-                    )}
-                    {(request.status === 'pending' || request.status === 'validated') && (
+              <div key={request._id} className="request-card">
+                <div className="card-header">
+                  <h3>{request.employeeName}</h3>
+                  <p>{request.employeeEmail}</p>
+                  <p>{request.city}</p>
+                </div>
+                
+                <div className="card-content">
+                  <div className="period">
+                    <strong>Période:</strong> {formatDate(request.startDate)} → {formatDate(request.endDate)}
+                    <span className="duration">
+                      ({calculateDuration(request.startDate, request.endDate)} jour{calculateDuration(request.startDate, request.endDate) > 1 ? 's' : ''})
+                    </span>
+                  </div>
+                  
+                  <div className="type">
+                    <strong>Type:</strong> {request.type}
+                  </div>
+                  
+                  <div className="status">
+                    {getStatusBadge(request.status)}
+                  </div>
+                </div>
+                
+                <div className="card-actions">
+                  {request.status === 'pending' && (
+                    <>
                       <button 
-                        className="btn btn-warning btn-sm"
+                        onClick={() => handleAccept(request._id)}
+                        className="btn btn-success"
+                        title="Accepter"
+                      >
+                        ✅
+                      </button>
+                      <button 
                         onClick={() => openEditModal(request)}
+                        className="btn btn-warning"
                         title="Modifier"
                       >
                         ✏️
                       </button>
-                    )}
-                    {request.status === 'validated' && (
-                      <span className="text-success">✅ Validé le {formatDate(request.validatedAt)}</span>
-                    )}
-                    {request.status === 'rejected' && (
-                      <span className="text-danger">❌ Rejeté le {formatDate(request.rejectedAt)}</span>
-                    )}
-                  </div>
-                </td>
-              </tr>
+                      <button 
+                        onClick={() => handleReject(request._id)}
+                        className="btn btn-danger"
+                        title="Rejeter"
+                      >
+                        ❌
+                      </button>
+                    </>
+                  )}
+                </div>
+              </div>
             ))}
-          </tbody>
-        </table>
-
-        {filteredRequests.length === 0 && (
-          <div className="no-data">
-            <p>Aucune demande de congés trouvée</p>
           </div>
         )}
       </div>
 
-      {/* Modal de modification */}
-      {showEditModal && (
-        <div className="modal-overlay" onClick={(e) => {
-          console.log('🔧 Clic sur overlay - fermeture modal');
-          closeEditModal();
-        }}>
-          <div className="modal" onClick={(e) => {
-          console.log('🔧 Clic sur modal - propagation stoppée');
-          e.stopPropagation();
-        }}>
+      {/* Modal d'édition des dates - Structure copiée de SickLeaveAdmin */}
+      {showEditModal && editingVacationRequest && (
+        <div className="modal-overlay">
+          <div className="modal-content">
             <div className="modal-header">
-              <h3>Modifier les dates de congés</h3>
-              <button className="close-btn" onClick={(e) => {
-                console.log('🔧 Clic sur bouton fermer');
-                closeEditModal();
-              }}>×</button>
+              <h3>✏️ Modifier les dates de congés</h3>
+              <button onClick={closeEditModal} className="close-btn">×</button>
             </div>
+            
             <form onSubmit={handleEditSubmit}>
-              <div className="form-group">
-                <label>Date de début</label>
-                <input
-                  type="date"
-                  value={editFormData.startDate}
-                  onChange={(e) => setEditFormData({...editFormData, startDate: e.target.value})}
-                  required
-                />
+              <div className="modal-body">
+                <div className="form-group">
+                  <label>Employé: {editingVacationRequest.employeeName}</label>
+                </div>
+                
+                <div className="form-group">
+                  <label htmlFor="editStartDate">Date de début:</label>
+                  <input
+                    type="date"
+                    id="editStartDate"
+                    value={editFormData.startDate}
+                    onChange={(e) => setEditFormData({...editFormData, startDate: e.target.value})}
+                    required
+                  />
+                </div>
+                
+                <div className="form-group">
+                  <label htmlFor="editEndDate">Date de fin:</label>
+                  <input
+                    type="date"
+                    id="editEndDate"
+                    value={editFormData.endDate}
+                    onChange={(e) => setEditFormData({...editFormData, endDate: e.target.value})}
+                    required
+                  />
+                </div>
               </div>
-              <div className="form-group">
-                <label>Date de fin</label>
-                <input
-                  type="date"
-                  value={editFormData.endDate}
-                  onChange={(e) => setEditFormData({...editFormData, endDate: e.target.value})}
-                  required
-                />
-              </div>
-              <div className="modal-actions">
-                <button type="button" className="btn btn-secondary" onClick={closeEditModal}>
-                  Annuler
-                </button>
+              
+              <div className="modal-footer">
                 <button type="submit" className="btn btn-primary">
-                  Sauvegarder
+                  💾 Sauvegarder
+                </button>
+                <button type="button" onClick={closeEditModal} className="btn btn-secondary">
+                  Annuler
                 </button>
               </div>
             </form>
           </div>
         </div>
       )}
+      
+      <style jsx>{`
+        .filters-section {
+          display: flex;
+          gap: 20px;
+          margin: 20px 0;
+          padding: 15px;
+          background-color: #f8f9fa;
+          border-radius: 8px;
+          border: 1px solid #dee2e6;
+        }
+        
+        .filter-group {
+          display: flex;
+          flex-direction: column;
+          gap: 5px;
+        }
+        
+        .filter-group label {
+          font-weight: bold;
+          color: #495057;
+          font-size: 14px;
+        }
+        
+        .filter-group select {
+          padding: 8px 12px;
+          border: 1px solid #ced4da;
+          border-radius: 4px;
+          background-color: white;
+          font-size: 14px;
+        }
+      `}</style>
     </div>
   );
 };

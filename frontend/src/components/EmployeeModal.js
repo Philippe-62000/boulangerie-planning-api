@@ -26,7 +26,7 @@ const EmployeeModal = ({ employee, onSave, onClose, employees = [] }) => {
         weeklyHours: employee.weeklyHours || 35,
         trainingDays: employee.trainingDays || [],
         contractEndDate: employee.contractEndDate ? new Date(employee.contractEndDate).toISOString().split('T')[0] : '',
-        tutor: employee.tutor || '',
+        tutorName: employee.tutorName || '',
         email: employee.email || '',
         isActive: employee.isActive !== undefined ? employee.isActive : true
       });
@@ -160,13 +160,18 @@ const EmployeeModal = ({ employee, onSave, onClose, employees = [] }) => {
   const daysOfWeek = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
   const availableSkills = ['Ouverture', 'Fermeture', 'Management'];
   const roles = [
+    // Vente
     { value: 'vendeuse', label: 'Vendeuse' },
-    { value: 'apprenti', label: 'Apprenti' },
     { value: 'responsable', label: 'Responsable' },
     { value: 'manager', label: 'Manager' },
-    { value: 'preparateur', label: 'Préparateur' },
-    { value: 'chef_prod', label: 'Chef Prod' },
-    { value: 'boulanger', label: 'Boulanger' }
+    { value: 'Apprenti Vendeuse', label: 'Apprenti Vendeuse' },
+    
+    // Production
+    { value: 'chef prod', label: 'Chef Prod' },
+    { value: 'boulanger', label: 'Boulanger' },
+    { value: 'préparateur', label: 'Préparateur' },
+    { value: 'Apprenti Boulanger', label: 'Apprenti Boulanger' },
+    { value: 'Apprenti Préparateur', label: 'Apprenti Préparateur' }
   ];
 
   return (
@@ -218,6 +223,39 @@ const EmployeeModal = ({ employee, onSave, onClose, employees = [] }) => {
                 <option value="Apprentissage">Contrat d'apprentissage</option>
               </select>
             </div>
+
+            {/* Champs spécifiques aux apprentis */}
+            {(formData.contractType === 'Apprentissage' || 
+              formData.role === 'Apprenti Vendeuse' || 
+              formData.role === 'Apprenti Boulanger' || 
+              formData.role === 'Apprenti Préparateur') && (
+              <>
+                <div className="form-group">
+                  <label className="form-label">Fin du contrat d'apprentissage *</label>
+                  <input
+                    type="date"
+                    name="contractEndDate"
+                    value={formData.contractEndDate}
+                    onChange={handleInputChange}
+                    className="form-control"
+                    required
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Nom du tuteur *</label>
+                  <input
+                    type="text"
+                    name="tutorName"
+                    value={formData.tutorName}
+                    onChange={handleInputChange}
+                    className="form-control"
+                    placeholder="Nom du maître d'apprentissage"
+                    required
+                  />
+                </div>
+              </>
+            )}
 
             <div className="form-group">
               <label className="form-label">Âge *</label>

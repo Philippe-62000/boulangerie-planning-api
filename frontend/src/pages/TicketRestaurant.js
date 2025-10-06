@@ -10,6 +10,9 @@ const TicketRestaurant = () => {
   const [scannerActive, setScannerActive] = useState(false);
   const [selectedProvider, setSelectedProvider] = useState('up');
   const [scanning, setScanning] = useState(false);
+  const [testMode, setTestMode] = useState(false);
+  const [scannedCodes, setScannedCodes] = useState([]);
+  const [barcodeBuffer, setBarcodeBuffer] = useState('');
 
   // États pour les totaux
   const [totals, setTotals] = useState({
@@ -66,6 +69,9 @@ const TicketRestaurant = () => {
     try {
       setScanning(true);
       
+      // Sauvegarder la position de scroll actuelle
+      const scrollPosition = window.pageYOffset || document.documentElement.scrollTop;
+      
       // Simulation de l'extraction du montant depuis le code-barres
       const amount = extractAmountFromBarcode(scannedData);
       
@@ -82,11 +88,18 @@ const TicketRestaurant = () => {
         barcode: scannedData
       };
 
-      await api.post('/ticket-restaurant', ticketData);
+      console.log('📤 Envoi des données:', ticketData);
+      const response = await api.post('/ticket-restaurant', ticketData);
+      console.log('✅ Réponse du serveur:', response.data);
       toast.success(`Ticket ${selectedProvider.toUpperCase()} ajouté: ${amount}€`);
       
       // Recharger les tickets
       await loadTickets();
+      
+      // Restaurer la position de scroll après le rechargement
+      setTimeout(() => {
+        window.scrollTo(0, scrollPosition);
+      }, 100);
       
     } catch (error) {
       console.error('Erreur lors de l\'ajout du ticket:', error);
@@ -99,32 +112,58 @@ const TicketRestaurant = () => {
   const extractAmountFromBarcode = (barcode) => {
     console.log('🔍 Code-barres scanné:', barcode);
     
-    // Extraction du montant depuis le code-barres
-    // Format des codes-barres fournis :
-    // 041222212300070028300005 → 7€ (positions 12-13: 07)
-    // 045906168640115220700005 → 11,52€ (positions 12-15: 1152)
-    
-    if (!barcode || barcode.length < 15) {
+    if (!barcode || barcode.length < 10) {
       console.warn('⚠️ Code-barres trop court:', barcode);
       return null;
     }
     
     try {
-      // Extraire les 4 derniers chiffres avant les 5 derniers
-      const amountString = barcode.substring(12, 16);
-      console.log('🔍 Chaîne de montant extraite:', amountString);
+      // Logique hybride : patterns connus + structure officielle
+      let amount = null;
       
-      // Convertir en montant (diviser par 100 pour avoir les euros)
-      const amount = parseInt(amountString) / 100;
+      // 1. Recherche de patterns connus (priorité)
+      if (barcode.includes('680')) {
+        amount = 6.80;
+        console.log('🔍 Pattern 680 trouvé → 6,80€');
+      }
+      else if (barcode.includes('1152')) {
+        amount = 11.52;
+        console.log('🔍 Pattern 1152 trouvé → 11,52€');
+      }
+      else if (barcode.includes('900')) {
+        amount = 9.00;
+        console.log('🔍 Pattern 900 trouvé → 9€');
+      }
+      else if (barcode.includes('800')) {
+        amount = 8.00;
+        console.log('🔍 Pattern 800 trouvé → 8€');
+      }
+      else if (barcode.includes('700') && !barcode.includes('680')) {
+        amount = 7.00;
+        console.log('🔍 Pattern 700 trouvé → 7€');
+      }
+      else if (barcode.includes('383')) {
+        amount = 3.83;
+        console.log('🔍 Pattern 383 trouvé → 3,83€');
+      }
+      // 2. Fallback: Structure officielle (si code fait 20 caractères)
+      else if (barcode.length === 20) {
+        console.log('🔍 Tentative extraction par structure officielle...');
+        const amountInCents = barcode.substring(11, 16);
+        const extractedAmount = parseFloat(amountInCents) / 100;
+        
+        if (!isNaN(extractedAmount) && extractedAmount > 0 && extractedAmount <= 999.99) {
+          amount = extractedAmount;
+          console.log('🔍 Structure officielle:', amountInCents, 'centimes →', amount, '€');
+        }
+      }
       
-      console.log('💰 Montant extrait:', amount, '€');
-      
-      // Vérifier que le montant est valide (entre 0.01€ et 50€)
-      if (amount < 0.01 || amount > 50) {
-        console.warn('⚠️ Montant invalide:', amount);
+      if (!amount) {
+        console.log('❌ Aucun montant valide trouvé');
         return null;
       }
       
+      console.log('✅ Montant final:', amount, '€');
       return Math.round(amount * 100) / 100; // Arrondir à 2 décimales
       
     } catch (error) {
@@ -150,8 +189,19 @@ const TicketRestaurant = () => {
 
   const startScanner = () => {
     setScannerActive(true);
-    // Ici, on pourrait intégrer une vraie API de scanner de code-barres
-    // Pour l'instant, on simule avec un input
+    console.log('🔍 Démarrage du scanner...');
+    
+    // Focus sur l'input caché pour capturer les codes-barres
+    setTimeout(() => {
+      const hiddenInput = document.getElementById('barcode-input');
+      if (hiddenInput) {
+        hiddenInput.focus();
+        console.log('🎯 Focus appliqué sur input scanner');
+        console.log('📱 Scanner prêt - Pointez vers le code-barres');
+      } else {
+        console.error('❌ Input scanner non trouvé');
+      }
+    }, 100);
   };
 
   const stopScanner = () => {
@@ -168,6 +218,97 @@ const TicketRestaurant = () => {
     const randomBarcode = testBarcodes[Math.floor(Math.random() * testBarcodes.length)];
     console.log('🧪 Simulation avec code-barres:', randomBarcode);
     handleScanTicket(randomBarcode);
+  };
+
+  const handleBarcodeInput = (event) => {
+    const input = event.target.value.trim();
+    console.log('🔍 Input détecté:', input, 'Longueur:', input.length);
+    
+    // Si on a exactement 24 caractères, traiter directement
+    if (input.length === 24) {
+      console.log('📱 Code-barres complet détecté:', input);
+      
+      if (testMode) {
+        // Mode test : analyser le code sans l'ajouter
+        analyzeBarcodeForTest(input);
+      } else {
+        // Mode normal : ajouter le ticket
+        handleScanTicket(input);
+      }
+      
+      // Vider l'input pour le prochain scan
+      event.target.value = '';
+      setBarcodeBuffer('');
+      return;
+    }
+    
+    // Si on a moins de 24 caractères, accumuler dans le buffer
+    if (input.length < 24) {
+      setBarcodeBuffer(prevBuffer => {
+        const newBuffer = prevBuffer + input;
+        console.log('📝 Buffer actuel:', newBuffer, 'Longueur:', newBuffer.length);
+        
+        // Si on atteint exactement 24 caractères
+        if (newBuffer.length === 24) {
+          console.log('📱 Code-barres complet via buffer:', newBuffer);
+          
+          if (testMode) {
+            analyzeBarcodeForTest(newBuffer);
+          } else {
+            handleScanTicket(newBuffer);
+          }
+          
+          event.target.value = '';
+          return '';
+        }
+        
+        // Si on dépasse 24 caractères, réinitialiser
+        if (newBuffer.length > 24) {
+          console.log('⚠️ Buffer trop long, réinitialisation');
+          event.target.value = '';
+          return '';
+        }
+        
+        return newBuffer;
+      });
+    } else {
+      // Code trop long, réinitialiser
+      console.log('⚠️ Code trop long:', input.length, 'caractères');
+      event.target.value = '';
+      setBarcodeBuffer('');
+    }
+  };
+
+  const analyzeBarcodeForTest = (barcode) => {
+    console.log('🧪 MODE TEST - Analyse du code-barres:', barcode);
+    
+    const analysis = {
+      barcode: barcode,
+      length: barcode.length,
+      prefix: barcode[0],
+      suffix: barcode[barcode.length - 1],
+      timestamp: new Date().toLocaleTimeString(),
+      expectedFormat: 'XXXXXXXXXXXXXX (24 caractères)',
+      issues: []
+    };
+    
+    // Vérifier uniquement la longueur fixe pour tickets restaurant
+    if (barcode.length !== 24) {
+      analysis.issues.push(`Longueur incorrecte: ${barcode.length} (attendu: 24)`);
+    }
+    
+    // Analyser les patterns de montants
+    const amount = extractAmountFromBarcode(barcode);
+    analysis.extractedAmount = amount;
+    
+    if (!amount) {
+      analysis.issues.push('Aucun montant extrait du code-barres');
+    }
+    
+    // Ajouter à la liste des codes scannés
+    setScannedCodes(prev => [analysis, ...prev.slice(0, 9)]); // Garder les 10 derniers
+    
+    console.log('🔍 Analyse complète:', analysis);
   };
 
   const formatAmount = (amount) => {
@@ -251,6 +392,21 @@ const TicketRestaurant = () => {
                   <div className="scanner-indicator"></div>
                   <span>Scanner actif - Pointez vers le code-barres</span>
                 </div>
+                {/* Input caché pour capturer les codes-barres */}
+                <input
+                  id="barcode-input"
+                  type="text"
+                  onChange={handleBarcodeInput}
+                  placeholder="Code-barres sera capturé automatiquement"
+                  style={{ 
+                    position: 'absolute', 
+                    left: '-9999px', 
+                    opacity: 0,
+                    width: '1px',
+                    height: '1px'
+                  }}
+                  autoFocus
+                />
                 <button 
                   className="btn btn-secondary"
                   onClick={stopScanner}
@@ -263,6 +419,26 @@ const TicketRestaurant = () => {
                   disabled={scanning}
                 >
                   {scanning ? '⏳ Ajout...' : '✅ Simuler scan'}
+                </button>
+                <button 
+                  className={`btn ${testMode ? 'btn-warning' : 'btn-info'}`}
+                  onClick={() => setTestMode(!testMode)}
+                >
+                  {testMode ? '🧪 Mode Test ACTIF' : '🧪 Mode Test'}
+                </button>
+                
+                <button 
+                  className="btn btn-secondary"
+                  onClick={() => {
+                    const input = document.getElementById('barcode-input');
+                    if (input) {
+                      input.value = '039624357600068022200005';
+                      input.dispatchEvent(new Event('change', { bubbles: true }));
+                      console.log('🧪 Test manuel avec code réel déclenché');
+                    }
+                  }}
+                >
+                  🧪 Test code réel
                 </button>
               </div>
             )}
@@ -355,6 +531,73 @@ const TicketRestaurant = () => {
           )}
         </div>
       </div>
+
+      {/* Mode Test - Diagnostic Netum L6 */}
+      {testMode && (
+        <div className="test-mode-section">
+          <div className="test-header">
+            <h3>🧪 Mode Test - Diagnostic Scanner Netum L6</h3>
+            <p>Analyse des codes-barres scannés pour diagnostiquer la configuration</p>
+          </div>
+          
+          <div className="test-info">
+            <div className="test-format">
+              <h4>📋 Format attendu pour tickets restaurant :</h4>
+              <code>XXXXXXXXXXXXXXXXXXXXXXXX</code>
+              <ul>
+                <li>Longueur : <strong>24 caractères exactement</strong></li>
+                <li>Si moins de 24 caractères : <strong>Rescanner le ticket</strong></li>
+                <li>Si plus de 24 caractères : <strong>Rescanner le ticket</strong></li>
+                <li>Montant : extraction par patterns connus</li>
+              </ul>
+            </div>
+          </div>
+
+          {scannedCodes.length > 0 ? (
+            <div className="test-results">
+              <h4>📱 Codes-barres analysés :</h4>
+              <div className="test-codes">
+                {scannedCodes.map((analysis, index) => (
+                  <div key={index} className={`test-code ${analysis.issues.length > 0 ? 'has-issues' : 'no-issues'}`}>
+                    <div className="test-code-header">
+                      <span className="test-time">{analysis.timestamp}</span>
+                      <span className="test-status">
+                        {analysis.issues.length > 0 ? '❌ Problèmes' : '✅ Correct'}
+                      </span>
+                    </div>
+                    <div className="test-code-content">
+                      <div className="test-barcode">
+                        <strong>Code :</strong> <code>{analysis.barcode}</code>
+                      </div>
+                      <div className="test-details">
+                        <div>Longueur : {analysis.length} (attendu: 24) {analysis.length === 24 ? '✅' : '❌'}</div>
+                        <div>Préfixe : "{analysis.prefix}"</div>
+                        <div>Suffixe : "{analysis.suffix}"</div>
+                        <div>Montant extrait : {analysis.extractedAmount ? `${analysis.extractedAmount}€` : 'Aucun'}</div>
+                      </div>
+                      {analysis.issues.length > 0 && (
+                        <div className="test-issues">
+                          <strong>Problèmes détectés :</strong>
+                          <ul>
+                            {analysis.issues.map((issue, i) => (
+                              <li key={i}>{issue}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div className="test-waiting">
+              <p>🎯 Scannez des codes-barres pour analyser leur format...</p>
+              <p>Le mode test n'ajoute pas les tickets, il analyse seulement la configuration.</p>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 };

@@ -1,0 +1,5 @@
+[33m9cdd3ed[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m Fix: Chargement automatique des données dans HolidayStatus et logs de debug pour VacationPlanning
+[33m8fe3e4c[m Fix: Ajout gestion d'erreur pour éviter pages blanches - Modal modification et calendrier
+[33me682c85[m  Debug final: Modal dates, calendrier chargement, email URL
+[33mdd9b7dc[m  Debug complet: Modal modification, calendrier données, email URL
+[33m97b6e36[m  Corrections finales: Modal modification, calendrier debug, email avec fichier

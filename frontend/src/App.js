@@ -23,6 +23,7 @@ import SickLeaveAdmin from './pages/SickLeaveAdmin';
 import SickLeaveHome from './pages/SickLeaveHome';
 import VacationRequestAdmin from './pages/VacationRequestAdmin';
 import VacationPlanning from './pages/VacationPlanning';
+import TicketRestaurant from './pages/TicketRestaurant';
 
 const AppContent = () => {
   const { user } = useAuth();
@@ -111,6 +112,11 @@ const AppContent = () => {
             <Route path="/vacation-planning" element={
               <ProtectedRoute adminOnly={true}>
                 <VacationPlanning />
+              </ProtectedRoute>
+            } />
+            <Route path="/ticket-restaurant" element={
+              <ProtectedRoute>
+                <TicketRestaurant />
               </ProtectedRoute>
             } />
           </Routes>

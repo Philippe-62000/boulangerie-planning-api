@@ -53,7 +53,7 @@ const HolidayStatus = () => {
         console.log('✅ Congés récupérés depuis l\'API:', holidaysData);
         console.log('✅ Nombre de congés:', holidaysData.length);
         console.log('✅ Congés validés:', holidaysData.filter(h => h.status === 'validated').length);
-        setHolidays(holidaysData);
+      setHolidays(holidaysData);
       } else {
         console.log('⚠️ Aucune donnée reçue ou format invalide');
         setHolidays([]);
@@ -245,7 +245,7 @@ const HolidayStatus = () => {
           fontSize: '12px',
           fontWeight: 'bold'
         }}>
-          🚀 DÉPLOIEMENT #003 - {new Date().toLocaleString()}
+          🚀 DÉPLOIEMENT #012 - {new Date().toLocaleString()}
         </div>
         <div className="holiday-actions">
           <button 
@@ -284,7 +284,7 @@ const HolidayStatus = () => {
         </div>
       </div>
 
-      <div className="holiday-info">
+                <div className="holiday-info">
         <p>📊 Utilisez le bouton "Imprimer Planning" pour voir le calendrier des congés validés.</p>
         <p>📋 Pour gérer les demandes de congés, utilisez la page "Gestion des congés".</p>
       </div>

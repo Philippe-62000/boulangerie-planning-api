@@ -38,11 +38,19 @@ const AbsenceStatusPage = () => {
         });
       }
       
-      // Vérifier que response.data.data est un tableau
+      // Vérifier la structure des données et adapter
+      let employeesData = null;
       if (response.data.success && Array.isArray(response.data.data)) {
-        setEmployees(response.data.data);
+        employeesData = response.data.data;
+      } else if (Array.isArray(response.data)) {
+        employeesData = response.data;
+      }
+      
+      if (employeesData) {
+        setEmployees(employeesData);
+        console.log('✅ Employés chargés:', employeesData.length);
       } else {
-        console.error('❌ response.data.data n\'est pas un tableau:', response.data);
+        console.error('❌ Format de données invalide:', response.data);
         setEmployees([]);
       }
     } catch (error) {
