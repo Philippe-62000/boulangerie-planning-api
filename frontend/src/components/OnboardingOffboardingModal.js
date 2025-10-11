@@ -46,6 +46,19 @@ const OnboardingOffboardingModal = ({ isOpen, onClose, employees }) => {
     }
   }, [selectedEmployeeId, employees]);
 
+  // Fonction pour formater les dates au format yyyy-MM-dd
+  const formatDateForInput = (dateString) => {
+    if (!dateString) return '';
+    try {
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) return '';
+      return date.toISOString().split('T')[0];
+    } catch (error) {
+      console.error('Erreur formatage date:', error);
+      return '';
+    }
+  };
+
   const loadEmployeeData = async (employeeId) => {
     try {
       setLoading(true);
@@ -54,41 +67,48 @@ const OnboardingOffboardingModal = ({ isOpen, onClose, employees }) => {
       if (response.data.success && response.data.data) {
         const data = response.data.data;
         
+        // Fonction pour formater les objets de démarches
+        const formatTask = (task) => ({
+          done: task?.done || false,
+          date: formatDateForInput(task?.date) || '',
+          comment: task?.comment || ''
+        });
+        
         // Charger les données d'entrée
         if (data.onboarding) {
           setOnboardingData({
-            contratSigne: data.onboarding.contratSigne || { done: false, date: '', comment: '' },
-            dpae: data.onboarding.dpae || { done: false, date: '', comment: '' },
-            declarationMedecineTravail: data.onboarding.declarationMedecineTravail || { done: false, date: '', comment: '' },
-            demandeMutuelle: data.onboarding.demandeMutuelle || { done: false, date: '', comment: '', refused: false, attestationFournie: false },
-            visiteMedicale: data.onboarding.visiteMedicale || { done: false, date: '', comment: '' },
-            formationSecurite: data.onboarding.formationSecurite || { done: false, date: '', comment: '' },
-            charteDiscrimination: data.onboarding.charteDiscrimination || { done: false, date: '', comment: '' },
-            rib: data.onboarding.rib || { done: false, date: '', comment: '' },
-            registrePresenceEntree: data.onboarding.registrePresenceEntree || { done: false, date: '', comment: '' },
-            gabriel: data.onboarding.gabriel || { done: false, date: '', comment: '' }
+            contratSigne: formatTask(data.onboarding.contratSigne),
+            dpae: formatTask(data.onboarding.dpae),
+            declarationMedecineTravail: formatTask(data.onboarding.declarationMedecineTravail),
+            demandeMutuelle: {
+              ...formatTask(data.onboarding.demandeMutuelle),
+              refused: data.onboarding.demandeMutuelle?.refused || false,
+              attestationFournie: data.onboarding.demandeMutuelle?.attestationFournie || false
+            },
+            visiteMedicale: formatTask(data.onboarding.visiteMedicale),
+            formationSecurite: formatTask(data.onboarding.formationSecurite),
+            charteDiscrimination: formatTask(data.onboarding.charteDiscrimination),
+            rib: formatTask(data.onboarding.rib),
+            registrePresenceEntree: formatTask(data.onboarding.registrePresenceEntree),
+            gabriel: formatTask(data.onboarding.gabriel)
           });
         }
         
         // Charger les données de sortie
         if (data.offboarding) {
           setOffboardingData({
-            arretMutuel: data.offboarding.arretMutuel || { done: false, date: '', comment: '' },
-            gabrielSortie: data.offboarding.gabrielSortie || { done: false, date: '', comment: '' },
-            mutuelleSortie: data.offboarding.mutuelleSortie || { done: false, date: '', comment: '' },
-            retourTenues: data.offboarding.retourTenues || { done: false, date: '', comment: '' },
-            retourCles: data.offboarding.retourCles || { done: false, date: '', comment: '' },
-            registrePresenceSortie: data.offboarding.registrePresenceSortie || { done: false, date: '', comment: '' }
+            arretMutuel: formatTask(data.offboarding.arretMutuel),
+            gabrielSortie: formatTask(data.offboarding.gabrielSortie),
+            mutuelleSortie: formatTask(data.offboarding.mutuelleSortie),
+            retourTenues: formatTask(data.offboarding.retourTenues),
+            retourCles: formatTask(data.offboarding.retourCles),
+            registrePresenceSortie: formatTask(data.offboarding.registrePresenceSortie)
           });
         }
         
         // Charger les dates
-        if (data.entryDate) {
-          setEntryDate(data.entryDate.split('T')[0]);
-        }
-        if (data.exitDate) {
-          setExitDate(data.exitDate.split('T')[0]);
-        }
+        setEntryDate(formatDateForInput(data.entryDate));
+        setExitDate(formatDateForInput(data.exitDate));
       }
     } catch (error) {
       console.error('Erreur lors du chargement des données:', error);
@@ -119,7 +139,12 @@ const OnboardingOffboardingModal = ({ isOpen, onClose, employees }) => {
   };
 
   const handleSave = async () => {
+    console.log('🔵 handleSave appelé');
+    console.log('🔵 selectedEmployeeId:', selectedEmployeeId);
+    console.log('🔵 selectedEmployee:', selectedEmployee);
+    
     if (!selectedEmployeeId || !selectedEmployee) {
+      console.log('❌ Validation échouée: pas d\'employé sélectionné');
       toast.error('Veuillez sélectionner un employé');
       return;
     }
@@ -127,23 +152,51 @@ const OnboardingOffboardingModal = ({ isOpen, onClose, employees }) => {
     try {
       setSaving(true);
       
+      // Nettoyer les dates vides avant l'envoi
+      const cleanedOnboarding = {};
+      Object.keys(onboardingData).forEach(key => {
+        cleanedOnboarding[key] = {
+          ...onboardingData[key],
+          date: onboardingData[key].date || null
+        };
+      });
+      
+      const cleanedOffboarding = {};
+      Object.keys(offboardingData).forEach(key => {
+        cleanedOffboarding[key] = {
+          ...offboardingData[key],
+          date: offboardingData[key].date || null
+        };
+      });
+      
       const payload = {
         employeeId: selectedEmployeeId,
         employeeName: selectedEmployee.name,
-        onboarding: onboardingData,
-        offboarding: offboardingData,
+        onboarding: cleanedOnboarding,
+        offboarding: cleanedOffboarding,
         entryDate: entryDate || null,
         exitDate: exitDate || null
       };
 
+      console.log('📤 Envoi payload:', payload);
       const response = await api.post('/onboarding-offboarding', payload);
+      console.log('✅ Réponse reçue:', response.data);
       
       if (response.data.success) {
         toast.success('✅ Démarches sauvegardées avec succès');
+        // Recharger les obligations légales dans le dashboard
+        if (window.location.pathname.includes('dashboard')) {
+          window.location.reload();
+        }
       }
     } catch (error) {
-      console.error('Erreur lors de la sauvegarde:', error);
-      toast.error('❌ Erreur lors de la sauvegarde des démarches');
+      console.error('❌ Erreur lors de la sauvegarde:', error);
+      if (error.response) {
+        console.error('Détails erreur:', error.response.data);
+        toast.error(`❌ Erreur: ${error.response.data.message || 'Erreur serveur'}`);
+      } else {
+        toast.error('❌ Erreur lors de la sauvegarde des démarches');
+      }
     } finally {
       setSaving(false);
     }

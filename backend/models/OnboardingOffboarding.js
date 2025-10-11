@@ -188,6 +188,31 @@ onboardingOffboardingSchema.statics.getPendingLegalObligations = async function(
         }
       }
     });
+    
+    // Vérifier chaque démarche de sortie (SEULEMENT si exitDate est renseignée)
+    if (record.exitDate) {
+      const offboardingTasks = [
+        { key: 'arretMutuel', label: '📤 Arrêt Mutuel' },
+        { key: 'gabrielSortie', label: '📤 Gabriel' },
+        { key: 'mutuelleSortie', label: '📤 Mutuelle (si demandée)' },
+        { key: 'retourTenues', label: '📤 Retour tenues' },
+        { key: 'retourCles', label: '📤 Retour clés' },
+        { key: 'registrePresenceSortie', label: '📤 Registre de présence' }
+      ];
+      
+      offboardingTasks.forEach(task => {
+        if (record.offboarding && record.offboarding[task.key] && !record.offboarding[task.key].done) {
+          pendingObligations.push({
+            employeeId: record.employeeId._id,
+            employeeName: record.employeeName,
+            taskType: 'offboarding',
+            taskKey: task.key,
+            taskLabel: task.label,
+            comment: record.offboarding[task.key].comment || ''
+          });
+        }
+      });
+    }
   });
   
   return pendingObligations;
