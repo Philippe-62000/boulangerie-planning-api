@@ -95,6 +95,30 @@
   animation: pulse 1.5s infinite;
 }
 
+.scan-order-badge {
+  margin-left: auto;
+  padding: 4px 12px;
+  background: #27ae60;
+  color: white;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.buffer-status {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  background: #fff3cd;
+  border: 2px solid #ffc107;
+  border-radius: 8px;
+  color: #856404;
+  font-weight: 500;
+  font-size: 0.9rem;
+}
+
 @keyframes pulse {
   0% { opacity: 1; }
   50% { opacity: 0.5; }

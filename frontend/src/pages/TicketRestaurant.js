@@ -10,9 +10,8 @@ const TicketRestaurant = () => {
   const [scannerActive, setScannerActive] = useState(false);
   const [selectedProvider, setSelectedProvider] = useState('up');
   const [scanning, setScanning] = useState(false);
-  const [testMode, setTestMode] = useState(false);
-  const [scannedCodes, setScannedCodes] = useState([]);
   const [barcodeBuffer, setBarcodeBuffer] = useState('');
+  const [scanOrderNumber, setScanOrderNumber] = useState(1);
 
   // États pour les totaux
   const [totals, setTotals] = useState({
@@ -91,7 +90,10 @@ const TicketRestaurant = () => {
       console.log('📤 Envoi des données:', ticketData);
       const response = await api.post('/ticket-restaurant', ticketData);
       console.log('✅ Réponse du serveur:', response.data);
-      toast.success(`Ticket ${selectedProvider.toUpperCase()} ajouté: ${amount}€`);
+      toast.success(`#${scanOrderNumber} - Ticket ${selectedProvider.toUpperCase()} ajouté: ${amount}€`);
+      
+      // Incrémenter le numéro d'ordre
+      setScanOrderNumber(prev => prev + 1);
       
       // Recharger les tickets
       await loadTickets();
@@ -118,38 +120,16 @@ const TicketRestaurant = () => {
     }
     
     try {
-      // Logique hybride : patterns connus + structure officielle
       let amount = null;
       
-      // 1. Recherche de patterns connus (priorité)
-      if (barcode.includes('680')) {
-        amount = 6.80;
-        console.log('🔍 Pattern 680 trouvé → 6,80€');
-      }
-      else if (barcode.includes('1152')) {
-        amount = 11.52;
-        console.log('🔍 Pattern 1152 trouvé → 11,52€');
-      }
-      else if (barcode.includes('900')) {
-        amount = 9.00;
-        console.log('🔍 Pattern 900 trouvé → 9€');
-      }
-      else if (barcode.includes('800')) {
-        amount = 8.00;
-        console.log('🔍 Pattern 800 trouvé → 8€');
-      }
-      else if (barcode.includes('700') && !barcode.includes('680')) {
-        amount = 7.00;
-        console.log('🔍 Pattern 700 trouvé → 7€');
-      }
-      else if (barcode.includes('383')) {
-        amount = 3.83;
-        console.log('🔍 Pattern 383 trouvé → 3,83€');
-      }
-      // 2. Fallback: Structure officielle (si code fait 20 caractères)
-      else if (barcode.length === 20) {
-        console.log('🔍 Tentative extraction par structure officielle...');
+      // Structure officielle pour tickets restaurant (24 caractères)
+      // Format: XXXXXXXXXXXYYYYYZZZZZZZ
+      // Positions 11-15 (5 chiffres) = montant en centimes
+      if (barcode.length === 24) {
+        console.log('🔍 Extraction par structure officielle (24 caractères)...');
         const amountInCents = barcode.substring(11, 16);
+        console.log('🔍 Montant brut extrait:', amountInCents, 'centimes');
+        
         const extractedAmount = parseFloat(amountInCents) / 100;
         
         if (!isNaN(extractedAmount) && extractedAmount > 0 && extractedAmount <= 999.99) {
@@ -187,6 +167,49 @@ const TicketRestaurant = () => {
     }
   };
 
+  const removeAllTickets = async () => {
+    if (tickets.length === 0) {
+      toast.info('Aucun ticket à supprimer');
+      return;
+    }
+
+    const confirmMessage = `⚠️ ATTENTION ⚠️\n\nVous êtes sur le point de supprimer TOUS les ${tickets.length} tickets du mois ${new Date(currentMonth).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })}.\n\nMontant total : ${formatAmount(totals.total.amount)}\n\nCette action est IRRÉVERSIBLE !\n\nÊtes-vous absolument sûr ?`;
+    
+    if (!window.confirm(confirmMessage)) {
+      return;
+    }
+
+    try {
+      setLoading(true);
+      let deletedCount = 0;
+      let errorCount = 0;
+
+      // Supprimer tous les tickets un par un
+      for (const ticket of tickets) {
+        try {
+          await api.delete(`/ticket-restaurant/${ticket._id}`);
+          deletedCount++;
+        } catch (error) {
+          console.error(`Erreur suppression ticket ${ticket._id}:`, error);
+          errorCount++;
+        }
+      }
+
+      if (errorCount === 0) {
+        toast.success(`✅ ${deletedCount} tickets supprimés avec succès`);
+      } else {
+        toast.warning(`⚠️ ${deletedCount} tickets supprimés, ${errorCount} erreurs`);
+      }
+
+      await loadTickets();
+    } catch (error) {
+      console.error('Erreur lors de la suppression globale:', error);
+      toast.error('Erreur lors de la suppression des tickets');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const startScanner = () => {
     setScannerActive(true);
     console.log('🔍 Démarrage du scanner...');
@@ -208,107 +231,35 @@ const TicketRestaurant = () => {
     setScannerActive(false);
   };
 
-  const simulateScan = () => {
-    // Simuler un vrai code-barres de ticket restaurant
-    const testBarcodes = [
-      '041222212300070028300005', // 7€
-      '045906168640115220700005'  // 11,52€
-    ];
-    
-    const randomBarcode = testBarcodes[Math.floor(Math.random() * testBarcodes.length)];
-    console.log('🧪 Simulation avec code-barres:', randomBarcode);
-    handleScanTicket(randomBarcode);
-  };
-
   const handleBarcodeInput = (event) => {
-    const input = event.target.value.trim();
-    console.log('🔍 Input détecté:', input, 'Longueur:', input.length);
+    const inputValue = event.target.value;
+    console.log('🔍 Input détecté:', inputValue, 'Longueur:', inputValue.length);
     
-    // Si on a exactement 24 caractères, traiter directement
-    if (input.length === 24) {
-      console.log('📱 Code-barres complet détecté:', input);
+    // Accumuler les caractères dans le buffer
+    const newBuffer = barcodeBuffer + inputValue;
+    console.log('📝 Buffer actuel:', newBuffer, 'Longueur:', newBuffer.length);
+    
+    // Vider l'input pour le prochain caractère
+    event.target.value = '';
+    
+    // Si on a exactement 24 caractères, traiter le code-barres
+    if (newBuffer.length === 24) {
+      console.log('✅ Code-barres complet scanné:', newBuffer);
+      handleScanTicket(newBuffer);
       
-      if (testMode) {
-        // Mode test : analyser le code sans l'ajouter
-        analyzeBarcodeForTest(input);
-      } else {
-        // Mode normal : ajouter le ticket
-        handleScanTicket(input);
-      }
-      
-      // Vider l'input pour le prochain scan
-      event.target.value = '';
+      // Réinitialiser le buffer
       setBarcodeBuffer('');
-      return;
-    }
-    
-    // Si on a moins de 24 caractères, accumuler dans le buffer
-    if (input.length < 24) {
-      setBarcodeBuffer(prevBuffer => {
-        const newBuffer = prevBuffer + input;
-        console.log('📝 Buffer actuel:', newBuffer, 'Longueur:', newBuffer.length);
-        
-        // Si on atteint exactement 24 caractères
-        if (newBuffer.length === 24) {
-          console.log('📱 Code-barres complet via buffer:', newBuffer);
-          
-          if (testMode) {
-            analyzeBarcodeForTest(newBuffer);
-          } else {
-            handleScanTicket(newBuffer);
-          }
-          
-          event.target.value = '';
-          return '';
-        }
-        
-        // Si on dépasse 24 caractères, réinitialiser
-        if (newBuffer.length > 24) {
-          console.log('⚠️ Buffer trop long, réinitialisation');
-          event.target.value = '';
-          return '';
-        }
-        
-        return newBuffer;
-      });
-    } else {
-      // Code trop long, réinitialiser
-      console.log('⚠️ Code trop long:', input.length, 'caractères');
-      event.target.value = '';
+    } 
+    // Si on dépasse 24 caractères, réinitialiser
+    else if (newBuffer.length > 24) {
+      console.error('❌ Buffer trop long, réinitialisation');
+      toast.error('❌ Erreur de scan. Veuillez rescanner le ticket.');
       setBarcodeBuffer('');
     }
-  };
-
-  const analyzeBarcodeForTest = (barcode) => {
-    console.log('🧪 MODE TEST - Analyse du code-barres:', barcode);
-    
-    const analysis = {
-      barcode: barcode,
-      length: barcode.length,
-      prefix: barcode[0],
-      suffix: barcode[barcode.length - 1],
-      timestamp: new Date().toLocaleTimeString(),
-      expectedFormat: 'XXXXXXXXXXXXXX (24 caractères)',
-      issues: []
-    };
-    
-    // Vérifier uniquement la longueur fixe pour tickets restaurant
-    if (barcode.length !== 24) {
-      analysis.issues.push(`Longueur incorrecte: ${barcode.length} (attendu: 24)`);
+    // Sinon, continuer à accumuler
+    else {
+      setBarcodeBuffer(newBuffer);
     }
-    
-    // Analyser les patterns de montants
-    const amount = extractAmountFromBarcode(barcode);
-    analysis.extractedAmount = amount;
-    
-    if (!amount) {
-      analysis.issues.push('Aucun montant extrait du code-barres');
-    }
-    
-    // Ajouter à la liste des codes scannés
-    setScannedCodes(prev => [analysis, ...prev.slice(0, 9)]); // Garder les 10 derniers
-    
-    console.log('🔍 Analyse complète:', analysis);
   };
 
   const formatAmount = (amount) => {
@@ -391,6 +342,7 @@ const TicketRestaurant = () => {
                 <div className="scanner-status">
                   <div className="scanner-indicator"></div>
                   <span>Scanner actif - Pointez vers le code-barres</span>
+                  <span className="scan-order-badge">Prochain scan: #{scanOrderNumber}</span>
                 </div>
                 {/* Input caché pour capturer les codes-barres */}
                 <input
@@ -413,33 +365,39 @@ const TicketRestaurant = () => {
                 >
                   Arrêter le scanner
                 </button>
-                <button 
-                  className="btn btn-success"
-                  onClick={simulateScan}
-                  disabled={scanning}
-                >
-                  {scanning ? '⏳ Ajout...' : '✅ Simuler scan'}
-                </button>
-                <button 
-                  className={`btn ${testMode ? 'btn-warning' : 'btn-info'}`}
-                  onClick={() => setTestMode(!testMode)}
-                >
-                  {testMode ? '🧪 Mode Test ACTIF' : '🧪 Mode Test'}
-                </button>
                 
-                <button 
-                  className="btn btn-secondary"
-                  onClick={() => {
-                    const input = document.getElementById('barcode-input');
-                    if (input) {
-                      input.value = '039624357600068022200005';
-                      input.dispatchEvent(new Event('change', { bubbles: true }));
-                      console.log('🧪 Test manuel avec code réel déclenché');
-                    }
-                  }}
-                >
-                  🧪 Test code réel
-                </button>
+                {barcodeBuffer.length > 0 && (
+                  <div className="buffer-status">
+                    <span>Buffer: {barcodeBuffer.length}/24 caractères</span>
+                    <button 
+                      className="btn btn-warning btn-sm"
+                      onClick={() => {
+                        // Réinitialiser le buffer
+                        setBarcodeBuffer('');
+                        console.log('🔄 Buffer réinitialisé - Redémarrage du scanner');
+                        
+                        // Arrêter le scanner
+                        setScannerActive(false);
+                        
+                        // Redémarrer le scanner après un court délai
+                        setTimeout(() => {
+                          setScannerActive(true);
+                          setTimeout(() => {
+                            const hiddenInput = document.getElementById('barcode-input');
+                            if (hiddenInput) {
+                              hiddenInput.focus();
+                              console.log('🎯 Scanner redémarré et focus restauré');
+                            }
+                          }, 100);
+                        }, 200);
+                        
+                        toast.info('🔄 Buffer réinitialisé - Scanner redémarré');
+                      }}
+                    >
+                      🔄 Réinitialiser
+                    </button>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -492,8 +450,17 @@ const TicketRestaurant = () => {
 
       {/* Liste des tickets */}
       <div className="card">
-        <div className="card-header">
+        <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <h3>📋 Historique des tickets</h3>
+          {tickets.length > 0 && (
+            <button
+              className="btn btn-danger"
+              onClick={removeAllTickets}
+              title="Supprimer tous les tickets du mois"
+            >
+              🗑️ Tout effacer ({tickets.length})
+            </button>
+          )}
         </div>
         <div className="card-body">
           {loading ? (
@@ -531,73 +498,6 @@ const TicketRestaurant = () => {
           )}
         </div>
       </div>
-
-      {/* Mode Test - Diagnostic Netum L6 */}
-      {testMode && (
-        <div className="test-mode-section">
-          <div className="test-header">
-            <h3>🧪 Mode Test - Diagnostic Scanner Netum L6</h3>
-            <p>Analyse des codes-barres scannés pour diagnostiquer la configuration</p>
-          </div>
-          
-          <div className="test-info">
-            <div className="test-format">
-              <h4>📋 Format attendu pour tickets restaurant :</h4>
-              <code>XXXXXXXXXXXXXXXXXXXXXXXX</code>
-              <ul>
-                <li>Longueur : <strong>24 caractères exactement</strong></li>
-                <li>Si moins de 24 caractères : <strong>Rescanner le ticket</strong></li>
-                <li>Si plus de 24 caractères : <strong>Rescanner le ticket</strong></li>
-                <li>Montant : extraction par patterns connus</li>
-              </ul>
-            </div>
-          </div>
-
-          {scannedCodes.length > 0 ? (
-            <div className="test-results">
-              <h4>📱 Codes-barres analysés :</h4>
-              <div className="test-codes">
-                {scannedCodes.map((analysis, index) => (
-                  <div key={index} className={`test-code ${analysis.issues.length > 0 ? 'has-issues' : 'no-issues'}`}>
-                    <div className="test-code-header">
-                      <span className="test-time">{analysis.timestamp}</span>
-                      <span className="test-status">
-                        {analysis.issues.length > 0 ? '❌ Problèmes' : '✅ Correct'}
-                      </span>
-                    </div>
-                    <div className="test-code-content">
-                      <div className="test-barcode">
-                        <strong>Code :</strong> <code>{analysis.barcode}</code>
-                      </div>
-                      <div className="test-details">
-                        <div>Longueur : {analysis.length} (attendu: 24) {analysis.length === 24 ? '✅' : '❌'}</div>
-                        <div>Préfixe : "{analysis.prefix}"</div>
-                        <div>Suffixe : "{analysis.suffix}"</div>
-                        <div>Montant extrait : {analysis.extractedAmount ? `${analysis.extractedAmount}€` : 'Aucun'}</div>
-                      </div>
-                      {analysis.issues.length > 0 && (
-                        <div className="test-issues">
-                          <strong>Problèmes détectés :</strong>
-                          <ul>
-                            {analysis.issues.map((issue, i) => (
-                              <li key={i}>{issue}</li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ) : (
-            <div className="test-waiting">
-              <p>🎯 Scannez des codes-barres pour analyser leur format...</p>
-              <p>Le mode test n'ajoute pas les tickets, il analyse seulement la configuration.</p>
-            </div>
-          )}
-        </div>
-      )}
     </div>
   );
 };

@@ -1,29 +1,23 @@
 @echo off
-echo 🚀 UPLOAD OVH - DEPLOIEMENT #018 - CORRECTIONS FINALES
-echo ============================================================
-
-echo 📁 Copie des fichiers vers OVH...
+echo 📤 Déploiement version 018 - Retour version simple scanner
 echo.
 
-echo 🔄 Copie du dossier build...
-robocopy "frontend\build" "C:\Users\phil\Desktop\OVH\www\plan" /E /R:3 /W:10
+echo 🗂️ Suppression de l'ancien build...
+if exist "build" rmdir /s /q "build"
 
-echo.
-echo ✅ Upload terminé !
-echo.
-echo 🎯 CORRECTIONS FINALES :
-echo - Légende calendrier réorganisée (3 groupes)
-echo - Texte en noir au lieu de blanc (meilleure visibilité)
-echo - Champs tuteur pour tous les rôles apprentis
-echo - Logs debug dashboard pour congés
-echo.
-echo 🔍 TESTEZ :
-echo 1. Calendrier : Légende avec 3 groupes + texte noir
-echo 2. Page employés : Champs tuteur pour rôles apprentis
-echo 3. Dashboard : Logs dans console pour debug congés
+echo 📁 Copie du nouveau build...
+xcopy "frontend\build\*" "build\" /E /I /Y
+
+echo 🚀 Upload vers OVH...
+robocopy "build" "\\ftp.cluster023.hosting.ovh.net\www\plan" /MIR /R:3 /W:10
+
+if %errorlevel% leq 3 (
+    echo ✅ Déploiement réussi !
+    echo 📊 Version 018 déployée
+) else (
+    echo ❌ Erreur lors du déploiement
+    echo Code d'erreur: %errorlevel%
+)
+
 echo.
 pause
-
-
-
-

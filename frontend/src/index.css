@@ -174,6 +174,16 @@ a:hover {
   transform: translateY(-1px);
 }
 
+.btn-purple {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: var(--white);
+}
+
+.btn-purple:hover:not(:disabled) {
+  background: linear-gradient(135deg, #5568d3 0%, #63408a 100%);
+  transform: translateY(-1px);
+}
+
 .btn-danger {
   background-color: var(--danger-color);
   color: var(--white);

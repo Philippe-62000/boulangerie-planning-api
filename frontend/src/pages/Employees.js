@@ -5,6 +5,7 @@ import { toast } from 'react-toastify';
 import EmployeeModal from '../components/EmployeeModal';
 import DeclarationModal from '../components/DeclarationModal';
 import DelayModal from '../components/DelayModal';
+import OnboardingOffboardingModal from '../components/OnboardingOffboardingModal';
 import './Employees.css';
 
 const Employees = () => {
@@ -13,6 +14,7 @@ const Employees = () => {
   const [showModal, setShowModal] = useState(false);
   const [showDeclarationModal, setShowDeclarationModal] = useState(false);
   const [showDelayModal, setShowDelayModal] = useState(false);
+  const [showOnboardingOffboardingModal, setShowOnboardingOffboardingModal] = useState(false);
   const [editingEmployee, setEditingEmployee] = useState(null);
   const navigate = useNavigate();
 
@@ -64,6 +66,10 @@ const Employees = () => {
 
   const handleDeclareDelay = () => {
     setShowDelayModal(true);
+  };
+
+  const handleEntreeSortie = () => {
+    setShowOnboardingOffboardingModal(true);
   };
 
   const handleViewTutors = () => {
@@ -260,6 +266,12 @@ const Employees = () => {
               <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
             </svg>
             Tuteurs
+          </button>
+          <button className="btn btn-purple" onClick={handleEntreeSortie}>
+            <svg viewBox="0 0 24 24" fill="currentColor" className="btn-icon">
+              <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z"/>
+            </svg>
+            Entrée/Sortie
           </button>
           <button className="btn btn-success" onClick={handleDeclareMaladieAbsence}>
             <svg viewBox="0 0 24 24" fill="currentColor" className="btn-icon">
@@ -513,6 +525,13 @@ const Employees = () => {
         show={showDelayModal}
         onClose={() => setShowDelayModal(false)}
         onSave={handleSaveDelay}
+        employees={employees.filter(emp => emp.isActive)}
+      />
+
+      {/* Modal Entrée/Sortie */}
+      <OnboardingOffboardingModal
+        isOpen={showOnboardingOffboardingModal}
+        onClose={() => setShowOnboardingOffboardingModal(false)}
         employees={employees.filter(emp => emp.isActive)}
       />
     </div>

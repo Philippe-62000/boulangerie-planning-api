@@ -4,9 +4,11 @@ import api from '../services/api';
 const Dashboard = () => {
   const [employees, setEmployees] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [pendingObligations, setPendingObligations] = useState([]);
 
   useEffect(() => {
     fetchDashboardData();
+    fetchPendingObligations();
   }, []);
 
   const fetchDashboardData = async () => {
@@ -33,6 +35,18 @@ const Dashboard = () => {
       setEmployees([]);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchPendingObligations = async () => {
+    try {
+      const response = await api.get('/onboarding-offboarding/pending-obligations');
+      if (response.data.success && response.data.data) {
+        setPendingObligations(response.data.data);
+      }
+    } catch (error) {
+      console.error('Erreur lors du chargement des obligations légales:', error);
+      setPendingObligations([]);
     }
   };
 
@@ -285,6 +299,76 @@ const Dashboard = () => {
         )}
       </div>
 
+      {/* Obligations Légales */}
+      <div className="card" style={{ marginBottom: '2rem' }}>
+        <h3>⚖️ Obligations Légales</h3>
+        {pendingObligations.length === 0 ? (
+          <div style={{ 
+            textAlign: 'center', 
+            padding: '2rem', 
+            backgroundColor: '#d4edda', 
+            color: '#155724',
+            borderRadius: '8px',
+            border: '1px solid #c3e6cb'
+          }}>
+            <svg 
+              viewBox="0 0 24 24" 
+              fill="currentColor" 
+              style={{ width: '48px', height: '48px', marginBottom: '1rem' }}
+            >
+              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+            </svg>
+            <p style={{ fontWeight: 'bold', fontSize: '1.1rem' }}>
+              ✅ Toutes les obligations légales sont à jour !
+            </p>
+          </div>
+        ) : (
+          <div style={{ overflowX: 'auto' }}>
+            <div style={{ 
+              padding: '0.75rem', 
+              backgroundColor: '#fff3cd', 
+              color: '#856404',
+              borderRadius: '8px',
+              marginBottom: '1rem',
+              border: '1px solid #ffeaa7'
+            }}>
+              <strong>⚠️ {pendingObligations.length} démarche(s) administrative(s) en attente</strong>
+            </div>
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>Employé</th>
+                  <th>Démarche</th>
+                  <th>Commentaire</th>
+                </tr>
+              </thead>
+              <tbody>
+                {pendingObligations.map((obligation, index) => (
+                  <tr key={index}>
+                    <td style={{ fontWeight: 'bold' }}>{obligation.employeeName}</td>
+                    <td>
+                      <span style={{ 
+                        padding: '0.25rem 0.75rem', 
+                        backgroundColor: '#f8d7da', 
+                        color: '#721c24',
+                        borderRadius: '4px',
+                        fontSize: '0.9rem',
+                        fontWeight: '500'
+                      }}>
+                        {obligation.taskLabel}
+                      </span>
+                    </td>
+                    <td style={{ color: '#6c757d', fontStyle: 'italic' }}>
+                      {obligation.comment || '-'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
       {/* Statistiques générales */}
       <div className="card">
         <h3>📈 Statistiques générales</h3>
@@ -312,6 +396,10 @@ const Dashboard = () => {
           <div style={{ textAlign: 'center', padding: '1rem', backgroundColor: '#f8f9fa', borderRadius: '8px' }}>
             <h4>{apprenticeEmployees.length}</h4>
             <p>Apprentis</p>
+          </div>
+          <div style={{ textAlign: 'center', padding: '1rem', backgroundColor: '#fff3cd', borderRadius: '8px', border: '2px solid #ffc107' }}>
+            <h4 style={{ color: '#856404' }}>{pendingObligations.length}</h4>
+            <p style={{ color: '#856404' }}>Obligations légales</p>
           </div>
         </div>
       </div>

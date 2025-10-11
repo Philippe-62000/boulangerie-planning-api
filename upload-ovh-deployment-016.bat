@@ -1,30 +1,23 @@
 @echo off
-echo 🚀 UPLOAD OVH - DEPLOIEMENT #016 - CORRECTIONS CRITIQUES
-echo ============================================================
-
-echo 📁 Copie des fichiers vers OVH...
+echo 📤 Déploiement version 016 - Correction scanner progressif
 echo.
 
-echo 🔄 Copie du dossier build...
-robocopy "frontend\build" "C:\Users\phil\Desktop\OVH\www\plan" /E /R:3 /W:10
+echo 🗂️ Suppression de l'ancien build...
+if exist "build" rmdir /s /q "build"
 
-echo.
-echo ✅ Upload terminé !
-echo.
-echo 🎯 CORRECTIONS CRITIQUES :
-echo - Rôles employés corrigés (9 rôles au lieu de 7)
-echo - Statut congés corrigé (validated au lieu de accepted)
-echo - Correspondance employé-congés par nom (pas ID)
-echo - Logs de debug ajoutés pour troubleshooting
-echo.
-echo 🔍 TESTEZ :
-echo 1. Page employés : Rôles mis à jour
-echo 2. Calendrier : Camille devrait apparaître
-echo 3. Dashboard : Devrait se mettre à jour
+echo 📁 Copie du nouveau build...
+xcopy "frontend\build\*" "build\" /E /I /Y
+
+echo 🚀 Upload vers OVH...
+robocopy "build" "\\ftp.cluster023.hosting.ovh.net\www\plan" /MIR /R:3 /W:10
+
+if %errorlevel% leq 3 (
+    echo ✅ Déploiement réussi !
+    echo 📊 Version 016 déployée
+) else (
+    echo ❌ Erreur lors du déploiement
+    echo Code d'erreur: %errorlevel%
+)
+
 echo.
 pause
-
-
-
-
-
