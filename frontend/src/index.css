@@ -184,6 +184,16 @@ a:hover {
   transform: translateY(-1px);
 }
 
+.btn-pink {
+  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+  color: var(--white);
+}
+
+.btn-pink:hover:not(:disabled) {
+  background: linear-gradient(135deg, #da7de3 0%, #d94859 100%);
+  transform: translateY(-1px);
+}
+
 .btn-danger {
   background-color: var(--danger-color);
   color: var(--white);

@@ -6,6 +6,7 @@ import EmployeeModal from '../components/EmployeeModal';
 import DeclarationModal from '../components/DeclarationModal';
 import DelayModal from '../components/DelayModal';
 import OnboardingOffboardingModal from '../components/OnboardingOffboardingModal';
+import UniformModal from '../components/UniformModal';
 import './Employees.css';
 
 const Employees = () => {
@@ -15,6 +16,7 @@ const Employees = () => {
   const [showDeclarationModal, setShowDeclarationModal] = useState(false);
   const [showDelayModal, setShowDelayModal] = useState(false);
   const [showOnboardingOffboardingModal, setShowOnboardingOffboardingModal] = useState(false);
+  const [showUniformModal, setShowUniformModal] = useState(false);
   const [editingEmployee, setEditingEmployee] = useState(null);
   const navigate = useNavigate();
 
@@ -70,6 +72,10 @@ const Employees = () => {
 
   const handleEntreeSortie = () => {
     setShowOnboardingOffboardingModal(true);
+  };
+
+  const handleTenue = () => {
+    setShowUniformModal(true);
   };
 
   const handleViewTutors = () => {
@@ -272,6 +278,12 @@ const Employees = () => {
               <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z"/>
             </svg>
             Entrée/Sortie
+          </button>
+          <button className="btn btn-pink" onClick={handleTenue}>
+            <svg viewBox="0 0 24 24" fill="currentColor" className="btn-icon">
+              <path d="M16 20H8V10h8v10zm4-16H4v2h2v14h12V6h2V4zm-4 0H8V3h8v1z"/>
+            </svg>
+            Tenue
           </button>
           <button className="btn btn-success" onClick={handleDeclareMaladieAbsence}>
             <svg viewBox="0 0 24 24" fill="currentColor" className="btn-icon">
@@ -532,6 +544,13 @@ const Employees = () => {
       <OnboardingOffboardingModal
         isOpen={showOnboardingOffboardingModal}
         onClose={() => setShowOnboardingOffboardingModal(false)}
+        employees={employees.filter(emp => emp.isActive)}
+      />
+
+      {/* Modal Tenue */}
+      <UniformModal
+        isOpen={showUniformModal}
+        onClose={() => setShowUniformModal(false)}
         employees={employees.filter(emp => emp.isActive)}
       />
     </div>

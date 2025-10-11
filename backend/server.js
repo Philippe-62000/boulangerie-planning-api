@@ -99,6 +99,7 @@ app.use('/api/ticket-restaurant', require('./routes/ticketRestaurant'));
 app.use('/api/email-templates', require('./routes/emailTemplates'));
 app.use('/api/database', require('./routes/database'));
 app.use('/api/onboarding-offboarding', require('./routes/onboardingOffboarding'));
+app.use('/api/uniforms', require('./routes/uniforms'));
 
 // Route de santé pour vérifier que l'API fonctionne
 app.get('/health', (req, res) => {
