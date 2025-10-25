@@ -24,6 +24,7 @@ import SickLeaveHome from './pages/SickLeaveHome';
 import VacationRequestAdmin from './pages/VacationRequestAdmin';
 import VacationPlanning from './pages/VacationPlanning';
 import TicketRestaurant from './pages/TicketRestaurant';
+import EmployeeDashboard from './pages/EmployeeDashboard';
 
 const AppContent = () => {
   const { user } = useAuth();
@@ -117,6 +118,11 @@ const AppContent = () => {
             <Route path="/ticket-restaurant" element={
               <ProtectedRoute>
                 <TicketRestaurant />
+              </ProtectedRoute>
+            } />
+            <Route path="/employee-dashboard" element={
+              <ProtectedRoute>
+                <EmployeeDashboard />
               </ProtectedRoute>
             } />
           </Routes>
