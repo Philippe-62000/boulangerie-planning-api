@@ -7,7 +7,7 @@
     "test": "echo \"Error: no test specified\" && exit 1", 
     "start": "node server.js", 
     "dev": "nodemon server.js", 
-    "build": "echo 'Backend build completed'", 
+    "build": "npm install && echo 'Backend build completed'", 
     "pm2:start": "pm2 start server.js --name boulangerie-api", 
     "pm2:stop": "pm2 stop boulangerie-api", 
     "pm2:restart": "pm2 restart boulangerie-api" 
