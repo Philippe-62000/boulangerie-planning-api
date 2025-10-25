@@ -350,6 +350,228 @@
             font-weight: 600;
         }
 
+        /* Styles pour les documents */
+        .document-section {
+            display: none;
+        }
+
+        .document-section.active {
+            display: block;
+        }
+
+        .documents-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .document-card {
+            background: white;
+            border: 2px solid #e9ecef;
+            border-radius: 12px;
+            padding: 1.5rem;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .document-card:hover {
+            border-color: #007bff;
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0, 123, 255, 0.15);
+        }
+
+        .document-card.general {
+            border-left: 4px solid #28a745;
+        }
+
+        .document-card.personal {
+            border-left: 4px solid #007bff;
+        }
+
+        .document-header {
+            display: flex;
+            align-items: flex-start;
+            gap: 1rem;
+            margin-bottom: 1rem;
+            position: relative;
+        }
+
+        .document-icon {
+            font-size: 2rem;
+            flex-shrink: 0;
+            width: 50px;
+            height: 50px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border: 2px solid #e9ecef;
+        }
+
+        .document-title {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .document-title h3 {
+            margin: 0 0 0.5rem 0;
+            color: #495057;
+            font-size: 1.1rem;
+            font-weight: 600;
+            line-height: 1.3;
+            word-wrap: break-word;
+        }
+
+        .document-category {
+            display: inline-block;
+            background: #e9ecef;
+            color: #6c757d;
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 500;
+        }
+
+        .expiry-badge {
+            position: absolute;
+            top: 0;
+            right: 0;
+            padding: 0.25rem 0.75rem;
+            border-radius: 0 8px 0 8px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .expiry-badge.warning {
+            background: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+        }
+
+        .expiry-badge.info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+
+        .expiry-badge.expired {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .document-content {
+            margin-bottom: 1.5rem;
+        }
+
+        .document-description {
+            margin: 0 0 1rem 0;
+            color: #6c757d;
+            font-size: 0.9rem;
+            line-height: 1.4;
+            font-style: italic;
+        }
+
+        .document-details {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .detail-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.25rem 0;
+            font-size: 0.85rem;
+        }
+
+        .detail-label {
+            color: #6c757d;
+            font-weight: 500;
+        }
+
+        .detail-value {
+            color: #495057;
+            font-weight: 600;
+        }
+
+        .document-actions {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
+        .download-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            padding: 0.75rem 1.5rem;
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+        }
+
+        .download-btn:hover:not(:disabled) {
+            background: linear-gradient(135deg, #218838 0%, #1ea085 100%);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(40, 167, 69, 0.3);
+        }
+
+        .download-btn:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+
+        .expired-message {
+            padding: 0.75rem;
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            text-align: center;
+            font-weight: 500;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 4rem 2rem;
+            background: #f8f9fa;
+            border-radius: 12px;
+            border: 2px dashed #dee2e6;
+        }
+
+        .empty-icon {
+            font-size: 4rem;
+            margin-bottom: 1rem;
+            opacity: 0.5;
+        }
+
+        .empty-state h3 {
+            margin: 0 0 0.5rem 0;
+            color: #6c757d;
+            font-size: 1.5rem;
+        }
+
+        .empty-state p {
+            margin: 0;
+            color: #6c757d;
+            font-size: 1rem;
+        }
+
         @media (max-width: 768px) {
             .form-row {
                 grid-template-columns: 1fr;
@@ -366,6 +588,37 @@
             
             .tab-panel {
                 padding: 20px;
+            }
+
+            .documents-grid {
+                grid-template-columns: 1fr;
+                gap: 1rem;
+            }
+            
+            .document-header {
+                flex-direction: column;
+                gap: 0.75rem;
+            }
+            
+            .document-icon {
+                width: 40px;
+                height: 40px;
+                font-size: 1.5rem;
+            }
+            
+            .document-title h3 {
+                font-size: 1rem;
+            }
+            
+            .detail-item {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 0.25rem;
+            }
+            
+            .download-btn {
+                padding: 0.75rem 1rem;
+                font-size: 0.85rem;
             }
         }
     </style>
@@ -402,6 +655,9 @@
             </button>
             <button class="tab active" onclick="switchTab('vacation')">
                 🏖️ Demande de Congés
+            </button>
+            <button class="tab" onclick="switchTab('documents')">
+                📁 Mes Documents
             </button>
         </div>
 
@@ -550,6 +806,58 @@
                     </div>
                 </div>
             </div>
+
+            <!-- Onglet Mes Documents -->
+            <div class="tab-panel" id="documents-panel">
+                <div class="form-container">
+                    <h2 class="form-title">📁 Mes Documents</h2>
+                    <p class="form-subtitle">Consultez et téléchargez vos documents personnels et généraux</p>
+
+                    <div id="documentsAlert"></div>
+
+                    <div class="info-box">
+                        <h4>ℹ️ Informations importantes</h4>
+                        <ul>
+                            <li>📋 Les <strong>documents généraux</strong> sont accessibles à tous les employés</li>
+                            <li>👤 Les <strong>documents personnels</strong> sont spécifiques à votre compte</li>
+                            <li>⏰ Les documents personnels sont automatiquement supprimés après 1 mois</li>
+                            <li>📥 Cliquez sur "Télécharger" pour sauvegarder un document sur votre appareil</li>
+                        </ul>
+                    </div>
+
+                    <!-- Onglets pour les types de documents -->
+                    <div class="tabs" style="margin-bottom: 30px;">
+                        <button class="tab" onclick="switchDocumentTab('general')" id="general-tab">
+                            📋 Documents Généraux
+                        </button>
+                        <button class="tab active" onclick="switchDocumentTab('personal')" id="personal-tab">
+                            👤 Mes Documents Personnels
+                        </button>
+                    </div>
+
+                    <!-- Section Documents Généraux -->
+                    <div class="document-section" id="general-documents">
+                        <div class="loading" id="generalLoading">
+                            <div class="spinner"></div>
+                            <p>Chargement des documents généraux...</p>
+                        </div>
+                        <div id="generalDocumentsList" style="display: none;">
+                            <!-- Les documents généraux seront chargés ici -->
+                        </div>
+                    </div>
+
+                    <!-- Section Documents Personnels -->
+                    <div class="document-section" id="personal-documents">
+                        <div class="loading" id="personalLoading">
+                            <div class="spinner"></div>
+                            <p>Chargement de vos documents personnels...</p>
+                        </div>
+                        <div id="personalDocumentsList" style="display: none;">
+                            <!-- Les documents personnels seront chargés ici -->
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -637,6 +945,11 @@
             // Activer l'onglet et le panel sélectionnés
             document.getElementById(`${tabName}-panel`).classList.add('active');
             event.target.classList.add('active');
+
+            // Si c'est l'onglet documents, charger les documents personnels par défaut
+            if (tabName === 'documents') {
+                switchDocumentTab('personal');
+            }
         }
 
         // Gestion du fichier upload
@@ -780,6 +1093,235 @@
             document.getElementById('fileName').style.display = 'none';
             document.getElementById('fileName').classList.remove('file-selected');
             hideAlert('sickLeaveAlert');
+        }
+
+        // Fonctions pour la gestion des documents
+        function switchDocumentTab(tabType) {
+            // Masquer toutes les sections
+            document.querySelectorAll('.document-section').forEach(section => {
+                section.classList.remove('active');
+            });
+
+            // Désactiver tous les onglets de documents
+            document.querySelectorAll('#general-tab, #personal-tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+
+            // Activer la section et l'onglet sélectionnés
+            document.getElementById(`${tabType}-documents`).classList.add('active');
+            document.getElementById(`${tabType}-tab`).classList.add('active');
+
+            // Charger les documents si nécessaire
+            if (tabType === 'general') {
+                loadGeneralDocuments();
+            } else if (tabType === 'personal') {
+                loadPersonalDocuments();
+            }
+        }
+
+        async function loadGeneralDocuments() {
+            const loading = document.getElementById('generalLoading');
+            const list = document.getElementById('generalDocumentsList');
+            
+            loading.style.display = 'block';
+            list.style.display = 'none';
+
+            try {
+                const response = await fetch(`${API_URL}/documents/general`, {
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('employeeToken')}`
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error('Erreur lors du chargement des documents généraux');
+                }
+
+                const data = await response.json();
+                displayDocuments('generalDocumentsList', data.documents || [], 'general');
+                
+            } catch (error) {
+                console.error('Erreur chargement documents généraux:', error);
+                showAlert('documentsAlert', 'Erreur lors du chargement des documents généraux', 'danger');
+            } finally {
+                loading.style.display = 'none';
+                list.style.display = 'block';
+            }
+        }
+
+        async function loadPersonalDocuments() {
+            const loading = document.getElementById('personalLoading');
+            const list = document.getElementById('personalDocumentsList');
+            
+            loading.style.display = 'block';
+            list.style.display = 'none';
+
+            try {
+                const response = await fetch(`${API_URL}/documents/personal/${currentEmployee._id}`, {
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('employeeToken')}`
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error('Erreur lors du chargement de vos documents personnels');
+                }
+
+                const data = await response.json();
+                displayDocuments('personalDocumentsList', data.documents || [], 'personal');
+                
+            } catch (error) {
+                console.error('Erreur chargement documents personnels:', error);
+                showAlert('documentsAlert', 'Erreur lors du chargement de vos documents personnels', 'danger');
+            } finally {
+                loading.style.display = 'none';
+                list.style.display = 'block';
+            }
+        }
+
+        function displayDocuments(containerId, documents, type) {
+            const container = document.getElementById(containerId);
+            
+            if (!documents || documents.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-icon">📁</div>
+                        <h3>Aucun document disponible</h3>
+                        <p>${type === 'general' ? 'Aucun document général n\'est disponible pour le moment.' : 'Vous n\'avez aucun document personnel.'}</p>
+                    </div>
+                `;
+                return;
+            }
+
+            const documentsHtml = documents.map(doc => {
+                const icon = getDocumentIcon(doc.category);
+                const expiryInfo = getExpiryInfo(doc);
+                const isExpired = doc.expiryDate && new Date(doc.expiryDate) < new Date();
+                
+                return `
+                    <div class="document-card ${type}">
+                        <div class="document-header">
+                            <div class="document-icon">${icon}</div>
+                            <div class="document-title">
+                                <h3>${doc.title}</h3>
+                                <span class="document-category">${doc.category}</span>
+                            </div>
+                            ${expiryInfo ? `<div class="expiry-badge ${expiryInfo.class}">${expiryInfo.text}</div>` : ''}
+                        </div>
+                        
+                        <div class="document-content">
+                            <div class="document-details">
+                                <div class="detail-item">
+                                    <span class="detail-label">Taille</span>
+                                    <span class="detail-value">${formatFileSize(doc.fileSize)}</span>
+                                </div>
+                                <div class="detail-item">
+                                    <span class="detail-label">Ajouté le</span>
+                                    <span class="detail-value">${formatDate(doc.uploadDate)}</span>
+                                </div>
+                                ${doc.downloadCount > 0 ? `
+                                    <div class="detail-item">
+                                        <span class="detail-label">Téléchargements</span>
+                                        <span class="detail-value">${doc.downloadCount}</span>
+                                    </div>
+                                ` : ''}
+                            </div>
+                        </div>
+                        
+                        <div class="document-actions">
+                            ${isExpired ? `
+                                <div class="expired-message">
+                                    ⚠️ Ce document a expiré et ne peut plus être téléchargé
+                                </div>
+                            ` : `
+                                <button class="download-btn" onclick="downloadDocument('${doc._id}')">
+                                    📥 Télécharger
+                                </button>
+                            `}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            container.innerHTML = `<div class="documents-grid">${documentsHtml}</div>`;
+        }
+
+        function getDocumentIcon(category) {
+            const icons = {
+                'notice': '📋',
+                'procedure': '📄',
+                'formation': '🎓',
+                'payslip': '💰',
+                'contract': '📝',
+                'rh': '👤',
+                'other': '📄'
+            };
+            return icons[category] || icons['other'];
+        }
+
+        function getExpiryInfo(doc) {
+            if (!doc.expiryDate) return null;
+            
+            const now = new Date();
+            const expiry = new Date(doc.expiryDate);
+            const daysLeft = Math.ceil((expiry - now) / (1000 * 60 * 60 * 24));
+            
+            if (daysLeft < 0) {
+                return { class: 'expired', text: 'Expiré' };
+            } else if (daysLeft <= 3) {
+                return { class: 'warning', text: `${daysLeft}j restant` };
+            } else if (daysLeft <= 7) {
+                return { class: 'info', text: `${daysLeft}j restant` };
+            }
+            return null;
+        }
+
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 B';
+            const k = 1024;
+            const sizes = ['B', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+        }
+
+        function formatDate(dateString) {
+            const date = new Date(dateString);
+            return date.toLocaleDateString('fr-FR', {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric'
+            });
+        }
+
+        async function downloadDocument(documentId) {
+            try {
+                const response = await fetch(`${API_URL}/documents/download/${documentId}`, {
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('employeeToken')}`
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error('Erreur lors du téléchargement');
+                }
+
+                // Créer un lien de téléchargement
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = ''; // Le nom sera déterminé par le serveur
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(a);
+
+                showAlert('documentsAlert', 'Document téléchargé avec succès !', 'success');
+                
+            } catch (error) {
+                console.error('Erreur téléchargement:', error);
+                showAlert('documentsAlert', 'Erreur lors du téléchargement du document', 'danger');
+            }
         }
     </script>
 </body>

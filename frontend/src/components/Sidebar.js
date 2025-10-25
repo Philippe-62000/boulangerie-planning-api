@@ -25,7 +25,8 @@ const Sidebar = () => {
         { menuId: 'parameters', isVisibleToAdmin: true, isVisibleToEmployee: false },
         { menuId: 'sick-leave-management', isVisibleToAdmin: true, isVisibleToEmployee: false },
         { menuId: 'vacation-management', isVisibleToAdmin: true, isVisibleToEmployee: false },
-        { menuId: 'ticket-restaurant', isVisibleToAdmin: true, isVisibleToEmployee: true }
+        { menuId: 'ticket-restaurant', isVisibleToAdmin: true, isVisibleToEmployee: true },
+        { menuId: 'employee-dashboard', isVisibleToAdmin: false, isVisibleToEmployee: true }
       ];
     } else {
       return [
@@ -91,7 +92,8 @@ const Sidebar = () => {
     { path: '/parameters', label: 'Paramètres', icon: '⚙️', menuId: 'parameters' },
     { path: '/sick-leave-management', label: 'Gestion des Arrêts Maladie', icon: '🏥', menuId: 'sick-leave-management' },
     { path: '/vacation-management', label: 'Gestion des Congés', icon: '🏖️', menuId: 'vacation-management' },
-    { path: '/ticket-restaurant', label: 'Ticket restaurant', icon: '🎫', menuId: 'ticket-restaurant' }
+    { path: '/ticket-restaurant', label: 'Ticket restaurant', icon: '🎫', menuId: 'ticket-restaurant' },
+    { path: '/employee-dashboard', label: 'Mes Documents', icon: '📁', menuId: 'employee-dashboard' }
   ];
 
   // Filtrer les menus selon les permissions

@@ -1,0 +1,72 @@
+const express = require('express');
+const router = express.Router();
+const multer = require('multer');
+const path = require('path');
+const documentController = require('../controllers/documentController');
+
+// Configuration multer pour l'upload
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    // Dossier temporaire pour les uploads
+    cb(null, 'uploads/temp/');
+  },
+  filename: function (req, file, cb) {
+    // Nom unique pour éviter les conflits
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, uniqueSuffix + path.extname(file.originalname));
+  }
+});
+
+const upload = multer({ 
+  storage: storage,
+  limits: {
+    fileSize: 10 * 1024 * 1024 // 10MB max
+  },
+  fileFilter: function (req, file, cb) {
+    // Vérifier le type de fichier
+    const allowedTypes = /pdf|doc|docx|xls|xlsx|jpg|jpeg|png|txt/;
+    const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+    const mimetype = allowedTypes.test(file.mimetype);
+    
+    if (mimetype && extname) {
+      return cb(null, true);
+    } else {
+      cb(new Error('Type de fichier non autorisé'));
+    }
+  }
+});
+
+// Middleware pour créer le dossier temp s'il n'existe pas
+const ensureTempDir = (req, res, next) => {
+  const fs = require('fs');
+  const tempDir = 'uploads/temp/';
+  if (!fs.existsSync(tempDir)) {
+    fs.mkdirSync(tempDir, { recursive: true });
+  }
+  next();
+};
+
+// Routes pour les documents
+
+// GET /api/documents/general - Récupérer les documents généraux
+router.get('/general', documentController.getGeneralDocuments);
+
+// GET /api/documents/personal/:employeeId - Récupérer les documents personnels d'un employé
+router.get('/personal/:employeeId', documentController.getPersonalDocuments);
+
+// GET /api/documents/:documentId/download - Télécharger un document
+router.get('/:documentId/download', documentController.downloadDocument);
+
+// POST /api/documents/upload - Upload un document (admin seulement)
+router.post('/upload', ensureTempDir, upload.single('file'), documentController.uploadDocument);
+
+// DELETE /api/documents/:documentId - Supprimer un document (admin seulement)
+router.delete('/:documentId', documentController.deleteDocument);
+
+// POST /api/documents/cleanup - Nettoyer les documents expirés (admin seulement)
+router.post('/cleanup', documentController.cleanExpiredDocuments);
+
+// GET /api/documents/stats - Statistiques des documents (admin seulement)
+router.get('/stats', documentController.getDocumentStats);
+
+module.exports = router;
