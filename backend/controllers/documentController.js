@@ -2,7 +2,7 @@ const Document = require('../models/Document');
 const Employee = require('../models/Employee');
 const fs = require('fs');
 const path = require('path');
-const SFTPService = require('../services/sftpService');
+const sftpService = require('../services/sftpService');
 
 // Configuration NAS (même configuration que les arrêts maladie)
 const NAS_CONFIG = {
@@ -121,8 +121,6 @@ exports.downloadDocument = async (req, res) => {
     console.log('🔍 document.filePath:', document.filePath);
     
     // Utiliser le service SFTP pour vérifier et télécharger le fichier
-    const sftpService = new SFTPService();
-    
     try {
       // Connexion au NAS
       await sftpService.connect();
@@ -241,8 +239,6 @@ exports.uploadDocument = async (req, res) => {
     }
     
     // Utiliser le service SFTP pour uploader sur le NAS
-    const sftpService = new SFTPService();
-    
     try {
       // Connexion au NAS
       await sftpService.connect();
