@@ -4,9 +4,9 @@ const fs = require('fs');
 const path = require('path');
 const sftpService = require('../services/sftpService');
 
-// Configuration NAS (même configuration que les arrêts maladie)
+// Configuration NAS (utilise le même répertoire de base que les arrêts maladie)
 const NAS_CONFIG = {
-  basePath: process.env.NAS_BASE_PATH || 'uploads/documents', // Chemin relatif sur le NAS Synology
+  basePath: process.env.NAS_BASE_PATH || '/n8n/uploads/documents', // Chemin complet sur le NAS Synology
   generalPath: 'general',
   personalPath: 'personal',
   maxFileSize: 10 * 1024 * 1024, // 10MB
