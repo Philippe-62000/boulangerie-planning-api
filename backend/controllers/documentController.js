@@ -137,7 +137,10 @@ exports.downloadDocument = async (req, res) => {
       
       // Télécharger le fichier depuis le NAS
       const tempFilePath = path.join(__dirname, '../uploads/temp', path.basename(filePath));
-      await sftpService.downloadFile(filePath, tempFilePath);
+      const fileBuffer = await sftpService.downloadFile(filePath);
+      
+      // Écrire le buffer dans un fichier temporaire
+      fs.writeFileSync(tempFilePath, fileBuffer);
       
       // Envoyer le fichier au client
       res.download(tempFilePath, document.fileName, (err) => {
@@ -262,8 +265,16 @@ exports.uploadDocument = async (req, res) => {
       console.log('📁 Création du dossier sur le NAS:', dir);
       
       try {
-        await sftpService.ensureDirectory(dir);
-        console.log('✅ Dossier créé avec succès sur le NAS:', dir);
+        // Vérifier si le dossier existe
+        try {
+          await sftpService.client.stat(dir);
+          console.log('✅ Dossier existe déjà sur le NAS:', dir);
+        } catch (error) {
+          // Dossier n'existe pas, le créer
+          console.log('📁 Création du dossier sur le NAS:', dir);
+          await sftpService.client.mkdir(dir, true);
+          console.log('✅ Dossier créé avec succès sur le NAS:', dir);
+        }
       } catch (error) {
         console.error('❌ Erreur lors de la création du dossier sur le NAS:', error);
         return res.status(500).json({
@@ -274,7 +285,7 @@ exports.uploadDocument = async (req, res) => {
       
       // Uploader le fichier sur le NAS
       console.log('📤 Upload du fichier vers le NAS:', fullPath);
-      await sftpService.uploadFile(req.file.path, fullPath);
+      await sftpService.client.put(req.file.path, fullPath);
       console.log('✅ Fichier uploadé avec succès sur le NAS');
       
       // Supprimer le fichier temporaire local
