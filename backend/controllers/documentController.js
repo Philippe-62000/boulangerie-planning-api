@@ -5,12 +5,18 @@ const path = require('path');
 
 // Configuration NAS (à adapter selon votre configuration)
 const NAS_CONFIG = {
-  basePath: process.env.NAS_BASE_PATH || path.join(__dirname, '../uploads/documents'),
+  basePath: process.env.NAS_BASE_PATH || '/path/to/your/nas/uploads/documents', // Chemin vers votre NAS
   generalPath: 'general',
   personalPath: 'personal',
   maxFileSize: 10 * 1024 * 1024, // 10MB
   allowedTypes: ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'jpg', 'jpeg', 'png', 'txt']
 };
+
+// Log de la configuration NAS au démarrage
+console.log('📁 Configuration NAS:');
+console.log('  - NAS_BASE_PATH:', process.env.NAS_BASE_PATH || 'Non défini');
+console.log('  - basePath utilisé:', NAS_CONFIG.basePath);
+console.log('  - Mode:', process.env.NAS_BASE_PATH ? 'NAS' : 'Local');
 
 // Récupérer les documents généraux
 exports.getGeneralDocuments = async (req, res) => {
