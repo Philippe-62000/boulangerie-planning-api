@@ -104,11 +104,15 @@ exports.downloadDocument = async (req, res) => {
       }
     }
     
-    // Vérifier si le fichier existe sur le NAS
+    // Vérifier si le fichier existe sur le serveur
     const filePath = path.join(NAS_CONFIG.basePath, document.filePath);
     
+    console.log('🔍 Recherche du fichier:', filePath);
+    console.log('🔍 NAS_CONFIG.basePath:', NAS_CONFIG.basePath);
+    console.log('🔍 document.filePath:', document.filePath);
+    
     if (!fs.existsSync(filePath)) {
-      console.error('❌ Fichier non trouvé sur le NAS:', filePath);
+      console.error('❌ Fichier non trouvé sur le serveur:', filePath);
       return res.status(404).json({
         success: false,
         message: 'Fichier non trouvé sur le serveur'

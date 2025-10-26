@@ -1181,7 +1181,8 @@
                 }
 
                 const data = await response.json();
-                displayDocuments('generalDocumentsList', data.documents || [], 'general');
+                console.log('📄 Documents généraux reçus:', data);
+                displayDocuments('generalDocumentsList', data.data || data.documents || [], 'general');
                 
             } catch (error) {
                 console.error('Erreur chargement documents généraux:', error);
@@ -1236,7 +1237,8 @@
                 }
 
                 const data = await response.json();
-                displayDocuments('personalDocumentsList', data.documents || [], 'personal');
+                console.log('📄 Documents personnels reçus:', data);
+                displayDocuments('personalDocumentsList', data.data || data.documents || [], 'personal');
                 
             } catch (error) {
                 console.error('Erreur chargement documents personnels:', error);
