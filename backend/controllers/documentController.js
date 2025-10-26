@@ -3,9 +3,9 @@ const Employee = require('../models/Employee');
 const fs = require('fs');
 const path = require('path');
 
-// Configuration NAS (à adapter selon votre configuration)
+// Configuration NAS (même configuration que les arrêts maladie)
 const NAS_CONFIG = {
-  basePath: process.env.NAS_BASE_PATH || '/path/to/your/nas/uploads/documents', // Chemin vers votre NAS
+  basePath: process.env.NAS_BASE_PATH || '/uploads/documents', // Chemin sur le NAS Synology
   generalPath: 'general',
   personalPath: 'personal',
   maxFileSize: 10 * 1024 * 1024, // 10MB
