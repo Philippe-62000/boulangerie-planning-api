@@ -540,6 +540,12 @@ const Parameters = () => {
         >
           🗄️ Gestion de la Base de Données
         </button>
+        <button 
+          className="tab-button"
+          onClick={() => window.open('/plan/admin-documents.html', '_blank')}
+        >
+          📁 Gestion des Documents
+        </button>
       </div>
 
       {/* Contenu des onglets */}

@@ -900,7 +900,10 @@
                 }
 
                 const data = await response.json();
+                console.log('🔍 Données reçues de l\'API employee-profile:', data);
                 currentEmployee = data.employee;
+                console.log('🔍 currentEmployee défini:', currentEmployee);
+                console.log('🔍 currentEmployee._id:', currentEmployee ? currentEmployee._id : 'undefined');
                 
                 // Afficher les informations de l'employé
                 document.getElementById('employeeName').textContent = currentEmployee.name;
@@ -954,7 +957,21 @@
 
             // Si c'est l'onglet documents, charger les documents personnels par défaut
             if (tabName === 'documents') {
-                switchDocumentTab('personal');
+                // Attendre que currentEmployee soit chargé avant d'activer l'onglet documents
+                if (currentEmployee && currentEmployee.id) {
+                    switchDocumentTab('personal');
+                } else {
+                    console.log('⏳ Attente du chargement de currentEmployee pour l\'onglet documents...');
+                    // Réessayer après un court délai
+                    setTimeout(() => {
+                        if (currentEmployee && currentEmployee.id) {
+                            switchDocumentTab('personal');
+                        } else {
+                            console.error('❌ currentEmployee toujours non disponible pour l\'onglet documents');
+                            showAlert('documentsAlert', '⚠️ Erreur: Impossible de charger les informations employé', 'danger');
+                        }
+                    }, 500);
+                }
             }
         }
 
@@ -1121,7 +1138,21 @@
             if (tabType === 'general') {
                 loadGeneralDocuments();
             } else if (tabType === 'personal') {
-                loadPersonalDocuments();
+                // Vérifier que currentEmployee est chargé avant de charger les documents personnels
+                if (currentEmployee && currentEmployee.id) {
+                    loadPersonalDocuments();
+                } else {
+                    console.log('⏳ Attente du chargement des informations employé...');
+                    showAlert('documentsAlert', '⏳ Chargement des informations employé en cours...', 'info');
+                    // Réessayer après un court délai
+                    setTimeout(() => {
+                        if (currentEmployee && currentEmployee.id) {
+                            loadPersonalDocuments();
+                        } else {
+                            showAlert('documentsAlert', '⚠️ Erreur: Impossible de charger les informations employé', 'danger');
+                        }
+                    }, 1000);
+                }
             }
         }
 
@@ -1170,8 +1201,25 @@
             loading.style.display = 'block';
             list.style.display = 'none';
 
+            // Vérifier que currentEmployee est défini
+            if (!currentEmployee || !currentEmployee.id) {
+                console.error('❌ currentEmployee non défini:', currentEmployee);
+                console.log('🔍 État de currentEmployee:', {
+                    currentEmployee: currentEmployee,
+                    hasId: currentEmployee ? !!currentEmployee.id : false,
+                    id: currentEmployee ? currentEmployee.id : 'undefined'
+                });
+                displayDocuments('personalDocumentsList', [], 'personal');
+                showAlert('documentsAlert', '⚠️ Erreur: Informations employé non disponibles. Veuillez vous reconnecter.', 'danger');
+                loading.style.display = 'none';
+                list.style.display = 'block';
+                return;
+            }
+
+            console.log('✅ Chargement documents personnels pour:', currentEmployee.name, 'ID:', currentEmployee.id);
+
             try {
-                const response = await fetch(`${API_URL}/documents/personal/${currentEmployee._id}`, {
+                const response = await fetch(`${API_URL}/documents/personal/${currentEmployee.id}`, {
                     headers: {
                         'Authorization': `Bearer ${localStorage.getItem('employeeToken')}`
                     }

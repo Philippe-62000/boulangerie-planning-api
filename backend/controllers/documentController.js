@@ -5,9 +5,9 @@ const path = require('path');
 
 // Configuration NAS (à adapter selon votre configuration)
 const NAS_CONFIG = {
-  basePath: process.env.NAS_BASE_PATH || '/path/to/nas/documents',
-  generalPath: '/general',
-  personalPath: '/personal',
+  basePath: process.env.NAS_BASE_PATH || path.join(__dirname, '../uploads/documents'),
+  generalPath: 'general',
+  personalPath: 'personal',
   maxFileSize: 10 * 1024 * 1024, // 10MB
   allowedTypes: ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'jpg', 'jpeg', 'png', 'txt']
 };
@@ -206,14 +206,54 @@ exports.uploadDocument = async (req, res) => {
     const filePath = path.join(targetDir, fileName);
     const fullPath = path.join(NAS_CONFIG.basePath, filePath);
     
+    console.log('🔍 Configuration NAS:', {
+      basePath: NAS_CONFIG.basePath,
+      targetDir: targetDir,
+      fileName: fileName,
+      filePath: filePath,
+      fullPath: fullPath
+    });
+    
     // Créer le dossier s'il n'existe pas
     const dir = path.dirname(fullPath);
+    console.log('📁 Création du dossier:', dir);
+    
+    // Vérifier si le dossier de base existe
+    if (!fs.existsSync(NAS_CONFIG.basePath)) {
+      try {
+        fs.mkdirSync(NAS_CONFIG.basePath, { recursive: true });
+        console.log('✅ Dossier de base créé:', NAS_CONFIG.basePath);
+      } catch (error) {
+        console.error('❌ Erreur lors de la création du dossier de base:', error);
+        return res.status(500).json({
+          success: false,
+          message: 'Erreur lors de la création du dossier de base'
+        });
+      }
+    }
+    
     if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true });
+      try {
+        fs.mkdirSync(dir, { recursive: true });
+        console.log('✅ Dossier créé avec succès:', dir);
+      } catch (error) {
+        console.error('❌ Erreur lors de la création du dossier:', error);
+        return res.status(500).json({
+          success: false,
+          message: 'Erreur lors de la création du dossier de stockage'
+        });
+      }
     }
     
     // Déplacer le fichier vers le NAS
-    fs.renameSync(req.file.path, fullPath);
+    try {
+      fs.renameSync(req.file.path, fullPath);
+    } catch (error) {
+      console.error('❌ Erreur lors du déplacement du fichier:', error);
+      // Si le déplacement échoue, copier le fichier
+      fs.copyFileSync(req.file.path, fullPath);
+      fs.unlinkSync(req.file.path); // Supprimer le fichier temporaire
+    }
     
     // Créer l'enregistrement en base
     const documentData = {

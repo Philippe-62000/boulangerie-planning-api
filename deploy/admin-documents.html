@@ -1,0 +1,698 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestion des Documents - Administration</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+
+        .content {
+            padding: 40px;
+        }
+
+        .upload-section {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 30px;
+            margin-bottom: 30px;
+        }
+
+        .upload-section h2 {
+            color: #333;
+            margin-bottom: 20px;
+            font-size: 1.5rem;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #555;
+        }
+
+        .form-group select,
+        .form-group input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e1e5e9;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+
+        .form-group select:focus,
+        .form-group input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .file-upload {
+            border: 2px dashed #667eea;
+            border-radius: 10px;
+            padding: 40px;
+            text-align: center;
+            background: #f8f9ff;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .file-upload:hover {
+            background: #f0f2ff;
+            border-color: #5a6fd8;
+        }
+
+        .file-upload.dragover {
+            background: #e8f0ff;
+            border-color: #4c63d2;
+        }
+
+        .file-upload input[type="file"] {
+            display: none;
+        }
+
+        .upload-icon {
+            font-size: 3rem;
+            color: #667eea;
+            margin-bottom: 15px;
+        }
+
+        .upload-text {
+            font-size: 1.1rem;
+            color: #666;
+            margin-bottom: 10px;
+        }
+
+        .upload-hint {
+            font-size: 0.9rem;
+            color: #999;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-right: 10px;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+        }
+
+        .btn-danger {
+            background: #dc3545;
+        }
+
+        .alert {
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-weight: 500;
+        }
+
+        .alert-success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .alert-danger {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .alert-info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+
+        .file-list {
+            margin-top: 20px;
+        }
+
+        .file-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px;
+            background: white;
+            border: 1px solid #e1e5e9;
+            border-radius: 8px;
+            margin-bottom: 10px;
+        }
+
+        .file-info {
+            display: flex;
+            align-items: center;
+        }
+
+        .file-icon {
+            font-size: 1.5rem;
+            margin-right: 15px;
+        }
+
+        .file-details h4 {
+            margin: 0;
+            color: #333;
+        }
+
+        .file-details p {
+            margin: 5px 0 0 0;
+            color: #666;
+            font-size: 0.9rem;
+        }
+
+        .file-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 20px;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .batch-upload {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 8px;
+            padding: 20px;
+            margin-top: 20px;
+        }
+
+        .batch-upload h3 {
+            color: #856404;
+            margin-bottom: 15px;
+        }
+
+        .batch-upload p {
+            color: #856404;
+            margin-bottom: 10px;
+        }
+
+        .batch-upload ul {
+            color: #856404;
+            margin-left: 20px;
+        }
+
+        .batch-upload li {
+            margin-bottom: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📁 Gestion des Documents</h1>
+            <p>Upload et gestion des documents pour les salariés</p>
+        </div>
+
+        <div class="content">
+            <div id="alertContainer"></div>
+
+            <!-- Upload de documents généraux -->
+            <div class="upload-section">
+                <h2>📋 Documents Généraux</h2>
+                <p>Documents accessibles à tous les salariés (notices, procédures, etc.)</p>
+                
+                <form id="generalUploadForm">
+                    <div class="form-group">
+                        <label for="generalTitle">Titre du document :</label>
+                        <input type="text" id="generalTitle" name="title" required placeholder="Ex: Notice de sécurité">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="generalCategory">Catégorie :</label>
+                        <select id="generalCategory" name="category" required>
+                            <option value="">Sélectionner une catégorie</option>
+                            <option value="notice">Notice</option>
+                            <option value="procedure">Procédure</option>
+                            <option value="regulation">Réglementation</option>
+                            <option value="training">Formation</option>
+                            <option value="other">Autre</option>
+                        </select>
+                    </div>
+
+                    <div class="file-upload" onclick="document.getElementById('generalFile').click()">
+                        <div class="upload-icon">📄</div>
+                        <div class="upload-text">Cliquez pour sélectionner un fichier</div>
+                        <div class="upload-hint">ou glissez-déposez le fichier ici</div>
+                        <input type="file" id="generalFile" name="file" accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png" required>
+                    </div>
+
+                    <button type="submit" class="btn">📤 Uploader le document</button>
+                </form>
+            </div>
+
+            <!-- Upload de documents personnels -->
+            <div class="upload-section">
+                <h2>👤 Documents Personnels</h2>
+                <p>Documents spécifiques à un salarié (fiches de paie, contrats, etc.)</p>
+                
+                <form id="personalUploadForm">
+                    <div class="form-group">
+                        <label for="employeeSelect">Salarié :</label>
+                        <select id="employeeSelect" name="employeeId" required>
+                            <option value="">Sélectionner un salarié</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="personalTitle">Titre du document :</label>
+                        <input type="text" id="personalTitle" name="title" required placeholder="Ex: Fiche de paie - Janvier 2025">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="personalCategory">Catégorie :</label>
+                        <select id="personalCategory" name="category" required>
+                            <option value="">Sélectionner une catégorie</option>
+                            <option value="payslip">Fiche de paie</option>
+                            <option value="contract">Contrat</option>
+                            <option value="certificate">Attestation</option>
+                            <option value="other">Autre</option>
+                        </select>
+                    </div>
+
+                    <div class="file-upload" onclick="document.getElementById('personalFile').click()">
+                        <div class="upload-icon">📄</div>
+                        <div class="upload-text">Cliquez pour sélectionner un fichier</div>
+                        <div class="upload-hint">ou glissez-déposez le fichier ici</div>
+                        <input type="file" id="personalFile" name="file" accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png" required>
+                    </div>
+
+                    <button type="submit" class="btn">📤 Uploader le document</button>
+                </form>
+            </div>
+
+            <!-- Upload par lot -->
+            <div class="upload-section">
+                <h2>📦 Upload par Lot</h2>
+                <p>Pour uploader plusieurs documents en une fois (ex: toutes les fiches de paie du mois)</p>
+                
+                <div class="batch-upload">
+                    <h3>💡 Comment utiliser l'upload par lot :</h3>
+                    <p><strong>Pour les fiches de paie :</strong></p>
+                    <ul>
+                        <li>Nommez vos fichiers avec le nom du salarié : <code>Marie_Dupont_Janvier2025.pdf</code></li>
+                        <li>Ou utilisez le format : <code>Nom_Prenom_MoisAnnee.pdf</code></li>
+                        <li>Le système tentera de faire correspondre automatiquement les fichiers aux salariés</li>
+                    </ul>
+                </div>
+
+                <form id="batchUploadForm">
+                    <div class="form-group">
+                        <label for="batchCategory">Catégorie des documents :</label>
+                        <select id="batchCategory" name="category" required>
+                            <option value="">Sélectionner une catégorie</option>
+                            <option value="payslip">Fiches de paie</option>
+                            <option value="contract">Contrats</option>
+                            <option value="certificate">Attestations</option>
+                            <option value="other">Autre</option>
+                        </select>
+                    </div>
+
+                    <div class="file-upload" onclick="document.getElementById('batchFiles').click()">
+                        <div class="upload-icon">📁</div>
+                        <div class="upload-text">Sélectionner plusieurs fichiers</div>
+                        <div class="upload-hint">Maintenez Ctrl pour sélectionner plusieurs fichiers</div>
+                        <input type="file" id="batchFiles" name="files" multiple accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png" required>
+                    </div>
+
+                    <button type="submit" class="btn">📤 Uploader tous les documents</button>
+                </form>
+
+                <div id="batchResults" class="file-list" style="display: none;">
+                    <h3>Résultats de l'upload par lot :</h3>
+                    <div id="batchResultsList"></div>
+                </div>
+            </div>
+
+            <!-- Liste des documents existants -->
+            <div class="upload-section">
+                <h2>📋 Documents Existants</h2>
+                <button class="btn btn-secondary" onclick="loadDocuments()">🔄 Actualiser la liste</button>
+                
+                <div id="documentsList" class="file-list">
+                    <div class="loading">
+                        <div class="spinner"></div>
+                        <p>Chargement des documents...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = 'https://boulangerie-planning-api-4-pbfy.onrender.com/api';
+
+        // Charger les employés au démarrage
+        document.addEventListener('DOMContentLoaded', async () => {
+            await loadEmployees();
+            await loadDocuments();
+        });
+
+        // Charger la liste des employés
+        async function loadEmployees() {
+            try {
+                const response = await fetch(`${API_URL}/employees`);
+                const data = await response.json();
+                
+                const select = document.getElementById('employeeSelect');
+                select.innerHTML = '<option value="">Sélectionner un salarié</option>';
+                
+                if (data.success && data.data) {
+                    data.data.forEach(employee => {
+                        const option = document.createElement('option');
+                        option.value = employee._id;
+                        option.textContent = `${employee.name} - ${employee.role}`;
+                        select.appendChild(option);
+                    });
+                }
+            } catch (error) {
+                console.error('Erreur chargement employés:', error);
+                showAlert('Erreur lors du chargement des employés', 'danger');
+            }
+        }
+
+        // Charger les documents existants
+        async function loadDocuments() {
+            const container = document.getElementById('documentsList');
+            container.innerHTML = '<div class="loading"><div class="spinner"></div><p>Chargement des documents...</p></div>';
+
+            try {
+                // Charger les documents généraux
+                const generalResponse = await fetch(`${API_URL}/documents/general`);
+                const generalData = await generalResponse.json();
+
+                let html = '<h3>📋 Documents Généraux</h3>';
+                
+                if (generalData.success && generalData.documents) {
+                    generalData.documents.forEach(doc => {
+                        html += `
+                            <div class="file-item">
+                                <div class="file-info">
+                                    <div class="file-icon">📄</div>
+                                    <div class="file-details">
+                                        <h4>${doc.title}</h4>
+                                        <p>Catégorie: ${doc.category} | Taille: ${formatFileSize(doc.fileSize)} | Upload: ${formatDate(doc.uploadDate)}</p>
+                                    </div>
+                                </div>
+                                <div class="file-actions">
+                                    <button class="btn btn-danger" onclick="deleteDocument('${doc._id}')">🗑️ Supprimer</button>
+                                </div>
+                            </div>
+                        `;
+                    });
+                } else {
+                    html += '<p>Aucun document général trouvé.</p>';
+                }
+
+                container.innerHTML = html;
+            } catch (error) {
+                console.error('Erreur chargement documents:', error);
+                container.innerHTML = '<p>Erreur lors du chargement des documents.</p>';
+            }
+        }
+
+        // Upload document général
+        document.getElementById('generalUploadForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const formData = new FormData();
+            formData.append('title', document.getElementById('generalTitle').value);
+            formData.append('category', document.getElementById('generalCategory').value);
+            formData.append('type', 'general');
+            formData.append('file', document.getElementById('generalFile').files[0]);
+
+            await uploadDocument(formData, 'Document général uploadé avec succès !');
+        });
+
+        // Upload document personnel
+        document.getElementById('personalUploadForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const formData = new FormData();
+            formData.append('employeeId', document.getElementById('employeeSelect').value);
+            formData.append('title', document.getElementById('personalTitle').value);
+            formData.append('category', document.getElementById('personalCategory').value);
+            formData.append('type', 'personal');
+            formData.append('file', document.getElementById('personalFile').files[0]);
+
+            await uploadDocument(formData, 'Document personnel uploadé avec succès !');
+        });
+
+        // Upload par lot
+        document.getElementById('batchUploadForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const files = document.getElementById('batchFiles').files;
+            const category = document.getElementById('batchCategory').value;
+            
+            if (files.length === 0) {
+                showAlert('Veuillez sélectionner au moins un fichier', 'danger');
+                return;
+            }
+
+            showAlert('Upload par lot en cours...', 'info');
+            
+            const results = [];
+            let successCount = 0;
+            let errorCount = 0;
+
+            for (let i = 0; i < files.length; i++) {
+                const file = files[i];
+                const formData = new FormData();
+                
+                // Essayer de deviner l'employé à partir du nom du fichier
+                const employeeId = await guessEmployeeFromFilename(file.name);
+                
+                formData.append('employeeId', employeeId || '');
+                formData.append('title', file.name.replace(/\.[^/.]+$/, ""));
+                formData.append('category', category);
+                formData.append('type', 'personal');
+                formData.append('file', file);
+
+                try {
+                    const response = await fetch(`${API_URL}/documents/upload`, {
+                        method: 'POST',
+                        body: formData
+                    });
+                    
+                    const result = await response.json();
+                    
+                    if (result.success) {
+                        successCount++;
+                        results.push({ file: file.name, status: 'success', message: 'Uploadé avec succès' });
+                    } else {
+                        errorCount++;
+                        results.push({ file: file.name, status: 'error', message: result.error || 'Erreur inconnue' });
+                    }
+                } catch (error) {
+                    errorCount++;
+                    results.push({ file: file.name, status: 'error', message: 'Erreur réseau' });
+                }
+            }
+
+            // Afficher les résultats
+            displayBatchResults(results, successCount, errorCount);
+            showAlert(`Upload terminé : ${successCount} succès, ${errorCount} erreurs`, successCount > 0 ? 'success' : 'danger');
+        });
+
+        // Fonction d'upload générique
+        async function uploadDocument(formData, successMessage) {
+            try {
+                const response = await fetch(`${API_URL}/documents/upload`, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    showAlert(successMessage, 'success');
+                    // Réinitialiser les formulaires
+                    document.getElementById('generalUploadForm').reset();
+                    document.getElementById('personalUploadForm').reset();
+                    document.getElementById('batchUploadForm').reset();
+                    // Recharger la liste
+                    await loadDocuments();
+                } else {
+                    showAlert(result.error || 'Erreur lors de l\'upload', 'danger');
+                }
+            } catch (error) {
+                console.error('Erreur upload:', error);
+                showAlert('Erreur lors de l\'upload du document', 'danger');
+            }
+        }
+
+        // Deviner l'employé à partir du nom du fichier
+        async function guessEmployeeFromFilename(filename) {
+            try {
+                const response = await fetch(`${API_URL}/employees`);
+                const data = await response.json();
+                
+                if (data.success && data.data) {
+                    // Rechercher par nom dans le fichier
+                    for (const employee of data.data) {
+                        const nameParts = employee.name.toLowerCase().split(' ');
+                        const filenameLower = filename.toLowerCase();
+                        
+                        // Vérifier si le nom de l'employé est dans le nom du fichier
+                        if (nameParts.some(part => part.length > 2 && filenameLower.includes(part))) {
+                            return employee._id;
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error('Erreur lors de la recherche d\'employé:', error);
+            }
+            return null;
+        }
+
+        // Afficher les résultats de l'upload par lot
+        function displayBatchResults(results, successCount, errorCount) {
+            const container = document.getElementById('batchResults');
+            const list = document.getElementById('batchResultsList');
+            
+            let html = `<h4>Résultats (${successCount} succès, ${errorCount} erreurs) :</h4>`;
+            
+            results.forEach(result => {
+                const icon = result.status === 'success' ? '✅' : '❌';
+                const color = result.status === 'success' ? 'green' : 'red';
+                html += `<p style="color: ${color};">${icon} ${result.file}: ${result.message}</p>`;
+            });
+            
+            list.innerHTML = html;
+            container.style.display = 'block';
+        }
+
+        // Supprimer un document
+        async function deleteDocument(documentId) {
+            if (!confirm('Êtes-vous sûr de vouloir supprimer ce document ?')) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_URL}/documents/${documentId}`, {
+                    method: 'DELETE'
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    showAlert('Document supprimé avec succès', 'success');
+                    await loadDocuments();
+                } else {
+                    showAlert(result.error || 'Erreur lors de la suppression', 'danger');
+                }
+            } catch (error) {
+                console.error('Erreur suppression:', error);
+                showAlert('Erreur lors de la suppression du document', 'danger');
+            }
+        }
+
+        // Afficher une alerte
+        function showAlert(message, type) {
+            const container = document.getElementById('alertContainer');
+            const alert = document.createElement('div');
+            alert.className = `alert alert-${type}`;
+            alert.textContent = message;
+            
+            container.innerHTML = '';
+            container.appendChild(alert);
+            
+            setTimeout(() => {
+                alert.remove();
+            }, 5000);
+        }
+
+        // Utilitaires
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+
+        function formatDate(dateString) {
+            return new Date(dateString).toLocaleDateString('fr-FR');
+        }
+    </script>
+</body>
+</html>
