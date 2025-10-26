@@ -241,16 +241,16 @@ exports.uploadDocument = async (req, res) => {
       });
     }
     
+    // Créer le chemin de destination sur le NAS (avant le bloc try)
+    const targetDir = type === 'personal' ? NAS_CONFIG.personalPath : NAS_CONFIG.generalPath;
+    const fileName = `${Date.now()}_${req.file.originalname}`;
+    const filePath = path.join(targetDir, fileName);
+    const fullPath = path.join(NAS_CONFIG.basePath, filePath);
+    
     // Utiliser le service SFTP pour uploader sur le NAS
     try {
       // Connexion au NAS
       await sftpService.connect();
-      
-      // Créer le chemin de destination sur le NAS
-      const targetDir = type === 'personal' ? NAS_CONFIG.personalPath : NAS_CONFIG.generalPath;
-      const fileName = `${Date.now()}_${req.file.originalname}`;
-      const filePath = path.join(targetDir, fileName);
-      const fullPath = path.join(NAS_CONFIG.basePath, filePath);
       
       console.log('🔍 Configuration NAS:', {
         basePath: NAS_CONFIG.basePath,
