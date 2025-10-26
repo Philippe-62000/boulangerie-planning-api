@@ -2,6 +2,7 @@ const Document = require('../models/Document');
 const Employee = require('../models/Employee');
 const fs = require('fs');
 const path = require('path');
+const SFTPService = require('../services/sftpService');
 
 // Configuration NAS (même configuration que les arrêts maladie)
 const NAS_CONFIG = {
@@ -112,38 +113,61 @@ exports.downloadDocument = async (req, res) => {
       }
     }
     
-    // Vérifier si le fichier existe sur le serveur
+    // Vérifier si le fichier existe sur le NAS
     const filePath = path.join(NAS_CONFIG.basePath, document.filePath);
     
-    console.log('🔍 Recherche du fichier:', filePath);
+    console.log('🔍 Recherche du fichier sur le NAS:', filePath);
     console.log('🔍 NAS_CONFIG.basePath:', NAS_CONFIG.basePath);
     console.log('🔍 document.filePath:', document.filePath);
     
-    if (!fs.existsSync(filePath)) {
-      console.error('❌ Fichier non trouvé sur le serveur:', filePath);
-      return res.status(404).json({
-        success: false,
-        message: 'Fichier non trouvé sur le serveur'
+    // Utiliser le service SFTP pour vérifier et télécharger le fichier
+    const sftpService = new SFTPService();
+    
+    try {
+      // Connexion au NAS
+      await sftpService.connect();
+      
+      // Vérifier si le fichier existe sur le NAS
+      const fileExists = await sftpService.fileExists(filePath);
+      if (!fileExists) {
+        console.error('❌ Fichier non trouvé sur le NAS:', filePath);
+        return res.status(404).json({
+          success: false,
+          message: 'Fichier non trouvé sur le NAS'
+        });
+      }
+      
+      // Télécharger le fichier depuis le NAS
+      const tempFilePath = path.join(__dirname, '../uploads/temp', path.basename(filePath));
+      await sftpService.downloadFile(filePath, tempFilePath);
+      
+      // Envoyer le fichier au client
+      res.download(tempFilePath, document.fileName, (err) => {
+        // Supprimer le fichier temporaire après envoi
+        if (fs.existsSync(tempFilePath)) {
+          fs.unlinkSync(tempFilePath);
+        }
+        if (err) {
+          console.error('❌ Erreur lors de l\'envoi du fichier:', err);
+        }
       });
+      
+    } catch (error) {
+      console.error('❌ Erreur SFTP lors du téléchargement:', error);
+      return res.status(500).json({
+        success: false,
+        message: 'Erreur lors du téléchargement depuis le NAS',
+        error: error.message
+      });
+    } finally {
+      // Déconnexion du NAS
+      await sftpService.disconnect();
     }
     
     // Enregistrer le téléchargement
     await Document.recordDownload(documentId);
     
     console.log(`✅ Document téléchargé: ${document.title} par ${req.user?.name || 'utilisateur'}`);
-    
-    // Envoyer le fichier
-    res.download(filePath, document.fileName, (err) => {
-      if (err) {
-        console.error('❌ Erreur lors de l\'envoi du fichier:', err);
-        if (!res.headersSent) {
-          res.status(500).json({
-            success: false,
-            message: 'Erreur lors du téléchargement du fichier'
-          });
-        }
-      }
-    });
     
   } catch (error) {
     console.error('❌ Erreur lors du téléchargement:', error);
@@ -216,59 +240,60 @@ exports.uploadDocument = async (req, res) => {
       });
     }
     
-    // Créer le chemin de destination
-    const targetDir = type === 'personal' ? NAS_CONFIG.personalPath : NAS_CONFIG.generalPath;
-    const fileName = `${Date.now()}_${req.file.originalname}`;
-    const filePath = path.join(targetDir, fileName);
-    const fullPath = path.join(NAS_CONFIG.basePath, filePath);
+    // Utiliser le service SFTP pour uploader sur le NAS
+    const sftpService = new SFTPService();
     
-    console.log('🔍 Configuration NAS:', {
-      basePath: NAS_CONFIG.basePath,
-      targetDir: targetDir,
-      fileName: fileName,
-      filePath: filePath,
-      fullPath: fullPath
-    });
-    
-    // Créer le dossier s'il n'existe pas
-    const dir = path.dirname(fullPath);
-    console.log('📁 Création du dossier:', dir);
-    
-    // Vérifier si le dossier de base existe
-    if (!fs.existsSync(NAS_CONFIG.basePath)) {
-      try {
-        fs.mkdirSync(NAS_CONFIG.basePath, { recursive: true });
-        console.log('✅ Dossier de base créé:', NAS_CONFIG.basePath);
-      } catch (error) {
-        console.error('❌ Erreur lors de la création du dossier de base:', error);
-        return res.status(500).json({
-          success: false,
-          message: 'Erreur lors de la création du dossier de base'
-        });
-      }
-    }
-    
-    if (!fs.existsSync(dir)) {
-      try {
-        fs.mkdirSync(dir, { recursive: true });
-        console.log('✅ Dossier créé avec succès:', dir);
-      } catch (error) {
-        console.error('❌ Erreur lors de la création du dossier:', error);
-        return res.status(500).json({
-          success: false,
-          message: 'Erreur lors de la création du dossier de stockage'
-        });
-      }
-    }
-    
-    // Déplacer le fichier vers le NAS
     try {
-      fs.renameSync(req.file.path, fullPath);
+      // Connexion au NAS
+      await sftpService.connect();
+      
+      // Créer le chemin de destination sur le NAS
+      const targetDir = type === 'personal' ? NAS_CONFIG.personalPath : NAS_CONFIG.generalPath;
+      const fileName = `${Date.now()}_${req.file.originalname}`;
+      const filePath = path.join(targetDir, fileName);
+      const fullPath = path.join(NAS_CONFIG.basePath, filePath);
+      
+      console.log('🔍 Configuration NAS:', {
+        basePath: NAS_CONFIG.basePath,
+        targetDir: targetDir,
+        fileName: fileName,
+        filePath: filePath,
+        fullPath: fullPath
+      });
+      
+      // Créer le dossier sur le NAS s'il n'existe pas
+      const dir = path.dirname(fullPath);
+      console.log('📁 Création du dossier sur le NAS:', dir);
+      
+      try {
+        await sftpService.ensureDirectory(dir);
+        console.log('✅ Dossier créé avec succès sur le NAS:', dir);
+      } catch (error) {
+        console.error('❌ Erreur lors de la création du dossier sur le NAS:', error);
+        return res.status(500).json({
+          success: false,
+          message: 'Erreur lors de la création du dossier sur le NAS'
+        });
+      }
+      
+      // Uploader le fichier sur le NAS
+      console.log('📤 Upload du fichier vers le NAS:', fullPath);
+      await sftpService.uploadFile(req.file.path, fullPath);
+      console.log('✅ Fichier uploadé avec succès sur le NAS');
+      
+      // Supprimer le fichier temporaire local
+      fs.unlinkSync(req.file.path);
+      
     } catch (error) {
-      console.error('❌ Erreur lors du déplacement du fichier:', error);
-      // Si le déplacement échoue, copier le fichier
-      fs.copyFileSync(req.file.path, fullPath);
-      fs.unlinkSync(req.file.path); // Supprimer le fichier temporaire
+      console.error('❌ Erreur SFTP:', error);
+      return res.status(500).json({
+        success: false,
+        message: 'Erreur lors de l\'upload sur le NAS',
+        error: error.message
+      });
+    } finally {
+      // Déconnexion du NAS
+      await sftpService.disconnect();
     }
     
     // Créer l'enregistrement en base
