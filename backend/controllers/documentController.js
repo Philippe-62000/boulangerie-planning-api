@@ -17,6 +17,8 @@ console.log('📁 Configuration NAS:');
 console.log('  - NAS_BASE_PATH:', process.env.NAS_BASE_PATH || 'Non défini');
 console.log('  - basePath utilisé:', NAS_CONFIG.basePath);
 console.log('  - Mode:', process.env.NAS_BASE_PATH ? 'NAS' : 'Local');
+console.log('  - SFTP_PASSWORD configuré:', !!process.env.SFTP_PASSWORD);
+console.log('  - Toutes les variables d\'environnement:', Object.keys(process.env).filter(key => key.includes('NAS') || key.includes('SFTP')));
 
 // Récupérer les documents généraux
 exports.getGeneralDocuments = async (req, res) => {
@@ -159,6 +161,10 @@ exports.uploadDocument = async (req, res) => {
     const { title, type, category, employeeId, description } = req.body;
     
     console.log('📤 Upload document:', { title, type, category, employeeId });
+    console.log('🔍 Configuration actuelle:');
+    console.log('  - NAS_BASE_PATH:', process.env.NAS_BASE_PATH || 'Non défini');
+    console.log('  - SFTP_PASSWORD:', process.env.SFTP_PASSWORD ? 'Configuré' : 'Non configuré');
+    console.log('  - basePath utilisé:', NAS_CONFIG.basePath);
     
     if (!req.file) {
       return res.status(400).json({
