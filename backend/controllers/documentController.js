@@ -308,7 +308,7 @@ exports.uploadDocument = async (req, res) => {
       title,
       type,
       category,
-      filePath,
+      filePath: filePath, // Utiliser la variable filePath définie plus haut
       fileName: req.file.originalname,
       fileSize: req.file.size,
       mimeType: req.file.mimetype,
