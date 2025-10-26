@@ -113,85 +113,54 @@ exports.downloadDocument = async (req, res) => {
       }
     }
     
-    // Détecter le type de stockage (NAS ou local)
-    const isLocalStorage = !document.filePath.startsWith('/') && !document.filePath.includes('general/') && !document.filePath.includes('personal/');
+    // Téléchargement uniquement depuis le NAS
+    console.log('☁️ Téléchargement depuis le NAS');
     
-    console.log('🔍 Type de stockage détecté:', isLocalStorage ? 'Local (Render)' : 'NAS');
-    console.log('🔍 document.filePath:', document.filePath);
+    const filePath = path.join(NAS_CONFIG.basePath, document.filePath);
+    console.log('🔍 Chemin NAS:', filePath);
     
-    if (isLocalStorage) {
-      // Téléchargement depuis le stockage local (anciens documents)
-      console.log('📁 Téléchargement depuis le stockage local');
+    try {
+      // Connexion au NAS
+      await sftpService.connect();
       
-      const localFilePath = path.join(__dirname, '../uploads/documents', document.filePath);
-      console.log('🔍 Chemin local:', localFilePath);
-      
-      // Vérifier si le fichier existe localement
-      if (!fs.existsSync(localFilePath)) {
-        console.error('❌ Fichier non trouvé localement:', localFilePath);
+      // Vérifier si le fichier existe sur le NAS
+      const fileExists = await sftpService.fileExists(filePath);
+      if (!fileExists) {
+        console.error('❌ Fichier non trouvé sur le NAS:', filePath);
         return res.status(404).json({
           success: false,
-          message: 'Fichier non trouvé sur le serveur local'
+          message: 'Fichier non trouvé sur le NAS'
         });
       }
       
-      // Envoyer le fichier directement
-      res.download(localFilePath, document.fileName, (err) => {
+      // Télécharger le fichier depuis le NAS
+      const tempFilePath = path.join(__dirname, '../uploads/temp', path.basename(filePath));
+      const fileBuffer = await sftpService.downloadFile(filePath);
+      
+      // Écrire le buffer dans un fichier temporaire
+      fs.writeFileSync(tempFilePath, fileBuffer);
+      
+      // Envoyer le fichier au client
+      res.download(tempFilePath, document.fileName, (err) => {
+        // Supprimer le fichier temporaire après envoi
+        if (fs.existsSync(tempFilePath)) {
+          fs.unlinkSync(tempFilePath);
+        }
         if (err) {
-          console.error('❌ Erreur lors de l\'envoi du fichier local:', err);
+          console.error('❌ Erreur lors de l\'envoi du fichier:', err);
         }
       });
       
-    } else {
-      // Téléchargement depuis le NAS (nouveaux documents)
-      console.log('☁️ Téléchargement depuis le NAS');
-      
-      const filePath = path.join(NAS_CONFIG.basePath, document.filePath);
-      console.log('🔍 Chemin NAS:', filePath);
-      
-      try {
-        // Connexion au NAS
-        await sftpService.connect();
-        
-        // Vérifier si le fichier existe sur le NAS
-        const fileExists = await sftpService.fileExists(filePath);
-        if (!fileExists) {
-          console.error('❌ Fichier non trouvé sur le NAS:', filePath);
-          return res.status(404).json({
-            success: false,
-            message: 'Fichier non trouvé sur le NAS'
-          });
-        }
-        
-        // Télécharger le fichier depuis le NAS
-        const tempFilePath = path.join(__dirname, '../uploads/temp', path.basename(filePath));
-        const fileBuffer = await sftpService.downloadFile(filePath);
-        
-        // Écrire le buffer dans un fichier temporaire
-        fs.writeFileSync(tempFilePath, fileBuffer);
-        
-        // Envoyer le fichier au client
-        res.download(tempFilePath, document.fileName, (err) => {
-          // Supprimer le fichier temporaire après envoi
-          if (fs.existsSync(tempFilePath)) {
-            fs.unlinkSync(tempFilePath);
-          }
-          if (err) {
-            console.error('❌ Erreur lors de l\'envoi du fichier:', err);
-          }
-        });
-        
-      } catch (error) {
-        console.error('❌ Erreur SFTP lors du téléchargement:', error);
-        return res.status(500).json({
-          success: false,
-          message: 'Erreur lors du téléchargement depuis le NAS',
-          error: error.message
-        });
-      } finally {
-        // Déconnexion du NAS
-        await sftpService.disconnect();
-      }
+    } catch (error) {
+      console.error('❌ Erreur SFTP lors du téléchargement:', error);
+      return res.status(500).json({
+        success: false,
+        message: 'Erreur lors du téléchargement depuis le NAS',
+        error: error.message
+      });
+    } finally {
+      // Déconnexion du NAS
+      await sftpService.disconnect();
     }
     
     // Enregistrer le téléchargement
