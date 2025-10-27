@@ -576,8 +576,8 @@
 
                 let html = '<h3>📋 Documents Généraux</h3>';
                 
-                if (generalData.success && generalData.documents) {
-                    generalData.documents.forEach(doc => {
+                if (generalData.success && generalData.data) {
+                    generalData.data.forEach(doc => {
                         html += `
                             <div class="file-item">
                                 <div class="file-info">
