@@ -74,6 +74,19 @@ mongoose.connect(config.MONGODB_URI, {
   } catch (error) {
     console.error('❌ Erreur nettoyage automatique:', error);
   }
+  
+  // Nettoyage automatique des documents expirés
+  try {
+    const Document = require('./models/Document');
+    const cleanedCount = await Document.cleanExpiredDocuments();
+    if (cleanedCount > 0) {
+      console.log(`🧹 ${cleanedCount} documents expirés nettoyés`);
+    } else {
+      console.log('✅ Aucun document expiré à nettoyer');
+    }
+  } catch (error) {
+    console.error('❌ Erreur nettoyage documents expirés:', error);
+  }
 })
 .catch(err => console.error('❌ Erreur de connexion MongoDB:', err));
 

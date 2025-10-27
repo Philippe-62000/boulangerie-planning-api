@@ -1280,7 +1280,7 @@
                             <div class="document-icon">${icon}</div>
                             <div class="document-title">
                                 <h3>${doc.title}</h3>
-                                <span class="document-category">${doc.category}</span>
+                                <span class="document-category">${getCategoryLabel(doc.category)}</span>
                             </div>
                             ${expiryInfo ? `<div class="expiry-badge ${expiryInfo.class}">${expiryInfo.text}</div>` : ''}
                         </div>
@@ -1310,7 +1310,7 @@
                                     ⚠️ Ce document a expiré et ne peut plus être téléchargé
                                 </div>
                             ` : `
-                                <button class="download-btn" onclick="downloadDocument('${doc._id}')">
+                                <button class="download-btn" onclick="downloadDocument('${doc._id}', '${type}')">
                                     📥 Télécharger
                                 </button>
                             `}
@@ -1333,6 +1333,19 @@
                 'other': '📄'
             };
             return icons[category] || icons['other'];
+        }
+
+        function getCategoryLabel(category) {
+            const labels = {
+                'notice': 'Notice',
+                'procedure': 'Procédure',
+                'formation': 'Formation',
+                'payslip': 'Fiche de paie',
+                'contract': 'Contrat',
+                'rh': 'RH',
+                'other': 'Autre'
+            };
+            return labels[category] || category;
         }
 
         function getExpiryInfo(doc) {
@@ -1369,9 +1382,16 @@
             });
         }
 
-        async function downloadDocument(documentId) {
+        async function downloadDocument(documentId, documentType = 'general') {
             try {
-                const response = await fetch(`${API_URL}/documents/${documentId}/download`, {
+                let url = `${API_URL}/documents/${documentId}/download`;
+                
+                // Pour les documents personnels, ajouter l'employeeId en paramètre
+                if (documentType === 'personal' && currentEmployee && currentEmployee.id) {
+                    url += `?employeeId=${currentEmployee.id}`;
+                }
+                
+                const response = await fetch(url, {
                     headers: {
                         'Authorization': `Bearer ${localStorage.getItem('employeeToken')}`
                     }
