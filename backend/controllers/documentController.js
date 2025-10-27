@@ -81,9 +81,9 @@ exports.getPersonalDocuments = async (req, res) => {
 // Télécharger un document
 exports.downloadDocument = async (req, res) => {
   try {
-    const { documentId } = req.params;
+    const { id } = req.params;
     
-    console.log('⬇️ Téléchargement document:', documentId);
+    console.log('⬇️ Téléchargement document:', id);
     console.log('🔍 URL complète:', req.originalUrl);
     console.log('🔍 Méthode:', req.method);
     console.log('🔍 Headers:', req.headers);
@@ -92,7 +92,7 @@ exports.downloadDocument = async (req, res) => {
     return res.json({
       success: true,
       message: 'Route de téléchargement fonctionne',
-      documentId: documentId,
+      documentId: id,
       timestamp: new Date().toISOString()
     });
     

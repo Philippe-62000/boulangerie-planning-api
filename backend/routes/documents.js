@@ -77,8 +77,8 @@ router.get('/general', documentController.getGeneralDocuments);
 // GET /api/documents/stats - Statistiques des documents (admin seulement)
 router.get('/stats', documentController.getDocumentStats);
 
-// GET /api/documents/:documentId/download - Télécharger un document (AVANT personal pour éviter les conflits)
-router.get('/:documentId/download', documentController.downloadDocument);
+// GET /api/documents/:id/download - Télécharger un document (AVANT personal pour éviter les conflits)
+router.get('/:id/download', documentController.downloadDocument);
 
 // GET /api/documents/personal/:employeeId - Récupérer les documents personnels d'un employé
 router.get('/personal/:employeeId', documentController.getPersonalDocuments);
