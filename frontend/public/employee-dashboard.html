@@ -1252,9 +1252,11 @@
         }
 
         function displayDocuments(containerId, documents, type) {
+            console.log(`🔍 displayDocuments appelé:`, { containerId, documents, type });
             const container = document.getElementById(containerId);
             
             if (!documents || documents.length === 0) {
+                console.log(`📁 Aucun document trouvé pour ${type}`);
                 container.innerHTML = `
                     <div class="empty-state">
                         <div class="empty-icon">📁</div>
@@ -1264,6 +1266,8 @@
                 `;
                 return;
             }
+            
+            console.log(`📄 Affichage de ${documents.length} documents ${type}`);
 
             const documentsHtml = documents.map(doc => {
                 const icon = getDocumentIcon(doc.category);
