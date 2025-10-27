@@ -1371,7 +1371,7 @@
 
         async function downloadDocument(documentId) {
             try {
-                const response = await fetch(`${API_URL}/documents/download/${documentId}`, {
+                const response = await fetch(`${API_URL}/documents/${documentId}/download`, {
                     headers: {
                         'Authorization': `Bearer ${localStorage.getItem('employeeToken')}`
                     }
