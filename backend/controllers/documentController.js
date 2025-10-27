@@ -88,6 +88,14 @@ exports.downloadDocument = async (req, res) => {
     console.log('🔍 Méthode:', req.method);
     console.log('🔍 Headers:', req.headers);
     
+    // Test simple pour vérifier que la fonction est appelée
+    return res.json({
+      success: true,
+      message: 'Route de téléchargement fonctionne',
+      documentId: documentId,
+      timestamp: new Date().toISOString()
+    });
+    
     const document = await Document.findById(documentId);
     
     if (!document) {
