@@ -48,6 +48,11 @@ const ensureTempDir = (req, res, next) => {
 
 // Routes pour les documents
 
+// Route de test pour vérifier que les routes fonctionnent
+router.get('/test', (req, res) => {
+  res.json({ message: 'Route documents fonctionne', timestamp: new Date().toISOString() });
+});
+
 // GET /api/documents/general - Récupérer les documents généraux
 router.get('/general', documentController.getGeneralDocuments);
 
