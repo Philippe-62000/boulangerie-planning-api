@@ -178,6 +178,34 @@ exports.downloadDocument = async (req, res) => {
   }
 };
 
+// Nettoyer les anciens documents (admin seulement)
+exports.cleanupOldDocuments = async (req, res) => {
+  try {
+    console.log('🧹 Nettoyage des anciens documents...');
+    
+    // Supprimer tous les documents avec des filePath qui ne commencent pas par 'general/' ou 'personal/'
+    const deleteResult = await Document.deleteMany({
+      filePath: { $not: { $regex: /^(general|personal)\// } }
+    });
+    
+    console.log(`🗑️ ${deleteResult.deletedCount} anciens documents supprimés`);
+    
+    res.json({
+      success: true,
+      message: `${deleteResult.deletedCount} anciens documents supprimés`,
+      deletedCount: deleteResult.deletedCount
+    });
+    
+  } catch (error) {
+    console.error('❌ Erreur lors du nettoyage:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erreur lors du nettoyage des anciens documents',
+      error: error.message
+    });
+  }
+};
+
 // Upload un document (admin seulement)
 exports.uploadDocument = async (req, res) => {
   try {
