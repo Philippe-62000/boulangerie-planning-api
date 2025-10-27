@@ -54,7 +54,10 @@ router.get('/general', documentController.getGeneralDocuments);
 // GET /api/documents/personal/:employeeId - Récupérer les documents personnels d'un employé
 router.get('/personal/:employeeId', documentController.getPersonalDocuments);
 
-// GET /api/documents/:documentId/download - Télécharger un document
+// GET /api/documents/stats - Statistiques des documents (admin seulement)
+router.get('/stats', documentController.getDocumentStats);
+
+// GET /api/documents/:documentId/download - Télécharger un document (DOIT être après les routes spécifiques)
 router.get('/:documentId/download', documentController.downloadDocument);
 
 // POST /api/documents/upload - Upload un document (admin seulement)
@@ -71,8 +74,5 @@ router.post('/cleanup-old', documentController.cleanupOldDocuments);
 
 // POST /api/documents/delete-all - Supprimer TOUS les documents (admin seulement) - DANGEREUX
 router.post('/delete-all', documentController.deleteAllDocuments);
-
-// GET /api/documents/stats - Statistiques des documents (admin seulement)
-router.get('/stats', documentController.getDocumentStats);
 
 module.exports = router;
