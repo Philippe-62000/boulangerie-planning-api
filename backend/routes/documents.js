@@ -62,6 +62,15 @@ router.get('/test-download/:id', (req, res) => {
   });
 });
 
+// Route de test avec le même pattern que download
+router.get('/:id/test', (req, res) => {
+  res.json({ 
+    message: 'Route pattern test fonctionne', 
+    documentId: req.params.id,
+    timestamp: new Date().toISOString() 
+  });
+});
+
 // GET /api/documents/general - Récupérer les documents généraux
 router.get('/general', documentController.getGeneralDocuments);
 
