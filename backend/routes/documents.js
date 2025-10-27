@@ -69,6 +69,9 @@ router.post('/cleanup', documentController.cleanExpiredDocuments);
 // POST /api/documents/cleanup-old - Nettoyer les anciens documents (admin seulement)
 router.post('/cleanup-old', documentController.cleanupOldDocuments);
 
+// POST /api/documents/delete-all - Supprimer TOUS les documents (admin seulement) - DANGEREUX
+router.post('/delete-all', documentController.deleteAllDocuments);
+
 // GET /api/documents/stats - Statistiques des documents (admin seulement)
 router.get('/stats', documentController.getDocumentStats);
 

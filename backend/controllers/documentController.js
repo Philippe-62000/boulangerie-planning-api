@@ -206,6 +206,44 @@ exports.cleanupOldDocuments = async (req, res) => {
   }
 };
 
+// Supprimer TOUS les documents (admin seulement) - DANGEREUX
+exports.deleteAllDocuments = async (req, res) => {
+  try {
+    console.log('🧹 Suppression de TOUS les documents...');
+    
+    // Compter tous les documents
+    const totalDocuments = await Document.countDocuments();
+    console.log(`📄 ${totalDocuments} documents trouvés au total`);
+    
+    if (totalDocuments === 0) {
+      return res.json({
+        success: true,
+        message: 'Aucun document à supprimer',
+        deletedCount: 0
+      });
+    }
+    
+    // Supprimer TOUS les documents
+    const deleteResult = await Document.deleteMany({});
+    
+    console.log(`🗑️ ${deleteResult.deletedCount} documents supprimés`);
+    
+    res.json({
+      success: true,
+      message: `${deleteResult.deletedCount} documents supprimés - Base de données nettoyée`,
+      deletedCount: deleteResult.deletedCount
+    });
+    
+  } catch (error) {
+    console.error('❌ Erreur lors de la suppression:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erreur lors de la suppression des documents',
+      error: error.message
+    });
+  }
+};
+
 // Upload un document (admin seulement)
 exports.uploadDocument = async (req, res) => {
   try {
