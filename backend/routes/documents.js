@@ -53,6 +53,15 @@ router.get('/test', (req, res) => {
   res.json({ message: 'Route documents fonctionne', timestamp: new Date().toISOString() });
 });
 
+// Route de test pour le téléchargement
+router.get('/test-download/:id', (req, res) => {
+  res.json({ 
+    message: 'Route téléchargement test fonctionne', 
+    documentId: req.params.id,
+    timestamp: new Date().toISOString() 
+  });
+});
+
 // GET /api/documents/general - Récupérer les documents généraux
 router.get('/general', documentController.getGeneralDocuments);
 
