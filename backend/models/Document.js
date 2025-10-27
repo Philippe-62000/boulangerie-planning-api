@@ -16,7 +16,7 @@ const documentSchema = new mongoose.Schema({
   category: {
     type: String,
     required: true,
-    enum: ['notice', 'procedure', 'formation', 'payslip', 'contract', 'other'],
+    enum: ['notice', 'procedure', 'formation', 'payslip', 'contract', 'regulation', 'other'],
     comment: 'Catégorie du document'
   },
   employeeId: {
