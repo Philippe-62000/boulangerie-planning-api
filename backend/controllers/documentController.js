@@ -84,6 +84,9 @@ exports.downloadDocument = async (req, res) => {
     const { documentId } = req.params;
     
     console.log('⬇️ Téléchargement document:', documentId);
+    console.log('🔍 URL complète:', req.originalUrl);
+    console.log('🔍 Méthode:', req.method);
+    console.log('🔍 Headers:', req.headers);
     
     const document = await Document.findById(documentId);
     
