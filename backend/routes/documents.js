@@ -65,14 +65,14 @@ router.get('/test-download/:id', (req, res) => {
 // GET /api/documents/general - Récupérer les documents généraux
 router.get('/general', documentController.getGeneralDocuments);
 
-// GET /api/documents/personal/:employeeId - Récupérer les documents personnels d'un employé
-router.get('/personal/:employeeId', documentController.getPersonalDocuments);
-
 // GET /api/documents/stats - Statistiques des documents (admin seulement)
 router.get('/stats', documentController.getDocumentStats);
 
-// GET /api/documents/:documentId/download - Télécharger un document (DOIT être après les routes spécifiques)
+// GET /api/documents/:documentId/download - Télécharger un document (AVANT personal pour éviter les conflits)
 router.get('/:documentId/download', documentController.downloadDocument);
+
+// GET /api/documents/personal/:employeeId - Récupérer les documents personnels d'un employé
+router.get('/personal/:employeeId', documentController.getPersonalDocuments);
 
 // POST /api/documents/upload - Upload un document (admin seulement)
 router.post('/upload', ensureTempDir, upload.single('file'), documentController.uploadDocument);
