@@ -115,9 +115,21 @@ exports.downloadDocument = async (req, res) => {
     
     // Téléchargement uniquement depuis le NAS
     console.log('☁️ Téléchargement depuis le NAS');
+    console.log('🔍 Document trouvé:', {
+      id: document._id,
+      title: document.title,
+      type: document.type,
+      filePath: document.filePath,
+      fileName: document.fileName
+    });
     
     const filePath = path.join(NAS_CONFIG.basePath, document.filePath);
-    console.log('🔍 Chemin NAS:', filePath);
+    console.log('🔍 Configuration NAS:', {
+      NAS_BASE_PATH: process.env.NAS_BASE_PATH,
+      basePath: NAS_CONFIG.basePath,
+      documentFilePath: document.filePath,
+      fullPath: filePath
+    });
     
     try {
       // Connexion au NAS
