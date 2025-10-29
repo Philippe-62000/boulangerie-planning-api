@@ -114,6 +114,7 @@ app.use('/api/database', require('./routes/database'));
 app.use('/api/onboarding-offboarding', require('./routes/onboardingOffboarding'));
 app.use('/api/uniforms', require('./routes/uniforms'));
 app.use('/api/documents', require('./routes/documents'));
+app.use('/api/advance-requests', require('./routes/advanceRequests'));
 
 // Route de santé pour vérifier que l'API fonctionne
 app.get('/health', (req, res) => {

@@ -535,6 +535,58 @@
             box-shadow: 0 4px 12px rgba(40, 167, 69, 0.3);
         }
 
+        /* Styles pour le modal d'acompte */
+        .modal {
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(5px);
+        }
+
+        .modal-content {
+            background-color: #fefefe;
+            margin: 5% auto;
+            padding: 30px;
+            border-radius: 15px;
+            width: 90%;
+            max-width: 600px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            position: relative;
+            animation: modalSlideIn 0.3s ease-out;
+        }
+
+        @keyframes modalSlideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-50px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .close {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+            position: absolute;
+            top: 15px;
+            right: 20px;
+        }
+
+        .close:hover,
+        .close:focus {
+            color: #000;
+            text-decoration: none;
+        }
+
         .download-btn:disabled {
             background: #6c757d;
             cursor: not-allowed;
@@ -667,6 +719,9 @@
             </button>
             <button class="tab" onclick="switchTab('password')">
                 🔐 Mot de Passe
+            </button>
+            <button class="tab" onclick="openAdvanceModal()" id="advance-tab" style="display: none;">
+                💰 Demande d'Acompte
             </button>
         </div>
 
@@ -913,6 +968,72 @@
                         </ul>
                     </div>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Demande d'Acompte -->
+    <div id="advanceModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <span class="close" onclick="closeAdvanceModal()">&times;</span>
+            <h2>💰 Demande d'Acompte sur Salaire</h2>
+            <p class="form-subtitle">Demandez une avance sur votre salaire</p>
+
+            <div id="advanceAlert"></div>
+
+            <form id="advanceForm" class="form">
+                <div class="form-group">
+                    <label for="advanceAmount">Montant demandé (€) *</label>
+                    <input type="number" id="advanceAmount" name="advanceAmount" min="1" max="5000" step="0.01" required>
+                    <small class="form-text">Montant entre 1€ et 5000€</small>
+                </div>
+
+                <div class="form-group">
+                    <label for="deductionMonth">Déduction sur la paye de : *</label>
+                    <select id="deductionMonth" name="deductionMonth" required>
+                        <option value="">Sélectionnez le mois</option>
+                        <option value="Janvier 2025">Janvier 2025</option>
+                        <option value="Février 2025">Février 2025</option>
+                        <option value="Mars 2025">Mars 2025</option>
+                        <option value="Avril 2025">Avril 2025</option>
+                        <option value="Mai 2025">Mai 2025</option>
+                        <option value="Juin 2025">Juin 2025</option>
+                        <option value="Juillet 2025">Juillet 2025</option>
+                        <option value="Août 2025">Août 2025</option>
+                        <option value="Septembre 2025">Septembre 2025</option>
+                        <option value="Octobre 2025">Octobre 2025</option>
+                        <option value="Novembre 2025">Novembre 2025</option>
+                        <option value="Décembre 2025">Décembre 2025</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="advanceComment">Commentaire (optionnel)</label>
+                    <textarea id="advanceComment" name="advanceComment" rows="3" placeholder="Raison de la demande d'acompte..."></textarea>
+                </div>
+
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary">
+                        <span class="btn-text">💰 Demander l'acompte</span>
+                        <div class="btn-loading" style="display: none;">
+                            <div class="spinner"></div>
+                        </div>
+                    </button>
+                    <button type="button" class="btn btn-secondary" onclick="closeAdvanceModal()">
+                        Annuler
+                    </button>
+                </div>
+            </form>
+
+            <div class="info-box">
+                <h4>ℹ️ Informations importantes</h4>
+                <ul>
+                    <li>💰 Le montant sera déduit de votre prochaine paye</li>
+                    <li>📅 La déduction se fera sur le mois sélectionné</li>
+                    <li>✅ Votre demande sera transmise à votre manager</li>
+                    <li>📧 Vous recevrez une confirmation par email</li>
+                    <li>⏰ La validation peut prendre quelques jours</li>
+                </ul>
             </div>
         </div>
     </div>
@@ -1545,6 +1666,111 @@
                 submitBtn.disabled = false;
             }
         });
+
+        // Fonctions pour le modal d'acompte
+        function openAdvanceModal() {
+            document.getElementById('advanceModal').style.display = 'block';
+            // Définir le mois courant par défaut
+            const currentMonth = new Date().toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
+            document.getElementById('deductionMonth').value = currentMonth;
+        }
+
+        function closeAdvanceModal() {
+            document.getElementById('advanceModal').style.display = 'none';
+            document.getElementById('advanceForm').reset();
+            document.getElementById('advanceAlert').innerHTML = '';
+        }
+
+        // Fermer le modal en cliquant à l'extérieur
+        window.onclick = function(event) {
+            const modal = document.getElementById('advanceModal');
+            if (event.target === modal) {
+                closeAdvanceModal();
+            }
+        }
+
+        // Gestion du formulaire de demande d'acompte
+        document.getElementById('advanceForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const formData = new FormData(e.target);
+            const amount = parseFloat(formData.get('advanceAmount'));
+            const deductionMonth = formData.get('deductionMonth');
+            const comment = formData.get('advanceComment');
+            
+            // Validation côté client
+            if (!amount || amount < 1 || amount > 5000) {
+                showAlert('advanceAlert', 'Le montant doit être entre 1€ et 5000€', 'danger');
+                return;
+            }
+            
+            if (!deductionMonth) {
+                showAlert('advanceAlert', 'Veuillez sélectionner le mois de déduction', 'danger');
+                return;
+            }
+            
+            // Afficher le loading
+            const submitBtn = e.target.querySelector('button[type="submit"]');
+            const btnText = submitBtn.querySelector('.btn-text');
+            const btnLoading = submitBtn.querySelector('.btn-loading');
+            
+            btnText.style.display = 'none';
+            btnLoading.style.display = 'flex';
+            submitBtn.disabled = true;
+            
+            try {
+                const response = await fetch(`${API_URL}/advance-requests`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${localStorage.getItem('employeeToken')}`
+                    },
+                    body: JSON.stringify({
+                        amount,
+                        deductionMonth,
+                        comment
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showAlert('advanceAlert', '✅ Demande d\'acompte envoyée avec succès ! Vous recevrez une confirmation par email.', 'success');
+                    
+                    // Vider le formulaire
+                    e.target.reset();
+                    
+                    // Fermer le modal après 2 secondes
+                    setTimeout(() => {
+                        closeAdvanceModal();
+                    }, 2000);
+                    
+                } else {
+                    showAlert('advanceAlert', `❌ ${data.message || 'Erreur lors de l\'envoi de la demande'}`, 'danger');
+                }
+                
+            } catch (error) {
+                console.error('Erreur demande acompte:', error);
+                showAlert('advanceAlert', '❌ Erreur de connexion. Veuillez réessayer.', 'danger');
+            } finally {
+                // Restaurer le bouton
+                btnText.style.display = 'block';
+                btnLoading.style.display = 'none';
+                submitBtn.disabled = false;
+            }
+        });
+
+        // Fonction pour activer l'onglet acompte (appelée par l'admin)
+        function enableAdvanceTab() {
+            const advanceTab = document.getElementById('advance-tab');
+            if (advanceTab) {
+                advanceTab.style.display = 'block';
+                // Masquer l'onglet après 24h
+                setTimeout(() => {
+                    advanceTab.style.display = 'none';
+                }, 24 * 60 * 60 * 1000); // 24 heures
+            }
+        }
     </script>
 </body>
 </html>

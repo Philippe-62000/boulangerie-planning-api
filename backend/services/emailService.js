@@ -81,6 +81,98 @@ class EmailService {
   checkEmailConfig() {
     return this.isConfigured;
   }
+
+  // Envoyer confirmation demande d'acompte au salarié
+  async sendAdvanceRequestConfirmation(employeeEmail, employeeName, amount, deductionMonth) {
+    try {
+      console.log(`📧 Envoi confirmation demande acompte à ${employeeName} (${employeeEmail})`);
+      
+      const templateParams = {
+        to_email: employeeEmail,
+        to_name: employeeName,
+        amount: amount,
+        deduction_month: deductionMonth,
+        request_date: new Date().toLocaleDateString('fr-FR'),
+        dashboard_url: 'https://www.filmara.fr/plan/employee-dashboard.html'
+      };
+      
+      return await emailServiceAlternative.sendEmail('template_advance_request_employee', templateParams);
+      
+    } catch (error) {
+      console.error('❌ Erreur envoi confirmation demande acompte:', error);
+      return { success: false, message: error.message };
+    }
+  }
+
+  // Envoyer notification demande d'acompte au manager
+  async sendAdvanceRequestNotification(managerEmail, managerName, employeeName, amount, deductionMonth, comment) {
+    try {
+      console.log(`📧 Envoi notification demande acompte à ${managerName} (${managerEmail})`);
+      
+      const templateParams = {
+        to_email: managerEmail,
+        to_name: managerName,
+        employee_name: employeeName,
+        amount: amount,
+        deduction_month: deductionMonth,
+        comment: comment || 'Aucun commentaire',
+        request_date: new Date().toLocaleDateString('fr-FR'),
+        admin_url: 'https://www.filmara.fr/plan/employees'
+      };
+      
+      return await emailServiceAlternative.sendEmail('template_advance_request_manager', templateParams);
+      
+    } catch (error) {
+      console.error('❌ Erreur envoi notification demande acompte:', error);
+      return { success: false, message: error.message };
+    }
+  }
+
+  // Envoyer confirmation d'approbation d'acompte
+  async sendAdvanceApproved(employeeEmail, employeeName, amount, deductionMonth, managerComment) {
+    try {
+      console.log(`📧 Envoi confirmation approbation acompte à ${employeeName} (${employeeEmail})`);
+      
+      const templateParams = {
+        to_email: employeeEmail,
+        to_name: employeeName,
+        amount: amount,
+        deduction_month: deductionMonth,
+        manager_comment: managerComment || 'Aucun commentaire',
+        approval_date: new Date().toLocaleDateString('fr-FR'),
+        dashboard_url: 'https://www.filmara.fr/plan/employee-dashboard.html'
+      };
+      
+      return await emailServiceAlternative.sendEmail('template_advance_approved', templateParams);
+      
+    } catch (error) {
+      console.error('❌ Erreur envoi confirmation approbation:', error);
+      return { success: false, message: error.message };
+    }
+  }
+
+  // Envoyer notification de rejet d'acompte
+  async sendAdvanceRejected(employeeEmail, employeeName, amount, deductionMonth, managerComment) {
+    try {
+      console.log(`📧 Envoi notification rejet acompte à ${employeeName} (${employeeEmail})`);
+      
+      const templateParams = {
+        to_email: employeeEmail,
+        to_name: employeeName,
+        amount: amount,
+        deduction_month: deductionMonth,
+        manager_comment: managerComment || 'Aucun commentaire',
+        rejection_date: new Date().toLocaleDateString('fr-FR'),
+        dashboard_url: 'https://www.filmara.fr/plan/employee-dashboard.html'
+      };
+      
+      return await emailServiceAlternative.sendEmail('template_advance_rejected', templateParams);
+      
+    } catch (error) {
+      console.error('❌ Erreur envoi notification rejet:', error);
+      return { success: false, message: error.message };
+    }
+  }
 }
 
 module.exports = new EmailService();
