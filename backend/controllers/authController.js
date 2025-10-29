@@ -231,14 +231,16 @@ const changePassword = async (req, res) => {
       });
     }
     
-    // Récupérer l'employé
-    const employee = await Employee.findById(employeeId);
+    // Récupérer l'employé avec le mot de passe
+    const employee = await Employee.findById(employeeId).select('+password');
     if (!employee) {
       return res.status(404).json({
         success: false,
         message: 'Employé non trouvé'
       });
     }
+    
+    console.log('🔍 Employé trouvé:', employee.name, 'Password défini:', !!employee.password);
     
     // Vérifier le mot de passe actuel
     const isCurrentPasswordValid = await bcrypt.compare(currentPassword, employee.password);
