@@ -17,11 +17,17 @@ const Employees = () => {
   const [showDelayModal, setShowDelayModal] = useState(false);
   const [showOnboardingOffboardingModal, setShowOnboardingOffboardingModal] = useState(false);
   const [showUniformModal, setShowUniformModal] = useState(false);
+  const [showAdvanceModal, setShowAdvanceModal] = useState(false);
   const [editingEmployee, setEditingEmployee] = useState(null);
+  const [advanceRequests, setAdvanceRequests] = useState([]);
+  const [advanceStats, setAdvanceStats] = useState({});
+  const [selectedAdvanceRequest, setSelectedAdvanceRequest] = useState(null);
   const navigate = useNavigate();
 
   useEffect(() => {
     fetchEmployees();
+    fetchAdvanceRequests();
+    fetchAdvanceStats();
   }, []);
 
   const fetchEmployees = async () => {
@@ -225,6 +231,59 @@ const Employees = () => {
     }
   };
 
+  // Fonctions pour la gestion des acomptes
+  const fetchAdvanceRequests = async () => {
+    try {
+      const response = await api.get('/advance-requests');
+      if (response.data.success) {
+        setAdvanceRequests(response.data.data);
+      }
+    } catch (error) {
+      console.error('Erreur récupération demandes acompte:', error);
+    }
+  };
+
+  const fetchAdvanceStats = async () => {
+    try {
+      const response = await api.get('/advance-requests/stats');
+      if (response.data.success) {
+        setAdvanceStats(response.data.data);
+      }
+    } catch (error) {
+      console.error('Erreur récupération stats acompte:', error);
+    }
+  };
+
+  const handleAdvanceAction = async (requestId, action, data = {}) => {
+    try {
+      const response = await api.put(`/advance-requests/${requestId}`, {
+        status: action,
+        ...data
+      });
+      
+      if (response.data.success) {
+        toast.success(`Demande ${action === 'approved' ? 'approuvée' : 'rejetée'} avec succès`);
+        fetchAdvanceRequests();
+        fetchAdvanceStats();
+        setShowAdvanceModal(false);
+        setSelectedAdvanceRequest(null);
+      }
+    } catch (error) {
+      console.error('Erreur action acompte:', error);
+      toast.error('Erreur lors de l\'action');
+    }
+  };
+
+  const handleOpenAdvanceModal = (request) => {
+    setSelectedAdvanceRequest(request);
+    setShowAdvanceModal(true);
+  };
+
+  const handleCloseAdvanceModal = () => {
+    setShowAdvanceModal(false);
+    setSelectedAdvanceRequest(null);
+  };
+
   const getRoleLabel = (role) => {
     const labels = {
       vendeuse: 'Vendeuse',
@@ -302,6 +361,12 @@ const Employees = () => {
               <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
             </svg>
             Ajouter un employé
+          </button>
+          <button className="btn btn-info" onClick={() => setShowAdvanceModal(true)}>
+            <svg viewBox="0 0 24 24" fill="currentColor" className="btn-icon">
+              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/>
+            </svg>
+            💰 Acomptes ({advanceStats.pending || 0})
           </button>
         </div>
       </div>
@@ -553,6 +618,207 @@ const Employees = () => {
         onClose={() => setShowUniformModal(false)}
         employees={employees.filter(emp => emp.isActive)}
       />
+
+      {/* Modal de gestion des acomptes */}
+      {showAdvanceModal && (
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <div className="modal-header">
+              <h3>💰 Gestion des Demandes d'Acompte</h3>
+              <button className="close-btn" onClick={handleCloseAdvanceModal}>
+                ×
+              </button>
+            </div>
+            
+            <div className="modal-body">
+              {/* Statistiques */}
+              <div className="advance-stats">
+                <div className="stat-card">
+                  <div className="stat-number">{advanceStats.pending || 0}</div>
+                  <div className="stat-label">En attente</div>
+                </div>
+                <div className="stat-card">
+                  <div className="stat-number">{advanceStats.approved || 0}</div>
+                  <div className="stat-label">Approuvées</div>
+                </div>
+                <div className="stat-card">
+                  <div className="stat-number">{advanceStats.rejected || 0}</div>
+                  <div className="stat-label">Rejetées</div>
+                </div>
+                <div className="stat-card">
+                  <div className="stat-number">{advanceStats.totalAmount || 0}€</div>
+                  <div className="stat-label">Montant total</div>
+                </div>
+              </div>
+
+              {/* Liste des demandes */}
+              <div className="advance-requests-list">
+                <h4>📋 Demandes en attente</h4>
+                {advanceRequests
+                  .filter(req => req.status === 'pending')
+                  .map(request => (
+                    <div key={request._id} className="advance-request-card">
+                      <div className="request-info">
+                        <div className="employee-name">{request.employeeName}</div>
+                        <div className="request-amount">{request.amount}€</div>
+                        <div className="request-month">Déduction: {request.deductionMonth}</div>
+                        <div className="request-date">
+                          Demandé le: {new Date(request.createdAt).toLocaleDateString('fr-FR')}
+                        </div>
+                        {request.comment && (
+                          <div className="request-comment">
+                            <strong>Commentaire:</strong> {request.comment}
+                          </div>
+                        )}
+                      </div>
+                      <div className="request-actions">
+                        <button 
+                          className="btn btn-success btn-sm"
+                          onClick={() => handleAdvanceAction(request._id, 'approved')}
+                        >
+                          ✅ Approuver
+                        </button>
+                        <button 
+                          className="btn btn-warning btn-sm"
+                          onClick={() => handleOpenAdvanceModal(request)}
+                        >
+                          ✏️ Modifier
+                        </button>
+                        <button 
+                          className="btn btn-danger btn-sm"
+                          onClick={() => handleAdvanceAction(request._id, 'rejected')}
+                        >
+                          ❌ Rejeter
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                
+                {advanceRequests.filter(req => req.status === 'pending').length === 0 && (
+                  <div className="no-requests">
+                    <p>Aucune demande d'acompte en attente</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Historique des demandes traitées */}
+              <div className="advance-history">
+                <h4>📊 Historique</h4>
+                {advanceRequests
+                  .filter(req => req.status !== 'pending')
+                  .slice(0, 10) // Limiter à 10 dernières
+                  .map(request => (
+                    <div key={request._id} className="advance-history-item">
+                      <div className="history-info">
+                        <span className="employee-name">{request.employeeName}</span>
+                        <span className="amount">{request.amount}€</span>
+                        <span className={`status status-${request.status}`}>
+                          {request.status === 'approved' ? '✅ Approuvé' : '❌ Rejeté'}
+                        </span>
+                        <span className="date">
+                          {new Date(request.updatedAt).toLocaleDateString('fr-FR')}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de modification d'acompte */}
+      {selectedAdvanceRequest && (
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <div className="modal-header">
+              <h3>✏️ Modifier la Demande d'Acompte</h3>
+              <button className="close-btn" onClick={handleCloseAdvanceModal}>
+                ×
+              </button>
+            </div>
+            
+            <div className="modal-body">
+              <div className="form-group">
+                <label>Employé: {selectedAdvanceRequest.employeeName}</label>
+              </div>
+              
+              <div className="form-group">
+                <label>Montant (€):</label>
+                <input 
+                  type="number" 
+                  id="editAmount"
+                  defaultValue={selectedAdvanceRequest.amount}
+                  min="1"
+                  max="5000"
+                  step="0.01"
+                />
+              </div>
+              
+              <div className="form-group">
+                <label>Mois de déduction:</label>
+                <select id="editMonth" defaultValue={selectedAdvanceRequest.deductionMonth}>
+                  <option value="Janvier 2025">Janvier 2025</option>
+                  <option value="Février 2025">Février 2025</option>
+                  <option value="Mars 2025">Mars 2025</option>
+                  <option value="Avril 2025">Avril 2025</option>
+                  <option value="Mai 2025">Mai 2025</option>
+                  <option value="Juin 2025">Juin 2025</option>
+                  <option value="Juillet 2025">Juillet 2025</option>
+                  <option value="Août 2025">Août 2025</option>
+                  <option value="Septembre 2025">Septembre 2025</option>
+                  <option value="Octobre 2025">Octobre 2025</option>
+                  <option value="Novembre 2025">Novembre 2025</option>
+                  <option value="Décembre 2025">Décembre 2025</option>
+                </select>
+              </div>
+              
+              <div className="form-group">
+                <label>Commentaire du manager:</label>
+                <textarea 
+                  id="editComment"
+                  rows="3"
+                  placeholder="Commentaire optionnel..."
+                />
+              </div>
+              
+              <div className="modal-actions">
+                <button 
+                  className="btn btn-success"
+                  onClick={() => {
+                    const amount = document.getElementById('editAmount').value;
+                    const month = document.getElementById('editMonth').value;
+                    const comment = document.getElementById('editComment').value;
+                    handleAdvanceAction(selectedAdvanceRequest._id, 'approved', {
+                      approvedAmount: amount,
+                      managerComment: comment
+                    });
+                  }}
+                >
+                  ✅ Approuver avec modifications
+                </button>
+                <button 
+                  className="btn btn-danger"
+                  onClick={() => {
+                    const comment = document.getElementById('editComment').value;
+                    handleAdvanceAction(selectedAdvanceRequest._id, 'rejected', {
+                      managerComment: comment
+                    });
+                  }}
+                >
+                  ❌ Rejeter
+                </button>
+                <button 
+                  className="btn btn-secondary"
+                  onClick={handleCloseAdvanceModal}
+                >
+                  Annuler
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

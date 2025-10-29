@@ -163,3 +163,207 @@
   0% { transform: rotate(0deg); }
   100% { transform: rotate(360deg); }
 }
+
+/* Styles pour les acomptes */
+.advance-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: var(--spacing-4);
+  margin-bottom: var(--spacing-6);
+}
+
+.stat-card {
+  background: var(--white);
+  padding: var(--spacing-4);
+  border-radius: var(--border-radius-lg);
+  text-align: center;
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--gray-200);
+}
+
+.stat-number {
+  font-size: var(--font-size-2xl);
+  font-weight: 700;
+  color: var(--primary-color);
+  margin-bottom: var(--spacing-1);
+}
+
+.stat-label {
+  font-size: var(--font-size-sm);
+  color: var(--gray-600);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.advance-requests-list {
+  margin-bottom: var(--spacing-6);
+}
+
+.advance-requests-list h4 {
+  color: var(--gray-800);
+  margin-bottom: var(--spacing-4);
+  font-size: var(--font-size-lg);
+}
+
+.advance-request-card {
+  background: var(--white);
+  border: 1px solid var(--gray-200);
+  border-radius: var(--border-radius-lg);
+  padding: var(--spacing-4);
+  margin-bottom: var(--spacing-3);
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  transition: all 0.3s ease;
+}
+
+.advance-request-card:hover {
+  box-shadow: var(--shadow-md);
+  transform: translateY(-2px);
+}
+
+.request-info {
+  flex: 1;
+}
+
+.employee-name {
+  font-weight: 600;
+  color: var(--gray-900);
+  font-size: var(--font-size-lg);
+  margin-bottom: var(--spacing-1);
+}
+
+.request-amount {
+  font-size: var(--font-size-xl);
+  font-weight: 700;
+  color: var(--primary-color);
+  margin-bottom: var(--spacing-1);
+}
+
+.request-month {
+  color: var(--gray-600);
+  font-size: var(--font-size-sm);
+  margin-bottom: var(--spacing-1);
+}
+
+.request-date {
+  color: var(--gray-500);
+  font-size: var(--font-size-xs);
+  margin-bottom: var(--spacing-2);
+}
+
+.request-comment {
+  background: var(--gray-50);
+  padding: var(--spacing-2);
+  border-radius: var(--border-radius);
+  font-size: var(--font-size-sm);
+  color: var(--gray-700);
+  border-left: 3px solid var(--primary-color);
+}
+
+.request-actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-2);
+  margin-left: var(--spacing-4);
+}
+
+.btn-sm {
+  padding: var(--spacing-2) var(--spacing-3);
+  font-size: var(--font-size-sm);
+  min-width: 100px;
+}
+
+.no-requests {
+  text-align: center;
+  padding: var(--spacing-8);
+  color: var(--gray-500);
+  background: var(--gray-50);
+  border-radius: var(--border-radius-lg);
+  border: 2px dashed var(--gray-300);
+}
+
+.advance-history {
+  margin-top: var(--spacing-6);
+}
+
+.advance-history h4 {
+  color: var(--gray-800);
+  margin-bottom: var(--spacing-4);
+  font-size: var(--font-size-lg);
+}
+
+.advance-history-item {
+  background: var(--white);
+  border: 1px solid var(--gray-200);
+  border-radius: var(--border-radius);
+  padding: var(--spacing-3);
+  margin-bottom: var(--spacing-2);
+  box-shadow: var(--shadow-sm);
+}
+
+.history-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--spacing-2);
+}
+
+.history-info .employee-name {
+  font-weight: 600;
+  color: var(--gray-900);
+}
+
+.history-info .amount {
+  font-weight: 600;
+  color: var(--primary-color);
+}
+
+.status-approved {
+  color: var(--success-color);
+  font-weight: 600;
+}
+
+.status-rejected {
+  color: var(--danger-color);
+  font-weight: 600;
+}
+
+.history-info .date {
+  color: var(--gray-500);
+  font-size: var(--font-size-sm);
+}
+
+.modal-actions {
+  display: flex;
+  gap: var(--spacing-3);
+  justify-content: flex-end;
+  margin-top: var(--spacing-6);
+  padding-top: var(--spacing-4);
+  border-top: 1px solid var(--gray-200);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .advance-request-card {
+    flex-direction: column;
+  }
+  
+  .request-actions {
+    margin-left: 0;
+    margin-top: var(--spacing-3);
+    flex-direction: row;
+    justify-content: space-between;
+  }
+  
+  .history-info {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  
+  .modal-actions {
+    flex-direction: column;
+  }
+}
