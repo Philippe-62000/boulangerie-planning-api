@@ -953,7 +953,7 @@
                 console.log('🔍 Données reçues de l\'API employee-profile:', data);
                 currentEmployee = data.employee;
                 console.log('🔍 currentEmployee défini:', currentEmployee);
-                console.log('🔍 currentEmployee._id:', currentEmployee ? currentEmployee._id : 'undefined');
+                console.log('🔍 currentEmployee.id:', currentEmployee ? currentEmployee.id : 'undefined');
                 
                 // Afficher les informations de l'employé
                 document.getElementById('employeeName').textContent = currentEmployee.name;

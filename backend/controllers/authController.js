@@ -207,6 +207,15 @@ const changePassword = async (req, res) => {
     console.log('🔍 req.employeeId:', req.employeeId);
     console.log(`🔐 Changement de mot de passe pour l'employé: ${employeeId}`);
     
+    // Vérifier que l'ID de l'employé est défini
+    if (!employeeId) {
+      console.error('❌ ID employé non défini dans le token');
+      return res.status(401).json({
+        success: false,
+        message: 'Token d\'authentification invalide'
+      });
+    }
+    
     // Validation des données
     if (!currentPassword || !newPassword) {
       return res.status(400).json({
