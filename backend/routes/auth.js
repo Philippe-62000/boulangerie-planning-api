@@ -17,6 +17,8 @@ const authenticateEmployee = async (req, res, next) => {
     const jwt = require('jsonwebtoken');
     const decoded = jwt.verify(token, process.env.JWT_SECRET || 'votre-cle-secrete-ici');
     
+    console.log('🔍 Token décodé:', decoded);
+    
     if (decoded.role !== 'employee') {
       return res.status(403).json({
         success: false,
@@ -31,6 +33,8 @@ const authenticateEmployee = async (req, res, next) => {
       name: decoded.name,
       role: decoded.role
     };
+    
+    console.log('🔍 req.user créé:', req.user);
     
     req.employeeId = decoded.employeeId;
     req.employeeEmail = decoded.email;

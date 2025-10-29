@@ -201,8 +201,10 @@ const getEmployeeProfile = async (req, res) => {
 const changePassword = async (req, res) => {
   try {
     const { currentPassword, newPassword } = req.body;
-    const employeeId = req.user.id; // ID de l'employé connecté
+    const employeeId = req.user.id || req.employeeId; // ID de l'employé connecté
     
+    console.log('🔍 req.user:', req.user);
+    console.log('🔍 req.employeeId:', req.employeeId);
     console.log(`🔐 Changement de mot de passe pour l'employé: ${employeeId}`);
     
     // Validation des données
