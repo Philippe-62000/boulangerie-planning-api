@@ -3,6 +3,7 @@ const Employee = require('../models/Employee');
 const fs = require('fs');
 const path = require('path');
 const sftpService = require('../services/sftpService');
+const emailService = require('../services/emailService');
 
 // Configuration NAS (utilise le même répertoire de base que les arrêts maladie)
 const NAS_CONFIG = {
