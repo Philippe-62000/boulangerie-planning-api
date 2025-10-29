@@ -67,6 +67,11 @@ class EmailService {
     return await emailServiceAlternative.sendDocumentNotification(employeeEmail, employeeName, documentTitle, documentCategory);
   }
 
+  // Envoyer un email de notification de document général
+  async sendGeneralDocumentNotification(employeeEmail, employeeName, documentTitle, documentCategory) {
+    return await emailServiceAlternative.sendGeneralDocumentNotification(employeeEmail, employeeName, documentTitle, documentCategory);
+  }
+
   // Envoyer un email de test
   async sendTestEmail(toEmail) {
     return await emailServiceAlternative.sendTestEmail(toEmail);

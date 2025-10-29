@@ -1635,6 +1635,87 @@ Date : ${new Date().toLocaleDateString('fr-FR')}
     return await this.sendEmail(employeeEmail, subject, htmlContent, textContent);
   }
 
+  // Envoyer un email de notification de document général
+  async sendGeneralDocumentNotification(employeeEmail, employeeName, documentTitle, documentCategory) {
+    const subject = `📄 Nouveau document général disponible - ${documentTitle}`;
+    
+    const categoryLabels = {
+      'payslip': 'Fiche de paie',
+      'contract': 'Contrat',
+      'notice': 'Notice',
+      'procedure': 'Procédure',
+      'formation': 'Formation',
+      'regulation': 'Réglementation',
+      'other': 'Autre'
+    };
+
+    const categoryLabel = categoryLabels[documentCategory] || documentCategory;
+    
+    const htmlContent = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <div style="background: linear-gradient(135deg, #28a745 0%, #20c997 100%); color: white; padding: 20px; text-align: center; border-radius: 10px 10px 0 0;">
+          <h1 style="margin: 0; font-size: 24px;">📄 Nouveau Document Général</h1>
+        </div>
+        
+        <div style="background: #f8f9fa; padding: 30px; border-radius: 0 0 10px 10px; border: 1px solid #dee2e6;">
+          <p style="font-size: 16px; color: #333; margin-bottom: 20px;">
+            Bonjour <strong>${employeeName}</strong>,
+          </p>
+          
+          <p style="font-size: 16px; color: #333; margin-bottom: 20px;">
+            Un nouveau document général a été mis à disposition pour tous les salariés :
+          </p>
+          
+          <div style="background: white; padding: 20px; border-radius: 8px; border-left: 4px solid #28a745; margin: 20px 0;">
+            <h3 style="margin: 0 0 10px 0; color: #333;">📄 ${documentTitle}</h3>
+            <p style="margin: 0; color: #666; font-size: 14px;">Catégorie : <strong>${categoryLabel}</strong></p>
+            <p style="margin: 5px 0 0 0; color: #28a745; font-size: 12px; font-weight: bold;">📢 Document général - Visible par tous les salariés</p>
+          </div>
+          
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="https://www.filmara.fr/plan/employee-dashboard.html" 
+               style="background: linear-gradient(135deg, #28a745 0%, #20c997 100%); color: white; padding: 12px 30px; text-decoration: none; border-radius: 25px; font-weight: bold; display: inline-block;">
+              🔗 Accéder à mon espace personnel
+            </a>
+          </div>
+          
+          <p style="font-size: 14px; color: #666; margin-top: 30px;">
+            Vous pouvez télécharger ce document depuis votre tableau de bord personnel.
+          </p>
+          
+          <hr style="border: none; border-top: 1px solid #dee2e6; margin: 30px 0;">
+          
+          <p style="font-size: 12px; color: #999; text-align: center;">
+            Cet email a été envoyé automatiquement par le système de gestion des documents.<br>
+            Si vous avez des questions, contactez votre responsable.
+          </p>
+        </div>
+      </div>
+    `;
+
+    const textContent = `
+      Nouveau Document Général - ${documentTitle}
+      
+      Bonjour ${employeeName},
+      
+      Un nouveau document général a été mis à disposition pour tous les salariés :
+      
+      Document: ${documentTitle}
+      Catégorie: ${categoryLabel}
+      Type: Document général - Visible par tous les salariés
+      
+      Vous pouvez télécharger ce document depuis votre tableau de bord personnel.
+      
+      Lien: https://www.filmara.fr/plan/employee-dashboard.html
+      
+      ---
+      Boulangerie Ange - Arras
+      Système de gestion des documents
+    `;
+
+    return await this.sendEmail(employeeEmail, subject, htmlContent, textContent);
+  }
+
   // Envoyer un email de test
   async sendTestEmail(toEmail) {
     return await this.sendDocumentNotification(

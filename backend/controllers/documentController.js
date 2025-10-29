@@ -430,6 +430,53 @@ exports.uploadDocument = async (req, res) => {
         // Ne pas faire échouer l'upload si l'email échoue
       }
     }
+
+    // Envoyer un email de notification pour les documents généraux
+    if (type === 'general') {
+      try {
+        console.log(`📧 Envoi de notification email pour document général: ${title}`);
+        
+        // Récupérer tous les salariés actifs avec email
+        const employees = await Employee.find({ 
+          isActive: true, 
+          email: { $exists: true, $ne: null, $ne: '' } 
+        });
+        
+        console.log(`📧 Envoi à ${employees.length} salariés actifs`);
+        
+        let successCount = 0;
+        let errorCount = 0;
+        
+        // Envoyer l'email à chaque salarié
+        for (const employee of employees) {
+          try {
+            const emailResult = await emailService.sendGeneralDocumentNotification(
+              employee.email,
+              employee.name,
+              title,
+              category
+            );
+            
+            if (emailResult.success) {
+              successCount++;
+              console.log(`✅ Email envoyé à ${employee.name}`);
+            } else {
+              errorCount++;
+              console.log(`⚠️ Échec envoi email à ${employee.name}: ${emailResult.message}`);
+            }
+          } catch (emailError) {
+            errorCount++;
+            console.error(`❌ Erreur envoi email à ${employee.name}:`, emailError.message);
+          }
+        }
+        
+        console.log(`📊 Résultat envoi emails: ${successCount} succès, ${errorCount} erreurs`);
+        
+      } catch (emailError) {
+        console.error('❌ Erreur envoi email général:', emailError);
+        // Ne pas faire échouer l'upload si l'email échoue
+      }
+    }
     
     res.json({
       success: true,
