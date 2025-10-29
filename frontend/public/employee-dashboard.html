@@ -665,6 +665,9 @@
             <button class="tab" onclick="switchTab('documents')">
                 📁 Mes Documents
             </button>
+            <button class="tab" onclick="switchTab('password')">
+                🔐 Mot de Passe
+            </button>
         </div>
 
         <div class="tab-content">
@@ -861,6 +864,53 @@
                         <div id="personalDocumentsList" style="display: none;">
                             <!-- Les documents personnels seront chargés ici -->
                         </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Onglet Mot de Passe -->
+            <div class="tab-panel" id="password-panel">
+                <div class="form-container">
+                    <h2 class="form-title">🔐 Changer mon mot de passe</h2>
+                    <p class="form-subtitle">Modifiez votre mot de passe pour sécuriser votre compte</p>
+
+                    <div id="passwordAlert"></div>
+
+                    <form id="passwordForm" class="form">
+                        <div class="form-group">
+                            <label for="currentPassword">Mot de passe actuel *</label>
+                            <input type="password" id="currentPassword" name="currentPassword" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="newPassword">Nouveau mot de passe *</label>
+                            <input type="password" id="newPassword" name="newPassword" required minlength="6">
+                            <small class="form-text">Le mot de passe doit contenir au moins 6 caractères</small>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="confirmPassword">Confirmer le nouveau mot de passe *</label>
+                            <input type="password" id="confirmPassword" name="confirmPassword" required minlength="6">
+                        </div>
+
+                        <div class="form-actions">
+                            <button type="submit" class="btn btn-primary">
+                                <span class="btn-text">Changer le mot de passe</span>
+                                <div class="btn-loading" style="display: none;">
+                                    <div class="spinner"></div>
+                                </div>
+                            </button>
+                        </div>
+                    </form>
+
+                    <div class="info-box">
+                        <h4>ℹ️ Informations importantes</h4>
+                        <ul>
+                            <li>🔒 Votre mot de passe actuel est requis pour confirmer votre identité</li>
+                            <li>🛡️ Le nouveau mot de passe doit contenir au moins 6 caractères</li>
+                            <li>✅ Après le changement, vous devrez vous reconnecter avec votre nouveau mot de passe</li>
+                            <li>⚠️ Si vous oubliez votre mot de passe, contactez votre manager</li>
+                        </ul>
                     </div>
                 </div>
             </div>
@@ -1384,14 +1434,14 @@
 
         async function downloadDocument(documentId, documentType = 'general') {
             try {
-                let url = `${API_URL}/documents/${documentId}/download`;
+                let apiUrl = `${API_URL}/documents/${documentId}/download`;
                 
                 // Pour les documents personnels, ajouter l'employeeId en paramètre
                 if (documentType === 'personal' && currentEmployee && currentEmployee.id) {
-                    url += `?employeeId=${currentEmployee.id}`;
+                    apiUrl += `?employeeId=${currentEmployee.id}`;
                 }
                 
-                const response = await fetch(url, {
+                const response = await fetch(apiUrl, {
                     headers: {
                         'Authorization': `Bearer ${localStorage.getItem('employeeToken')}`
                     }
@@ -1403,13 +1453,13 @@
 
                 // Créer un lien de téléchargement
                 const blob = await response.blob();
-                const url = window.URL.createObjectURL(blob);
+                const downloadUrl = window.URL.createObjectURL(blob);
                 const a = document.createElement('a');
-                a.href = url;
+                a.href = downloadUrl;
                 a.download = ''; // Le nom sera déterminé par le serveur
                 document.body.appendChild(a);
                 a.click();
-                window.URL.revokeObjectURL(url);
+                window.URL.revokeObjectURL(downloadUrl);
                 document.body.removeChild(a);
 
                 showAlert('documentsAlert', 'Document téléchargé avec succès !', 'success');
@@ -1419,6 +1469,82 @@
                 showAlert('documentsAlert', 'Erreur lors du téléchargement du document', 'danger');
             }
         }
+
+        // Gestion du formulaire de changement de mot de passe
+        document.getElementById('passwordForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const formData = new FormData(e.target);
+            const currentPassword = formData.get('currentPassword');
+            const newPassword = formData.get('newPassword');
+            const confirmPassword = formData.get('confirmPassword');
+            
+            // Validation côté client
+            if (!currentPassword || !newPassword || !confirmPassword) {
+                showAlert('passwordAlert', 'Tous les champs sont requis', 'danger');
+                return;
+            }
+            
+            if (newPassword.length < 6) {
+                showAlert('passwordAlert', 'Le nouveau mot de passe doit contenir au moins 6 caractères', 'danger');
+                return;
+            }
+            
+            if (newPassword !== confirmPassword) {
+                showAlert('passwordAlert', 'Les mots de passe ne correspondent pas', 'danger');
+                return;
+            }
+            
+            // Afficher le loading
+            const submitBtn = e.target.querySelector('button[type="submit"]');
+            const btnText = submitBtn.querySelector('.btn-text');
+            const btnLoading = submitBtn.querySelector('.btn-loading');
+            
+            btnText.style.display = 'none';
+            btnLoading.style.display = 'flex';
+            submitBtn.disabled = true;
+            
+            try {
+                const response = await fetch(`${API_URL}/auth/change-password`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${localStorage.getItem('employeeToken')}`
+                    },
+                    body: JSON.stringify({
+                        currentPassword,
+                        newPassword
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showAlert('passwordAlert', '✅ Mot de passe changé avec succès ! Vous allez être déconnecté.', 'success');
+                    
+                    // Vider le formulaire
+                    e.target.reset();
+                    
+                    // Déconnexion automatique après 2 secondes
+                    setTimeout(() => {
+                        localStorage.removeItem('employeeToken');
+                        window.location.href = '/plan/salarie-connexion.html';
+                    }, 2000);
+                    
+                } else {
+                    showAlert('passwordAlert', `❌ ${data.message || 'Erreur lors du changement de mot de passe'}`, 'danger');
+                }
+                
+            } catch (error) {
+                console.error('Erreur changement mot de passe:', error);
+                showAlert('passwordAlert', '❌ Erreur de connexion. Veuillez réessayer.', 'danger');
+            } finally {
+                // Restaurer le bouton
+                btnText.style.display = 'block';
+                btnLoading.style.display = 'none';
+                submitBtn.disabled = false;
+            }
+        });
     </script>
 </body>
 </html>

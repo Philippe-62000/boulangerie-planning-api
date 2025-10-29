@@ -197,9 +197,76 @@ const getEmployeeProfile = async (req, res) => {
   }
 };
 
+// Changer le mot de passe d'un salarié
+const changePassword = async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    const employeeId = req.user.id; // ID de l'employé connecté
+    
+    console.log(`🔐 Changement de mot de passe pour l'employé: ${employeeId}`);
+    
+    // Validation des données
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({
+        success: false,
+        message: 'Mot de passe actuel et nouveau mot de passe requis'
+      });
+    }
+    
+    if (newPassword.length < 6) {
+      return res.status(400).json({
+        success: false,
+        message: 'Le nouveau mot de passe doit contenir au moins 6 caractères'
+      });
+    }
+    
+    // Récupérer l'employé
+    const employee = await Employee.findById(employeeId);
+    if (!employee) {
+      return res.status(404).json({
+        success: false,
+        message: 'Employé non trouvé'
+      });
+    }
+    
+    // Vérifier le mot de passe actuel
+    const isCurrentPasswordValid = await bcrypt.compare(currentPassword, employee.password);
+    if (!isCurrentPasswordValid) {
+      return res.status(400).json({
+        success: false,
+        message: 'Mot de passe actuel incorrect'
+      });
+    }
+    
+    // Hasher le nouveau mot de passe
+    const saltRounds = 10;
+    const hashedNewPassword = await bcrypt.hash(newPassword, saltRounds);
+    
+    // Mettre à jour le mot de passe
+    employee.password = hashedNewPassword;
+    await employee.save();
+    
+    console.log(`✅ Mot de passe changé avec succès pour: ${employee.name}`);
+    
+    res.json({
+      success: true,
+      message: 'Mot de passe changé avec succès'
+    });
+    
+  } catch (error) {
+    console.error('❌ Erreur lors du changement de mot de passe:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erreur interne du serveur',
+      error: error.message
+    });
+  }
+};
+
 module.exports = {
   sendPasswordToEmployee,
   employeeLogin,
   getEmployeeProfile,
-  generateRandomPassword
+  generateRandomPassword,
+  changePassword
 };

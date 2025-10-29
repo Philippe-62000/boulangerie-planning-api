@@ -24,6 +24,14 @@ const authenticateEmployee = async (req, res, next) => {
       });
     }
     
+    // Ajouter les informations de l'employé à req.user pour compatibilité
+    req.user = {
+      id: decoded.employeeId,
+      email: decoded.email,
+      name: decoded.name,
+      role: decoded.role
+    };
+    
     req.employeeId = decoded.employeeId;
     req.employeeEmail = decoded.email;
     req.employeeName = decoded.name;
@@ -46,5 +54,8 @@ router.post('/login', authController.employeeLogin);
 
 // Route pour récupérer le profil de l'employé connecté
 router.get('/employee-profile', authenticateEmployee, authController.getEmployeeProfile);
+
+// Route pour changer le mot de passe d'un salarié
+router.post('/change-password', authenticateEmployee, authController.changePassword);
 
 module.exports = router;
