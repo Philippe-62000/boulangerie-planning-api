@@ -176,7 +176,7 @@ exports.downloadDocument = async (req, res) => {
     }
     
     // Enregistrer le téléchargement
-    await Document.recordDownload(documentId);
+    await Document.recordDownload(id);
     
     console.log(`✅ Document téléchargé: ${document.title} par ${req.user?.name || 'utilisateur'}`);
     
@@ -401,6 +401,34 @@ exports.uploadDocument = async (req, res) => {
     }
     
     console.log(`✅ Document uploadé avec succès: ${document.title}`);
+    
+    // Envoyer un email de notification pour les documents personnels
+    if (type === 'personal' && employeeId) {
+      try {
+        const employee = await Employee.findById(employeeId);
+        if (employee && employee.email) {
+          console.log(`📧 Envoi de notification email à ${employee.name} (${employee.email})`);
+          
+          const emailResult = await emailService.sendDocumentNotification(
+            employee.email,
+            employee.name,
+            title,
+            category
+          );
+          
+          if (emailResult.success) {
+            console.log(`✅ Email envoyé avec succès à ${employee.name}`);
+          } else {
+            console.log(`⚠️ Échec envoi email à ${employee.name}: ${emailResult.message}`);
+          }
+        } else {
+          console.log(`⚠️ Email non trouvé pour l'employé ${employeeId}`);
+        }
+      } catch (emailError) {
+        console.error('❌ Erreur envoi email:', emailError);
+        // Ne pas faire échouer l'upload si l'email échoue
+      }
+    }
     
     res.json({
       success: true,
