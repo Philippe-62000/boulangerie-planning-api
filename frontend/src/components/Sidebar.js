@@ -26,6 +26,7 @@ const Sidebar = () => {
         { menuId: 'sick-leave-management', isVisibleToAdmin: true, isVisibleToEmployee: false },
         { menuId: 'vacation-management', isVisibleToAdmin: true, isVisibleToEmployee: false },
         { menuId: 'ticket-restaurant', isVisibleToAdmin: true, isVisibleToEmployee: true },
+        { menuId: 'advance-requests', isVisibleToAdmin: true, isVisibleToEmployee: false },
         { menuId: 'employee-dashboard', isVisibleToAdmin: false, isVisibleToEmployee: true }
       ];
     } else {
@@ -93,6 +94,7 @@ const Sidebar = () => {
     { path: '/sick-leave-management', label: 'Gestion des Arrêts Maladie', icon: '🏥', menuId: 'sick-leave-management' },
     { path: '/vacation-management', label: 'Gestion des Congés', icon: '🏖️', menuId: 'vacation-management' },
     { path: '/ticket-restaurant', label: 'Ticket restaurant', icon: '🎫', menuId: 'ticket-restaurant' },
+    { path: '/advance-requests', label: 'Demandes d\'Acompte', icon: '💰', menuId: 'advance-requests' },
     { path: '/employee-dashboard', label: 'Mes Documents', icon: '📁', menuId: 'employee-dashboard' }
   ];
 

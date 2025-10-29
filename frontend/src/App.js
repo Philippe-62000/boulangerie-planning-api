@@ -25,6 +25,7 @@ import VacationRequestAdmin from './pages/VacationRequestAdmin';
 import VacationPlanning from './pages/VacationPlanning';
 import TicketRestaurant from './pages/TicketRestaurant';
 import EmployeeDashboard from './pages/EmployeeDashboard';
+import AdvanceRequests from './pages/AdvanceRequests';
 
 const AppContent = () => {
   const { user } = useAuth();
@@ -123,6 +124,11 @@ const AppContent = () => {
             <Route path="/employee-dashboard" element={
               <ProtectedRoute>
                 <EmployeeDashboard />
+              </ProtectedRoute>
+            } />
+            <Route path="/advance-requests" element={
+              <ProtectedRoute>
+                <AdvanceRequests />
               </ProtectedRoute>
             } />
           </Routes>

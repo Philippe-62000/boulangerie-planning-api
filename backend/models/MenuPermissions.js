@@ -173,6 +173,15 @@ menuPermissionsSchema.statics.createDefaultPermissions = async function() {
           isVisibleToEmployee: false,
           requiredPermissions: ['manage_employees'],
           order: 12
+        },
+        {
+          menuId: 'advance-requests',
+          menuName: 'Demandes d\'Acompte',
+          menuPath: '/advance-requests',
+          isVisibleToAdmin: true,
+          isVisibleToEmployee: false,
+          requiredPermissions: ['manage_employees'],
+          order: 13
         }
       ];
 
