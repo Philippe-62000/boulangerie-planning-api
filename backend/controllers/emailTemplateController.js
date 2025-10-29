@@ -796,6 +796,373 @@ Ce message a été généré automatiquement.`,
           { name: 'validatedBy', description: 'Nom de la personne qui valide', example: 'Admin' },
           { name: 'validationDate', description: 'Date de validation', example: '12/09/2025' }
         ]
+      },
+      {
+        name: 'advance_request_employee',
+        displayName: 'Email Confirmation - Demande d\'Acompte',
+        subject: '💰 Demande d\'acompte confirmée - {{amount}}€',
+        htmlContent: `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+    .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+    .header { background: #007bff; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; }
+    .content { background: #f8f9fa; padding: 30px; border-radius: 0 0 8px 8px; }
+    .highlight { background: #e3f2fd; padding: 15px; border-left: 4px solid #007bff; margin: 20px 0; }
+    .amount { font-size: 24px; font-weight: bold; color: #28a745; }
+    .footer { text-align: center; margin-top: 30px; color: #666; font-size: 14px; }
+    .btn { display: inline-block; background: #007bff; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; margin: 10px 0; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>💰 Demande d'Acompte Confirmée</h1>
+    </div>
+    <div class="content">
+      <p>Bonjour <strong>{{to_name}}</strong>,</p>
+      
+      <p>Votre demande d'acompte sur salaire a été reçue avec succès.</p>
+      
+      <div class="highlight">
+        <h3>📋 Détails de votre demande :</h3>
+        <ul>
+          <li><strong>Montant demandé :</strong> <span class="amount">{{amount}}€</span></li>
+          <li><strong>Déduction sur la paye de :</strong> {{deduction_month}}</li>
+          <li><strong>Date de la demande :</strong> {{request_date}}</li>
+        </ul>
+      </div>
+      
+      <p>Votre demande a été transmise à votre manager pour validation. Vous recevrez une notification par email dès que votre demande sera traitée.</p>
+      
+      <p>Vous pouvez consulter le statut de vos demandes d'acompte en vous connectant à votre <a href="{{dashboard_url}}" class="btn">Tableau de Bord</a>.</p>
+      
+      <p>Si vous avez des questions, n'hésitez pas à contacter votre manager.</p>
+      
+      <div class="footer">
+        <p>Cet email a été envoyé automatiquement par le système de gestion des acomptes.</p>
+        <p>Boulangerie Planning - {{request_date}}</p>
+      </div>
+    </div>
+  </div>
+</body>
+</html>`,
+        textContent: `💰 DEMANDE D'ACOMPTE CONFIRMÉE
+
+Bonjour {{to_name}},
+
+Votre demande d'acompte sur salaire a été reçue avec succès.
+
+📋 DÉTAILS DE VOTRE DEMANDE :
+- Montant demandé : {{amount}}€
+- Déduction sur la paye de : {{deduction_month}}
+- Date de la demande : {{request_date}}
+
+Votre demande a été transmise à votre manager pour validation. Vous recevrez une notification par email dès que votre demande sera traitée.
+
+Pour consulter le statut : {{dashboard_url}}
+
+Si vous avez des questions, n'hésitez pas à contacter votre manager.
+
+Boulangerie Planning - {{request_date}}`,
+        description: 'Email de confirmation envoyé aux salariés lors de la réception d\'une demande d\'acompte',
+        variables: [
+          { name: 'to_name', description: 'Nom du salarié', example: 'Anaïs' },
+          { name: 'amount', description: 'Montant demandé', example: '500' },
+          { name: 'deduction_month', description: 'Mois de déduction', example: 'Janvier 2025' },
+          { name: 'request_date', description: 'Date de la demande', example: '29/10/2025' },
+          { name: 'dashboard_url', description: 'URL du tableau de bord', example: 'https://www.filmara.fr/plan/employee-dashboard.html' }
+        ]
+      },
+      {
+        name: 'advance_request_manager',
+        displayName: 'Email d\'Alerte - Nouvelle Demande d\'Acompte',
+        subject: '🔔 Nouvelle demande d\'acompte - {{employee_name}} - {{amount}}€',
+        htmlContent: `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+    .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+    .header { background: #ffc107; color: #212529; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; }
+    .content { background: #f8f9fa; padding: 30px; border-radius: 0 0 8px 8px; }
+    .alert { background: #fff3cd; border: 1px solid #ffeaa7; padding: 15px; border-radius: 5px; margin: 20px 0; }
+    .amount { font-size: 24px; font-weight: bold; color: #dc3545; }
+    .employee { background: #e3f2fd; padding: 15px; border-left: 4px solid #007bff; margin: 20px 0; }
+    .btn { display: inline-block; background: #007bff; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; margin: 10px 5px; }
+    .btn-danger { background: #dc3545; }
+    .btn-success { background: #28a745; }
+    .footer { text-align: center; margin-top: 30px; color: #666; font-size: 14px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>🔔 Nouvelle Demande d'Acompte</h1>
+    </div>
+    <div class="content">
+      <p>Bonjour <strong>{{to_name}}</strong>,</p>
+      
+      <div class="alert">
+        <h3>⚠️ Action requise</h3>
+        <p>Une nouvelle demande d'acompte sur salaire nécessite votre validation.</p>
+      </div>
+      
+      <div class="employee">
+        <h3>👤 Informations du salarié :</h3>
+        <ul>
+          <li><strong>Nom :</strong> {{employee_name}}</li>
+          <li><strong>Montant demandé :</strong> <span class="amount">{{amount}}€</span></li>
+          <li><strong>Déduction sur la paye de :</strong> {{deduction_month}}</li>
+          <li><strong>Date de la demande :</strong> {{request_date}}</li>
+        </ul>
+      </div>
+      
+      <div class="employee">
+        <h3>💬 Commentaire du salarié :</h3>
+        <p><em>{{comment}}</em></p>
+      </div>
+      
+      <p>Vous pouvez gérer cette demande en vous connectant à l'interface d'administration :</p>
+      
+      <div style="text-align: center; margin: 30px 0;">
+        <a href="{{admin_url}}" class="btn">🔍 Voir la demande</a>
+        <a href="{{admin_url}}" class="btn btn-success">✅ Approuver</a>
+        <a href="{{admin_url}}" class="btn btn-danger">❌ Rejeter</a>
+      </div>
+      
+      <p><strong>Note :</strong> Cette demande sera automatiquement approuvée si aucune action n'est prise dans les 48 heures.</p>
+      
+      <div class="footer">
+        <p>Cet email a été envoyé automatiquement par le système de gestion des acomptes.</p>
+        <p>Boulangerie Planning - {{request_date}}</p>
+      </div>
+    </div>
+  </div>
+</body>
+</html>`,
+        textContent: `🔔 NOUVELLE DEMANDE D'ACOMPTE
+
+Bonjour {{to_name}},
+
+⚠️ ACTION REQUISE
+Une nouvelle demande d'acompte sur salaire nécessite votre validation.
+
+👤 INFORMATIONS DU SALARIÉ :
+- Nom : {{employee_name}}
+- Montant demandé : {{amount}}€
+- Déduction sur la paye de : {{deduction_month}}
+- Date de la demande : {{request_date}}
+
+💬 COMMENTAIRE DU SALARIÉ :
+{{comment}}
+
+Pour gérer cette demande : {{admin_url}}
+
+Note : Cette demande sera automatiquement approuvée si aucune action n'est prise dans les 48 heures.
+
+Boulangerie Planning - {{request_date}}`,
+        description: 'Email d\'alerte envoyé aux managers lors d\'une nouvelle demande d\'acompte',
+        variables: [
+          { name: 'to_name', description: 'Nom du manager', example: 'Manager' },
+          { name: 'employee_name', description: 'Nom du salarié', example: 'Anaïs' },
+          { name: 'amount', description: 'Montant demandé', example: '500' },
+          { name: 'deduction_month', description: 'Mois de déduction', example: 'Janvier 2025' },
+          { name: 'comment', description: 'Commentaire du salarié', example: 'Urgent pour frais médicaux' },
+          { name: 'request_date', description: 'Date de la demande', example: '29/10/2025' },
+          { name: 'admin_url', description: 'URL de l\'interface admin', example: 'https://www.filmara.fr/plan/advance-requests' }
+        ]
+      },
+      {
+        name: 'advance_approved',
+        displayName: 'Email de Validation - Acompte Approuvé',
+        subject: '✅ Demande d\'acompte approuvée - {{amount}}€',
+        htmlContent: `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+    .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+    .header { background: #28a745; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; }
+    .content { background: #f8f9fa; padding: 30px; border-radius: 0 0 8px 8px; }
+    .success { background: #d4edda; border: 1px solid #c3e6cb; padding: 15px; border-radius: 5px; margin: 20px 0; }
+    .amount { font-size: 24px; font-weight: bold; color: #28a745; }
+    .details { background: #e3f2fd; padding: 15px; border-left: 4px solid #007bff; margin: 20px 0; }
+    .manager-comment { background: #fff3cd; padding: 15px; border-left: 4px solid #ffc107; margin: 20px 0; }
+    .btn { display: inline-block; background: #007bff; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; margin: 10px 0; }
+    .footer { text-align: center; margin-top: 30px; color: #666; font-size: 14px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>✅ Demande d'Acompte Approuvée</h1>
+    </div>
+    <div class="content">
+      <p>Bonjour <strong>{{to_name}}</strong>,</p>
+      
+      <div class="success">
+        <h3>🎉 Excellente nouvelle !</h3>
+        <p>Votre demande d'acompte sur salaire a été <strong>approuvée</strong> par votre manager.</p>
+      </div>
+      
+      <div class="details">
+        <h3>📋 Détails de l'acompte approuvé :</h3>
+        <ul>
+          <li><strong>Montant approuvé :</strong> <span class="amount">{{amount}}€</span></li>
+          <li><strong>Déduction sur la paye de :</strong> {{deduction_month}}</li>
+          <li><strong>Date d'approbation :</strong> {{approval_date}}</li>
+        </ul>
+      </div>
+      
+      <div class="manager-comment">
+        <h3>💬 Commentaire du manager :</h3>
+        <p><em>{{manager_comment}}</em></p>
+      </div>
+      
+      <p>L'acompte sera versé selon les modalités habituelles de l'entreprise. Le montant sera déduit de votre prochaine paye du mois de <strong>{{deduction_month}}</strong>.</p>
+      
+      <p>Vous pouvez consulter tous vos acomptes en vous connectant à votre <a href="{{dashboard_url}}" class="btn">Tableau de Bord</a>.</p>
+      
+      <p>Si vous avez des questions, n'hésitez pas à contacter votre manager.</p>
+      
+      <div class="footer">
+        <p>Cet email a été envoyé automatiquement par le système de gestion des acomptes.</p>
+        <p>Boulangerie Planning - {{approval_date}}</p>
+      </div>
+    </div>
+  </div>
+</body>
+</html>`,
+        textContent: `✅ DEMANDE D'ACOMPTE APPROUVÉE
+
+Bonjour {{to_name}},
+
+🎉 EXCELLENTE NOUVELLE !
+Votre demande d'acompte sur salaire a été approuvée par votre manager.
+
+📋 DÉTAILS DE L'ACOMPTE APPROUVÉ :
+- Montant approuvé : {{amount}}€
+- Déduction sur la paye de : {{deduction_month}}
+- Date d'approbation : {{approval_date}}
+
+💬 COMMENTAIRE DU MANAGER :
+{{manager_comment}}
+
+L'acompte sera versé selon les modalités habituelles de l'entreprise. Le montant sera déduit de votre prochaine paye du mois de {{deduction_month}}.
+
+Pour consulter vos acomptes : {{dashboard_url}}
+
+Si vous avez des questions, n'hésitez pas à contacter votre manager.
+
+Boulangerie Planning - {{approval_date}}`,
+        description: 'Email de validation envoyé aux salariés lors de l\'approbation d\'un acompte',
+        variables: [
+          { name: 'to_name', description: 'Nom du salarié', example: 'Anaïs' },
+          { name: 'amount', description: 'Montant approuvé', example: '500' },
+          { name: 'deduction_month', description: 'Mois de déduction', example: 'Janvier 2025' },
+          { name: 'manager_comment', description: 'Commentaire du manager', example: 'Demande approuvée pour test' },
+          { name: 'approval_date', description: 'Date d\'approbation', example: '29/10/2025' },
+          { name: 'dashboard_url', description: 'URL du tableau de bord', example: 'https://www.filmara.fr/plan/employee-dashboard.html' }
+        ]
+      },
+      {
+        name: 'advance_rejected',
+        displayName: 'Email de Rejet - Acompte Refusé',
+        subject: '❌ Demande d\'acompte refusée - {{amount}}€',
+        htmlContent: `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+    .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+    .header { background: #dc3545; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; }
+    .content { background: #f8f9fa; padding: 30px; border-radius: 0 0 8px 8px; }
+    .rejection { background: #f8d7da; border: 1px solid #f5c6cb; padding: 15px; border-radius: 5px; margin: 20px 0; }
+    .amount { font-size: 24px; font-weight: bold; color: #dc3545; }
+    .details { background: #e3f2fd; padding: 15px; border-left: 4px solid #007bff; margin: 20px 0; }
+    .manager-comment { background: #fff3cd; padding: 15px; border-left: 4px solid #ffc107; margin: 20px 0; }
+    .btn { display: inline-block; background: #007bff; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; margin: 10px 0; }
+    .footer { text-align: center; margin-top: 30px; color: #666; font-size: 14px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>❌ Demande d'Acompte Refusée</h1>
+    </div>
+    <div class="content">
+      <p>Bonjour <strong>{{to_name}}</strong>,</p>
+      
+      <div class="rejection">
+        <h3>⚠️ Demande refusée</h3>
+        <p>Votre demande d'acompte sur salaire a été <strong>refusée</strong> par votre manager.</p>
+      </div>
+      
+      <div class="details">
+        <h3>📋 Détails de la demande refusée :</h3>
+        <ul>
+          <li><strong>Montant demandé :</strong> <span class="amount">{{amount}}€</span></li>
+          <li><strong>Déduction sur la paye de :</strong> {{deduction_month}}</li>
+          <li><strong>Date de refus :</strong> {{rejection_date}}</li>
+        </ul>
+      </div>
+      
+      <div class="manager-comment">
+        <h3>💬 Raison du refus :</h3>
+        <p><em>{{manager_comment}}</em></p>
+      </div>
+      
+      <p>Si vous souhaitez discuter de cette décision ou faire une nouvelle demande, n'hésitez pas à contacter votre manager directement.</p>
+      
+      <p>Vous pouvez consulter l'historique de vos demandes en vous connectant à votre <a href="{{dashboard_url}}" class="btn">Tableau de Bord</a>.</p>
+      
+      <div class="footer">
+        <p>Cet email a été envoyé automatiquement par le système de gestion des acomptes.</p>
+        <p>Boulangerie Planning - {{rejection_date}}</p>
+      </div>
+    </div>
+  </div>
+</body>
+</html>`,
+        textContent: `❌ DEMANDE D'ACOMPTE REFUSÉE
+
+Bonjour {{to_name}},
+
+⚠️ DEMANDE REFUSÉE
+Votre demande d'acompte sur salaire a été refusée par votre manager.
+
+📋 DÉTAILS DE LA DEMANDE REFUSÉE :
+- Montant demandé : {{amount}}€
+- Déduction sur la paye de : {{deduction_month}}
+- Date de refus : {{rejection_date}}
+
+💬 RAISON DU REFUS :
+{{manager_comment}}
+
+Si vous souhaitez discuter de cette décision ou faire une nouvelle demande, n'hésitez pas à contacter votre manager directement.
+
+Pour consulter l'historique : {{dashboard_url}}
+
+Boulangerie Planning - {{rejection_date}}`,
+        description: 'Email de rejet envoyé aux salariés lors du refus d\'un acompte',
+        variables: [
+          { name: 'to_name', description: 'Nom du salarié', example: 'Anaïs' },
+          { name: 'amount', description: 'Montant demandé', example: '500' },
+          { name: 'deduction_month', description: 'Mois de déduction', example: 'Janvier 2025' },
+          { name: 'manager_comment', description: 'Commentaire du manager', example: 'Demande refusée pour test' },
+          { name: 'rejection_date', description: 'Date de refus', example: '29/10/2025' },
+          { name: 'dashboard_url', description: 'URL du tableau de bord', example: 'https://www.filmara.fr/plan/employee-dashboard.html' }
+        ]
       }
     ];
     

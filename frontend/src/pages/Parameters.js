@@ -1100,6 +1100,10 @@ const Parameters = () => {
                             {template.name === 'vacation_request_alert' && '🚨 Alerte Congés'}
                             {template.name === 'vacation_request_validation' && '✅ Validation Congés'}
                             {template.name === 'employee_password' && '🔐 Mot de Passe Salarié'}
+                            {template.name === 'advance_request_employee' && '💰 Confirmation Acompte'}
+                            {template.name === 'advance_request_manager' && '🔔 Alerte Acompte'}
+                            {template.name === 'advance_approved' && '✅ Validation Acompte'}
+                            {template.name === 'advance_rejected' && '❌ Rejet Acompte'}
                           </span>
                         </div>
                         <p className="template-description">{template.description}</p>
