@@ -61,6 +61,21 @@ class EmailService {
   async sendEmail(to, subject, htmlContent, textContent) {
     return await emailServiceAlternative.sendEmail(to, subject, htmlContent, textContent);
   }
+
+  // Envoyer un email de notification de document personnel
+  async sendDocumentNotification(employeeEmail, employeeName, documentTitle, documentCategory) {
+    return await emailServiceAlternative.sendDocumentNotification(employeeEmail, employeeName, documentTitle, documentCategory);
+  }
+
+  // Envoyer un email de test
+  async sendTestEmail(toEmail) {
+    return await emailServiceAlternative.sendTestEmail(toEmail);
+  }
+
+  // Vérifier la configuration email
+  checkEmailConfig() {
+    return this.isConfigured;
+  }
 }
 
 module.exports = new EmailService();
