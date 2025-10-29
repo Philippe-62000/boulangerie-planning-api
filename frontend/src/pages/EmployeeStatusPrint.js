@@ -9,12 +9,33 @@ const EmployeeStatusPrint = () => {
   const [loading, setLoading] = useState(false);
   const [month, setMonth] = useState(new Date().getMonth() + 1);
   const [year, setYear] = useState(new Date().getFullYear());
+  const [advanceRequests, setAdvanceRequests] = useState([]);
+
+  const fetchAdvanceRequests = async () => {
+    try {
+      const response = await api.get('/advance-requests');
+      if (response.data.success) {
+        // Filtrer les acomptes approuvés pour le mois sélectionné
+        const monthName = getMonthName(month);
+        const yearStr = year.toString();
+        const filteredRequests = response.data.data.filter(request => 
+          request.status === 'approved' && 
+          request.deductionMonth === `${monthName} ${yearStr}`
+        );
+        setAdvanceRequests(filteredRequests);
+      }
+    } catch (error) {
+      console.error('Erreur lors du chargement des acomptes:', error);
+    }
+  };
 
   const fetchData = async () => {
     setLoading(true);
     try {
       const response = await api.get(`/employee-status?month=${month}&year=${year}`);
       setData(response.data);
+      // Récupérer aussi les acomptes
+      await fetchAdvanceRequests();
     } catch (error) {
       console.error('Erreur lors du chargement des données:', error);
       toast.error('Erreur lors du chargement des données');
@@ -291,6 +312,58 @@ const EmployeeStatusPrint = () => {
               <strong>Total kilomètres :</strong> {data.employees.reduce((sum, emp) => sum + emp.kmExpense.totalKm, 0)} km
             </div>
           </div>
+
+          {/* Récapitulatif des acomptes */}
+          {advanceRequests.length > 0 && (
+            <div className="advance-summary">
+              <h3>💰 Acomptes sur Salaire - {getMonthName(month)} {year}</h3>
+              <div className="advance-table">
+                <table className="status-table">
+                  <thead>
+                    <tr>
+                      <th>Salarié</th>
+                      <th>Montant Acompte</th>
+                      <th>Date de Demande</th>
+                      <th>Commentaire</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {advanceRequests.map((request) => (
+                      <tr key={request._id}>
+                        <td className="employee-name">
+                          <strong>{request.employeeName}</strong>
+                        </td>
+                        <td className="advance-amount">
+                          <strong>{formatCurrency(request.amount)}</strong>
+                        </td>
+                        <td className="request-date">
+                          {new Date(request.createdAt).toLocaleDateString('fr-FR')}
+                        </td>
+                        <td className="comment">
+                          {request.managerComment || request.comment || '-'}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot>
+                    <tr className="totals-row">
+                      <td><strong>TOTAL ACOMPTES</strong></td>
+                      <td><strong>{formatCurrency(advanceRequests.reduce((sum, req) => sum + req.amount, 0))}</strong></td>
+                      <td colSpan="2"></td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+              <div className="advance-summary-stats">
+                <div className="summary-item">
+                  <strong>Nombre d'acomptes :</strong> {advanceRequests.length}
+                </div>
+                <div className="summary-item">
+                  <strong>Montant total des acomptes :</strong> {formatCurrency(advanceRequests.reduce((sum, req) => sum + req.amount, 0))}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
