@@ -64,8 +64,8 @@ const getParameters = async (req, res) => {
       
       defaultParameters.push({
         name: 'enableEmployeeAdvanceRequest',
-        displayName: 'Activer la demande d\'acompte pour les salariés',
-        booleanValue: false,
+        displayName: 'Employés autorisés pour la demande d\'acompte',
+        stringValue: '[]', // Liste JSON des IDs d'employés autorisés
         kmValue: -1 // Valeur négative pour exclure des frais KM
       });
       
@@ -85,7 +85,7 @@ const getParameters = async (req, res) => {
       { name: 'adminEmail', displayName: 'Email de l\'Administrateur', stringValue: '', kmValue: -1 },
       { name: 'alertStore', displayName: 'Alerte au Magasin', booleanValue: false, kmValue: -1 },
       { name: 'alertAdmin', displayName: 'Alerte à l\'Administrateur', booleanValue: false, kmValue: -1 },
-      { name: 'enableEmployeeAdvanceRequest', displayName: 'Activer la demande d\'acompte pour les salariés', booleanValue: false, kmValue: -1 }
+      { name: 'enableEmployeeAdvanceRequest', displayName: 'Employés autorisés pour la demande d\'acompte', stringValue: '[]', kmValue: -1 }
     ];
     
     for (const requiredParam of requiredParams) {

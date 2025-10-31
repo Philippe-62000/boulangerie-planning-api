@@ -985,31 +985,11 @@
                 <div class="form-group">
                     <label for="advanceAmount">Montant demandé (€) *</label>
                     <input type="number" id="advanceAmount" name="advanceAmount" min="1" max="5000" step="0.01" required>
-                    <small class="form-text">Montant entre 1€ et 5000€</small>
                 </div>
 
                 <div class="form-group">
                     <label for="deductionMonth">Déduction sur la paye de : *</label>
-                    <select id="deductionMonth" name="deductionMonth" required>
-                        <option value="">Sélectionnez le mois</option>
-                        <option value="Janvier 2025">Janvier 2025</option>
-                        <option value="Février 2025">Février 2025</option>
-                        <option value="Mars 2025">Mars 2025</option>
-                        <option value="Avril 2025">Avril 2025</option>
-                        <option value="Mai 2025">Mai 2025</option>
-                        <option value="Juin 2025">Juin 2025</option>
-                        <option value="Juillet 2025">Juillet 2025</option>
-                        <option value="Août 2025">Août 2025</option>
-                        <option value="Septembre 2025">Septembre 2025</option>
-                        <option value="Octobre 2025">Octobre 2025</option>
-                        <option value="Novembre 2025">Novembre 2025</option>
-                        <option value="Décembre 2025">Décembre 2025</option>
-                    </select>
-                </div>
-
-                <div class="form-group">
-                    <label for="advanceComment">Commentaire (optionnel)</label>
-                    <textarea id="advanceComment" name="advanceComment" rows="3" placeholder="Raison de la demande d'acompte..."></textarea>
+                    <input type="text" id="deductionMonth" name="deductionMonth" readonly class="form-control" style="background-color: #f5f5f5; cursor: not-allowed;">
                 </div>
 
                 <div class="form-actions">
@@ -1029,8 +1009,6 @@
                 <h4>ℹ️ Informations importantes</h4>
                 <ul>
                     <li>💰 Le montant sera déduit de votre prochaine paye</li>
-                    <li>📅 La déduction se fera sur le mois sélectionné</li>
-                    <li>✅ Votre demande sera transmise à votre manager</li>
                     <li>📧 Vous recevrez une confirmation par email</li>
                     <li>⏰ La validation peut prendre quelques jours</li>
                 </ul>
@@ -1097,20 +1075,44 @@
 
         async function checkAdvanceRequestAvailability() {
             try {
+                // Vérifier que currentEmployee est chargé
+                if (!currentEmployee || !currentEmployee.id) {
+                    console.log('⏳ Attente du chargement de currentEmployee pour vérifier l\'accès à l\'acompte...');
+                    setTimeout(checkAdvanceRequestAvailability, 500);
+                    return;
+                }
+
                 const response = await fetch(`${API_URL}/parameters`);
                 const parameters = await response.json();
                 
                 const advanceParam = parameters.find(p => p.name === 'enableEmployeeAdvanceRequest');
-                const isEnabled = advanceParam && advanceParam.booleanValue === true;
+                let isAllowed = false;
+                
+                if (advanceParam) {
+                    // Le paramètre contient maintenant une liste JSON d'IDs d'employés
+                    if (advanceParam.stringValue) {
+                        try {
+                            const allowedEmployees = JSON.parse(advanceParam.stringValue || '[]');
+                            isAllowed = Array.isArray(allowedEmployees) && allowedEmployees.includes(currentEmployee.id);
+                        } catch (e) {
+                            console.error('Erreur parsing liste employés autorisés:', e);
+                            // Fallback pour compatibilité avec l'ancien système (booleanValue)
+                            isAllowed = advanceParam.booleanValue === true;
+                        }
+                    } else if (advanceParam.booleanValue) {
+                        // Fallback pour compatibilité avec l'ancien système
+                        isAllowed = advanceParam.booleanValue === true;
+                    }
+                }
                 
                 const advanceTab = document.getElementById('advance-tab');
                 if (advanceTab) {
-                    if (isEnabled) {
+                    if (isAllowed) {
                         advanceTab.style.display = 'block';
-                        console.log('✅ Demande d\'acompte activée pour les salariés');
+                        console.log('✅ Demande d\'acompte activée pour:', currentEmployee.name);
                     } else {
                         advanceTab.style.display = 'none';
-                        console.log('ℹ️ Demande d\'acompte désactivée pour les salariés');
+                        console.log('ℹ️ Demande d\'acompte non autorisée pour:', currentEmployee.name);
                     }
                 }
             } catch (error) {
@@ -1701,9 +1703,12 @@
         // Fonctions pour le modal d'acompte
         function openAdvanceModal() {
             document.getElementById('advanceModal').style.display = 'block';
-            // Définir le mois courant par défaut
-            const currentMonth = new Date().toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
+            // Définir automatiquement le mois courant (lecture seule)
+            const currentDate = new Date();
+            const currentMonth = currentDate.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
             document.getElementById('deductionMonth').value = currentMonth;
+            // Réinitialiser le montant
+            document.getElementById('advanceAmount').value = '';
         }
 
         function closeAdvanceModal() {
@@ -1727,7 +1732,6 @@
             const formData = new FormData(e.target);
             const amount = parseFloat(formData.get('advanceAmount'));
             const deductionMonth = formData.get('deductionMonth');
-            const comment = formData.get('advanceComment');
             
             // Validation côté client
             if (!amount || amount < 1 || amount > 5000) {
@@ -1736,7 +1740,7 @@
             }
             
             if (!deductionMonth) {
-                showAlert('advanceAlert', 'Veuillez sélectionner le mois de déduction', 'danger');
+                showAlert('advanceAlert', 'Erreur: mois de déduction non défini', 'danger');
                 return;
             }
             
@@ -1758,8 +1762,7 @@
                     },
                     body: JSON.stringify({
                         amount,
-                        deductionMonth,
-                        comment
+                        deductionMonth
                     })
                 });
                 

@@ -88,7 +88,6 @@ class EmailService {
       console.log(`📧 Envoi confirmation demande acompte à ${employeeName} (${employeeEmail})`);
       
       const templateParams = {
-        to_email: employeeEmail,
         to_name: employeeName,
         amount: amount,
         deduction_month: deductionMonth,
@@ -96,7 +95,7 @@ class EmailService {
         dashboard_url: 'https://www.filmara.fr/plan/employee-dashboard.html'
       };
       
-      return await emailServiceAlternative.sendEmail('template_advance_request_employee', templateParams);
+      return await emailServiceAlternative.sendViaEmailJSTemplate('template_advance_request_employee', employeeEmail, templateParams);
       
     } catch (error) {
       console.error('❌ Erreur envoi confirmation demande acompte:', error);
@@ -110,7 +109,6 @@ class EmailService {
       console.log(`📧 Envoi notification demande acompte à ${managerName} (${managerEmail})`);
       
       const templateParams = {
-        to_email: managerEmail,
         to_name: managerName,
         employee_name: employeeName,
         amount: amount,
@@ -120,7 +118,7 @@ class EmailService {
         admin_url: 'https://www.filmara.fr/plan/employees'
       };
       
-      return await emailServiceAlternative.sendEmail('template_advance_request_manager', templateParams);
+      return await emailServiceAlternative.sendViaEmailJSTemplate('template_advance_request_manager', managerEmail, templateParams);
       
     } catch (error) {
       console.error('❌ Erreur envoi notification demande acompte:', error);
@@ -134,7 +132,6 @@ class EmailService {
       console.log(`📧 Envoi confirmation approbation acompte à ${employeeName} (${employeeEmail})`);
       
       const templateParams = {
-        to_email: employeeEmail,
         to_name: employeeName,
         amount: amount,
         deduction_month: deductionMonth,
@@ -143,7 +140,7 @@ class EmailService {
         dashboard_url: 'https://www.filmara.fr/plan/employee-dashboard.html'
       };
       
-      return await emailServiceAlternative.sendEmail('template_advance_approved', templateParams);
+      return await emailServiceAlternative.sendViaEmailJSTemplate('template_advance_approved', employeeEmail, templateParams);
       
     } catch (error) {
       console.error('❌ Erreur envoi confirmation approbation:', error);
@@ -157,7 +154,6 @@ class EmailService {
       console.log(`📧 Envoi notification rejet acompte à ${employeeName} (${employeeEmail})`);
       
       const templateParams = {
-        to_email: employeeEmail,
         to_name: employeeName,
         amount: amount,
         deduction_month: deductionMonth,
@@ -166,7 +162,7 @@ class EmailService {
         dashboard_url: 'https://www.filmara.fr/plan/employee-dashboard.html'
       };
       
-      return await emailServiceAlternative.sendEmail('template_advance_rejected', templateParams);
+      return await emailServiceAlternative.sendViaEmailJSTemplate('template_advance_rejected', employeeEmail, templateParams);
       
     } catch (error) {
       console.error('❌ Erreur envoi notification rejet:', error);

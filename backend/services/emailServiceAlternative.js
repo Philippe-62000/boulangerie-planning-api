@@ -83,6 +83,81 @@ class EmailServiceAlternative {
     }
   }
 
+  // Envoyer via EmailJS avec un template spécifique
+  async sendViaEmailJSTemplate(templateId, toEmail, templateParams) {
+    try {
+      console.log('🔍 sendViaEmailJSTemplate - Paramètres reçus:', {
+        templateId: templateId,
+        toEmail: toEmail,
+        templateParams: templateParams
+      });
+      
+      // Configuration EmailJS
+      const emailjsConfig = {
+        serviceId: process.env.EMAILJS_SERVICE_ID || 'gmail',
+        userId: process.env.EMAILJS_USER_ID || 'EHw0fFSAwQ_4SfY6Z',
+        privateKey: process.env.EMAILJS_PRIVATE_KEY || 'jKt0•••••••••••••••••'
+      };
+
+      // Si EmailJS n'est pas configuré, passer au suivant
+      if (!emailjsConfig.userId || emailjsConfig.userId === 'user_default') {
+        throw new Error('EmailJS non configuré');
+      }
+
+      // Ajouter l'email du destinataire aux paramètres du template
+      const finalParams = {
+        ...templateParams,
+        to_email: toEmail
+      };
+
+      console.log('📧 Appel EmailJS avec:', {
+        serviceId: emailjsConfig.serviceId,
+        templateId: templateId,
+        userId: emailjsConfig.userId,
+        toEmail: toEmail
+      });
+
+      // Appel à l'API EmailJS avec headers pour applications non-browser
+      const response = await fetch('https://api.emailjs.com/api/v1.0/email/send', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'User-Agent': 'Boulangerie-Planning-API/1.0',
+          'Origin': 'https://boulangerie-planning-api-4-pbfy.onrender.com'
+        },
+        body: JSON.stringify({
+          service_id: emailjsConfig.serviceId,
+          template_id: templateId,
+          user_id: emailjsConfig.userId,
+          accessToken: emailjsConfig.privateKey,
+          template_params: finalParams
+        })
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        console.log('✅ Email envoyé via EmailJS:', result);
+        return {
+          success: true,
+          messageId: `emailjs_${Date.now()}`,
+          message: 'Email envoyé via EmailJS'
+        };
+      } else {
+        const errorText = await response.text();
+        console.error('❌ Erreur EmailJS détaillée:', {
+          status: response.status,
+          statusText: response.statusText,
+          body: errorText
+        });
+        throw new Error(`EmailJS error: ${response.status} - ${errorText}`);
+      }
+
+    } catch (error) {
+      console.log('⚠️ EmailJS non disponible:', error.message);
+      throw error;
+    }
+  }
+
   // Envoyer via EmailJS (service gratuit)
   async sendViaEmailJS(to, subject, htmlContent, textContent) {
     try {
