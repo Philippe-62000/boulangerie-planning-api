@@ -1,3 +1,4 @@
+const mongoose = require('mongoose');
 const AdvanceRequest = require('../models/AdvanceRequest');
 const Employee = require('../models/Employee');
 const emailService = require('../services/emailService');
@@ -215,10 +216,11 @@ const updateAdvanceRequest = async (req, res) => {
     // Mettre à jour la demande
     request.status = status;
     request.managerComment = managerComment || '';
-    // N'assigner approvedBy que si on a un ID valide (ObjectId)
-    if (managerId) {
+    // N'assigner approvedBy que si on a un ID valide (ObjectId MongoDB)
+    if (managerId && mongoose.Types.ObjectId.isValid(managerId)) {
       request.approvedBy = managerId;
     }
+    // Sinon, laisser approvedBy à null (valeur par défaut du modèle)
     request.approvedAt = new Date();
     
     if (status === 'approved' && approvedAmount) {
