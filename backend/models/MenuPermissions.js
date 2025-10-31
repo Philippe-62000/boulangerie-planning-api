@@ -52,6 +52,23 @@ const menuPermissionsSchema = new mongoose.Schema({
 // Méthode statique pour créer les permissions de menu par défaut
 menuPermissionsSchema.statics.createDefaultPermissions = async function() {
   try {
+    // Vérifier si le menu advance-requests existe déjà
+    const advanceRequestsExists = await this.findOne({ menuId: 'advance-requests' });
+    
+    // Si le menu advance-requests n'existe pas, le créer
+    if (!advanceRequestsExists) {
+      await this.create({
+        menuId: 'advance-requests',
+        menuName: 'Demandes d\'Acompte',
+        menuPath: '/advance-requests',
+        isVisibleToAdmin: true,
+        isVisibleToEmployee: false,
+        requiredPermissions: ['manage_employees'],
+        order: 13
+      });
+      console.log('✅ Menu advance-requests créé');
+    }
+    
     // Vérifier si des permissions existent déjà
     const existingPermissions = await this.countDocuments();
     

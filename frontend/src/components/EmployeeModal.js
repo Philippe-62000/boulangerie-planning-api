@@ -12,7 +12,13 @@ const EmployeeModal = ({ employee, onSave, onClose, employees = [] }) => {
     contractEndDate: '',
     tutor: '',
     email: '',
-    isActive: true
+    isActive: true,
+    emergencyContact: {
+      lastName: '',
+      firstName: '',
+      phone: '',
+      email: ''
+    }
   });
 
   useEffect(() => {
@@ -28,17 +34,36 @@ const EmployeeModal = ({ employee, onSave, onClose, employees = [] }) => {
         contractEndDate: employee.contractEndDate ? new Date(employee.contractEndDate).toISOString().split('T')[0] : '',
         tutorName: employee.tutorName || '',
         email: employee.email || '',
-        isActive: employee.isActive !== undefined ? employee.isActive : true
+        isActive: employee.isActive !== undefined ? employee.isActive : true,
+        emergencyContact: employee.emergencyContact || {
+          lastName: '',
+          firstName: '',
+          phone: '',
+          email: ''
+        }
       });
     }
   }, [employee]);
 
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: type === 'checkbox' ? checked : value
-    }));
+    
+    // Gestion des champs de contact d'urgence
+    if (name.startsWith('emergencyContact.')) {
+      const field = name.split('.')[1];
+      setFormData(prev => ({
+        ...prev,
+        emergencyContact: {
+          ...prev.emergencyContact,
+          [field]: value
+        }
+      }));
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        [name]: type === 'checkbox' ? checked : value
+      }));
+    }
   };
 
   const handleSkillChange = (skill) => {
@@ -392,6 +417,65 @@ const EmployeeModal = ({ employee, onSave, onClose, employees = [] }) => {
               </div>
             </>
           )}
+
+          {/* Section Contact d'urgence */}
+          <div style={{ marginTop: '2rem', paddingTop: '1.5rem', borderTop: '2px solid #e0e0e0' }}>
+            <h3 style={{ marginBottom: '1rem', color: '#333', fontSize: '1.1rem' }}>
+              🚨 Personne à Contacter en Cas d'Urgence
+            </h3>
+            
+            <div className="form-row">
+              <div className="form-group">
+                <label className="form-label">Nom</label>
+                <input
+                  type="text"
+                  name="emergencyContact.lastName"
+                  value={formData.emergencyContact.lastName}
+                  onChange={handleInputChange}
+                  className="form-control"
+                  placeholder="Nom de la personne"
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Prénom</label>
+                <input
+                  type="text"
+                  name="emergencyContact.firstName"
+                  value={formData.emergencyContact.firstName}
+                  onChange={handleInputChange}
+                  className="form-control"
+                  placeholder="Prénom de la personne"
+                />
+              </div>
+            </div>
+
+            <div className="form-row">
+              <div className="form-group">
+                <label className="form-label">Numéro de téléphone</label>
+                <input
+                  type="tel"
+                  name="emergencyContact.phone"
+                  value={formData.emergencyContact.phone}
+                  onChange={handleInputChange}
+                  className="form-control"
+                  placeholder="06 12 34 56 78"
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Email</label>
+                <input
+                  type="email"
+                  name="emergencyContact.email"
+                  value={formData.emergencyContact.email}
+                  onChange={handleInputChange}
+                  className="form-control"
+                  placeholder="contact@exemple.com"
+                />
+              </div>
+            </div>
+          </div>
 
           </form>
           

@@ -59,7 +59,7 @@ const Parameters = () => {
   // Fonction pour créer les paramètres manquants
   const createMissingParameters = async () => {
     try {
-      const requiredParams = ['storeEmail', 'adminEmail', 'alertStore', 'alertAdmin'];
+      const requiredParams = ['storeEmail', 'adminEmail', 'alertStore', 'alertAdmin', 'enableEmployeeAdvanceRequest'];
       const missingParams = requiredParams.filter(paramName => 
         !parameters.find(p => p.name === paramName)
       );
@@ -944,6 +944,69 @@ const Parameters = () => {
                       💾 Sauvegarder la configuration des alertes
                     </button>
                   </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Section Configuration Demande d'Acompte */}
+            <div className="card">
+              <div className="card-header">
+                <h3>💰 Configuration Demande d'Acompte</h3>
+                <p>Activez ou désactivez la demande d'acompte pour les salariés dans leur dashboard</p>
+              </div>
+              <div className="card-body">
+                <div className="email-config">
+                  <div className="email-input-group">
+                    <label>🎯 Affichage de la demande d'acompte :</label>
+                    <div className="recipient-options">
+                      <label className="checkbox-option">
+                        <input 
+                          type="checkbox" 
+                          checked={parameters.find(p => p.name === 'enableEmployeeAdvanceRequest')?.booleanValue || false}
+                          onChange={(e) => {
+                            const param = parameters.find(p => p.name === 'enableEmployeeAdvanceRequest');
+                            if (param) {
+                              handleParameterChange(param._id, 'booleanValue', e.target.checked);
+                            }
+                          }}
+                        />
+                        <span>💰 Activer la demande d'acompte dans le dashboard salarié</span>
+                      </label>
+                    </div>
+                    <small className="form-text text-muted">
+                      Lorsque cette option est activée, les salariés peuvent accéder à la demande d'acompte depuis leur dashboard.
+                    </small>
+                  </div>
+                </div>
+                <div className="email-actions">
+                  <button 
+                    className="btn btn-primary"
+                    onClick={async () => {
+                      try {
+                        const advanceParam = parameters.find(p => p.name === 'enableEmployeeAdvanceRequest');
+                        if (!advanceParam) {
+                          toast.error('Paramètre de demande d\'acompte non trouvé');
+                          return;
+                        }
+                        
+                        const paramData = [{
+                          _id: advanceParam._id,
+                          displayName: advanceParam.displayName,
+                          booleanValue: advanceParam.booleanValue,
+                          kmValue: advanceParam.kmValue
+                        }];
+                        
+                        console.log('📤 Sauvegarde du paramètre d\'acompte:', paramData);
+                        await api.put('/parameters/batch', { parameters: paramData });
+                        toast.success('Configuration de la demande d\'acompte sauvegardée');
+                      } catch (error) {
+                        console.error('❌ Erreur lors de la sauvegarde:', error);
+                        toast.error('Erreur lors de la sauvegarde de la configuration');
+                      }
+                    }}
+                  >
+                    💾 Sauvegarder la configuration
+                  </button>
                 </div>
               </div>
             </div>

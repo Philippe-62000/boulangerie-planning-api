@@ -1,0 +1,798 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Salarié - Planning Boulangerie</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+
+        .header {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 20px 0;
+            box-shadow: 0 2px 20px rgba(0, 0, 0, 0.1);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .header-content {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 20px;
+        }
+
+        .logo {
+            font-size: 24px;
+            font-weight: bold;
+            color: #007bff;
+            display: flex;
+            align-items: center;
+        }
+
+        .logo::before {
+            content: "🏢";
+            margin-right: 10px;
+            font-size: 28px;
+        }
+
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .employee-name {
+            font-weight: 600;
+            color: #333;
+        }
+
+        .logout-btn {
+            background: #dc3545;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            transition: background 0.3s;
+        }
+
+        .logout-btn:hover {
+            background: #c82333;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 40px auto;
+            padding: 0 20px;
+        }
+
+        .tabs {
+            display: flex;
+            background: rgba(255, 255, 255, 0.9);
+            border-radius: 10px 10px 0 0;
+            overflow: hidden;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+        }
+
+        .tab {
+            flex: 1;
+            padding: 20px;
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            color: #666;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .tab.active {
+            background: #007bff;
+            color: white;
+        }
+
+        .tab:hover:not(.active) {
+            background: rgba(0, 123, 255, 0.1);
+            color: #007bff;
+        }
+
+        .tab-content {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 0 0 10px 10px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+            min-height: 600px;
+        }
+
+        .tab-panel {
+            display: none;
+            padding: 40px;
+        }
+
+        .tab-panel.active {
+            display: block;
+        }
+
+        .form-container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .form-title {
+            font-size: 28px;
+            color: #333;
+            margin-bottom: 10px;
+            text-align: center;
+        }
+
+        .form-subtitle {
+            font-size: 16px;
+            color: #666;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .info-box {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 30px;
+        }
+
+        .info-box h4 {
+            color: #495057;
+            margin-bottom: 10px;
+            font-size: 16px;
+        }
+
+        .info-box ul {
+            margin: 0;
+            padding-left: 20px;
+        }
+
+        .info-box li {
+            margin-bottom: 5px;
+            color: #6c757d;
+        }
+
+        .form-group {
+            margin-bottom: 25px;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        .form-label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+
+        .form-control:focus {
+            outline: none;
+            border-color: #007bff;
+            box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
+        }
+
+        .form-control:read-only {
+            background: #f8f9fa;
+            color: #6c757d;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-block;
+            text-align: center;
+        }
+
+        .btn-primary {
+            background: #007bff;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #0056b3;
+            transform: translateY(-2px);
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #545b62;
+        }
+
+        .btn:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .alert {
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 14px;
+        }
+
+        .alert-success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .alert-danger {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 40px;
+        }
+
+        .loading.show {
+            display: block;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #007bff;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Styles pour l'arrêt maladie avec document */
+        .sick-leave-document {
+            background: #e3f2fd;
+            border: 1px solid #2196f3;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 30px;
+        }
+
+        .sick-leave-document h4 {
+            color: #1976d2;
+            margin-bottom: 10px;
+        }
+
+        .file-upload {
+            border: 2px dashed #2196f3;
+            border-radius: 8px;
+            padding: 30px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin: 20px 0;
+        }
+
+        .file-upload:hover {
+            background: rgba(33, 150, 243, 0.05);
+        }
+
+        .file-upload input[type="file"] {
+            display: none;
+        }
+
+        .file-upload-label {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+            cursor: pointer;
+        }
+
+        .file-info {
+            margin-top: 10px;
+            font-size: 14px;
+            color: #666;
+        }
+
+        .file-selected {
+            color: #28a745;
+            font-weight: 600;
+        }
+
+        @media (max-width: 768px) {
+            .form-row {
+                grid-template-columns: 1fr;
+            }
+            
+            .header-content {
+                flex-direction: column;
+                gap: 15px;
+            }
+            
+            .container {
+                margin: 20px auto;
+            }
+            
+            .tab-panel {
+                padding: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="header-content">
+            <div class="logo">Dashboard Salarié</div>
+            <div class="header-subtitle">Planning Boulangerie - Services en ligne</div>
+        </div>
+    </div>
+
+    <div class="loading" id="initialLoading">
+        <div class="spinner"></div>
+        <p>Chargement...</p>
+    </div>
+
+    <div class="container" id="mainContent" style="display: none;">
+        <div class="header">
+            <div class="header-content">
+                <div class="logo">Dashboard Salarié</div>
+                <div class="user-info">
+                    <span class="employee-name" id="employeeName">Salarié</span>
+                    <a href="#" class="logout-btn" onclick="logout()">
+                        🚪 Déconnexion
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <div class="tabs">
+            <button class="tab" onclick="switchTab('sick-leave')">
+                🏥 Arrêt Maladie
+            </button>
+            <button class="tab active" onclick="switchTab('vacation')">
+                🏖️ Demande de Congés
+            </button>
+        </div>
+
+        <div class="tab-content">
+            <!-- Onglet Demande de Congés (PREMIER) -->
+            <div class="tab-panel active" id="vacation-panel">
+                <div class="form-container">
+                    <h2 class="form-title">🏖️ Demande de Congés</h2>
+                    <p class="form-subtitle">Remplissez le formulaire ci-dessous pour faire votre demande</p>
+
+                    <div id="vacationAlert"></div>
+
+                    <div class="info-box">
+                        <h4>ℹ️ Informations importantes</h4>
+                        <ul>
+                            <li>Votre demande sera transmise à votre responsable</li>
+                            <li>Vous recevrez une confirmation par email</li>
+                            <li>La validation peut prendre quelques jours</li>
+                            <li>Vous serez informé de la décision par email</li>
+                        </ul>
+                    </div>
+
+                    <form id="vacationForm">
+                        <div class="form-group">
+                            <label class="form-label" for="vacationEmployee">Employé *</label>
+                            <input type="text" id="vacationEmployee" class="form-control" readonly>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label" for="vacationStartDate">Date de début *</label>
+                                <input type="date" id="vacationStartDate" name="startDate" class="form-control" required>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label" for="vacationEndDate">Dernier Jour de Congé *</label>
+                                <input type="date" id="vacationEndDate" name="endDate" class="form-control" required>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label" for="vacationType">Type de congés *</label>
+                            <select id="vacationType" name="type" class="form-control" required>
+                                <option value="Congés payés">Congés payés</option>
+                                <option value="Congés exceptionnels">Congés exceptionnels</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label" for="vacationPrecisions">Précisions (optionnel)</label>
+                            <textarea id="vacationPrecisions" name="precisions" class="form-control" rows="3" placeholder="Précisions sur votre demande de congés..."></textarea>
+                        </div>
+
+                        <div class="form-group">
+                            <button type="submit" class="btn btn-primary" id="vacationBtn">
+                                🏖️ Demander les congés
+                            </button>
+                            <button type="button" class="btn btn-secondary" onclick="resetVacationForm()" style="margin-left: 10px;">
+                                🔄 Réinitialiser
+                            </button>
+                        </div>
+                    </form>
+
+                    <div class="loading" id="vacationLoading">
+                        <div class="spinner"></div>
+                        <p>Traitement en cours...</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Onglet Arrêt Maladie (AVEC DOCUMENT) -->
+            <div class="tab-panel" id="sick-leave-panel">
+                <div class="form-container">
+                    <h2 class="form-title">🏥 Déclarer un Arrêt Maladie</h2>
+                    <p class="form-subtitle">Déclarez votre arrêt maladie avec document de manière simple et sécurisée</p>
+
+                    <div id="sickLeaveAlert"></div>
+
+                    <div class="info-box">
+                        <h4>ℹ️ Informations importantes</h4>
+                        <ul>
+                            <li>Les dates sont inclusives (début et fin comprises)</li>
+                            <li>Vous serez automatiquement marqué comme indisponible</li>
+                            <li>Le planning sera mis à jour en conséquence</li>
+                            <li>Un email de confirmation vous sera envoyé</li>
+                        </ul>
+                    </div>
+
+                    <div class="sick-leave-document">
+                        <h4>📄 Exigences pour le document</h4>
+                        <ul>
+                            <li>Fichier JPG ou PDF uniquement</li>
+                            <li>Taille maximum : 10MB</li>
+                            <li>Document lisible et de bonne qualité</li>
+                            <li>Doit contenir les dates de début et fin d'arrêt</li>
+                        </ul>
+                    </div>
+
+                    <form id="sickLeaveForm" enctype="multipart/form-data">
+                        <div class="form-group">
+                            <label class="form-label" for="sickLeaveType">Type de déclaration *</label>
+                            <select id="sickLeaveType" name="type" class="form-control" required>
+                                <option value="Arrêt maladie">Arrêt maladie</option>
+                                <option value="Absence">Absence</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label" for="sickLeaveEmployee">Employé *</label>
+                            <input type="text" id="sickLeaveEmployee" class="form-control" readonly>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label" for="sickLeaveEmployeeEmail">Email *</label>
+                            <input type="email" id="sickLeaveEmployeeEmail" name="employeeEmail" class="form-control" readonly>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label" for="sickLeaveStartDate">Date de début *</label>
+                                <input type="date" id="sickLeaveStartDate" name="startDate" class="form-control" required>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label" for="sickLeaveEndDate">Date de fin *</label>
+                                <input type="date" id="sickLeaveEndDate" name="endDate" class="form-control" required>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label" for="sickLeaveDocument">Document d'arrêt maladie *</label>
+                            <div class="file-upload" onclick="document.getElementById('sickLeaveDocument').click()">
+                                <input type="file" id="sickLeaveDocument" name="document" accept=".jpg,.jpeg,.pdf" required>
+                                <div class="file-upload-label">
+                                    <div style="font-size: 24px;">📤</div>
+                                    <div>Cliquez pour sélectionner un fichier</div>
+                                    <div class="file-info">JPG, PDF (max 10MB)</div>
+                                    <div class="file-info" id="fileName" style="display: none;"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <button type="submit" class="btn btn-primary" id="sickLeaveBtn">
+                                📤 Envoyer l'arrêt maladie
+                            </button>
+                            <button type="button" class="btn btn-secondary" onclick="resetSickLeaveForm()" style="margin-left: 10px;">
+                                🔄 Réinitialiser
+                            </button>
+                        </div>
+                    </form>
+
+                    <div class="loading" id="sickLeaveLoading">
+                        <div class="spinner"></div>
+                        <p>Traitement en cours...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = 'https://boulangerie-planning-api-4-pbfy.onrender.com/api';
+        let currentEmployee = null;
+
+        // Vérifier l'authentification au chargement
+        document.addEventListener('DOMContentLoaded', async () => {
+            try {
+                await checkAuthentication();
+            } catch (error) {
+                console.error('Erreur vérification auth:', error);
+                redirectToLogin();
+            }
+        });
+
+        async function checkAuthentication() {
+            const token = localStorage.getItem('employeeToken');
+            if (!token) {
+                redirectToLogin();
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_URL}/auth/employee-profile`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error('Token invalide');
+                }
+
+                const data = await response.json();
+                currentEmployee = data.employee;
+                
+                // Afficher les informations de l'employé
+                document.getElementById('employeeName').textContent = currentEmployee.name;
+                document.getElementById('vacationEmployee').value = `${currentEmployee.name} - ${getRoleLabel(currentEmployee.role)}`;
+                document.getElementById('sickLeaveEmployee').value = `${currentEmployee.name} - ${getRoleLabel(currentEmployee.role)}`;
+                document.getElementById('sickLeaveEmployeeEmail').value = currentEmployee.email;
+
+                // Masquer le loading et afficher le contenu
+                document.getElementById('initialLoading').style.display = 'none';
+                document.getElementById('mainContent').style.display = 'block';
+
+            } catch (error) {
+                console.error('Erreur authentification:', error);
+                redirectToLogin();
+            }
+        }
+
+        function redirectToLogin() {
+            window.location.href = '/plan/salarie-connexion.html';
+        }
+
+        function logout() {
+            localStorage.removeItem('employeeToken');
+            redirectToLogin();
+        }
+
+        function getRoleLabel(role) {
+            const roleLabels = {
+                'vendeuse': 'Vendeuse',
+                'boulanger': 'Boulanger',
+                'preparateur': 'Préparateur',
+                'manager': 'Manager'
+            };
+            return roleLabels[role] || role;
+        }
+
+        function switchTab(tabName) {
+            // Masquer tous les panels
+            document.querySelectorAll('.tab-panel').forEach(panel => {
+                panel.classList.remove('active');
+            });
+
+            // Désactiver tous les onglets
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+
+            // Activer l'onglet et le panel sélectionnés
+            document.getElementById(`${tabName}-panel`).classList.add('active');
+            event.target.classList.add('active');
+        }
+
+        // Gestion du fichier upload
+        document.getElementById('sickLeaveDocument').addEventListener('change', function(e) {
+            const fileName = document.getElementById('fileName');
+            if (e.target.files.length > 0) {
+                fileName.textContent = `Fichier sélectionné: ${e.target.files[0].name}`;
+                fileName.style.display = 'block';
+                fileName.classList.add('file-selected');
+            } else {
+                fileName.style.display = 'none';
+                fileName.classList.remove('file-selected');
+            }
+        });
+
+        // Gestion du formulaire de demande de congés
+        document.getElementById('vacationForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const formData = new FormData(e.target);
+            const data = {
+                employeeName: currentEmployee.name,
+                employeeEmail: currentEmployee.email,
+                startDate: formData.get('startDate'),
+                endDate: formData.get('endDate'),
+                reason: formData.get('type'),
+                precisions: formData.get('precisions') || ''
+            };
+
+            // Validation des dates
+            if (new Date(data.startDate) > new Date(data.endDate)) {
+                showAlert('vacationAlert', 'La date de début doit être antérieure à la date de fin');
+                return;
+            }
+
+            hideAlert('vacationAlert');
+            setFormEnabled('vacationForm', false);
+
+            try {
+                const response = await fetch(`${API_URL}/vacation-requests`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(data)
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    showAlert('vacationAlert', 'Demande de congés envoyée avec succès ! Vous recevrez une confirmation par email.', 'success');
+                    resetVacationForm();
+                } else {
+                    showAlert('vacationAlert', result.error || 'Erreur lors de la demande');
+                }
+            } catch (error) {
+                console.error('Erreur demande congés:', error);
+                showAlert('vacationAlert', 'Erreur de connexion. Vérifiez votre connexion internet.');
+            } finally {
+                setFormEnabled('vacationForm', true);
+            }
+        });
+
+        // Gestion du formulaire d'arrêt maladie avec document
+        document.getElementById('sickLeaveForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const formData = new FormData(e.target);
+            
+            // Validation des dates
+            const startDate = new Date(formData.get('startDate'));
+            const endDate = new Date(formData.get('endDate'));
+            
+            if (startDate > endDate) {
+                showAlert('sickLeaveAlert', 'La date de début doit être antérieure à la date de fin');
+                return;
+            }
+
+            hideAlert('sickLeaveAlert');
+            setFormEnabled('sickLeaveForm', false);
+
+            try {
+                const response = await fetch(`${API_URL}/sick-leaves`, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    showAlert('sickLeaveAlert', 'Arrêt maladie déclaré avec succès ! Vous recevrez une confirmation par email.', 'success');
+                    resetSickLeaveForm();
+                } else {
+                    showAlert('sickLeaveAlert', result.error || 'Erreur lors de la déclaration');
+                }
+            } catch (error) {
+                console.error('Erreur déclaration arrêt maladie:', error);
+                showAlert('sickLeaveAlert', 'Erreur de connexion. Vérifiez votre connexion internet.');
+            } finally {
+                setFormEnabled('sickLeaveForm', true);
+            }
+        });
+
+        function showAlert(alertId, message, type = 'danger') {
+            const alert = document.getElementById(alertId);
+            alert.className = `alert alert-${type}`;
+            alert.textContent = message;
+            alert.style.display = 'block';
+        }
+
+        function hideAlert(alertId) {
+            const alert = document.getElementById(alertId);
+            alert.style.display = 'none';
+        }
+
+        function setFormEnabled(formId, enabled) {
+            const form = document.getElementById(formId);
+            const loading = document.getElementById(formId.replace('Form', 'Loading'));
+            
+            if (enabled) {
+                form.style.opacity = '1';
+                form.style.pointerEvents = 'auto';
+                loading.classList.remove('show');
+            } else {
+                form.style.opacity = '0.6';
+                form.style.pointerEvents = 'none';
+                loading.classList.add('show');
+            }
+        }
+
+        function resetVacationForm() {
+            document.getElementById('vacationForm').reset();
+            document.getElementById('vacationEmployee').value = `${currentEmployee.name} - ${getRoleLabel(currentEmployee.role)}`;
+            hideAlert('vacationAlert');
+        }
+
+        function resetSickLeaveForm() {
+            document.getElementById('sickLeaveForm').reset();
+            document.getElementById('sickLeaveEmployee').value = `${currentEmployee.name} - ${getRoleLabel(currentEmployee.role)}`;
+            document.getElementById('sickLeaveEmployeeEmail').value = currentEmployee.email;
+            document.getElementById('fileName').style.display = 'none';
+            document.getElementById('fileName').classList.remove('file-selected');
+            hideAlert('sickLeaveAlert');
+        }
+    </script>
+</body>
+</html>
+
+
+
+
+

@@ -62,6 +62,13 @@ const getParameters = async (req, res) => {
         kmValue: -1 // Valeur négative pour exclure des frais KM
       });
       
+      defaultParameters.push({
+        name: 'enableEmployeeAdvanceRequest',
+        displayName: 'Activer la demande d\'acompte pour les salariés',
+        booleanValue: false,
+        kmValue: -1 // Valeur négative pour exclure des frais KM
+      });
+      
       await Parameter.insertMany(defaultParameters);
       const newParameters = await Parameter.find().sort({ name: 1 });
       console.log(`✅ ${newParameters.length} paramètres créés`);
@@ -77,7 +84,8 @@ const getParameters = async (req, res) => {
       { name: 'storeEmail', displayName: 'Email du Magasin', stringValue: '', kmValue: -1 },
       { name: 'adminEmail', displayName: 'Email de l\'Administrateur', stringValue: '', kmValue: -1 },
       { name: 'alertStore', displayName: 'Alerte au Magasin', booleanValue: false, kmValue: -1 },
-      { name: 'alertAdmin', displayName: 'Alerte à l\'Administrateur', booleanValue: false, kmValue: -1 }
+      { name: 'alertAdmin', displayName: 'Alerte à l\'Administrateur', booleanValue: false, kmValue: -1 },
+      { name: 'enableEmployeeAdvanceRequest', displayName: 'Activer la demande d\'acompte pour les salariés', booleanValue: false, kmValue: -1 }
     ];
     
     for (const requiredParam of requiredParams) {

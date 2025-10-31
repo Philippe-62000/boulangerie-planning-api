@@ -1,61 +1,73 @@
 @echo off
 echo ========================================
-echo DEPLOIEMENT FRONTEND SUR OVH
+echo   DEPLOYMENT FRONTEND VERS OVH
 echo ========================================
 echo.
 
-echo [1/5] Construction du frontend...
-cd frontend
+echo 1. Construction du frontend...
 call npm run build
 if %errorlevel% neq 0 (
-    echo ❌ Erreur lors de la construction du frontend
+    echo ERREUR: Echec de la construction du frontend
     pause
     exit /b 1
 )
-echo ✅ Construction terminée
-echo.
 
-echo [2/5] Copie des fichiers vers le dossier de déploiement...
-cd ..
-if not exist "deploy-ovh" mkdir deploy-ovh
-xcopy /E /I /Y "frontend\build\*" "deploy-ovh\"
-echo ✅ Fichiers copiés
 echo.
+echo 2. Copie des fichiers vers le dossier de déploiement...
+if not exist "deploy-frontend" mkdir "deploy-frontend"
 
-echo [3/5] Copie des fichiers de configuration OVH...
-copy /Y "frontend\public\.htaccess" "deploy-ovh\"
-copy /Y "frontend\public\http-redirect.html" "deploy-ovh\"
-echo ✅ Configuration OVH copiée
-echo.
+echo    - Copie des fichiers HTML...
+copy "frontend\public\*.html" "deploy-frontend\" /Y
 
-echo [4/5] Création de l'archive pour upload...
-powershell -command "Compress-Archive -Path 'deploy-ovh\*' -DestinationPath 'frontend-ovh-deploy.zip' -Force"
-echo ✅ Archive créée: frontend-ovh-deploy.zip
-echo.
+echo    - Copie des fichiers CSS...
+xcopy "frontend\build\static\css\*" "deploy-frontend\static\css\" /E /I /Y
 
-echo [5/5] Nettoyage...
-rmdir /S /Q deploy-ovh
-echo ✅ Nettoyage terminé
-echo.
+echo    - Copie des fichiers JS...
+xcopy "frontend\build\static\js\*" "deploy-frontend\static\js\" /E /I /Y
 
-echo ========================================
-echo DEPLOIEMENT FRONTEND TERMINE !
-echo ========================================
+echo    - Copie des fichiers de médias...
+xcopy "frontend\build\static\media\*" "deploy-frontend\static\media\" /E /I /Y
+
+echo    - Copie du fichier index.html...
+copy "frontend\build\index.html" "deploy-frontend\" /Y
+
+echo    - Copie du fichier manifest.json...
+if exist "frontend\build\manifest.json" copy "frontend\build\manifest.json" "deploy-frontend\" /Y
+
 echo.
-echo 📁 Archive prête: frontend-ovh-deploy.zip
-echo.
-echo 📋 INSTRUCTIONS POUR OVH:
-echo 1. Se connecter à votre espace OVH
-echo 2. Aller dans "Fichiers" de votre hébergement
-echo 3. Naviguer vers le dossier "www" ou "public_html"
-echo 4. Supprimer les anciens fichiers (sauf .htaccess si personnalisé)
-echo 5. Uploader et extraire frontend-ovh-deploy.zip
-echo 6. Vérifier que .htaccess est bien présent
-echo.
-echo 🌐 URLs d'accès:
-echo - Application: https://www.filmara.fr/plan/
-echo - Arrêts maladie: https://www.filmara.fr/plan/sick-leave
-echo - Gestion admin: https://www.filmara.fr/plan/sick-leave-management
+echo 3. Fichiers prêts pour le déploiement OVH
 echo.
 echo ========================================
+echo   FICHIERS A UPLOADER VERS OVH
+echo ========================================
+echo.
+echo Dossier source: deploy-frontend\
+echo.
+echo Fichiers à uploader:
+dir "deploy-frontend" /B
+echo.
+echo ========================================
+echo   INSTRUCTIONS DEPLOYMENT OVH
+echo ========================================
+echo.
+echo 1. Connectez-vous à votre espace OVH
+echo 2. Allez dans le gestionnaire de fichiers
+echo 3. Naviguez vers le dossier de votre site
+echo 4. Uploadez TOUS les fichiers du dossier deploy-frontend\
+echo 5. Remplacez les fichiers existants
+echo.
+echo ========================================
+echo   NOUVELLES FONCTIONNALITES DEPLOYEES
+echo ========================================
+echo.
+echo ✅ Page "Demandes d'Acompte" (/advance-requests)
+echo ✅ Menu "Demandes d'Acompte" dans la sidebar
+echo ✅ Templates EmailJS pour les acomptes
+echo ✅ Interface de validation manager
+echo ✅ Récapitulatif dans employee-status-print
+echo.
+echo ========================================
+echo   DEPLOYMENT TERMINE
+echo ========================================
+echo.
 pause

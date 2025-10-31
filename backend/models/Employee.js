@@ -119,6 +119,36 @@ const employeeSchema = new mongoose.Schema({
       message: 'Format d\'email invalide'
     }
   },
+  // Contact d'urgence
+  emergencyContact: {
+    lastName: {
+      type: String,
+      trim: true,
+      comment: 'Nom de la personne à contacter en cas d\'urgence'
+    },
+    firstName: {
+      type: String,
+      trim: true,
+      comment: 'Prénom de la personne à contacter en cas d\'urgence'
+    },
+    phone: {
+      type: String,
+      trim: true,
+      comment: 'Numéro de téléphone de la personne à contacter en cas d\'urgence'
+    },
+    email: {
+      type: String,
+      lowercase: true,
+      trim: true,
+      validate: {
+        validator: function(v) {
+          return !v || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
+        },
+        message: 'Format d\'email invalide pour le contact d\'urgence'
+      },
+      comment: 'Email de la personne à contacter en cas d\'urgence'
+    }
+  },
   password: {
     type: String,
     select: false // Ne pas inclure par défaut dans les requêtes
