@@ -191,7 +191,8 @@ const updateAdvanceRequest = async (req, res) => {
   try {
     const { id } = req.params;
     const { status, managerComment, approvedAmount } = req.body;
-    const managerId = req.user.id || req.employeeId;
+    // Rendre l'ID manager optionnel (comme les autres routes admin)
+    const managerId = req.user?.id || req.employeeId || 'admin';
     
     console.log(`💰 Mise à jour demande acompte: ${id} - ${status}`);
     
