@@ -127,6 +127,179 @@ const AdvanceRequests = () => {
     return classes[status] || '';
   };
 
+  const handlePrint = () => {
+    const filteredRequests = getFilteredRequests();
+    const filterLabel = filter === 'all' ? 'Toutes' : 
+                        filter === 'pending' ? 'En attente' :
+                        filter === 'approved' ? 'Approuvées' : 'Rejetées';
+    const monthLabel = selectedMonth || 'Tous les mois';
+    
+    // Créer une fenêtre d'impression
+    const printWindow = window.open('', '_blank');
+    
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Demandes d'Acompte - ${filterLabel} - ${monthLabel}</title>
+        <meta charset="utf-8">
+        <style>
+          @media print {
+            @page {
+              margin: 1cm;
+            }
+            body {
+              font-family: Arial, sans-serif;
+              font-size: 12px;
+              color: #000;
+              margin: 0;
+              padding: 20px;
+            }
+            .no-print { display: none !important; }
+          }
+          body {
+            font-family: Arial, sans-serif;
+            font-size: 12px;
+            color: #000;
+            margin: 0;
+            padding: 20px;
+            background: white;
+          }
+          .header {
+            text-align: center;
+            margin-bottom: 30px;
+            border-bottom: 2px solid #333;
+            padding-bottom: 15px;
+          }
+          .header h1 {
+            margin: 0 0 10px 0;
+            font-size: 24px;
+            color: #333;
+          }
+          .header .filter-info {
+            font-size: 14px;
+            color: #666;
+            margin-top: 5px;
+          }
+          .print-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+          }
+          .print-table th {
+            background-color: #f0f0f0;
+            border: 1px solid #333;
+            padding: 10px;
+            text-align: left;
+            font-weight: bold;
+          }
+          .print-table td {
+            border: 1px solid #333;
+            padding: 8px;
+          }
+          .print-table tr:nth-child(even) {
+            background-color: #f9f9f9;
+          }
+          .status-badge {
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-weight: bold;
+            display: inline-block;
+          }
+          .status-approved {
+            background-color: #d4edda;
+            color: #155724;
+          }
+          .status-pending {
+            background-color: #fff3cd;
+            color: #856404;
+          }
+          .status-rejected {
+            background-color: #f8d7da;
+            color: #721c24;
+          }
+          .amount {
+            font-weight: bold;
+            color: #28a745;
+          }
+          .footer {
+            margin-top: 30px;
+            text-align: center;
+            font-size: 10px;
+            color: #666;
+            border-top: 1px solid #ccc;
+            padding-top: 10px;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <h1>💰 Gestion des Demandes d'Acompte</h1>
+          <div class="filter-info">
+            <strong>Filtre:</strong> ${filterLabel} | <strong>Mois:</strong> ${monthLabel}
+          </div>
+          <div class="filter-info">
+            <strong>Date d'impression:</strong> ${new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+          </div>
+        </div>
+        <table class="print-table">
+          <thead>
+            <tr>
+              <th>Salarié</th>
+              <th>Email</th>
+              <th>Montant</th>
+              <th>Mois de déduction</th>
+              <th>Date de demande</th>
+              <th>Statut</th>
+              <th>Commentaire manager</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${filteredRequests.length === 0 ? `
+              <tr>
+                <td colspan="7" style="text-align: center; padding: 20px;">
+                  Aucune demande d'acompte trouvée
+                </td>
+              </tr>
+            ` : filteredRequests.map(request => `
+              <tr>
+                <td>${request.employeeName || '-'}</td>
+                <td>${request.employeeEmail || '-'}</td>
+                <td class="amount">${request.amount || 0}€</td>
+                <td>${request.deductionMonth || '-'}</td>
+                <td>${new Date(request.createdAt).toLocaleDateString('fr-FR')}</td>
+                <td>
+                  <span class="status-badge status-${request.status || 'pending'}">
+                    ${getStatusLabel(request.status)}
+                  </span>
+                </td>
+                <td>${request.managerComment || '-'}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+        ${filteredRequests.length > 0 ? `
+          <div style="margin-top: 20px; text-align: right;">
+            <strong>Total: ${filteredRequests.length} demande(s) | 
+            Montant total: ${filteredRequests.reduce((sum, r) => sum + (r.amount || 0), 0)}€</strong>
+          </div>
+        ` : ''}
+        <div class="footer">
+          <p>Boulangerie Planning - Impression générée le ${new Date().toLocaleDateString('fr-FR')}</p>
+        </div>
+      </body>
+      </html>
+    `);
+    
+    printWindow.document.close();
+    
+    // Attendre que le contenu soit chargé puis lancer l'impression
+    setTimeout(() => {
+      printWindow.focus();
+      printWindow.print();
+    }, 250);
+  };
+
   if (loading) {
     return (
       <div className="advance-requests">
@@ -148,6 +321,13 @@ const AdvanceRequests = () => {
             onClick={fetchAdvanceRequests}
           >
             🔄 Actualiser
+          </button>
+          <button 
+            className="btn btn-secondary"
+            onClick={handlePrint}
+            title="Imprimer les demandes affichées"
+          >
+            🖨️ Imprimer
           </button>
         </div>
       </div>
