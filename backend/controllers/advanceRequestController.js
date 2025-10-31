@@ -192,7 +192,8 @@ const updateAdvanceRequest = async (req, res) => {
     const { id } = req.params;
     const { status, managerComment, approvedAmount } = req.body;
     // Rendre l'ID manager optionnel (comme les autres routes admin)
-    const managerId = req.user?.id || req.employeeId || 'admin';
+    // Utiliser null si pas d'authentification (le champ accepte null dans le modèle)
+    const managerId = req.user?.id || req.employeeId || null;
     
     console.log(`💰 Mise à jour demande acompte: ${id} - ${status}`);
     
@@ -214,7 +215,10 @@ const updateAdvanceRequest = async (req, res) => {
     // Mettre à jour la demande
     request.status = status;
     request.managerComment = managerComment || '';
-    request.approvedBy = managerId;
+    // N'assigner approvedBy que si on a un ID valide (ObjectId)
+    if (managerId) {
+      request.approvedBy = managerId;
+    }
     request.approvedAt = new Date();
     
     if (status === 'approved' && approvedAmount) {
