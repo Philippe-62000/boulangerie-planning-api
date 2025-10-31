@@ -246,25 +246,22 @@ const AdvanceRequests = () => {
           <thead>
             <tr>
               <th>Salarié</th>
-              <th>Email</th>
               <th>Montant</th>
               <th>Mois de déduction</th>
               <th>Date de demande</th>
               <th>Statut</th>
-              <th>Commentaire manager</th>
             </tr>
           </thead>
           <tbody>
             ${filteredRequests.length === 0 ? `
               <tr>
-                <td colspan="7" style="text-align: center; padding: 20px;">
+                <td colspan="5" style="text-align: center; padding: 20px;">
                   Aucune demande d'acompte trouvée
                 </td>
               </tr>
             ` : filteredRequests.map(request => `
               <tr>
                 <td>${request.employeeName || '-'}</td>
-                <td>${request.employeeEmail || '-'}</td>
                 <td class="amount">${request.amount || 0}€</td>
                 <td>${request.deductionMonth || '-'}</td>
                 <td>${new Date(request.createdAt).toLocaleDateString('fr-FR')}</td>
@@ -273,7 +270,6 @@ const AdvanceRequests = () => {
                     ${getStatusLabel(request.status)}
                   </span>
                 </td>
-                <td>${request.managerComment || '-'}</td>
               </tr>
             `).join('')}
           </tbody>
