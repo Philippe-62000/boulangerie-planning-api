@@ -89,11 +89,11 @@ const authenticateManager = async (req, res, next) => {
 router.post('/', authenticateEmployee, advanceRequestController.createAdvanceRequest);
 router.get('/employee', authenticateEmployee, advanceRequestController.getEmployeeAdvanceRequests);
 
-// Routes pour les managers
-router.get('/', authenticateManager, advanceRequestController.getAllAdvanceRequests);
-router.get('/pending', authenticateManager, advanceRequestController.getPendingRequests);
-router.get('/stats', authenticateManager, advanceRequestController.getAdvanceStats);
-router.put('/:id', authenticateManager, advanceRequestController.updateAdvanceRequest);
-router.delete('/:id', authenticateManager, advanceRequestController.deleteAdvanceRequest);
+// Routes pour les managers (accessibles sans authentification, comme les autres routes admin)
+router.get('/', advanceRequestController.getAllAdvanceRequests);
+router.get('/pending', advanceRequestController.getPendingRequests);
+router.get('/stats', advanceRequestController.getAdvanceStats);
+router.put('/:id', advanceRequestController.updateAdvanceRequest);
+router.delete('/:id', advanceRequestController.deleteAdvanceRequest);
 
 module.exports = router;
