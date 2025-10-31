@@ -9,17 +9,43 @@ const Login = () => {
   const navigate = useNavigate();
   const { login } = useAuth();
 
-  const handleAdminLogin = () => {
-    if (password === 'admin2024') {
-      const userRole = {
-        role: 'admin',
-        name: 'Administrateur',
-        permissions: ['all']
-      };
-      login(userRole);
-      navigate('/');
-    } else {
+  const handleAdminLogin = async () => {
+    if (password !== 'admin2024') {
       setError('Mot de passe administrateur incorrect');
+      return;
+    }
+
+    try {
+      // Appel API pour obtenir un token JWT
+      const response = await fetch('https://boulangerie-planning-api-4-pbfy.onrender.com/api/auth/admin-login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ password })
+      });
+
+      const data = await response.json();
+
+      if (data.success && data.token) {
+        // Stocker le token JWT
+        localStorage.setItem('token', data.token);
+        localStorage.setItem('adminToken', data.token);
+        
+        // Stocker aussi les infos utilisateur pour le contexte React
+        const userRole = {
+          role: 'admin',
+          name: 'Administrateur',
+          permissions: ['all']
+        };
+        login(userRole);
+        navigate('/');
+      } else {
+        setError(data.error || 'Erreur lors de la connexion');
+      }
+    } catch (error) {
+      console.error('Erreur lors de la connexion:', error);
+      setError('Erreur de connexion au serveur');
     }
   };
 

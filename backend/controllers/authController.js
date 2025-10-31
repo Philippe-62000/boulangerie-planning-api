@@ -163,6 +163,57 @@ const employeeLogin = async (req, res) => {
   }
 };
 
+// Connexion admin (pour l'interface React)
+const adminLogin = async (req, res) => {
+  try {
+    const { password } = req.body;
+    
+    console.log('🔐 Tentative de connexion admin');
+    
+    // Vérifier le mot de passe admin
+    if (password !== 'admin2024') {
+      return res.status(401).json({
+        success: false,
+        error: 'Mot de passe administrateur incorrect'
+      });
+    }
+    
+    // Générer un token JWT pour admin
+    const token = jwt.sign(
+      { 
+        userId: 'admin',
+        email: 'admin@boulangerie.fr',
+        name: 'Administrateur',
+        role: 'admin'
+      },
+      process.env.JWT_SECRET || 'votre-cle-secrete-ici',
+      { expiresIn: '24h' }
+    );
+    
+    console.log('✅ Connexion admin réussie');
+    
+    res.json({
+      success: true,
+      message: 'Connexion réussie',
+      token,
+      user: {
+        id: 'admin',
+        name: 'Administrateur',
+        email: 'admin@boulangerie.fr',
+        role: 'admin',
+        permissions: ['all']
+      }
+    });
+    
+  } catch (error) {
+    console.error('❌ Erreur adminLogin:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Erreur serveur lors de la connexion'
+    });
+  }
+};
+
 // Récupérer les informations de l'employé connecté
 const getEmployeeProfile = async (req, res) => {
   try {
@@ -279,6 +330,7 @@ const changePassword = async (req, res) => {
 module.exports = {
   sendPasswordToEmployee,
   employeeLogin,
+  adminLogin,
   getEmployeeProfile,
   generateRandomPassword,
   changePassword

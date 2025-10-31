@@ -56,6 +56,9 @@ router.post('/send-password/:id', authController.sendPasswordToEmployee);
 // Route de connexion pour les salariés
 router.post('/login', authController.employeeLogin);
 
+// Route de connexion pour les admins (interface React)
+router.post('/admin-login', authController.adminLogin);
+
 // Route pour récupérer le profil de l'employé connecté
 router.get('/employee-profile', authenticateEmployee, authController.getEmployeeProfile);
 
