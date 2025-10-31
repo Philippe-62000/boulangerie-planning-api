@@ -1872,7 +1872,7 @@ Date : ${new Date().toLocaleDateString('fr-FR')}
         deduction_month: deductionMonth,
         comment: comment || 'Aucun commentaire',
         request_date: new Date().toLocaleDateString('fr-FR'),
-        admin_url: 'https://www.filmara.fr/plan/employees'
+        admin_url: 'https://www.filmara.fr/plan/advance-requests'
       });
 
       const textContent = this.replaceTemplateVariables(template.textContent, {
@@ -1882,7 +1882,7 @@ Date : ${new Date().toLocaleDateString('fr-FR')}
         deduction_month: deductionMonth,
         comment: comment || 'Aucun commentaire',
         request_date: new Date().toLocaleDateString('fr-FR'),
-        admin_url: 'https://www.filmara.fr/plan/employees'
+        admin_url: 'https://www.filmara.fr/plan/advance-requests'
       });
       
       return await this.sendEmail(
