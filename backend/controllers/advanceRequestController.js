@@ -145,7 +145,8 @@ const getAllAdvanceRequests = async (req, res) => {
     }
     
     if (month) {
-      filter.deductionMonth = month;
+      // Recherche insensible à la casse en utilisant une regex
+      filter.deductionMonth = { $regex: new RegExp(`^${month.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') };
     }
     
     const requests = await AdvanceRequest.find(filter)
@@ -318,7 +319,8 @@ const getAdvanceStats = async (req, res) => {
     
     let filter = { isActive: true };
     if (month) {
-      filter.deductionMonth = month;
+      // Recherche insensible à la casse en utilisant une regex
+      filter.deductionMonth = { $regex: new RegExp(`^${month.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') };
     }
     
     const stats = await AdvanceRequest.aggregate([

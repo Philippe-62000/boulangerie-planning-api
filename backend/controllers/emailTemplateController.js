@@ -936,7 +936,7 @@ Boulangerie Planning - {{request_date}}`,
         <a href="{{admin_url}}" class="btn btn-danger">❌ Rejeter</a>
       </div>
       
-      <p><strong>Note :</strong> Cette demande sera automatiquement approuvée si aucune action n'est prise dans les 48 heures.</p>
+      <p>Merci de traiter cette demande dans les plus brefs délais.</p>
       
       <div class="footer">
         <p>Cet email a été envoyé automatiquement par le système de gestion des acomptes.</p>
@@ -964,7 +964,7 @@ Une nouvelle demande d'acompte sur salaire nécessite votre validation.
 
 Pour gérer cette demande : {{admin_url}}
 
-Note : Cette demande sera automatiquement approuvée si aucune action n'est prise dans les 48 heures.
+Merci de traiter cette demande dans les plus brefs délais.
 
 Boulangerie Planning - {{request_date}}`,
         description: 'Email d\'alerte envoyé aux managers lors d\'une nouvelle demande d\'acompte',
