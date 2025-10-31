@@ -1800,6 +1800,198 @@ Date : ${new Date().toLocaleDateString('fr-FR')}
       'other'
     );
   }
+
+  // Envoyer confirmation demande d'acompte au salarié
+  async sendAdvanceRequestConfirmation(employeeEmail, employeeName, amount, deductionMonth) {
+    try {
+      // Récupérer le template depuis la base de données
+      const EmailTemplate = require('../models/EmailTemplate');
+      const template = await EmailTemplate.findOne({ name: 'advance_request_employee' });
+      
+      if (!template) {
+        console.log('⚠️ Template de confirmation acompte non trouvé, utilisation du template par défaut');
+        return await this.sendEmail(
+          employeeEmail,
+          `Demande d'acompte confirmée - ${amount}€`,
+          `<p>Bonjour ${employeeName},<br>Votre demande d'acompte de ${amount}€ a été reçue. La déduction se fera sur ${deductionMonth}.</p>`,
+          `Bonjour ${employeeName},\n\nVotre demande d'acompte de ${amount}€ a été reçue. La déduction se fera sur ${deductionMonth}.`
+        );
+      }
+
+      // Remplacer les variables dans le template
+      const htmlContent = this.replaceTemplateVariables(template.htmlContent, {
+        to_name: employeeName,
+        amount: amount,
+        deduction_month: deductionMonth,
+        request_date: new Date().toLocaleDateString('fr-FR'),
+        dashboard_url: 'https://www.filmara.fr/plan/employee-dashboard.html'
+      });
+
+      const textContent = this.replaceTemplateVariables(template.textContent, {
+        to_name: employeeName,
+        amount: amount,
+        deduction_month: deductionMonth,
+        request_date: new Date().toLocaleDateString('fr-FR'),
+        dashboard_url: 'https://www.filmara.fr/plan/employee-dashboard.html'
+      });
+      
+      return await this.sendEmail(
+        employeeEmail,
+        this.replaceTemplateVariables(template.subject, { amount: amount }),
+        htmlContent,
+        textContent
+      );
+    } catch (error) {
+      console.error('❌ Erreur envoi confirmation demande acompte:', error.message);
+      return { success: false, message: error.message };
+    }
+  }
+
+  // Envoyer notification demande d'acompte au manager
+  async sendAdvanceRequestNotification(managerEmail, managerName, employeeName, amount, deductionMonth, comment) {
+    try {
+      // Récupérer le template depuis la base de données
+      const EmailTemplate = require('../models/EmailTemplate');
+      const template = await EmailTemplate.findOne({ name: 'advance_request_manager' });
+      
+      if (!template) {
+        console.log('⚠️ Template de notification acompte non trouvé, utilisation du template par défaut');
+        return await this.sendEmail(
+          managerEmail,
+          `Nouvelle demande d'acompte - ${employeeName} - ${amount}€`,
+          `<p>Bonjour ${managerName},<br>Une nouvelle demande d'acompte de ${amount}€ de ${employeeName} nécessite votre attention.</p>`,
+          `Bonjour ${managerName},\n\nUne nouvelle demande d'acompte de ${amount}€ de ${employeeName} nécessite votre attention.`
+        );
+      }
+
+      // Remplacer les variables dans le template
+      const htmlContent = this.replaceTemplateVariables(template.htmlContent, {
+        to_name: managerName,
+        employee_name: employeeName,
+        amount: amount,
+        deduction_month: deductionMonth,
+        comment: comment || 'Aucun commentaire',
+        request_date: new Date().toLocaleDateString('fr-FR'),
+        admin_url: 'https://www.filmara.fr/plan/employees'
+      });
+
+      const textContent = this.replaceTemplateVariables(template.textContent, {
+        to_name: managerName,
+        employee_name: employeeName,
+        amount: amount,
+        deduction_month: deductionMonth,
+        comment: comment || 'Aucun commentaire',
+        request_date: new Date().toLocaleDateString('fr-FR'),
+        admin_url: 'https://www.filmara.fr/plan/employees'
+      });
+      
+      return await this.sendEmail(
+        managerEmail,
+        this.replaceTemplateVariables(template.subject, { employee_name: employeeName, amount: amount }),
+        htmlContent,
+        textContent
+      );
+    } catch (error) {
+      console.error('❌ Erreur envoi notification demande acompte:', error.message);
+      return { success: false, message: error.message };
+    }
+  }
+
+  // Envoyer confirmation d'approbation d'acompte
+  async sendAdvanceApproved(employeeEmail, employeeName, amount, deductionMonth, managerComment) {
+    try {
+      // Récupérer le template depuis la base de données
+      const EmailTemplate = require('../models/EmailTemplate');
+      const template = await EmailTemplate.findOne({ name: 'advance_approved' });
+      
+      if (!template) {
+        console.log('⚠️ Template d\'approbation acompte non trouvé, utilisation du template par défaut');
+        return await this.sendEmail(
+          employeeEmail,
+          `Demande d'acompte approuvée - ${amount}€`,
+          `<p>Bonjour ${employeeName},<br>Votre demande d'acompte de ${amount}€ a été approuvée. La déduction se fera sur ${deductionMonth}.</p>`,
+          `Bonjour ${employeeName},\n\nVotre demande d'acompte de ${amount}€ a été approuvée. La déduction se fera sur ${deductionMonth}.`
+        );
+      }
+
+      // Remplacer les variables dans le template
+      const htmlContent = this.replaceTemplateVariables(template.htmlContent, {
+        to_name: employeeName,
+        amount: amount,
+        deduction_month: deductionMonth,
+        manager_comment: managerComment || 'Aucun commentaire',
+        approval_date: new Date().toLocaleDateString('fr-FR'),
+        dashboard_url: 'https://www.filmara.fr/plan/employee-dashboard.html'
+      });
+
+      const textContent = this.replaceTemplateVariables(template.textContent, {
+        to_name: employeeName,
+        amount: amount,
+        deduction_month: deductionMonth,
+        manager_comment: managerComment || 'Aucun commentaire',
+        approval_date: new Date().toLocaleDateString('fr-FR'),
+        dashboard_url: 'https://www.filmara.fr/plan/employee-dashboard.html'
+      });
+      
+      return await this.sendEmail(
+        employeeEmail,
+        this.replaceTemplateVariables(template.subject, { amount: amount }),
+        htmlContent,
+        textContent
+      );
+    } catch (error) {
+      console.error('❌ Erreur envoi confirmation approbation:', error.message);
+      return { success: false, message: error.message };
+    }
+  }
+
+  // Envoyer notification de rejet d'acompte
+  async sendAdvanceRejected(employeeEmail, employeeName, amount, deductionMonth, managerComment) {
+    try {
+      // Récupérer le template depuis la base de données
+      const EmailTemplate = require('../models/EmailTemplate');
+      const template = await EmailTemplate.findOne({ name: 'advance_rejected' });
+      
+      if (!template) {
+        console.log('⚠️ Template de rejet acompte non trouvé, utilisation du template par défaut');
+        return await this.sendEmail(
+          employeeEmail,
+          `Demande d'acompte refusée - ${amount}€`,
+          `<p>Bonjour ${employeeName},<br>Votre demande d'acompte de ${amount}€ a été refusée. Raison : ${managerComment || 'Non spécifiée'}.</p>`,
+          `Bonjour ${employeeName},\n\nVotre demande d'acompte de ${amount}€ a été refusée. Raison : ${managerComment || 'Non spécifiée'}.`
+        );
+      }
+
+      // Remplacer les variables dans le template
+      const htmlContent = this.replaceTemplateVariables(template.htmlContent, {
+        to_name: employeeName,
+        amount: amount,
+        deduction_month: deductionMonth,
+        manager_comment: managerComment || 'Aucun commentaire',
+        rejection_date: new Date().toLocaleDateString('fr-FR'),
+        dashboard_url: 'https://www.filmara.fr/plan/employee-dashboard.html'
+      });
+
+      const textContent = this.replaceTemplateVariables(template.textContent, {
+        to_name: employeeName,
+        amount: amount,
+        deduction_month: deductionMonth,
+        manager_comment: managerComment || 'Aucun commentaire',
+        rejection_date: new Date().toLocaleDateString('fr-FR'),
+        dashboard_url: 'https://www.filmara.fr/plan/employee-dashboard.html'
+      });
+      
+      return await this.sendEmail(
+        employeeEmail,
+        this.replaceTemplateVariables(template.subject, { amount: amount }),
+        htmlContent,
+        textContent
+      );
+    } catch (error) {
+      console.error('❌ Erreur envoi notification rejet:', error.message);
+      return { success: false, message: error.message };
+    }
+  }
 }
 
 // Instance singleton

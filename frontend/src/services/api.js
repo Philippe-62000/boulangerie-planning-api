@@ -9,6 +9,28 @@ const api = axios.create({
   },
 });
 
+// Intercepteur pour ajouter le token JWT automatiquement
+api.interceptors.request.use(
+  (config) => {
+    // Chercher le token dans localStorage avec différents noms possibles
+    const token = 
+      localStorage.getItem('token') ||
+      localStorage.getItem('adminToken') ||
+      localStorage.getItem('managerToken') ||
+      localStorage.getItem('employeeToken');
+    
+    // Si un token est trouvé, l'ajouter dans les headers
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
+
 // Intercepteur pour gérer les erreurs
 api.interceptors.response.use(
   (response) => response,
@@ -17,6 +39,8 @@ api.interceptors.response.use(
       console.warn('⚠️ Timeout API - Render en mode sleep, veuillez patienter...');
     } else if (error.response?.status === 401) {
       console.error('Erreur d\'authentification');
+      // Optionnel : rediriger vers la page de login
+      // window.location.href = '/login';
     } else if (error.response?.status >= 500) {
       console.error('Erreur serveur:', error.response.data);
     } else if (!error.response) {
