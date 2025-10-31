@@ -10,16 +10,26 @@ const AdvanceRequests = () => {
   const [selectedAdvanceRequest, setSelectedAdvanceRequest] = useState(null);
   const [showEditModal, setShowEditModal] = useState(false);
   const [filter, setFilter] = useState('all'); // all, pending, approved, rejected
+  const [selectedMonth, setSelectedMonth] = useState(''); // Filtre par mois
 
   useEffect(() => {
     fetchAdvanceRequests();
     fetchAdvanceStats();
-  }, []);
+  }, [selectedMonth, filter]); // Recharger quand le mois ou le filtre change
 
   const fetchAdvanceRequests = async () => {
     try {
       setLoading(true);
-      const response = await api.get('/advance-requests');
+      // Construire les paramètres de requête
+      const params = {};
+      if (selectedMonth) {
+        params.month = selectedMonth;
+      }
+      if (filter !== 'all') {
+        params.status = filter;
+      }
+      
+      const response = await api.get('/advance-requests', { params });
       if (response.data.success) {
         setAdvanceRequests(response.data.data);
       }
@@ -33,7 +43,13 @@ const AdvanceRequests = () => {
 
   const fetchAdvanceStats = async () => {
     try {
-      const response = await api.get('/advance-requests/stats');
+      // Construire les paramètres de requête
+      const params = {};
+      if (selectedMonth) {
+        params.month = selectedMonth;
+      }
+      
+      const response = await api.get('/advance-requests/stats', { params });
       if (response.data.success) {
         setAdvanceStats(response.data.data);
       }
@@ -51,8 +67,23 @@ const AdvanceRequests = () => {
       
       if (response.data.success) {
         toast.success(`Demande ${action === 'approved' ? 'approuvée' : 'rejetée'} avec succès`);
-        fetchAdvanceRequests();
-        fetchAdvanceStats();
+        // Recharger les données
+        const params = {};
+        if (selectedMonth) params.month = selectedMonth;
+        if (filter !== 'all') params.status = filter;
+        
+        const requestsResponse = await api.get('/advance-requests', { params });
+        if (requestsResponse.data.success) {
+          setAdvanceRequests(requestsResponse.data.data);
+        }
+        
+        const statsParams = {};
+        if (selectedMonth) statsParams.month = selectedMonth;
+        const statsResponse = await api.get('/advance-requests/stats', { params: statsParams });
+        if (statsResponse.data.success) {
+          setAdvanceStats(statsResponse.data.data);
+        }
+        
         setShowEditModal(false);
         setSelectedAdvanceRequest(null);
       }
@@ -73,8 +104,9 @@ const AdvanceRequests = () => {
   };
 
   const getFilteredRequests = () => {
-    if (filter === 'all') return advanceRequests;
-    return advanceRequests.filter(req => req.status === filter);
+    // Le filtrage est déjà fait côté serveur via les paramètres
+    // On retourne directement les résultats
+    return advanceRequests;
   };
 
   const getStatusLabel = (status) => {
@@ -166,6 +198,37 @@ const AdvanceRequests = () => {
         >
           Rejetées ({advanceStats.rejected || 0})
         </button>
+        
+        {/* Sélecteur de mois */}
+        <div className="month-filter">
+          <label htmlFor="month-select">📅 Mois :</label>
+          <select 
+            id="month-select"
+            value={selectedMonth}
+            onChange={(e) => setSelectedMonth(e.target.value)}
+            className="month-select"
+          >
+            <option value="">Tous les mois</option>
+            {(() => {
+              const months = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
+              const currentYear = new Date().getFullYear();
+              const options = [];
+              
+              // Ajouter les mois pour l'année en cours et l'année suivante
+              for (let year = currentYear; year <= currentYear + 1; year++) {
+                months.forEach((month, index) => {
+                  options.push(
+                    <option key={`${month} ${year}`} value={`${month} ${year}`}>
+                      {month} {year}
+                    </option>
+                  );
+                });
+              }
+              
+              return options;
+            })()}
+          </select>
+        </div>
       </div>
 
       {/* Liste des demandes */}

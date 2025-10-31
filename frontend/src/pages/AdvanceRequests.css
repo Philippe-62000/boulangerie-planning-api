@@ -97,6 +97,49 @@
   border-color: var(--primary-color);
 }
 
+/* Sélecteur de mois */
+.month-filter {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-2);
+  padding: var(--spacing-3) var(--spacing-4);
+  background: var(--white);
+  border: 2px solid var(--gray-300);
+  border-radius: var(--border-radius-lg);
+  margin-left: var(--spacing-4);
+}
+
+.month-filter label {
+  font-weight: 600;
+  color: var(--gray-700);
+  font-size: var(--font-size-sm);
+  margin: 0;
+  white-space: nowrap;
+}
+
+.month-select {
+  padding: var(--spacing-2) var(--spacing-3);
+  border: 1px solid var(--gray-300);
+  border-radius: var(--border-radius);
+  background: var(--white);
+  color: var(--gray-700);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  min-width: 160px;
+}
+
+.month-select:hover {
+  border-color: var(--primary-color);
+}
+
+.month-select:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
 /* Liste des demandes */
 .requests-list {
   display: flex;
@@ -390,6 +433,16 @@
   
   .filters {
     justify-content: center;
+  }
+  
+  .month-filter {
+    margin-left: 0;
+    width: 100%;
+    justify-content: center;
+  }
+  
+  .month-select {
+    width: 100%;
   }
   
   .request-card {
