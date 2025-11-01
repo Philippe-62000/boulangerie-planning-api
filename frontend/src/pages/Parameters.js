@@ -47,6 +47,10 @@ const Parameters = () => {
   const [employees, setEmployees] = useState([]);
   const [loadingEmployees, setLoadingEmployees] = useState(false);
 
+  // États pour la vérification de maintenance
+  const [maintenanceCheck, setMaintenanceCheck] = useState(null);
+  const [checkingMaintenance, setCheckingMaintenance] = useState(false);
+
   useEffect(() => {
     fetchParameters();
     fetchMenuPermissions();
@@ -506,6 +510,24 @@ const Parameters = () => {
   const closeTemplateEditor = () => {
     setShowTemplateEditor(false);
     setSelectedTemplate(null);
+  };
+
+  // Fonction pour vérifier les mises à jour de sécurité
+  const checkMaintenance = async () => {
+    setCheckingMaintenance(true);
+    try {
+      const response = await api.get('/maintenance/security-check');
+      if (response.data.success) {
+        setMaintenanceCheck(response.data.data);
+        console.log('✅ Vérification maintenance:', response.data.data);
+      }
+    } catch (error) {
+      console.error('❌ Erreur vérification maintenance:', error);
+      toast.error('Erreur lors de la vérification des mises à jour');
+      setMaintenanceCheck({ error: error.response?.data?.message || 'Erreur inconnue' });
+    } finally {
+      setCheckingMaintenance(false);
+    }
   };
 
   if (loading) {
@@ -1321,6 +1343,161 @@ const Parameters = () => {
                 <li>L'opération d'import ne peut pas être annulée</li>
               </ul>
             </div>
+          </div>
+
+          {/* Vérification des mises à jour de sécurité */}
+          <div className="maintenance-check" style={{ marginTop: '2rem', paddingTop: '2rem', borderTop: '2px solid #eee' }}>
+            <h4>🔒 Vérification des Mises à Jour</h4>
+            <p style={{ marginBottom: '1rem', color: '#666' }}>
+              Vérifiez les vulnérabilités de sécurité et les mises à jour disponibles pour les dépendances
+            </p>
+            
+            <button
+              className="btn btn-primary"
+              onClick={checkMaintenance}
+              disabled={checkingMaintenance}
+              style={{ marginBottom: '1rem' }}
+            >
+              {checkingMaintenance ? '🔍 Vérification en cours...' : '🔍 Vérifier les Mises à Jour'}
+            </button>
+
+            {maintenanceCheck && (
+              <div className="maintenance-results" style={{ marginTop: '1rem', padding: '1rem', backgroundColor: '#f9f9f9', borderRadius: '4px' }}>
+                {maintenanceCheck.error ? (
+                  <div style={{ color: '#d32f2f' }}>
+                    <strong>❌ Erreur:</strong> {maintenanceCheck.error}
+                    <p style={{ fontSize: '0.9em', marginTop: '0.5rem' }}>
+                      La vérification nécessite npm install dans les répertoires backend et frontend.
+                      Cette fonctionnalité fonctionne mieux en développement local.
+                    </p>
+                  </div>
+                ) : (
+                  <>
+                    {maintenanceCheck.summary && (
+                      <div style={{ marginBottom: '1rem', padding: '1rem', borderRadius: '4px', backgroundColor: maintenanceCheck.summary.status === 'critical' ? '#ffebee' : maintenanceCheck.summary.status === 'warning' ? '#fff3e0' : '#e8f5e9' }}>
+                        <h5 style={{ marginTop: 0 }}>
+                          {maintenanceCheck.summary.status === 'critical' ? '🔴 État Critique' : 
+                           maintenanceCheck.summary.status === 'warning' ? '🟡 Attention Requise' : 
+                           '✅ Tout est à Jour'}
+                        </h5>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '1rem', marginTop: '0.5rem' }}>
+                          <div>
+                            <strong>Vulnérabilités Critiques:</strong>
+                            <div style={{ fontSize: '1.5em', fontWeight: 'bold', color: maintenanceCheck.summary.totalCriticalVulnerabilities > 0 ? '#d32f2f' : '#4caf50' }}>
+                              {maintenanceCheck.summary.totalCriticalVulnerabilities}
+                            </div>
+                          </div>
+                          <div>
+                            <strong>Vulnérabilités Élevées:</strong>
+                            <div style={{ fontSize: '1.5em', fontWeight: 'bold', color: maintenanceCheck.summary.totalHighVulnerabilities > 0 ? '#f57c00' : '#4caf50' }}>
+                              {maintenanceCheck.summary.totalHighVulnerabilities}
+                            </div>
+                          </div>
+                          <div>
+                            <strong>Packages Obsolètes:</strong>
+                            <div style={{ fontSize: '1.5em', fontWeight: 'bold' }}>
+                              {maintenanceCheck.summary.totalOutdatedPackages}
+                            </div>
+                          </div>
+                        </div>
+                        {maintenanceCheck.summary.requiresAction && (
+                          <div style={{ marginTop: '1rem', padding: '0.75rem', backgroundColor: '#fff', borderRadius: '4px', border: '1px solid #ff9800' }}>
+                            <strong>⚠️ Action recommandée:</strong> Des mises à jour de sécurité sont nécessaires pour garantir la sécurité de l'application.
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Détails Backend */}
+                    {maintenanceCheck.backend && (
+                      <div style={{ marginBottom: '1rem' }}>
+                        <h5>🔧 Backend</h5>
+                        {maintenanceCheck.backend.vulnerabilities.length > 0 && (
+                          <div style={{ marginTop: '0.5rem' }}>
+                            <strong style={{ color: '#d32f2f' }}>Vulnérabilités ({maintenanceCheck.backend.vulnerabilities.length}):</strong>
+                            <ul style={{ marginTop: '0.5rem', paddingLeft: '1.5rem' }}>
+                              {maintenanceCheck.backend.vulnerabilities.slice(0, 5).map((vuln, idx) => (
+                                <li key={idx} style={{ marginBottom: '0.25rem' }}>
+                                  <strong>{vuln.name}</strong> ({vuln.severity}) - {vuln.title}
+                                </li>
+                              ))}
+                              {maintenanceCheck.backend.vulnerabilities.length > 5 && (
+                                <li>... et {maintenanceCheck.backend.vulnerabilities.length - 5} autres</li>
+                              )}
+                            </ul>
+                          </div>
+                        )}
+                        {maintenanceCheck.backend.outdated.length > 0 && (
+                          <div style={{ marginTop: '0.5rem' }}>
+                            <strong>Packages obsolètes ({maintenanceCheck.backend.outdated.length}):</strong>
+                            <ul style={{ marginTop: '0.5rem', paddingLeft: '1.5rem' }}>
+                              {maintenanceCheck.backend.outdated.slice(0, 5).map((pkg, idx) => (
+                                <li key={idx} style={{ marginBottom: '0.25rem' }}>
+                                  <strong>{pkg.name}</strong>: {pkg.current} → {pkg.latest}
+                                </li>
+                              ))}
+                              {maintenanceCheck.backend.outdated.length > 5 && (
+                                <li>... et {maintenanceCheck.backend.outdated.length - 5} autres</li>
+                              )}
+                            </ul>
+                          </div>
+                        )}
+                        {maintenanceCheck.backend.vulnerabilities.length === 0 && maintenanceCheck.backend.outdated.length === 0 && (
+                          <p style={{ color: '#4caf50' }}>✅ Aucun problème détecté</p>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Détails Frontend */}
+                    {maintenanceCheck.frontend && (
+                      <div>
+                        <h5>🎨 Frontend</h5>
+                        {maintenanceCheck.frontend.vulnerabilities.length > 0 && (
+                          <div style={{ marginTop: '0.5rem' }}>
+                            <strong style={{ color: '#d32f2f' }}>Vulnérabilités ({maintenanceCheck.frontend.vulnerabilities.length}):</strong>
+                            <ul style={{ marginTop: '0.5rem', paddingLeft: '1.5rem' }}>
+                              {maintenanceCheck.frontend.vulnerabilities.slice(0, 5).map((vuln, idx) => (
+                                <li key={idx} style={{ marginBottom: '0.25rem' }}>
+                                  <strong>{vuln.name}</strong> ({vuln.severity}) - {vuln.title}
+                                </li>
+                              ))}
+                              {maintenanceCheck.frontend.vulnerabilities.length > 5 && (
+                                <li>... et {maintenanceCheck.frontend.vulnerabilities.length - 5} autres</li>
+                              )}
+                            </ul>
+                          </div>
+                        )}
+                        {maintenanceCheck.frontend.outdated.length > 0 && (
+                          <div style={{ marginTop: '0.5rem' }}>
+                            <strong>Packages obsolètes ({maintenanceCheck.frontend.outdated.length}):</strong>
+                            <ul style={{ marginTop: '0.5rem', paddingLeft: '1.5rem' }}>
+                              {maintenanceCheck.frontend.outdated.slice(0, 5).map((pkg, idx) => (
+                                <li key={idx} style={{ marginBottom: '0.25rem' }}>
+                                  <strong>{pkg.name}</strong>: {pkg.current} → {pkg.latest}
+                                </li>
+                              ))}
+                              {maintenanceCheck.frontend.outdated.length > 5 && (
+                                <li>... et {maintenanceCheck.frontend.outdated.length - 5} autres</li>
+                              )}
+                            </ul>
+                          </div>
+                        )}
+                        {maintenanceCheck.frontend.vulnerabilities.length === 0 && maintenanceCheck.frontend.outdated.length === 0 && (
+                          <p style={{ color: '#4caf50' }}>✅ Aucun problème détecté</p>
+                        )}
+                      </div>
+                    )}
+
+                    {maintenanceCheck.timestamp && (
+                      <p style={{ fontSize: '0.85em', color: '#999', marginTop: '1rem', marginBottom: 0 }}>
+                        Dernière vérification: {new Date(maintenanceCheck.timestamp).toLocaleString('fr-FR')}
+                      </p>
+                    )}
+                  </>
+                )}
+              </div>
+            )}
+          </div>
           </div>
         </div>
           </div>

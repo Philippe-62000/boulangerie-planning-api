@@ -9,9 +9,15 @@ RewriteRule ^(.*)$ https://www.filmara.fr/plan/$1 [R=301,L]
 RewriteCond %{HTTP_HOST} ^filmara\.fr$ [NC]
 RewriteRule ^(.*)$ https://www.filmara.fr/plan/$1 [R=301,L]
 
-# Configuration pour React Router
+# MIME types pour les modules JavaScript
+<FilesMatch "\.(js|mjs)$">
+    Header set Content-Type "application/javascript"
+</FilesMatch>
+
+# Configuration pour React Router (ne pas rediriger les fichiers statiques)
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
+RewriteCond %{REQUEST_URI} !\.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$
 RewriteRule . /plan/index.html [L]
 
 # Headers de sécurité
