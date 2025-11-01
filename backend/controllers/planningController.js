@@ -2,7 +2,7 @@ const Planning = require('../models/Planning');
 const Employee = require('../models/Employee');
 const WeeklyConstraints = require('../models/WeeklyConstraints');
 const EquityStats = require('../models/EquityStats');
-const fetch = require('node-fetch');
+const axios = require('axios');
 
 // Solveur de planning optimisé en JavaScript pur (inspiré du code Python OR-Tools)
 class PlanningBoulangerieSolver {
@@ -736,27 +736,24 @@ class PlanningGenerator {
     try {
       console.log('📡 Appel API OR-Tools:', apiUrl);
       
-      const response = await fetch(apiUrl, {
-        method: 'POST',
+      const response = await axios.post(apiUrl, data, {
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json'
         },
-        body: JSON.stringify(data),
         timeout: 60000 // 60 secondes
       });
       
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-      
-      const result = await response.json();
+      const result = response.data;
       console.log('📊 Réponse OR-Tools:', result.success ? '✅ Succès' : '❌ Échec');
       
       return result;
     } catch (error) {
-      console.error('❌ Erreur appel API OR-Tools:', error.message);
-      throw error;
+      const errorMessage = error.response 
+        ? `HTTP ${error.response.status}: ${error.response.statusText}`
+        : error.message;
+      console.error('❌ Erreur appel API OR-Tools:', errorMessage);
+      throw new Error(errorMessage);
     }
   }
 
@@ -786,27 +783,19 @@ class PlanningGenerator {
       
       // ÉTAPE 1 : Calculer les contraintes avec constraint-calculator
       console.log('🧮 Étape 1: Calcul des contraintes...');
-      const constraintsResponse = await fetch('https://constraint-calculator-pbfy.onrender.com/calculate-constraints', {
-        method: 'POST',
+      const constraintsResponse = await axios.post('https://constraint-calculator-pbfy.onrender.com/calculate-constraints', {
+        employees: employeesData,
+        week_number: weekNumber,
+        year: year
+      }, {
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json'
         },
-        body: JSON.stringify({
-          employees: employeesData,
-          week_number: weekNumber,
-          year: year
-        }),
         timeout: 30000 // 30 secondes
       });
       
-      if (!constraintsResponse.ok) {
-        const errorText = await constraintsResponse.text();
-        console.error('❌ Erreur constraint calculator:', errorText);
-        throw new Error(`Erreur calcul contraintes: HTTP ${constraintsResponse.status} - ${errorText}`);
-      }
-      
-      const constraintsResult = await constraintsResponse.json();
+      const constraintsResult = constraintsResponse.data;
       console.log('✅ Contraintes calculées:', constraintsResult.success ? 'Succès' : 'Échec');
       
       if (!constraintsResult.success) {
@@ -815,29 +804,21 @@ class PlanningGenerator {
       
       // ÉTAPE 2 : Générer le planning avec planning-generator
       console.log('🚀 Étape 2: Génération du planning...');
-      const planningResponse = await fetch('https://planning-generator-pbfy.onrender.com/generate-planning', {
-        method: 'POST',
+      const planningResponse = await axios.post('https://planning-generator-pbfy.onrender.com/generate-planning', {
+        employees: employeesData,
+        constraints: constraintsResult.constraints,
+        affluence_levels: affluenceLevels,
+        week_number: weekNumber,
+        year: year
+      }, {
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json'
         },
-        body: JSON.stringify({
-          employees: employeesData,
-          constraints: constraintsResult.constraints,
-          affluence_levels: affluenceLevels,
-          week_number: weekNumber,
-          year: year
-        }),
         timeout: 30000 // 30 secondes
       });
       
-      if (!planningResponse.ok) {
-        const errorText = await planningResponse.text();
-        console.error('❌ Erreur planning generator:', errorText);
-        throw new Error(`Erreur génération planning: HTTP ${planningResponse.status} - ${errorText}`);
-      }
-      
-      const planningResult = await planningResponse.json();
+      const planningResult = planningResponse.data;
       console.log('✅ Planning généré:', planningResult.success ? 'Succès' : 'Échec');
       
       if (!planningResult.success) {
@@ -852,8 +833,11 @@ class PlanningGenerator {
       };
       
     } catch (error) {
-      console.error('❌ Erreur architecture distribuée:', error.message);
-      throw error;
+      const errorMessage = error.response 
+        ? `Erreur ${error.config.url}: HTTP ${error.response.status} - ${error.response.data || error.message}`
+        : error.message;
+      console.error('❌ Erreur architecture distribuée:', errorMessage);
+      throw new Error(errorMessage);
     }
   }
 
@@ -1838,14 +1822,18 @@ class PlanningGenerator {
     try {
       // Test du service constraint-calculator
       console.log('🧮 Test du service constraint-calculator...');
-      const constraintResponse = await fetch('https://constraint-calculator-pbfy.onrender.com/health');
-      const constraintHealth = await constraintResponse.json();
+      const constraintResponse = await axios.get('https://constraint-calculator-pbfy.onrender.com/health', {
+        timeout: 10000
+      });
+      const constraintHealth = constraintResponse.data;
       console.log('✅ Constraint Calculator:', constraintHealth.status);
       
       // Test du service planning-generator
       console.log('🚀 Test du service planning-generator...');
-      const planningResponse = await fetch('https://planning-generator-pbfy.onrender.com/health');
-      const planningHealth = await planningResponse.json();
+      const planningResponse = await axios.get('https://planning-generator-pbfy.onrender.com/health', {
+        timeout: 10000
+      });
+      const planningHealth = planningResponse.data;
       console.log('✅ Planning Generator:', planningHealth.status);
       
       return {
