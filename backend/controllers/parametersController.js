@@ -3,7 +3,7 @@ const Parameter = require('../models/Parameters');
 // Récupérer tous les paramètres
 const getParameters = async (req, res) => {
   try {
-    const parameters = await Parameter.find().sort({ name: 1 });
+    const parameters = await Parameter.find().sort({ createdAt: 1 });
     
     // Si aucun paramètre n'existe, créer les 12 paramètres par défaut + email comptable
     if (parameters.length === 0) {
