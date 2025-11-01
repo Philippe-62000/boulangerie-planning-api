@@ -17,7 +17,7 @@ const SickLeaveAdmin = () => {
   const [editingSickLeave, setEditingSickLeave] = useState(null);
   const [editFormData, setEditFormData] = useState({ startDate: '', endDate: '' });
 
-  const API_URL = process.env.REACT_APP_API_URL || 'https://boulangerie-planning-api-4-pbfy.onrender.com/api';
+  const API_URL = import.meta.env.VITE_API_URL || 'https://boulangerie-planning-api-4-pbfy.onrender.com/api';
 
   const fetchSickLeaves = useCallback(async () => {
     try {

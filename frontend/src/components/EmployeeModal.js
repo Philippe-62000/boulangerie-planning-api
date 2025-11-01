@@ -104,7 +104,7 @@ const EmployeeModal = ({ employee, onSave, onClose, employees = [] }) => {
       console.log('📧 Envoi du mot de passe via backend API pour:', employee.name, employee.email);
       
       // Appeler l'API backend pour générer et sauvegarder le mot de passe
-      const backendResponse = await fetch(`${process.env.REACT_APP_API_URL || 'https://boulangerie-planning-api-4-pbfy.onrender.com/api'}/auth/send-password/${employee._id}`, {
+      const backendResponse = await fetch(`${import.meta.env.VITE_API_URL || 'https://boulangerie-planning-api-4-pbfy.onrender.com/api'}/auth/send-password/${employee._id}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

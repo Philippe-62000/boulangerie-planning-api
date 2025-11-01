@@ -56,7 +56,7 @@ const EmployeeDashboard = () => {
       
       // Créer un lien de téléchargement temporaire
       const link = document.createElement('a');
-      link.href = `${process.env.REACT_APP_API_URL || 'https://boulangerie-planning-api-4-pbfy.onrender.com/api'}${downloadUrl}`;
+      link.href = `${import.meta.env.VITE_API_URL || 'https://boulangerie-planning-api-4-pbfy.onrender.com/api'}${downloadUrl}`;
       link.download = documentTitle;
       document.body.appendChild(link);
       link.click();

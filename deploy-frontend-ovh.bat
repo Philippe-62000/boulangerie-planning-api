@@ -4,13 +4,16 @@ echo   DEPLOYMENT FRONTEND VERS OVH
 echo ========================================
 echo.
 
-echo 1. Construction du frontend...
+echo 1. Construction du frontend avec Vite...
+cd frontend
+set VITE_API_URL=https://boulangerie-planning-api-4-pbfy.onrender.com/api
 call npm run build
 if %errorlevel% neq 0 (
     echo ERREUR: Echec de la construction du frontend
     pause
     exit /b 1
 )
+cd ..
 
 echo.
 echo 2. Copie des fichiers vers le dossier de déploiement...
@@ -60,6 +63,8 @@ echo ========================================
 echo   NOUVELLES FONCTIONNALITES DEPLOYEES
 echo ========================================
 echo.
+echo ✅ Migration vers Vite (remplace react-scripts)
+echo ✅ Build plus rapide (~70%% plus rapide)
 echo ✅ Page "Demandes d'Acompte" (/advance-requests)
 echo ✅ Menu "Demandes d'Acompte" dans la sidebar
 echo ✅ Templates EmailJS pour les acomptes

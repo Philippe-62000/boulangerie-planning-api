@@ -2,7 +2,7 @@ import axios from 'axios';
 
 // Configuration d'Axios - Appel vers l'API locale sur OVH
 const api = axios.create({
-  baseURL: process.env.REACT_APP_API_URL || 'https://boulangerie-planning-api-4-pbfy.onrender.com/api',
+  baseURL: import.meta.env.VITE_API_URL || 'https://boulangerie-planning-api-4-pbfy.onrender.com/api',
   timeout: 120000, // Augmenté à 120 secondes pour Render (mode sleep)
   headers: {
     'Content-Type': 'application/json',
