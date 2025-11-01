@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import api from '../services/api';
 import { toast } from 'react-toastify';
+import './VacationRequestAdmin.css';
 
 const VacationRequestAdmin = () => {
   const [vacationRequests, setVacationRequests] = useState([]);
@@ -184,13 +185,18 @@ const VacationRequestAdmin = () => {
 
   const getStatusBadge = (status) => {
     const badges = {
-      pending: { text: 'En attente', class: 'badge-warning' },
-      accepted: { text: 'Accepté', class: 'badge-success' },
-      rejected: { text: 'Rejeté', class: 'badge-danger' }
+      pending: { text: 'En attente', class: 'badge-warning', icon: '⏳' },
+      validated: { text: 'Validé', class: 'badge-success', icon: '✅' },
+      accepted: { text: 'Accepté', class: 'badge-success', icon: '✅' },
+      rejected: { text: 'Rejeté', class: 'badge-danger', icon: '❌' }
     };
     
-    const badge = badges[status] || { text: status, class: 'badge-secondary' };
-    return <span className={`badge ${badge.class}`}>{badge.text}</span>;
+    const badge = badges[status] || { text: status, class: 'badge-secondary', icon: '' };
+    return (
+      <span className={`status-badge ${badge.class}`}>
+        {badge.icon} {badge.text}
+      </span>
+    );
   };
 
   const formatDate = (dateString) => {
@@ -241,22 +247,24 @@ const VacationRequestAdmin = () => {
       {/* Filtres */}
       <div className="filters-section">
         <div className="filter-group">
-          <label>Statut:</label>
+          <label htmlFor="status-filter">Statut :</label>
           <select 
+            id="status-filter"
             value={statusFilter} 
             onChange={(e) => setStatusFilter(e.target.value)}
             className="form-control"
           >
             <option value="all">Toutes ({vacationRequests.length})</option>
-            <option value="pending">En attente ({vacationRequests.filter(r => r.status === 'pending').length})</option>
-            <option value="validated">Validées ({vacationRequests.filter(r => r.status === 'validated').length})</option>
-            <option value="rejected">Rejetées ({vacationRequests.filter(r => r.status === 'rejected').length})</option>
+            <option value="pending">⏳ En attente ({vacationRequests.filter(r => r.status === 'pending').length})</option>
+            <option value="validated">✅ Validées ({vacationRequests.filter(r => r.status === 'validated').length})</option>
+            <option value="rejected">❌ Rejetées ({vacationRequests.filter(r => r.status === 'rejected').length})</option>
           </select>
         </div>
         
         <div className="filter-group">
-          <label>Année des congés:</label>
+          <label htmlFor="year-filter">Année des congés :</label>
           <select 
+            id="year-filter"
             value={yearFilter} 
             onChange={(e) => setYearFilter(parseInt(e.target.value))}
             className="form-control"
@@ -278,28 +286,56 @@ const VacationRequestAdmin = () => {
         ) : (
           <div className="requests-grid">
             {filteredRequests.map((request) => (
-              <div key={request._id} className="request-card">
+              <div key={request._id} className={`request-card status-${request.status}`}>
                 <div className="card-header">
-                  <h3>{request.employeeName}</h3>
-                  <p>{request.employeeEmail}</p>
-                  <p>{request.city}</p>
+                  <div className="employee-info">
+                    <h3 className="employee-name">{request.employeeName}</h3>
+                    <p className="employee-email">{request.employeeEmail}</p>
+                    <p className="employee-city">📍 {request.city}</p>
+                  </div>
+                  <div className="status-badge-container">
+                    {getStatusBadge(request.status)}
+                  </div>
                 </div>
                 
                 <div className="card-content">
-                  <div className="period">
-                    <strong>Période:</strong> {formatDate(request.startDate)} → {formatDate(request.endDate)}
-                    <span className="duration">
-                      ({calculateDuration(request.startDate, request.endDate)} jour{calculateDuration(request.startDate, request.endDate) > 1 ? 's' : ''})
+                  <div className="info-row period-row">
+                    <span className="info-label">📅 Période</span>
+                    <span className="info-value">
+                      {formatDate(request.startDate)} → {formatDate(request.endDate)}
+                    </span>
+                    <span className="duration-badge">
+                      {calculateDuration(request.startDate, request.endDate)} jour{calculateDuration(request.startDate, request.endDate) > 1 ? 's' : ''}
                     </span>
                   </div>
                   
-                  <div className="type">
-                    <strong>Type:</strong> {request.type}
-                  </div>
+                  {request.type && (
+                    <div className="info-row">
+                      <span className="info-label">📋 Type</span>
+                      <span className="info-value">{request.type || '-'}</span>
+                    </div>
+                  )}
                   
-                  <div className="status">
-                    {getStatusBadge(request.status)}
-                  </div>
+                  {request.reason && (
+                    <div className="info-row">
+                      <span className="info-label">💬 Raison</span>
+                      <span className="info-value">{request.reason || '-'}</span>
+                    </div>
+                  )}
+                  
+                  {request.validatedAt && (
+                    <div className="info-row">
+                      <span className="info-label">✅ Validé le</span>
+                      <span className="info-value">{formatDate(request.validatedAt)}</span>
+                    </div>
+                  )}
+                  
+                  {request.rejectedAt && (
+                    <div className="info-row">
+                      <span className="info-label">❌ Rejeté le</span>
+                      <span className="info-value">{formatDate(request.rejectedAt)}</span>
+                    </div>
+                  )}
                 </div>
                 
                 <div className="card-actions">
@@ -307,24 +343,24 @@ const VacationRequestAdmin = () => {
                     <>
                       <button 
                         onClick={() => handleAccept(request._id)}
-                        className="btn btn-success"
+                        className="btn btn-success btn-action"
                         title="Accepter"
                       >
-                        ✅
+                        ✅ Accepter
                       </button>
                       <button 
                         onClick={() => openEditModal(request)}
-                        className="btn btn-warning"
+                        className="btn btn-warning btn-action"
                         title="Modifier"
                       >
-                        ✏️
+                        ✏️ Modifier
                       </button>
                       <button 
                         onClick={() => handleReject(request._id)}
-                        className="btn btn-danger"
+                        className="btn btn-danger btn-action"
                         title="Rejeter"
                       >
-                        ❌
+                        ❌ Rejeter
                       </button>
                     </>
                   )}
@@ -386,37 +422,6 @@ const VacationRequestAdmin = () => {
         </div>
       )}
       
-      <style jsx>{`
-        .filters-section {
-          display: flex;
-          gap: 20px;
-          margin: 20px 0;
-          padding: 15px;
-          background-color: #f8f9fa;
-          border-radius: 8px;
-          border: 1px solid #dee2e6;
-        }
-        
-        .filter-group {
-          display: flex;
-          flex-direction: column;
-          gap: 5px;
-        }
-        
-        .filter-group label {
-          font-weight: bold;
-          color: #495057;
-          font-size: 14px;
-        }
-        
-        .filter-group select {
-          padding: 8px 12px;
-          border: 1px solid #ced4da;
-          border-radius: 4px;
-          background-color: white;
-          font-size: 14px;
-        }
-      `}</style>
     </div>
   );
 };

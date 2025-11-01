@@ -801,17 +801,29 @@ const Parameters = () => {
           <div className="card">
         <div className="card-header">
           <h3>🚗 Paramètres - Frais KM</h3>
+          <p style={{ fontSize: '0.9rem', color: '#666', marginTop: '0.5rem' }}>
+            Configurez les 12 en-têtes de colonnes pour les frais KM
+          </p>
         </div>
         <div className="card-body">
           <div className="parameters-list">
-          {parameters.map((param, index) => (
+          {parameters
+            .filter(param => {
+              // Filtrer uniquement les paramètres KM : ceux qui ont un kmValue défini OU un name qui commence par "km"
+              return param.kmValue !== undefined || (param.name && param.name.toLowerCase().startsWith('km'));
+            })
+            .slice(0, 12) // Limiter à 12 paramètres maximum
+            .map((param, index) => (
             <div key={param._id} className="parameter-item">
               <div className="parameter-info">
                 <span className="parameter-number">{index + 1}.</span>
                 <input
                   type="text"
                   value={param.displayName}
-                  onChange={(e) => handleParameterChange(index, 'displayName', e.target.value)}
+                  onChange={(e) => {
+                    const paramIndex = parameters.findIndex(p => p._id === param._id);
+                    handleParameterChange(paramIndex, 'displayName', e.target.value);
+                  }}
                   className="parameter-name-input"
                   placeholder={`Paramètre ${index + 1}`}
                 />
@@ -819,8 +831,11 @@ const Parameters = () => {
               <div className="parameter-value">
                 <input
                   type="number"
-                  value={param.kmValue}
-                  onChange={(e) => handleParameterChange(index, 'kmValue', e.target.value)}
+                  value={param.kmValue || 0}
+                  onChange={(e) => {
+                    const paramIndex = parameters.findIndex(p => p._id === param._id);
+                    handleParameterChange(paramIndex, 'kmValue', parseFloat(e.target.value) || 0);
+                  }}
                   className="parameter-km-input"
                   min="0"
                   step="0.1"
@@ -1376,9 +1391,11 @@ const Parameters = () => {
                     {maintenanceCheck.summary && (
                       <div style={{ marginBottom: '1rem', padding: '1rem', borderRadius: '4px', backgroundColor: maintenanceCheck.summary.status === 'critical' ? '#ffebee' : maintenanceCheck.summary.status === 'warning' ? '#fff3e0' : '#e8f5e9' }}>
                         <h5 style={{ marginTop: 0 }}>
-                          {maintenanceCheck.summary.status === 'critical' ? '🔴 État Critique' : 
-                           maintenanceCheck.summary.status === 'warning' ? '🟡 Attention Requise' : 
-                           '✅ Tout est à Jour'}
+                          {maintenanceCheck.summary.status === 'critical' 
+                            ? '🔴 État Critique' 
+                            : maintenanceCheck.summary.status === 'warning' 
+                              ? '🟡 Attention Requise' 
+                              : '✅ Tout est à Jour'}
                         </h5>
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '1rem', marginTop: '0.5rem' }}>
                           <div>
@@ -1497,7 +1514,6 @@ const Parameters = () => {
                 )}
               </div>
             )}
-          </div>
           </div>
         </div>
           </div>
