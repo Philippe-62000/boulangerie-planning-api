@@ -92,3 +92,4 @@ Les fichiers sont prêts dans le dossier `deploy-frontend/` :
 
 **Date :** 31/10/2025  
 **Version :** 1.1.0
+

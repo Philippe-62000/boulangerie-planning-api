@@ -160,3 +160,4 @@ Une fois tous les tests effectués, toutes les modifications seront opérationne
 **Date :** 31/10/2025  
 **Version :** 1.1.0  
 **Modifications :** Simplification modal acompte, sélection nominative, contact urgence
+
