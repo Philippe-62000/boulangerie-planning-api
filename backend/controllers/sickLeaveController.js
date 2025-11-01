@@ -501,12 +501,43 @@ const validateSickLeave = async (req, res) => {
       if (absenceResult.success) {
         console.log('✅ Absence créée automatiquement:', absenceResult.message);
         
-        // Synchroniser l'employé avec l'arrêt maladie
+        // Synchroniser l'employé avec l'arrêt maladie (utiliser le même employé trouvé par absenceService)
         try {
           const Employee = require('../models/Employee');
-          const employee = await Employee.findOne({
-            name: { $regex: new RegExp(sickLeave.employeeName, 'i') }
-          });
+          
+          // Nettoyer le nom (enlever les suffixes comme "- Manager", "- Salarié", etc.)
+          const cleanName = sickLeave.employeeName.split(' - ')[0].trim();
+          
+          // Recherche d'employé : d'abord par email (plus fiable), puis par nom
+          let employee = null;
+          
+          // 1. Recherche par email si disponible
+          if (sickLeave.employeeEmail) {
+            employee = await Employee.findOne({
+              email: { $regex: new RegExp(`^${sickLeave.employeeEmail.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') }
+            });
+          }
+          
+          // 2. Recherche par nom exact
+          if (!employee) {
+            employee = await Employee.findOne({
+              name: { $regex: new RegExp(`^${cleanName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') }
+            });
+          }
+          
+          // 3. Recherche par nom partiel (contient le nom nettoyé)
+          if (!employee) {
+            employee = await Employee.findOne({
+              name: { $regex: new RegExp(cleanName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i') }
+            });
+          }
+          
+          // 4. Recherche par nom original (avec tous les suffixes)
+          if (!employee) {
+            employee = await Employee.findOne({
+              name: { $regex: new RegExp(sickLeave.employeeName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i') }
+            });
+          }
           
           if (employee) {
             await Employee.findByIdAndUpdate(employee._id, {
@@ -518,7 +549,7 @@ const validateSickLeave = async (req, res) => {
             });
             console.log('✅ Employé synchronisé avec l\'arrêt maladie:', employee.name);
           } else {
-            console.log('⚠️ Employé non trouvé pour la synchronisation:', sickLeave.employeeName);
+            console.log('⚠️ Employé non trouvé pour la synchronisation:', sickLeave.employeeName, 'email:', sickLeave.employeeEmail);
           }
         } catch (syncError) {
           console.error('❌ Erreur synchronisation employé:', syncError.message);

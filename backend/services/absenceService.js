@@ -10,13 +10,55 @@ class AbsenceService {
     try {
       console.log('📋 Création automatique d\'absence pour:', sickLeave.employeeName);
       
-      // Trouver l'employé par nom
-      const employee = await Employee.findOne({
-        name: { $regex: new RegExp(sickLeave.employeeName, 'i') }
-      });
+      // Nettoyer le nom (enlever les suffixes comme "- Manager", "- Salarié", etc.)
+      const cleanName = sickLeave.employeeName.split(' - ')[0].trim();
+      console.log('🔍 Nom nettoyé pour recherche:', cleanName);
+      
+      // Recherche d'employé : d'abord par email (plus fiable), puis par nom
+      let employee = null;
+      
+      // 1. Recherche par email si disponible
+      if (sickLeave.employeeEmail) {
+        employee = await Employee.findOne({
+          email: { $regex: new RegExp(`^${sickLeave.employeeEmail.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') }
+        });
+        if (employee) {
+          console.log('✅ Employé trouvé par email:', employee.name);
+        }
+      }
+      
+      // 2. Recherche par nom exact
+      if (!employee) {
+        employee = await Employee.findOne({
+          name: { $regex: new RegExp(`^${cleanName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') }
+        });
+        if (employee) {
+          console.log('✅ Employé trouvé par nom exact:', employee.name);
+        }
+      }
+      
+      // 3. Recherche par nom partiel (contient le nom nettoyé)
+      if (!employee) {
+        employee = await Employee.findOne({
+          name: { $regex: new RegExp(cleanName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i') }
+        });
+        if (employee) {
+          console.log('✅ Employé trouvé par nom partiel:', employee.name);
+        }
+      }
+      
+      // 4. Recherche par nom original (avec tous les suffixes)
+      if (!employee) {
+        employee = await Employee.findOne({
+          name: { $regex: new RegExp(sickLeave.employeeName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i') }
+        });
+        if (employee) {
+          console.log('✅ Employé trouvé par nom original:', employee.name);
+        }
+      }
       
       if (!employee) {
-        console.log('❌ Employé non trouvé:', sickLeave.employeeName);
+        console.log('❌ Employé non trouvé:', sickLeave.employeeName, 'email:', sickLeave.employeeEmail);
         throw new Error(`Employé non trouvé: ${sickLeave.employeeName}`);
       }
       
