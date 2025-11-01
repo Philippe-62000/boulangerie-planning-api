@@ -20,19 +20,15 @@ const getKmExpenses = async (req, res) => {
     
     // Récupérer les paramètres KM (ceux qui ont un kmValue défini)
     // On prend tous les paramètres avec kmValue défini, même s'il est à 0
-    // puis on les trie : d'abord ceux avec kmValue > 0, puis les autres
+    // Trier par createdAt croissant pour respecter l'ordre défini dans Parameters
     const allParameters = await Parameter.find({ 
       kmValue: { $exists: true }
     }).sort({ 
-      // Trier d'abord par kmValue décroissant (ceux avec valeur > 0 en premier)
-      kmValue: -1,
-      // Puis par nom
-      name: 1 
+      createdAt: 1  // Ordre de création pour respecter l'ordre dans Parameters
     });
     
     // Limiter à 12 paramètres maximum
-    // On prend les 12 premiers, même si certains ont kmValue = 0
-    // Cela permet d'afficher toutes les colonnes définies dans Parameters
+    // On prend les 12 premiers dans l'ordre défini dans Parameters
     const parameters = allParameters.slice(0, 12);
     
     console.log(`🚗 ${parameters.length} paramètres KM trouvés`);
