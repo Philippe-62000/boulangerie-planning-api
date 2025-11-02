@@ -30,7 +30,25 @@ class SFTPService {
       }
 
       console.log('🔌 Connexion au NAS Synology...');
-      await this.client.connect(this.config);
+      
+      // Configuration avec IPv4 forcé (ajout de sock dans les options pour ssh2)
+      const connectConfig = {
+        ...this.config,
+        // Options supplémentaires pour ssh2 pour forcer IPv4
+        sock: undefined, // Laisse ssh2 créer la socket
+      };
+      
+      // Ajout de l'option lookup pour forcer IPv4
+      const dns = require('dns').promises;
+      try {
+        const addresses = await dns.lookup(this.config.host, { family: 4 });
+        connectConfig.host = addresses.address; // Utiliser l'adresse IPv4 résolue
+        console.log(`✅ Résolution DNS IPv4: ${addresses.address}`);
+      } catch (dnsError) {
+        console.warn('⚠️ Erreur résolution DNS IPv4, utilisation du hostname:', dnsError.message);
+      }
+      
+      await this.client.connect(connectConfig);
       this.isConnected = true;
       console.log('✅ Connecté au NAS Synology');
       return true;
