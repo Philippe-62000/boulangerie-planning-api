@@ -90,7 +90,9 @@ const testSftpConnection = async (req, res) => {
       port: 22,
       readyTimeout: 10000,
       retries: 2,
-      retry_minTimeout: 1000
+      retry_minTimeout: 1000,
+      // Forcer IPv4 pour éviter les problèmes de connectivité IPv6 depuis Render
+      family: 4
     };
     
     console.log('🔌 Tentative de connexion SFTP...');

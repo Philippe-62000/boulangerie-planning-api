@@ -13,7 +13,9 @@ class SFTPService {
       port: 22,
       readyTimeout: 20000,
       retries: 3,
-      retry_minTimeout: 2000
+      retry_minTimeout: 2000,
+      // Forcer IPv4 pour éviter les problèmes de connectivité IPv6 depuis Render
+      family: 4
     };
     
     this.basePath = '/n8n/sick-leaves';
