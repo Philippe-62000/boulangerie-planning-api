@@ -13,9 +13,7 @@ class SFTPService {
       port: 22,
       readyTimeout: 20000,
       retries: 3,
-      retry_minTimeout: 2000,
-      // Forcer IPv4 pour éviter les problèmes de connectivité IPv6 depuis Render
-      family: 4
+      retry_minTimeout: 2000
     };
     
     this.basePath = '/n8n/sick-leaves';
@@ -30,25 +28,9 @@ class SFTPService {
       }
 
       console.log('🔌 Connexion au NAS Synology...');
-      
-      // Configuration avec IPv4 forcé (ajout de sock dans les options pour ssh2)
-      const connectConfig = {
-        ...this.config,
-        // Options supplémentaires pour ssh2 pour forcer IPv4
-        sock: undefined, // Laisse ssh2 créer la socket
-      };
-      
-      // Ajout de l'option lookup pour forcer IPv4
-      const dns = require('dns').promises;
-      try {
-        const addresses = await dns.lookup(this.config.host, { family: 4 });
-        connectConfig.host = addresses.address; // Utiliser l'adresse IPv4 résolue
-        console.log(`✅ Résolution DNS IPv4: ${addresses.address}`);
-      } catch (dnsError) {
-        console.warn('⚠️ Erreur résolution DNS IPv4, utilisation du hostname:', dnsError.message);
-      }
-      
-      await this.client.connect(connectConfig);
+      // Utiliser directement la config avec family: 4 pour forcer IPv4
+      // La bibliothèque ssh2 gère elle-même la résolution DNS
+      await this.client.connect(this.config);
       this.isConnected = true;
       console.log('✅ Connecté au NAS Synology');
       return true;
