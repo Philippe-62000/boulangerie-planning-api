@@ -533,12 +533,21 @@
                     }
                 });
 
+                // Vérifier que la réponse est OK
+                if (!response.ok) {
+                    throw new Error('Token invalide');
+                }
+
                 const data = await response.json();
-                if (!data.success) {
+                
+                // Seulement déconnecter si le token est explicitement invalide
+                if (!data.success || !data.employee) {
+                    console.log('Token invalide, déconnexion...');
                     logout();
                 }
             } catch (error) {
                 console.error('Erreur vérification token:', error);
+                // En cas d'erreur, déconnecter pour éviter les boucles
                 logout();
             }
         }

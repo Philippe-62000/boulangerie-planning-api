@@ -347,30 +347,44 @@
         // Vérifier si l'utilisateur est déjà connecté
         window.addEventListener('load', () => {
             const token = localStorage.getItem('employeeToken');
-            if (token) {
-                // Vérifier la validité du token
-                fetch(`${API_URL}/auth/employee-profile`, {
-                    headers: {
-                        'Authorization': `Bearer ${token}`
-                    }
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        // Token valide, rediriger vers le dashboard
-                        window.location.href = '/plan/employee-dashboard.html';
-                    } else {
-                        // Token invalide, le supprimer
-                        localStorage.removeItem('employeeToken');
-                        localStorage.removeItem('employeeData');
-                    }
-                })
-                .catch(() => {
-                    // Erreur, supprimer le token
+            const employeeData = localStorage.getItem('employeeData');
+            
+            // Si pas de token, ne rien faire (rester sur la page de connexion)
+            if (!token || !employeeData) {
+                return;
+            }
+            
+            // Vérifier la validité du token avant de rediriger
+            fetch(`${API_URL}/auth/employee-profile`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            })
+            .then(response => {
+                // Si la réponse n'est pas OK, le token est invalide
+                if (!response.ok) {
+                    throw new Error('Token invalide');
+                }
+                return response.json();
+            })
+            .then(data => {
+                // Seulement rediriger si le token est explicitement valide
+                if (data.success && data.employee) {
+                    // Token valide, rediriger vers le dashboard
+                    window.location.href = '/plan/employee-dashboard.html';
+                } else {
+                    // Token invalide, nettoyer et rester sur la page de connexion
                     localStorage.removeItem('employeeToken');
                     localStorage.removeItem('employeeData');
-                });
-            }
+                }
+            })
+            .catch((error) => {
+                // Erreur réseau ou token invalide, nettoyer et rester sur la page
+                console.log('Token invalide ou erreur:', error);
+                localStorage.removeItem('employeeToken');
+                localStorage.removeItem('employeeData');
+                // Ne pas rediriger, rester sur la page de connexion
+            });
         });
     </script>
 </body>
