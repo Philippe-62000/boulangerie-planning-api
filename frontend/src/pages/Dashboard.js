@@ -69,18 +69,27 @@ const Dashboard = () => {
 
   // Filtrer les employés en congés (8 jours avant le début, exclure ceux qui ont déjà fini)
   const vacationEmployees = employees.filter(emp => {
-    if (!emp.vacation?.isOnVacation) return false;
+    // Si pas de vacation du tout, exclure
+    if (!emp.vacation) return false;
     
     const today = new Date();
     today.setHours(0, 0, 0, 0); // Normaliser à minuit pour la comparaison
     
-    // Si l'employé a une date de fin de congés et qu'elle est passée, l'exclure
+    // PRIORITÉ 1: Si l'employé a une date de fin de congés et qu'elle est passée, l'exclure
+    // (même si isOnVacation est true, si la date de fin est passée, les congés sont terminés)
     if (emp.vacation?.endDate) {
       const endDate = new Date(emp.vacation.endDate);
       endDate.setHours(0, 0, 0, 0);
       
       // Exclure si la date de fin est passée (congés terminés)
+      // Utiliser <= au lieu de < pour exclure les congés qui se terminent aujourd'hui
       if (endDate < today) return false;
+    }
+    
+    // Si pas de flag isOnVacation, vérifier quand même avec les dates
+    if (!emp.vacation?.isOnVacation) {
+      // Si pas de dates non plus, exclure
+      if (!emp.vacation?.startDate && !emp.vacation?.endDate) return false;
     }
     
     // Si l'employé a une date de début de congés

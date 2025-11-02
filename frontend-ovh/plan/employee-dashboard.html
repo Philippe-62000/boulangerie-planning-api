@@ -502,12 +502,19 @@
 
             try {
                 currentEmployee = JSON.parse(employeeData);
-                document.getElementById('userName').textContent = currentEmployee.name;
+                
+                // Nettoyer le nom si il contient le rôle (format "Nom - Rôle")
+                let cleanName = currentEmployee.name;
+                if (cleanName.includes(' - ')) {
+                    cleanName = cleanName.split(' - ')[0].trim();
+                }
+                
+                document.getElementById('userName').textContent = cleanName;
                 document.getElementById('userRole').textContent = getRoleLabel(currentEmployee.role);
                 
-                // Pré-remplir les champs employé (nom et prénom seulement)
-                document.getElementById('sickLeaveEmployee').value = currentEmployee.name;
-                document.getElementById('vacationEmployee').value = currentEmployee.name;
+                // Pré-remplir les champs employé (nom et prénom seulement, sans le rôle)
+                document.getElementById('sickLeaveEmployee').value = cleanName;
+                document.getElementById('vacationEmployee').value = cleanName;
 
                 // Vérifier la validité du token
                 verifyToken();
@@ -691,15 +698,26 @@
             }
         });
 
+        // Fonction pour nettoyer le nom (retirer le rôle s'il est présent)
+        function cleanEmployeeName(name) {
+            if (!name) return '';
+            if (name.includes(' - ')) {
+                return name.split(' - ')[0].trim();
+            }
+            return name;
+        }
+
         // Fonctions de réinitialisation des formulaires
         function resetSickLeaveForm() {
             document.getElementById('sickLeaveForm').reset();
-            document.getElementById('sickLeaveEmployee').value = currentEmployee.name;
+            const cleanName = cleanEmployeeName(currentEmployee.name);
+            document.getElementById('sickLeaveEmployee').value = cleanName;
         }
 
         function resetVacationForm() {
             document.getElementById('vacationForm').reset();
-            document.getElementById('vacationEmployee').value = currentEmployee.name;
+            const cleanName = cleanEmployeeName(currentEmployee.name);
+            document.getElementById('vacationEmployee').value = cleanName;
         }
     </script>
 </body>

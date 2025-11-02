@@ -595,10 +595,16 @@
                 const data = await response.json();
                 currentEmployee = data.employee;
                 
+                // Nettoyer le nom si il contient le rôle (format "Nom - Rôle")
+                let cleanName = currentEmployee.name;
+                if (cleanName && cleanName.includes(' - ')) {
+                    cleanName = cleanName.split(' - ')[0].trim();
+                }
+                
                 // Afficher les informations de l'employé
-                document.getElementById('employeeName').textContent = currentEmployee.name;
-                document.getElementById('vacationEmployee').value = currentEmployee.name;
-                document.getElementById('sickLeaveEmployee').value = currentEmployee.name;
+                document.getElementById('employeeName').textContent = cleanName;
+                document.getElementById('vacationEmployee').value = cleanName;
+                document.getElementById('sickLeaveEmployee').value = cleanName;
                 document.getElementById('sickLeaveEmployeeEmail').value = currentEmployee.email;
 
                 // Masquer le loading et afficher le contenu
@@ -774,15 +780,26 @@
             }
         }
 
+        // Fonction pour nettoyer le nom (retirer le rôle s'il est présent)
+        function cleanEmployeeName(name) {
+            if (!name) return '';
+            if (name.includes(' - ')) {
+                return name.split(' - ')[0].trim();
+            }
+            return name;
+        }
+
         function resetVacationForm() {
             document.getElementById('vacationForm').reset();
-            document.getElementById('vacationEmployee').value = currentEmployee.name;
+            const cleanName = cleanEmployeeName(currentEmployee.name);
+            document.getElementById('vacationEmployee').value = cleanName;
             hideAlert('vacationAlert');
         }
 
         function resetSickLeaveForm() {
             document.getElementById('sickLeaveForm').reset();
-            document.getElementById('sickLeaveEmployee').value = currentEmployee.name;
+            const cleanName = cleanEmployeeName(currentEmployee.name);
+            document.getElementById('sickLeaveEmployee').value = cleanName;
             document.getElementById('sickLeaveEmployeeEmail').value = currentEmployee.email;
             document.getElementById('fileName').style.display = 'none';
             document.getElementById('fileName').classList.remove('file-selected');
