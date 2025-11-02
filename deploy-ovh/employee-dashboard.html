@@ -524,7 +524,7 @@
             }
         }
 
-        // Vérifier la validité du token
+        // Vérifier la validité du token (en arrière-plan, ne bloque pas l'affichage)
         async function verifyToken() {
             try {
                 const response = await fetch(`${API_URL}/auth/employee-profile`, {
@@ -533,22 +533,22 @@
                     }
                 });
 
-                // Vérifier que la réponse est OK
-                if (!response.ok) {
-                    throw new Error('Token invalide');
-                }
-
                 const data = await response.json();
                 
-                // Seulement déconnecter si le token est explicitement invalide
-                if (!data.success || !data.employee) {
-                    console.log('Token invalide, déconnexion...');
+                // Seulement déconnecter si le token est explicitement invalide (401/403)
+                // Ignorer les erreurs réseau ou serveur pour ne pas déconnecter en cas de problème temporaire
+                if (response.status === 401 || response.status === 403) {
+                    console.log('Token invalide (401/403), déconnexion...');
                     logout();
+                } else if (!data.success) {
+                    // Si success est false mais pas 401/403, c'est peut-être une erreur serveur
+                    // On ne déconnecte pas pour éviter les problèmes temporaires
+                    console.warn('Erreur vérification token (non critique):', data.error);
                 }
             } catch (error) {
-                console.error('Erreur vérification token:', error);
-                // En cas d'erreur, déconnecter pour éviter les boucles
-                logout();
+                // En cas d'erreur réseau, ne pas déconnecter (problème temporaire possible)
+                console.warn('Erreur réseau lors de la vérification du token (ignorée):', error);
+                // Ne pas appeler logout() pour éviter les déconnexions intempestives
             }
         }
 
