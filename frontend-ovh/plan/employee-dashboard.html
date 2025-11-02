@@ -496,7 +496,7 @@
             const employeeData = localStorage.getItem('employeeData');
 
             if (!token || !employeeData) {
-                window.location.href = '/salarie-connexion.html';
+                window.location.href = '/plan/salarie-connexion.html';
                 return;
             }
 
@@ -547,7 +547,7 @@
         function logout() {
             localStorage.removeItem('employeeToken');
             localStorage.removeItem('employeeData');
-            window.location.href = '/salarie-connexion.html';
+            window.location.href = '/plan/salarie-connexion.html';
         }
 
         // Fonction pour obtenir le libellé du rôle
