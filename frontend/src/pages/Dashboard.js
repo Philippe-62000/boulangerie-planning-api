@@ -67,17 +67,29 @@ const Dashboard = () => {
     return true;
   });
 
-  // Filtrer les employés en congés (8 jours avant le début)
+  // Filtrer les employés en congés (8 jours avant le début, exclure ceux qui ont déjà fini)
   const vacationEmployees = employees.filter(emp => {
     if (!emp.vacation?.isOnVacation) return false;
+    
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // Normaliser à minuit pour la comparaison
+    
+    // Si l'employé a une date de fin de congés et qu'elle est passée, l'exclure
+    if (emp.vacation?.endDate) {
+      const endDate = new Date(emp.vacation.endDate);
+      endDate.setHours(0, 0, 0, 0);
+      
+      // Exclure si la date de fin est passée (congés terminés)
+      if (endDate < today) return false;
+    }
     
     // Si l'employé a une date de début de congés
     if (emp.vacation?.startDate) {
       const startDate = new Date(emp.vacation.startDate);
-      const today = new Date();
+      startDate.setHours(0, 0, 0, 0);
       const daysUntilVacation = Math.floor((startDate - today) / (1000 * 60 * 60 * 24));
       
-      // Afficher seulement si 8 jours ou moins avant le début
+      // Afficher seulement si 8 jours ou moins avant le début (ou déjà en congés)
       if (daysUntilVacation > 8) return false;
     }
     

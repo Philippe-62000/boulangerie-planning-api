@@ -505,9 +505,9 @@
                 document.getElementById('userName').textContent = currentEmployee.name;
                 document.getElementById('userRole').textContent = getRoleLabel(currentEmployee.role);
                 
-                // Pré-remplir les champs employé
-                document.getElementById('sickLeaveEmployee').value = `${currentEmployee.name} - ${getRoleLabel(currentEmployee.role)}`;
-                document.getElementById('vacationEmployee').value = `${currentEmployee.name} - ${getRoleLabel(currentEmployee.role)}`;
+                // Pré-remplir les champs employé (nom et prénom seulement)
+                document.getElementById('sickLeaveEmployee').value = currentEmployee.name;
+                document.getElementById('vacationEmployee').value = currentEmployee.name;
 
                 // Vérifier la validité du token
                 verifyToken();
@@ -694,12 +694,12 @@
         // Fonctions de réinitialisation des formulaires
         function resetSickLeaveForm() {
             document.getElementById('sickLeaveForm').reset();
-            document.getElementById('sickLeaveEmployee').value = `${currentEmployee.name} - ${getRoleLabel(currentEmployee.role)}`;
+            document.getElementById('sickLeaveEmployee').value = currentEmployee.name;
         }
 
         function resetVacationForm() {
             document.getElementById('vacationForm').reset();
-            document.getElementById('vacationEmployee').value = `${currentEmployee.name} - ${getRoleLabel(currentEmployee.role)}`;
+            document.getElementById('vacationEmployee').value = currentEmployee.name;
         }
     </script>
 </body>
