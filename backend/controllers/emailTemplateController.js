@@ -157,6 +157,96 @@ exports.initializeDefaultTemplates = async (req, res) => {
   try {
     const defaultTemplates = [
       {
+        name: 'sick_leave_acknowledgement',
+        displayName: 'Email d\'Accusé de Réception d\'Arrêt Maladie',
+        subject: 'Accusé de réception - Arrêt maladie de {{employeeName}}',
+        htmlContent: `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+    .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+    .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; border-radius: 10px 10px 0 0; }
+    .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; }
+    .info-box { background: white; border-left: 4px solid #28a745; padding: 15px; margin: 20px 0; border-radius: 5px; }
+    .footer { text-align: center; margin-top: 30px; color: #666; font-size: 12px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>✅ Accusé de réception</h1>
+      <p>Votre arrêt maladie a bien été reçu</p>
+    </div>
+    <div class="content">
+      <p>Bonjour <strong>{{employeeName}}</strong>,</p>
+      
+      <p>Nous accusons réception de votre arrêt maladie qui a été déposé le <strong>{{uploadDate}} à {{uploadTime}}</strong>.</p>
+      
+      <div class="info-box">
+        <h3>📋 Informations de votre arrêt maladie :</h3>
+        <ul>
+          <li><strong>Date de début :</strong> {{startDate}}</li>
+          <li><strong>Date de fin :</strong> {{endDate}}</li>
+          <li><strong>Durée :</strong> {{duration}} jour{{durationPlural}}</li>
+          <li><strong>Document déposé :</strong> {{fileName}}</li>
+        </ul>
+      </div>
+      
+      <p>Votre arrêt maladie va être traité dans les plus brefs délais par notre équipe administrative.</p>
+      
+      <p>Vous recevrez une notification par email dès que votre arrêt maladie aura été validé ou si des informations complémentaires sont nécessaires.</p>
+      
+      <p>En cas de question, n'hésitez pas à nous contacter.</p>
+      
+      <p>Cordialement,<br>
+      <strong>L'équipe de la Boulangerie Ange - Arras</strong></p>
+    </div>
+    <div class="footer">
+      <p>Cet email est envoyé automatiquement, merci de ne pas y répondre.</p>
+    </div>
+  </div>
+</body>
+</html>`,
+        textContent: `
+Accusé de réception - Votre arrêt maladie a bien été reçu
+
+Bonjour {{employeeName}},
+
+Nous accusons réception de votre arrêt maladie qui a été déposé le {{uploadDate}} à {{uploadTime}}.
+
+Informations de votre arrêt maladie :
+- Date de début : {{startDate}}
+- Date de fin : {{endDate}}
+- Durée : {{duration}} jour{{durationPlural}}
+- Document déposé : {{fileName}}
+
+Votre arrêt maladie va être traité dans les plus brefs délais par notre équipe administrative.
+
+Vous recevrez une notification par email dès que votre arrêt maladie aura été validé ou si des informations complémentaires sont nécessaires.
+
+En cas de question, n'hésitez pas à nous contacter.
+
+Cordialement,
+L'équipe de la Boulangerie Ange - Arras
+
+---
+Cet email est envoyé automatiquement, merci de ne pas y répondre.`,
+        description: 'Email d\'accusé de réception envoyé automatiquement au salarié lors du dépôt d\'un arrêt maladie',
+        variables: [
+          { name: 'employeeName', description: 'Nom du salarié', example: 'Marie Dupont' },
+          { name: 'startDate', description: 'Date de début de l\'arrêt', example: '15/09/2025' },
+          { name: 'endDate', description: 'Date de fin de l\'arrêt', example: '20/09/2025' },
+          { name: 'duration', description: 'Durée en jours', example: '6' },
+          { name: 'durationPlural', description: 'S pour le pluriel', example: 's' },
+          { name: 'fileName', description: 'Nom du fichier déposé', example: 'arret_maladie.pdf' },
+          { name: 'uploadDate', description: 'Date de dépôt', example: '12/09/2025' },
+          { name: 'uploadTime', description: 'Heure de dépôt', example: '14:30' }
+        ]
+      },
+      {
         name: 'sick_leave_alert',
         displayName: 'Email d\'Alerte - Nouvel Arrêt Maladie',
         subject: '🚨 Nouvel arrêt maladie à valider - {{employeeName}}',

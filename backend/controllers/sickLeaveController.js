@@ -327,6 +327,19 @@ const uploadSickLeave = async (req, res) => {
       });
     }
 
+    // Envoyer un accusé de réception au salarié
+    try {
+      const acknowledgementResult = await emailService.sendSickLeaveAcknowledgement(sickLeave);
+      if (acknowledgementResult.success) {
+        console.log('✅ Accusé de réception envoyé au salarié:', acknowledgementResult.messageId);
+      } else {
+        console.log('⚠️ Accusé de réception non envoyé:', acknowledgementResult.error);
+      }
+    } catch (ackError) {
+      console.error('❌ Erreur envoi accusé de réception:', ackError.message);
+      // Continuer même si l'email d'accusé échoue
+    }
+
     // Envoyer une alerte aux administrateurs/magasin
     try {
       // Récupérer les paramètres d'alerte

@@ -27,6 +27,11 @@ class EmailService {
     return await emailServiceAlternative.sendToAccountant(sickLeave, accountantEmail);
   }
 
+  // Envoyer un accusé de réception d'arrêt maladie
+  async sendSickLeaveAcknowledgement(sickLeave) {
+    return await emailServiceAlternative.sendSickLeaveAcknowledgement(sickLeave);
+  }
+
   // Envoyer un email d'alerte
   async sendAlertEmail(sickLeave, recipientEmails) {
     return await emailServiceAlternative.sendAlertEmail(sickLeave, recipientEmails);
