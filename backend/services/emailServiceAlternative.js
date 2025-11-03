@@ -1205,11 +1205,50 @@ Cet email a été envoyé automatiquement, merci de ne pas y répondre.
   // Envoyer un email d'alerte pour demande de congés
   async sendVacationRequestAlert(vacationRequest, recipientEmails) {
     try {
+      const EmailTemplate = require('../models/EmailTemplate');
+      const template = await EmailTemplate.findOne({ name: 'vacation_request_alert' });
+
+      if (!template) {
+        console.log('⚠️ Template d\'alerte de congés non trouvé, utilisation du template par défaut');
+        return await this.sendEmail(
+          recipientEmails.join(', '),
+          `🚨 Nouvelle demande de congés - ${vacationRequest.employeeName}`,
+          this.generateVacationAlertHTML(vacationRequest),
+          this.generateVacationAlertText(vacationRequest)
+        );
+      }
+
+      const duration = this.calculateDuration(vacationRequest.startDate, vacationRequest.endDate);
+
+      const htmlContent = this.replaceTemplateVariables(template.htmlContent, {
+        employeeName: vacationRequest.employeeName,
+        employeeEmail: vacationRequest.employeeEmail,
+        startDate: new Date(vacationRequest.startDate).toLocaleDateString('fr-FR'),
+        endDate: new Date(vacationRequest.endDate).toLocaleDateString('fr-FR'),
+        duration: duration,
+        durationPlural: duration > 1 ? 's' : '',
+        reason: vacationRequest.reason || 'Congés payés',
+        requestDate: new Date(vacationRequest.uploadDate || vacationRequest.createdAt).toLocaleDateString('fr-FR'),
+        adminUrl: 'https://www.filmara.fr/plan'
+      });
+
+      const textContent = this.replaceTemplateVariables(template.textContent, {
+        employeeName: vacationRequest.employeeName,
+        employeeEmail: vacationRequest.employeeEmail,
+        startDate: new Date(vacationRequest.startDate).toLocaleDateString('fr-FR'),
+        endDate: new Date(vacationRequest.endDate).toLocaleDateString('fr-FR'),
+        duration: duration,
+        durationPlural: duration > 1 ? 's' : '',
+        reason: vacationRequest.reason || 'Congés payés',
+        requestDate: new Date(vacationRequest.uploadDate || vacationRequest.createdAt).toLocaleDateString('fr-FR'),
+        adminUrl: 'https://www.filmara.fr/plan'
+      });
+
       return await this.sendEmail(
         recipientEmails.join(', '),
-        `🚨 Nouvelle demande de congés - ${vacationRequest.employeeName}`,
-        this.generateVacationAlertHTML(vacationRequest),
-        this.generateVacationAlertText(vacationRequest)
+        this.replaceTemplateVariables(template.subject, { employeeName: vacationRequest.employeeName }),
+        htmlContent,
+        textContent
       );
     } catch (error) {
       console.error('❌ Erreur envoi email alerte congés:', error.message);
@@ -1220,11 +1259,48 @@ Cet email a été envoyé automatiquement, merci de ne pas y répondre.
   // Envoyer un email de validation de congés
   async sendVacationRequestValidation(vacationRequest, validatedBy) {
     try {
+      const EmailTemplate = require('../models/EmailTemplate');
+      const template = await EmailTemplate.findOne({ name: 'vacation_request_validation' });
+
+      if (!template) {
+        console.log('⚠️ Template de validation de congés non trouvé, utilisation du template par défaut');
+        return await this.sendEmail(
+          vacationRequest.employeeEmail,
+          `Congés validés - ${vacationRequest.employeeName}`,
+          this.generateVacationValidationHTML(vacationRequest, validatedBy),
+          this.generateVacationValidationText(vacationRequest, validatedBy)
+        );
+      }
+
+      const duration = this.calculateDuration(vacationRequest.startDate, vacationRequest.endDate);
+
+      const htmlContent = this.replaceTemplateVariables(template.htmlContent, {
+        employeeName: vacationRequest.employeeName,
+        startDate: new Date(vacationRequest.startDate).toLocaleDateString('fr-FR'),
+        endDate: new Date(vacationRequest.endDate).toLocaleDateString('fr-FR'),
+        duration: duration,
+        durationPlural: duration > 1 ? 's' : '',
+        reason: vacationRequest.reason || 'Congés payés',
+        validatedBy: validatedBy || 'Administrateur',
+        validationDate: new Date(vacationRequest.validatedAt || Date.now()).toLocaleDateString('fr-FR')
+      });
+
+      const textContent = this.replaceTemplateVariables(template.textContent, {
+        employeeName: vacationRequest.employeeName,
+        startDate: new Date(vacationRequest.startDate).toLocaleDateString('fr-FR'),
+        endDate: new Date(vacationRequest.endDate).toLocaleDateString('fr-FR'),
+        duration: duration,
+        durationPlural: duration > 1 ? 's' : '',
+        reason: vacationRequest.reason || 'Congés payés',
+        validatedBy: validatedBy || 'Administrateur',
+        validationDate: new Date(vacationRequest.validatedAt || Date.now()).toLocaleDateString('fr-FR')
+      });
+
       return await this.sendEmail(
         vacationRequest.employeeEmail,
-        `Congés validés - ${vacationRequest.employeeName}`,
-        this.generateVacationValidationHTML(vacationRequest, validatedBy),
-        this.generateVacationValidationText(vacationRequest, validatedBy)
+        this.replaceTemplateVariables(template.subject, { employeeName: vacationRequest.employeeName }),
+        htmlContent,
+        textContent
       );
     } catch (error) {
       console.error('❌ Erreur envoi email validation congés:', error.message);
