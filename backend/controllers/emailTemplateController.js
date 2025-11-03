@@ -550,70 +550,71 @@ Ce message a été généré automatiquement.`,
 <body>
   <div class="container">
     <div class="header">
-      <h1>📋 Nouvel Arrêt Maladie Validé</h1>
+      <h1>📋 Nouvel Arrêt Maladie Vulpinus</h1>
       <p>Boulangerie Ange - Arras</p>
     </div>
     
     <div class="content">
-      <p>Un nouvel arrêt maladie a été validé et nécessite votre attention.</p>
+      <p>Voici un nouvel arrêt maladie.</p>
       
       <div class="details">
         <h3>📋 Informations de l'arrêt :</h3>
         <ul>
           <li><strong>Salarié :</strong> {{employeeName}}</li>
-          <li><strong>Email :</strong> {{employeeEmail}}</li>
           <li><strong>Période :</strong> {{startDate}} au {{endDate}}</li>
-          <li><strong>Durée :</strong> {{duration}} jour{{durationPlural}}</li>
-          <li><strong>Fichier :</strong> {{fileName}}</li>
           <li><strong>Date d'envoi :</strong> {{uploadDate}}</li>
-          <li><strong>Score de qualité :</strong> {{qualityScore}}/100</li>
         </ul>
       </div>
       
-      <p>Le fichier est disponible sur notre serveur sécurisé et peut être téléchargé depuis l'interface d'administration.</p>
+      <div class="details">
+        <h3>📎 Pièce jointe :</h3>
+        <p>Le document d'arrêt maladie est disponible au téléchargement :</p>
+        <p style="text-align: center; margin: 20px 0;">
+          <a href="{{downloadUrl}}" 
+             style="background: #28a745; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; display: inline-block;">
+            🔗 Télécharger l'arrêt maladie
+          </a>
+        </p>
+      </div>
       
-      <p>Merci de traiter cet arrêt maladie dans les plus brefs délais.</p>
     </div>
     
     <div class="footer">
-      <p>Boulangerie Ange - Arras</p>
+      <p>Merci.</p>
+      <p>Bien Cordialement</p>
       <p>Ce message a été généré automatiquement par le système de gestion des arrêts maladie.</p>
     </div>
   </div>
 </body>
 </html>`,
-        textContent: `
-NOUVEL ARRÊT MALADIE VALIDÉ
-Boulangerie Ange - Arras
+        textContent: `Bonjour,
 
-Un nouvel arrêt maladie a été validé et nécessite votre attention.
+Veuillez trouver ci-joint un arrêt maladie.
 
 INFORMATIONS DE L'ARRÊT :
+
 - Salarié : {{employeeName}}
-- Email : {{employeeEmail}}
+
 - Période : {{startDate}} au {{endDate}}
-- Durée : {{duration}} jour{{durationPlural}}
-- Fichier : {{fileName}}
+
 - Date d'envoi : {{uploadDate}}
-- Score de qualité : {{qualityScore}}/100
 
-Le fichier est disponible sur notre serveur sécurisé et peut être téléchargé depuis l'interface d'administration.
+PIÈCE JOINTE :
 
-Merci de traiter cet arrêt maladie dans les plus brefs délais.
+Le document d'arrêt maladie est disponible au téléchargement :
 
-Boulangerie Ange - Arras
-Ce message a été généré automatiquement par le système de gestion des arrêts maladie.`,
+🔗 {{downloadUrl}}
+
+Merci,
+
+Bien Cordialement.`,
         description: 'Email envoyé au comptable lors de la validation d\'un arrêt maladie',
         variables: [
           { name: 'employeeName', description: 'Nom du salarié', example: 'Marie Dupont' },
-          { name: 'employeeEmail', description: 'Email du salarié', example: 'marie@email.com' },
           { name: 'startDate', description: 'Date de début de l\'arrêt', example: '15/09/2025' },
           { name: 'endDate', description: 'Date de fin de l\'arrêt', example: '20/09/2025' },
-          { name: 'duration', description: 'Durée en jours', example: '6' },
-          { name: 'durationPlural', description: 'S pour le pluriel', example: 's' },
-          { name: 'fileName', description: 'Nom du fichier', example: 'arret_maladie.pdf' },
           { name: 'uploadDate', description: 'Date d\'envoi', example: '12/09/2025' },
-          { name: 'qualityScore', description: 'Score de qualité', example: '85' }
+          { name: 'downloadUrl', description: 'URL de téléchargement du document', example: 'https://boulangerie-planning-api-4-pbfy.onrender.com/api/sick-leaves/.../download' }
         ]
       },
       {

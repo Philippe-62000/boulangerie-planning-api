@@ -676,38 +676,48 @@ Cet email est envoyé automatiquement, merci de ne pas y répondre.
         );
       }
 
-      // Remplacer les variables dans le template
-      const htmlContent = this.replaceTemplateVariables(template.htmlContent, {
-        employeeName: sickLeave.employeeName,
-        employeeEmail: sickLeave.employeeEmail,
-        startDate: new Date(sickLeave.startDate).toLocaleDateString('fr-FR'),
-        endDate: new Date(sickLeave.endDate).toLocaleDateString('fr-FR'),
-        duration: this.calculateDuration(sickLeave.startDate, sickLeave.endDate),
-        durationPlural: this.calculateDuration(sickLeave.startDate, sickLeave.endDate) > 1 ? 's' : '',
-        fileName: sickLeave.fileName,
-        uploadDate: new Date(sickLeave.uploadDate).toLocaleDateString('fr-FR'),
-        qualityScore: sickLeave.qualityScore || 85
-      });
+      // Construire l'URL de téléchargement
+      const downloadUrl = `https://boulangerie-planning-api-4-pbfy.onrender.com/api/sick-leaves/${sickLeave._id}/download`;
 
-      const textContent = this.replaceTemplateVariables(template.textContent, {
+      // Remplacer les variables dans le template (gérer les conditions {{#if}} pour downloadUrl)
+      let htmlContent = template.htmlContent;
+      let textContent = template.textContent;
+      
+      // Remplacer les variables simples
+      const variables = {
         employeeName: sickLeave.employeeName,
-        employeeEmail: sickLeave.employeeEmail,
         startDate: new Date(sickLeave.startDate).toLocaleDateString('fr-FR'),
         endDate: new Date(sickLeave.endDate).toLocaleDateString('fr-FR'),
-        duration: this.calculateDuration(sickLeave.startDate, sickLeave.endDate),
-        durationPlural: this.calculateDuration(sickLeave.startDate, sickLeave.endDate) > 1 ? 's' : '',
-        fileName: sickLeave.fileName,
         uploadDate: new Date(sickLeave.uploadDate).toLocaleDateString('fr-FR'),
-        qualityScore: sickLeave.qualityScore || 85
-      });
+        downloadUrl: downloadUrl
+      };
+
+      // Remplacer les variables dans le HTML
+      htmlContent = this.replaceTemplateVariables(htmlContent, variables);
+      // Gérer les conditions {{#if downloadUrl}}...{{/if}} (simplifié - on supprime juste les balises)
+      if (downloadUrl) {
+        htmlContent = htmlContent.replace(/\{\{#if downloadUrl\}\}/g, '');
+        htmlContent = htmlContent.replace(/\{\{\/if\}\}/g, '');
+      } else {
+        htmlContent = htmlContent.replace(/\{\{#if downloadUrl\}\}[\s\S]*?\{\{\/if\}\}/g, '');
+      }
+
+      // Remplacer les variables dans le texte
+      textContent = this.replaceTemplateVariables(textContent, variables);
+      // Gérer les conditions {{#if downloadUrl}}...{{/if}}
+      if (downloadUrl) {
+        textContent = textContent.replace(/\{\{#if downloadUrl\}\}/g, '');
+        textContent = textContent.replace(/\{\{\/if\}\}/g, '');
+      } else {
+        textContent = textContent.replace(/\{\{#if downloadUrl\}\}[\s\S]*?\{\{\/if\}\}/g, '');
+      }
       
-      return await this.sendEmailWithAttachment(
+      // Envoyer l'email sans pièce jointe (le fichier est accessible via le lien de téléchargement)
+      return await this.sendEmail(
         accountantEmail,
         this.replaceTemplateVariables(template.subject, { employeeName: sickLeave.employeeName }),
         htmlContent,
-        textContent,
-        sickLeave.fileName,
-        sickLeave.fileBuffer
+        textContent
       );
     } catch (error) {
       console.error('❌ Erreur envoi email comptable:', error.message);
