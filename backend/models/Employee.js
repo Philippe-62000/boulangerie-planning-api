@@ -182,24 +182,42 @@ const employeeSchema = new mongoose.Schema({
 });
 
 // Middleware pour générer automatiquement le code vente pour les rôles concernés
-employeeSchema.pre('save', function(next) {
+employeeSchema.pre('save', async function(next) {
   this.updatedAt = Date.now();
   
   // Générer un code vente si le rôle est concerné et qu'il n'y a pas encore de code
-  const rolesAvecCode = ['vendeuse', 'apprenti', 'manager', 'responsable'];
-  if (rolesAvecCode.includes(this.role) && !this.saleCode && this.isNew) {
+  const rolesAvecCode = ['vendeuse', 'apprenti', 'manager', 'responsable', 'Apprenti Vendeuse'];
+  const roleNormalized = this.role?.toLowerCase();
+  const isRoleConcerned = rolesAvecCode.some(r => r.toLowerCase() === roleNormalized);
+  
+  if (isRoleConcerned && !this.saleCode) {
     // Générer un code à 3 chiffres aléatoire (100-999)
     let code;
     let attempts = 0;
-    do {
+    let isUnique = false;
+    
+    // Vérifier l'unicité dans la base de données
+    const Employee = mongoose.model('Employee');
+    
+    while (!isUnique && attempts < 100) {
       code = String(Math.floor(Math.random() * 900) + 100);
       attempts++;
-      if (attempts > 100) {
-        // Si on n'a pas trouvé de code unique après 100 tentatives, utiliser un timestamp tronqué
-        code = String(Date.now()).slice(-3);
-        break;
+      
+      const existing = await Employee.findOne({ saleCode: code });
+      if (!existing) {
+        isUnique = true;
       }
-    } while (false); // On vérifiera l'unicité au niveau de la base de données
+    }
+    
+    if (!isUnique) {
+      // Si on n'a pas trouvé de code unique après 100 tentatives, utiliser un timestamp tronqué
+      code = String(Date.now()).slice(-3);
+      const existing = await Employee.findOne({ saleCode: code });
+      if (existing) {
+        // Si encore en conflit, utiliser une combinaison timestamp + aléatoire
+        code = String(Date.now()).slice(-2) + String(Math.floor(Math.random() * 10));
+      }
+    }
     
     this.saleCode = code;
   }

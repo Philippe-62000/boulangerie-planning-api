@@ -432,13 +432,18 @@ const Employees = () => {
                   <td>{getRoleLabel(employee.role)}</td>
                   <td>
                     {(() => {
-                      const rolesAvecCode = ['vendeuse', 'apprenti', 'manager', 'responsable'];
-                      if (rolesAvecCode.includes(employee.role)) {
+                      const rolesAvecCode = ['vendeuse', 'apprenti', 'manager', 'responsable', 'Apprenti Vendeuse'];
+                      const roleNormalized = employee.role?.toLowerCase();
+                      const isRoleConcerned = rolesAvecCode.some(r => r.toLowerCase() === roleNormalized);
+                      
+                      if (isRoleConcerned) {
                         return employee.saleCode || (
-                          <span style={{ color: '#999', fontStyle: 'italic' }}>Non généré</span>
+                          <span style={{ color: '#999', fontStyle: 'italic', fontSize: '0.9rem' }}>
+                            À générer
+                          </span>
                         );
                       }
-                      return '-';
+                      return <span style={{ color: '#ccc' }}>-</span>;
                     })()}
                   </td>
                   <td>{getContractLabel(employee.contractType)}</td>

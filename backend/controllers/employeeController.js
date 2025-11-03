@@ -102,20 +102,24 @@ const updateEmployee = async (req, res) => {
     console.log('Update employee - ID:', req.params.id);
     console.log('Update employee - Body:', req.body);
     
+    // Trouver l'employé existant
+    const employee = await Employee.findById(req.params.id);
+    if (!employee) {
+      return res.status(404).json({ error: 'Employé non trouvé' });
+    }
+    
     // ⚠️ IMPORTANT: Supprimer le champ password du body pour éviter de l'écraser
     const updateData = { ...req.body };
     delete updateData.password;
     
     console.log('🔐 Champ password préservé lors de la mise à jour');
     
-    const employee = await Employee.findByIdAndUpdate(
-      req.params.id,
-      updateData,
-      { new: true, runValidators: true }
-    );
-    if (!employee) {
-      return res.status(404).json({ error: 'Employé non trouvé' });
-    }
+    // Mettre à jour les champs
+    Object.assign(employee, updateData);
+    
+    // Sauvegarder (cela déclenchera le middleware pre('save') pour générer le code vente si nécessaire)
+    await employee.save();
+    
     console.log('Employee updated:', employee);
     res.json(employee);
   } catch (error) {
