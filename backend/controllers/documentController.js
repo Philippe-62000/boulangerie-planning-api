@@ -147,22 +147,13 @@ exports.downloadDocument = async (req, res) => {
       }
       
       // Télécharger le fichier depuis le NAS
-      const tempFilePath = path.join(__dirname, '../uploads/temp', path.basename(filePath));
       const fileBuffer = await sftpService.downloadFile(filePath);
       
-      // Écrire le buffer dans un fichier temporaire
-      fs.writeFileSync(tempFilePath, fileBuffer);
-      
-      // Envoyer le fichier au client
-      res.download(tempFilePath, document.fileName, (err) => {
-        // Supprimer le fichier temporaire après envoi
-        if (fs.existsSync(tempFilePath)) {
-          fs.unlinkSync(tempFilePath);
-        }
-        if (err) {
-          console.error('❌ Erreur lors de l\'envoi du fichier:', err);
-        }
-      });
+      // Envoyer directement le buffer au client sans fichier temporaire
+      res.setHeader('Content-Disposition', `attachment; filename="${document.fileName}"`);
+      res.setHeader('Content-Type', document.mimeType || 'application/octet-stream');
+      res.setHeader('Content-Length', fileBuffer.length);
+      res.send(fileBuffer);
       
     } catch (error) {
       console.error('❌ Erreur SFTP lors du téléchargement:', error);
