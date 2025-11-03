@@ -1,6 +1,6 @@
 const DailySales = require('../models/DailySales');
 const Employee = require('../models/Employee');
-const Parameter = require('../models/Parameter');
+const Parameter = require('../models/Parameters');
 
 // Enregistrer une saisie quotidienne
 exports.submitDailySales = async (req, res) => {
