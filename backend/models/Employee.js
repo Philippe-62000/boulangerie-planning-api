@@ -182,15 +182,17 @@ const employeeSchema = new mongoose.Schema({
 });
 
 // Middleware pour générer automatiquement le code vente pour les rôles concernés
+// ⚠️ IMPORTANT: Le code n'est généré QUE lors de la création (isNew), pas lors des modifications
 employeeSchema.pre('save', async function(next) {
   this.updatedAt = Date.now();
   
-  // Générer un code vente si le rôle est concerné et qu'il n'y a pas encore de code
+  // Générer un code vente UNIQUEMENT à la création si le rôle est concerné et qu'il n'y a pas encore de code
   const rolesAvecCode = ['vendeuse', 'apprenti', 'manager', 'responsable', 'Apprenti Vendeuse'];
   const roleNormalized = this.role?.toLowerCase();
   const isRoleConcerned = rolesAvecCode.some(r => r.toLowerCase() === roleNormalized);
   
-  if (isRoleConcerned && !this.saleCode) {
+  // Générer uniquement si : nouveau employé ET rôle concerné ET pas de code existant
+  if (this.isNew && isRoleConcerned && !this.saleCode) {
     // Générer un code à 3 chiffres aléatoire (100-999)
     let code;
     let attempts = 0;
@@ -220,6 +222,7 @@ employeeSchema.pre('save', async function(next) {
     }
     
     this.saleCode = code;
+    console.log(`✅ Code vente généré automatiquement pour ${this.name}: ${code}`);
   }
   
   next();

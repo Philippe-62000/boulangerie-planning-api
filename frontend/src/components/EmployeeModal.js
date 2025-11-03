@@ -348,24 +348,42 @@ const EmployeeModal = ({ employee, onSave, onClose, employees = [] }) => {
           {/* Champ Code Vente pour les rôles concernés */}
           {(() => {
             const rolesAvecCode = ['vendeuse', 'apprenti', 'manager', 'responsable', 'Apprenti Vendeuse'];
-            if (rolesAvecCode.includes(formData.role)) {
+            const roleNormalized = formData.role?.toLowerCase();
+            const isRoleConcerned = rolesAvecCode.some(r => r.toLowerCase() === roleNormalized);
+            
+            if (isRoleConcerned) {
               return (
-                <div className="form-group">
-                  <label className="form-label">Code Vente (3 chiffres)</label>
+                <div className="form-group" style={{ marginTop: '15px' }}>
+                  <label className="form-label">
+                    <strong>Code Vente (3 chiffres)</strong>
+                    {!formData.saleCode && (
+                      <span style={{ color: '#ffc107', marginLeft: '10px', fontSize: '0.85rem' }}>
+                        (sera généré automatiquement à la création)
+                      </span>
+                    )}
+                  </label>
                   <input
                     type="text"
                     name="saleCode"
-                    value={formData.saleCode}
+                    value={formData.saleCode || ''}
                     onChange={(e) => {
                       const value = e.target.value.replace(/\D/g, '').slice(0, 3);
                       setFormData({ ...formData, saleCode: value });
                     }}
                     className="form-control"
-                    placeholder="Ex: 123"
+                    placeholder={formData.saleCode ? formData.saleCode : "Ex: 123"}
                     pattern="[0-9]{3}"
                     maxLength="3"
+                    style={{
+                      backgroundColor: formData.saleCode ? '#fff' : '#f8f9fa',
+                      border: formData.saleCode ? '2px solid #28a745' : '2px solid #e1e5e9'
+                    }}
                   />
-                  <small className="form-text">Code à 3 chiffres pour la saisie quotidienne des ventes</small>
+                  <small className="form-text" style={{ color: '#666', marginTop: '5px' }}>
+                    {formData.saleCode 
+                      ? '✅ Code modifiable manuellement si nécessaire' 
+                      : 'Code à 3 chiffres pour la saisie quotidienne des ventes'}
+                  </small>
                 </div>
               );
             }
