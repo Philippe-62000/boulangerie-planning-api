@@ -149,11 +149,16 @@ exports.downloadDocument = async (req, res) => {
       // Télécharger le fichier depuis le NAS
       const fileBuffer = await sftpService.downloadFile(filePath);
       
+      // Enregistrer le téléchargement AVANT d'envoyer la réponse
+      await Document.recordDownload(id);
+      
       // Envoyer directement le buffer au client sans fichier temporaire
       res.setHeader('Content-Disposition', `attachment; filename="${document.fileName}"`);
       res.setHeader('Content-Type', document.mimeType || 'application/octet-stream');
       res.setHeader('Content-Length', fileBuffer.length);
       res.send(fileBuffer);
+      
+      console.log(`✅ Document téléchargé: ${document.title} par ${req.user?.name || 'utilisateur'}`);
       
     } catch (error) {
       console.error('❌ Erreur SFTP lors du téléchargement:', error);
@@ -166,11 +171,6 @@ exports.downloadDocument = async (req, res) => {
       // Déconnexion du NAS
       await sftpService.disconnect();
     }
-    
-    // Enregistrer le téléchargement
-    await Document.recordDownload(id);
-    
-    console.log(`✅ Document téléchargé: ${document.title} par ${req.user?.name || 'utilisateur'}`);
     
   } catch (error) {
     console.error('❌ Erreur lors du téléchargement:', error);
