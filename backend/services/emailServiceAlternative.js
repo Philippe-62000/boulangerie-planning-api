@@ -1143,15 +1143,62 @@ Cet email a été envoyé automatiquement, merci de ne pas y répondre.
   // Envoyer un email de confirmation de demande de congés
   async sendVacationRequestConfirmation(vacationRequest) {
     try {
+      console.log(`📧 Envoi confirmation demande congés à ${vacationRequest.employeeName} (${vacationRequest.employeeEmail})`);
+      
+      // Récupérer le template depuis la base de données
+      const EmailTemplate = require('../models/EmailTemplate');
+      const template = await EmailTemplate.findOne({ name: 'vacation_request_confirmation' });
+      
+      if (!template) {
+        console.log('⚠️ Template de confirmation congés non trouvé, utilisation du template par défaut');
+        return await this.sendEmail(
+          vacationRequest.employeeEmail,
+          `Demande de congés reçue - ${vacationRequest.employeeName}`,
+          this.generateVacationConfirmationHTML(vacationRequest),
+          this.generateVacationConfirmationText(vacationRequest)
+        );
+      }
+
+      // Calculer la durée
+      const duration = this.calculateDuration(vacationRequest.startDate, vacationRequest.endDate);
+
+      // Remplacer les variables dans le template
+      const htmlContent = this.replaceTemplateVariables(template.htmlContent, {
+        employeeName: vacationRequest.employeeName,
+        startDate: new Date(vacationRequest.startDate).toLocaleDateString('fr-FR'),
+        endDate: new Date(vacationRequest.endDate).toLocaleDateString('fr-FR'),
+        duration: duration,
+        durationPlural: duration > 1 ? 's' : '',
+        reason: vacationRequest.reason || 'Congés payés',
+        requestDate: new Date(vacationRequest.uploadDate || vacationRequest.createdAt).toLocaleDateString('fr-FR')
+      });
+
+      const textContent = this.replaceTemplateVariables(template.textContent, {
+        employeeName: vacationRequest.employeeName,
+        startDate: new Date(vacationRequest.startDate).toLocaleDateString('fr-FR'),
+        endDate: new Date(vacationRequest.endDate).toLocaleDateString('fr-FR'),
+        duration: duration,
+        durationPlural: duration > 1 ? 's' : '',
+        reason: vacationRequest.reason || 'Congés payés',
+        requestDate: new Date(vacationRequest.uploadDate || vacationRequest.createdAt).toLocaleDateString('fr-FR')
+      });
+
+      return await this.sendEmail(
+        vacationRequest.employeeEmail,
+        this.replaceTemplateVariables(template.subject, { employeeName: vacationRequest.employeeName }),
+        htmlContent,
+        textContent
+      );
+
+    } catch (error) {
+      console.error('❌ Erreur envoi email confirmation congés:', error.message);
+      // Fallback vers le template par défaut en cas d'erreur
       return await this.sendEmail(
         vacationRequest.employeeEmail,
         `Demande de congés reçue - ${vacationRequest.employeeName}`,
         this.generateVacationConfirmationHTML(vacationRequest),
         this.generateVacationConfirmationText(vacationRequest)
       );
-    } catch (error) {
-      console.error('❌ Erreur envoi email confirmation congés:', error.message);
-      return { success: false, error: error.message };
     }
   }
 
