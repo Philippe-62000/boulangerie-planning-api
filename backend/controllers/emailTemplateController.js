@@ -645,7 +645,7 @@ Bien Cordialement.`,
     <div class="content">
       <p>Bonjour {{employeeName}},</p>
       
-      <p>Votre demande de congés a été reçue avec succès et sera traitée dans les plus brefs délais.</p>
+      <p>Votre demande de congés a été reçue et sera traitée dans les plus brefs délais.</p>
       
       <div class="details">
         <h3>📋 Détails de votre demande :</h3>
@@ -657,9 +657,7 @@ Bien Cordialement.`,
         </ul>
       </div>
       
-      <p>Vous recevrez une réponse par email une fois que votre demande aura été examinée.</p>
-      
-      <p>Merci de votre confiance.</p>
+      <p>Vous recevrez une confirmation par email une fois votre demande traitée.</p>
     </div>
     
     <div class="footer">
@@ -669,25 +667,27 @@ Bien Cordialement.`,
   </div>
 </body>
 </html>`,
-        textContent: `
-DEMANDE DE CONGÉS REÇUE
+        textContent: `DEMANDE DE CONGÉS REÇUE
 Boulangerie Ange - Arras
 
 Bonjour {{employeeName}},
 
-Votre demande de congés a été reçue avec succès et sera traitée dans les plus brefs délais.
+Votre demande de congés a été reçue et sera traitée dans les plus brefs délais.
 
-📋 DÉTAILS DE VOTRE DEMANDE :
+DÉTAILS DE VOTRE DEMANDE :
+
 - Période : {{startDate}} au {{endDate}}
+
 - Durée : {{duration}} jour{{durationPlural}}
+
 - Type : {{reason}}
+
 - Date de demande : {{requestDate}}
 
-Vous recevrez une réponse par email une fois que votre demande aura été examinée.
-
-Merci de votre confiance.
+Vous recevrez une confirmation par email une fois votre demande traitée.
 
 Boulangerie Ange - Arras
+
 Ce message a été généré automatiquement.`,
         description: 'Email de confirmation envoyé aux employés lors de la réception d\'une demande de congés',
         variables: [
