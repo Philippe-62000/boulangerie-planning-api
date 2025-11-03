@@ -1,44 +1,31 @@
 import React, { useState, useEffect } from 'react';
 import api from '../services/api';
 import { toast } from 'react-toastify';
+import './VacationPlanning.css';
 
 const VacationPlanning = () => {
   const [vacationRequests, setVacationRequests] = useState([]);
   const [employees, setEmployees] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
-  const [selectedCategory, setSelectedCategory] = useState('all'); // 'all', 'vendeur', 'production'
-  const [error, setError] = useState(null);
-
-  console.log('🔧 VacationPlanning - Rendu du composant');
+  const [selectedCategory, setSelectedCategory] = useState('vente'); // 'vente' ou 'production'
 
   const fetchData = async () => {
     try {
       setLoading(true);
-      setError(null);
-      console.log('📅 Récupération des données...');
-
+      
       // Récupérer les employés
       const employeesResponse = await api.get('/employees');
       const employeesData = employeesResponse.data.success ? employeesResponse.data.data : employeesResponse.data;
       setEmployees(employeesData);
-      console.log('👥 Employés chargés:', employeesData.length);
-
+      
       // Récupérer les demandes de congés validées
       const vacationResponse = await api.get('/vacation-requests?status=validated');
       const vacationData = vacationResponse.data.success ? vacationResponse.data.data : vacationResponse.data;
       setVacationRequests(vacationData);
-      console.log('🏖️ Congés validés chargés:', vacationData.length);
-      console.log('🔍 Détails des congés:', vacationData);
       
-      // Debug : vérifier les employés
-      console.log('👥 Détails des employés:', employeesData);
-      const camille = employeesData.find(emp => emp.name === 'Camille');
-      console.log('🔍 Camille trouvée:', camille);
-
     } catch (error) {
       console.error('❌ Erreur lors du chargement:', error);
-      setError('Erreur lors du chargement des données');
       toast.error('Erreur lors du chargement des données');
     } finally {
       setLoading(false);
@@ -49,41 +36,96 @@ const VacationPlanning = () => {
     fetchData();
   }, []);
 
+  // Définir les catégories de rôles
+  const categoryRoles = {
+    vente: ['Vendeuse', 'Responsable', 'Manager', 'App. Vendeuse'],
+    production: ['Chef Prod', 'Boulanger', 'App. Boulanger', 'Préparateur', 'App. Préparateur']
+  };
+
   // Filtrer les employés par catégorie
   const getFilteredEmployees = () => {
-    if (selectedCategory === 'all') return employees;
+    const roles = categoryRoles[selectedCategory];
     return employees.filter(emp => {
-      if (selectedCategory === 'vente') {
-        return emp.role === 'vendeuse' || emp.role === 'responsable' || 
-               emp.role === 'manager' || emp.role === 'Apprenti Vendeuse';
-      }
-      if (selectedCategory === 'production') {
-        return emp.role === 'chef prod' || emp.role === 'boulanger' || 
-               emp.role === 'préparateur' || emp.role === 'Apprenti Boulanger' || 
-               emp.role === 'Apprenti Préparateur';
-      }
-      return false;
-    });
+      const role = emp.role || '';
+      return roles.some(catRole => 
+        role.toLowerCase().includes(catRole.toLowerCase())
+      );
+    }).sort((a, b) => a.name.localeCompare(b.name));
   };
 
-  // Obtenir les congés d'un employé pour une année
-  const getEmployeeVacations = (employeeId) => {
+  // Obtenir les jours d'un mois
+  const getDaysInMonth = (month, year) => {
+    return new Date(year, month, 0).getDate();
+  };
+
+  // Obtenir le jour de la semaine (0 = dimanche, 1 = lundi, etc.)
+  const getDayOfWeek = (day, month, year) => {
+    return new Date(year, month - 1, day).getDay();
+  };
+
+  // Obtenir l'initial du jour en français
+  const getDayInitial = (dayOfWeek) => {
+    const initials = ['D', 'L', 'M', 'M', 'J', 'V', 'S']; // Dimanche, Lundi, Mardi, Mercredi, Jeudi, Vendredi, Samedi
+    return initials[dayOfWeek];
+  };
+
+  // Vérifier si un jour est un dimanche
+  const isSunday = (day, month, year) => {
+    return getDayOfWeek(day, month, year) === 0;
+  };
+
+  // Obtenir les congés pour un employé et un jour donné
+  const getVacationForDay = (employeeId, day, month, year) => {
     const employee = employees.find(emp => emp._id === employeeId);
-    if (!employee) return [];
+    if (!employee) return null;
     
-    return vacationRequests.filter(vacation => 
-      vacation.employeeName === employee.name && 
-      new Date(vacation.startDate).getFullYear() === selectedYear
-    );
+    // Créer la date en UTC pour éviter les problèmes de fuseau horaire
+    const currentDate = new Date(Date.UTC(year, month - 1, day));
+    currentDate.setHours(12, 0, 0, 0); // Milieu de journée pour éviter les problèmes
+    
+    const vacation = vacationRequests.find(req => {
+      if (req.employeeName !== employee.name) return false;
+      if (req.status !== 'validated') return false;
+      
+      // Parser les dates sans tenir compte du fuseau horaire
+      const startDateStr = req.startDate.split('T')[0]; // Format YYYY-MM-DD
+      const endDateStr = req.endDate.split('T')[0];
+      
+      const [startYear, startMonth, startDay] = startDateStr.split('-').map(Number);
+      const [endYear, endMonth, endDay] = endDateStr.split('-').map(Number);
+      
+      const startDate = new Date(Date.UTC(startYear, startMonth - 1, startDay));
+      startDate.setHours(12, 0, 0, 0);
+      const endDate = new Date(Date.UTC(endYear, endMonth - 1, endDay));
+      endDate.setHours(12, 0, 0, 0);
+      
+      return currentDate >= startDate && currentDate <= endDate;
+    });
+    
+    return vacation;
   };
 
-  // Obtenir le nom de l'employé par ID
-  const getEmployeeName = (employeeId) => {
-    const employee = employees.find(emp => emp._id === employeeId);
-    return employee ? employee.name : 'Employé inconnu';
+  // Obtenir la couleur selon le rôle
+  const getRoleColor = (role) => {
+    const roleLower = (role || '').toLowerCase();
+    // Vente (bleu)
+    if (roleLower.includes('vendeuse') || roleLower.includes('responsable') || 
+        roleLower.includes('manager') || roleLower.includes('app. vendeuse')) {
+      return '#e3f2fd';
+    }
+    // Chef Prod + Boulanger (orange)
+    if (roleLower.includes('chef prod') || roleLower.includes('boulanger') || 
+        roleLower.includes('app. boulanger')) {
+      return '#fff3e0';
+    }
+    // Préparateur (vert)
+    if (roleLower.includes('préparateur') || roleLower.includes('app. préparateur')) {
+      return '#e8f5e8';
+    }
+    return '#f5f5f5';
   };
 
-  // Générer les mois de l'année
+  // Générer les mois
   const months = [
     { name: 'Janvier', number: 1 },
     { name: 'Février', number: 2 },
@@ -99,100 +141,19 @@ const VacationPlanning = () => {
     { name: 'Décembre', number: 12 }
   ];
 
-  // Obtenir les congés pour un mois donné
-  const getVacationsForMonth = (employeeId, monthNumber) => {
-    const employee = employees.find(emp => emp._id === employeeId);
-    if (!employee) return [];
-    
-    return vacationRequests.filter(vacation => {
-      if (vacation.employeeName !== employee.name) return false;
-      
-      const startDate = new Date(vacation.startDate);
-      const endDate = new Date(vacation.endDate);
-      const vacationYear = startDate.getFullYear();
-      
-      if (vacationYear !== selectedYear) return false;
-      
-      const startMonth = startDate.getMonth() + 1;
-      const endMonth = endDate.getMonth() + 1;
-      
-      // Le congé couvre ce mois s'il commence avant la fin du mois ou se termine après le début du mois
-      return (startMonth <= monthNumber && endMonth >= monthNumber);
-    });
-  };
+  // Obtenir le nombre maximum de jours dans un mois (31)
+  const maxDays = 31;
 
-  // Formater une date
-  const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString('fr-FR', {
-      day: '2-digit',
-      month: '2-digit'
-    });
-  };
-
-  // Obtenir la durée d'un congé
-  const getVacationDuration = (startDate, endDate) => {
-    const start = new Date(startDate);
-    const end = new Date(endDate);
-    const diffTime = Math.abs(end - start);
-    return Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
-  };
-
-  // Obtenir la couleur selon le rôle (3 couleurs seulement)
-  const getRoleColor = (role) => {
-    // Vente (bleu)
-    if (role === 'vendeuse' || role === 'responsable' || role === 'manager' || role === 'Apprenti Vendeuse') {
-      return '#e3f2fd';
-    }
-    // Chef Prod + Boulanger (orange)
-    if (role === 'chef prod' || role === 'boulanger' || role === 'Apprenti Boulanger') {
-      return '#fff3e0';
-    }
-    // Préparateur (vert)
-    if (role === 'préparateur' || role === 'Apprenti Préparateur') {
-      return '#e8f5e8';
-    }
-    return '#f5f5f5';
+  // Fonction d'impression
+  const handlePrint = () => {
+    window.print();
   };
 
   if (loading) {
     return (
-      <div style={{ 
-        display: 'flex', 
-        justifyContent: 'center', 
-        alignItems: 'center', 
-        height: '50vh',
-        fontSize: '18px'
-      }}>
-        🔄 Chargement du calendrier des congés...
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div style={{ 
-        padding: '20px', 
-        textAlign: 'center',
-        backgroundColor: '#f8d7da',
-        color: '#721c24',
-        borderRadius: '5px',
-        margin: '20px'
-      }}>
-        ❌ {error}
-        <button 
-          onClick={fetchData}
-          style={{
-            marginLeft: '10px',
-            padding: '5px 10px',
-            backgroundColor: '#dc3545',
-            color: 'white',
-            border: 'none',
-            borderRadius: '3px',
-            cursor: 'pointer'
-          }}
-        >
-          🔄 Réessayer
-        </button>
+      <div className="vacation-planning-loading">
+        <div className="loading-spinner"></div>
+        <p>Chargement du planning...</p>
       </div>
     );
   }
@@ -200,245 +161,166 @@ const VacationPlanning = () => {
   const filteredEmployees = getFilteredEmployees();
 
   return (
-    <div className="vacation-planning" style={{ padding: '20px', fontFamily: 'Arial, sans-serif' }}>
-      <div className="planning-header" style={{ marginBottom: '30px' }}>
-        <h1 style={{ color: '#333', marginBottom: '10px' }}>
-          📅 Planning Annuel - Congés Validés
-        </h1>
-        <p style={{ color: '#666', fontSize: '16px' }}>
-          Boulangerie Arras - {selectedYear}
-        </p>
+    <div className="vacation-planning">
+      {/* En-tête avec contrôles */}
+      <div className="planning-header">
+        <div className="header-title">
+          <h1>Calendrier {selectedYear}</h1>
+          <p className="subtitle">Planning annuel des congés validés</p>
+        </div>
         
-        {/* Contrôles */}
-        <div style={{ 
-          display: 'flex', 
-          gap: '20px', 
-          marginTop: '20px',
-          flexWrap: 'wrap',
-          alignItems: 'center'
-        }}>
+        <div className="header-controls">
           {/* Sélecteur d'année */}
-          <div>
-            <label style={{ marginRight: '10px', fontWeight: 'bold' }}>Année:</label>
+          <div className="control-group">
+            <label>Année :</label>
             <select 
               value={selectedYear}
               onChange={(e) => setSelectedYear(parseInt(e.target.value))}
-              style={{
-                padding: '8px 12px',
-                border: '1px solid #ddd',
-                borderRadius: '4px',
-                fontSize: '14px'
-              }}
+              className="control-select"
             >
-              <option value={selectedYear - 1}>{selectedYear - 1}</option>
-              <option value={selectedYear}>{selectedYear}</option>
-              <option value={selectedYear + 1}>{selectedYear + 1}</option>
+              {Array.from({ length: 5 }, (_, i) => {
+                const year = new Date().getFullYear() - 2 + i;
+                return (
+                  <option key={year} value={year}>{year}</option>
+                );
+              })}
             </select>
           </div>
 
           {/* Sélecteur de catégorie */}
-          <div>
-            <label style={{ marginRight: '10px', fontWeight: 'bold' }}>Catégorie:</label>
+          <div className="control-group">
+            <label>Catégorie :</label>
             <select 
               value={selectedCategory}
               onChange={(e) => setSelectedCategory(e.target.value)}
-              style={{
-                padding: '8px 12px',
-                border: '1px solid #ddd',
-                borderRadius: '4px',
-                fontSize: '14px'
-              }}
+              className="control-select"
             >
-              <option value="all">Tous</option>
-              <option value="vente">Vente (Vendeuse, Responsable, Manager, Apprenti Vendeuse)</option>
+              <option value="vente">Vente (Vendeuse, Responsable, Manager, App. Vendeuse)</option>
               <option value="production">Production (Chef Prod, Boulanger, Préparateur, Apprentis)</option>
             </select>
           </div>
 
-          {/* Bouton d'impression */}
-          <button 
-            onClick={() => window.print()}
-            style={{
-              padding: '8px 16px',
-              backgroundColor: '#007bff',
-              color: 'white',
-              border: 'none',
-              borderRadius: '4px',
-              cursor: 'pointer',
-              fontSize: '14px'
-            }}
-          >
+          {/* Bouton impression */}
+          <button onClick={handlePrint} className="btn-print">
             🖨️ Imprimer
           </button>
         </div>
       </div>
 
       {/* Légende */}
-      <div style={{ 
-        marginBottom: '20px', 
-        padding: '15px', 
-        backgroundColor: '#f8f9fa', 
-        borderRadius: '5px',
-        border: '1px solid #dee2e6'
-      }}>
-        <h4 style={{ margin: '0 0 10px 0', color: '#333' }}>Légende:</h4>
-        <div style={{ display: 'flex', gap: '15px', flexWrap: 'wrap' }}>
-          {/* Vente (bleu) */}
-          <div style={{ display: 'flex', alignItems: 'center' }}>
-            <div style={{ 
-              width: '15px', 
-              height: '15px', 
-              backgroundColor: '#e3f2fd', 
-              marginRight: '6px',
-              borderRadius: '3px'
-            }}></div>
-            <span style={{ fontSize: '12px' }}>Vendeuse, Responsable, Manager, App. Vendeuse</span>
-          </div>
-          
-          {/* Chef Prod + Boulanger (orange) */}
-          <div style={{ display: 'flex', alignItems: 'center' }}>
-            <div style={{ 
-              width: '15px', 
-              height: '15px', 
-              backgroundColor: '#fff3e0', 
-              marginRight: '6px',
-              borderRadius: '3px'
-            }}></div>
-            <span style={{ fontSize: '12px' }}>Chef Prod, Boulanger, App. Boulanger</span>
-          </div>
-          
-          {/* Préparateur (vert) */}
-          <div style={{ display: 'flex', alignItems: 'center' }}>
-            <div style={{ 
-              width: '15px', 
-              height: '15px', 
-              backgroundColor: '#e8f5e8', 
-              marginRight: '6px',
-              borderRadius: '3px'
-            }}></div>
-            <span style={{ fontSize: '12px' }}>Préparateur, App. Préparateur</span>
-          </div>
+      <div className="legend">
+        <div className="legend-item">
+          <span className="legend-color vente"></span>
+          <span>Vente</span>
+        </div>
+        <div className="legend-item">
+          <span className="legend-color chef-boulanger"></span>
+          <span>Chef Prod / Boulanger</span>
+        </div>
+        <div className="legend-item">
+          <span className="legend-color preparateur"></span>
+          <span>Préparateur</span>
         </div>
       </div>
 
-      {/* Calendrier */}
-      <div className="calendar-container">
-        {filteredEmployees.length === 0 ? (
-          <div style={{ 
-            textAlign: 'center', 
-            padding: '40px',
-            color: '#666',
-            fontSize: '16px'
-          }}>
-            Aucun employé trouvé pour la catégorie sélectionnée
-          </div>
-        ) : (
-          <div className="calendar-grid">
-            {/* En-tête des mois */}
-            <div style={{ 
-              display: 'grid', 
-              gridTemplateColumns: '200px repeat(12, 1fr)', 
-              gap: '2px',
-              marginBottom: '10px'
-            }}>
-              <div style={{ 
-                fontWeight: 'bold', 
-                padding: '10px', 
-                backgroundColor: '#e9ecef',
-                border: '1px solid #dee2e6',
-                textAlign: 'center'
-              }}>
-                Employé
-              </div>
+      {/* Tableau calendrier */}
+      <div className="calendar-wrapper">
+        <table className="calendar-table">
+          {/* En-tête avec noms des mois */}
+          <thead>
+            <tr>
+              <th className="first-header"></th>
               {months.map(month => (
-                <div key={month.number} style={{ 
-                  fontWeight: 'bold', 
-                  padding: '10px', 
-                  backgroundColor: '#e9ecef',
-                  border: '1px solid #dee2e6',
-                  textAlign: 'center',
-                  fontSize: '12px'
-                }}>
+                <th key={month.number} className="month-header">
                   {month.name}
-                </div>
+                </th>
               ))}
-            </div>
-
-            {/* Lignes des employés */}
-            {filteredEmployees.map(employee => (
-              <div key={employee._id} style={{ 
-                display: 'grid', 
-                gridTemplateColumns: '200px repeat(12, 1fr)', 
-                gap: '2px',
-                marginBottom: '2px'
-              }}>
-                {/* Nom de l'employé */}
-                <div style={{ 
-                  padding: '10px', 
-                  backgroundColor: '#f8f9fa',
-                  border: '1px solid #dee2e6',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between'
-                }}>
-                  <span style={{ fontWeight: 'bold', fontSize: '13px' }}>
-                    {employee.name}
-                  </span>
-                  <div style={{ 
-                    width: '12px', 
-                    height: '12px', 
-                    backgroundColor: getRoleColor(employee.role),
-                    borderRadius: '50%',
-                    marginLeft: '8px'
-                  }}></div>
-                </div>
-
-                {/* Cellules des mois */}
-                {months.map(month => {
-                  const monthVacations = getVacationsForMonth(employee._id, month.number);
+            </tr>
+          </thead>
+          
+          <tbody>
+            {/* Lignes pour chaque jour (1-31) - format comme l'image */}
+            {Array.from({ length: maxDays }, (_, dayIndex) => {
+              const day = dayIndex + 1;
+              return (
+                <tr key={day} className="day-row">
+                  {/* Première colonne avec le numéro du jour */}
+                  <td className="day-number-cell">
+                    {day <= 31 ? day : ''}
+                  </td>
                   
-                  return (
-                    <div key={month.number} style={{ 
-                      padding: '8px', 
-                      backgroundColor: monthVacations.length > 0 ? '#d4edda' : '#ffffff',
-                      border: '1px solid #dee2e6',
-                      minHeight: '40px',
-                      fontSize: '11px'
-                    }}>
-                      {monthVacations.map((vacation, index) => (
-                        <div key={index} style={{ 
-                          backgroundColor: getRoleColor(employee.role),
-                          color: 'black',
-                          padding: '2px 4px',
-                          borderRadius: '3px',
-                          marginBottom: '2px',
-                          fontSize: '10px',
-                          textAlign: 'center',
-                          fontWeight: 'bold'
-                        }}>
-                          {formatDate(vacation.startDate)}-{formatDate(vacation.endDate)}
-                        </div>
-                      ))}
-                    </div>
-                  );
-                })}
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Footer avec numéro de déploiement */}
-      <div style={{
-        marginTop: '30px',
-        padding: '10px',
-        backgroundColor: '#e9ecef',
-        borderRadius: '5px',
-        textAlign: 'center',
-        fontSize: '12px',
-        color: '#6c757d'
-      }}>
-        🚀 DÉPLOIEMENT #019 - {new Date().toLocaleString()}
+                  {/* Colonnes pour chaque mois */}
+                  {months.map(month => {
+                    const daysInMonth = getDaysInMonth(month.number, selectedYear);
+                    const isVisible = day <= daysInMonth;
+                    const dayOfWeek = isVisible ? getDayOfWeek(day, month.number, selectedYear) : -1;
+                    const dayInitial = isVisible ? getDayInitial(dayOfWeek) : '';
+                    const isSundayDay = isVisible && isSunday(day, month.number, selectedYear);
+                    
+                    // Trouver tous les employés en congé ce jour-là
+                    const employeesOnVacation = filteredEmployees.filter(employee => {
+                      const vacation = getVacationForDay(employee._id, day, month.number, selectedYear);
+                      return vacation !== null;
+                    });
+                    
+                    return (
+                      <td 
+                        key={month.number} 
+                        className={`calendar-day-cell ${isVisible ? '' : 'empty'} ${isSundayDay ? 'sunday' : ''}`}
+                      >
+                        {isVisible && (
+                          <div className="day-content">
+                            <span className="day-value">{day}</span>
+                            <span className="day-letter">{dayInitial}</span>
+                            {/* Afficher les initiales des employés en congé */}
+                            {employeesOnVacation.length > 0 && (
+                              <div className="vacation-initials">
+                                {employeesOnVacation.map((employee, idx) => {
+                                  const vacation = getVacationForDay(employee._id, day, month.number, selectedYear);
+                                  
+                                  // Si pas de congé, ne pas afficher
+                                  if (!vacation) return null;
+                                  
+                                  // Extraire les initiales (prénom + nom)
+                                  const nameParts = employee.name.split(' ');
+                                  let initials = '';
+                                  if (nameParts.length >= 2) {
+                                    // Premier caractère du prénom + premier caractère du nom
+                                    initials = nameParts[0].charAt(0).toUpperCase() + nameParts[nameParts.length - 1].charAt(0).toUpperCase();
+                                  } else if (nameParts.length === 1) {
+                                    // Si un seul mot, prendre les 2 premiers caractères
+                                    initials = nameParts[0].substring(0, 2).toUpperCase();
+                                  }
+                                  
+                                  const startDate = new Date(vacation.startDate);
+                                  const endDate = new Date(vacation.endDate);
+                                  
+                                  return (
+                                    <span
+                                      key={employee._id}
+                                      className="employee-initial"
+                                      style={{ 
+                                        backgroundColor: getRoleColor(employee.role),
+                                        color: '#333'
+                                      }}
+                                      title={`${employee.name}: ${startDate.toLocaleDateString('fr-FR')} - ${endDate.toLocaleDateString('fr-FR')}`}
+                                    >
+                                      {initials}
+                                    </span>
+                                  );
+                                })}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </td>
+                    );
+                  })}
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
       </div>
     </div>
   );

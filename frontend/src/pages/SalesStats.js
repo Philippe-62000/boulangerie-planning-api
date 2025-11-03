@@ -13,6 +13,13 @@ const SalesStats = () => {
   const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
   const [monthlyStats, setMonthlyStats] = useState({});
   const [loading, setLoading] = useState(false);
+  
+  // États pour les objectifs hebdomadaires
+  const [objectifHebdoCartesFid, setObjectifHebdoCartesFid] = useState(0);
+  const [objectifHebdoPromo, setObjectifHebdoPromo] = useState(0);
+  const [presences, setPresences] = useState({}); // { employeeId: { 'Lundi': true, 'Mardi': false, ... } }
+  const [weeklyStats, setWeeklyStats] = useState(null);
+  const [marges, setMarges] = useState({ vert: 100, jaune: 80, orange: 50 });
 
   // Initialiser le mois et l'année actuels
   useEffect(() => {
@@ -26,7 +33,113 @@ const SalesStats = () => {
   // Charger les employés au montage
   useEffect(() => {
     fetchEmployees();
+    fetchWeeklyObjectives();
+    fetchWeeklyStats();
+    fetchMarges();
   }, []);
+
+  // Charger les objectifs hebdomadaires
+  const fetchWeeklyObjectives = async () => {
+    try {
+      const response = await fetch('https://boulangerie-planning-api-4-pbfy.onrender.com/api/daily-sales/objectives');
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success) {
+          setObjectifHebdoPromo(data.data.objectifPromo || 0);
+          setObjectifHebdoCartesFid(data.data.objectifCartesFid || 0);
+        }
+      }
+    } catch (error) {
+      console.error('Erreur chargement objectifs:', error);
+    }
+  };
+
+  // Charger les stats hebdomadaires
+  const fetchWeeklyStats = async () => {
+    try {
+      const response = await fetch('https://boulangerie-planning-api-4-pbfy.onrender.com/api/daily-sales/weekly');
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success) {
+          setWeeklyStats(data.data);
+        }
+      }
+    } catch (error) {
+      console.error('Erreur chargement stats hebdo:', error);
+    }
+  };
+
+  // Charger les marges depuis les paramètres
+  const fetchMarges = async () => {
+    try {
+      const response = await fetch('https://boulangerie-planning-api-4-pbfy.onrender.com/api/parameters');
+      if (response.ok) {
+        const params = await response.json();
+        const margeVert = params.find(p => p.name === 'margeVert');
+        const margeJaune = params.find(p => p.name === 'margeJaune');
+        const margeOrange = params.find(p => p.name === 'margeOrange');
+        setMarges({
+          vert: margeVert?.kmValue || 100,
+          jaune: margeJaune?.kmValue || 80,
+          orange: margeOrange?.kmValue || 50
+        });
+      }
+    } catch (error) {
+      console.error('Erreur chargement marges:', error);
+    }
+  };
+
+  // Sauvegarder les objectifs hebdomadaires
+  const saveWeeklyObjectives = async () => {
+    try {
+      const vendeuses = employees.filter(emp => {
+        const roles = ['vendeuse', 'apprenti', 'manager', 'responsable'];
+        return roles.includes(emp.role);
+      });
+
+      const response = await fetch('https://boulangerie-planning-api-4-pbfy.onrender.com/api/daily-sales/objectives', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          objectifPromo: objectifHebdoPromo,
+          objectifCartesFid: objectifHebdoCartesFid,
+          presences: presences
+        })
+      });
+
+      if (response.ok) {
+        alert('Objectifs hebdomadaires enregistrés avec succès !');
+        await fetchWeeklyStats();
+      }
+    } catch (error) {
+      console.error('Erreur sauvegarde objectifs:', error);
+      alert('Erreur lors de la sauvegarde');
+    }
+  };
+
+  // Toggle présence
+  const togglePresence = (employeeId, jour) => {
+    setPresences(prev => ({
+      ...prev,
+      [employeeId]: {
+        ...prev[employeeId],
+        [jour]: !prev[employeeId]?.[jour]
+      }
+    }));
+  };
+
+  // Calculer l'objectif individuel (objectif total / (nb jours * nb vendeuses présentes))
+  const calculateIndividualObjective = (objectifTotal, jours, vendeuses) => {
+    const joursPresents = jours.filter(j => 
+      vendeuses.some(v => presences[v._id]?.[j])
+    ).length;
+    const vendeusesPresentes = vendeuses.filter(v => 
+      jours.some(j => presences[v._id]?.[j])
+    ).length;
+    
+    const totalPresences = joursPresents * vendeusesPresentes;
+    return totalPresences > 0 ? objectifTotal / totalPresences : 0;
+  };
 
   // Charger les employés
   const fetchEmployees = async () => {
@@ -174,7 +287,7 @@ const SalesStats = () => {
                 caNetHt: employeeData.caNetHt || 0,
                 nbClients: employeeData.nbClients || 0,
                 panierMoyen: employeeData.panierMoyen || 0,
-                nbMenus: employeeData.nbMenus || 0,
+                nbPromo: employeeData.nbPromo || employeeData.nbMenus || 0, // Support ancien format
                 nbCartesFid: employeeData.nbCartesFid || 0,
                 nbAvisPositifs: employeeData.nbAvisPositifs || 0,
                 nbAvisNegatifs: employeeData.nbAvisNegatifs || 0
@@ -286,6 +399,95 @@ const SalesStats = () => {
       </div>
 
       <div className="sales-stats-content">
+        {/* Section Objectifs Hebdomadaires */}
+        <div className="sales-form-section">
+          <h2>🎯 Objectifs Hebdomadaires</h2>
+          <div style={{ marginBottom: '20px', display: 'flex', gap: '20px', flexWrap: 'wrap' }}>
+            <div>
+              <label style={{ display: 'block', marginBottom: '5px', fontWeight: '600' }}>
+                Objectif Hebdomadaire total Carte Fidélité :
+              </label>
+              <input
+                type="number"
+                value={objectifHebdoCartesFid}
+                onChange={(e) => setObjectifHebdoCartesFid(parseFloat(e.target.value) || 0)}
+                style={{ padding: '10px', borderRadius: '8px', border: '2px solid #667eea', width: '200px' }}
+                min="0"
+              />
+            </div>
+            <div>
+              <label style={{ display: 'block', marginBottom: '5px', fontWeight: '600' }}>
+                Objectif Hebdomadaire total Quinzaine Promo :
+              </label>
+              <input
+                type="number"
+                value={objectifHebdoPromo}
+                onChange={(e) => setObjectifHebdoPromo(parseFloat(e.target.value) || 0)}
+                style={{ padding: '10px', borderRadius: '8px', border: '2px solid #667eea', width: '200px' }}
+                min="0"
+              />
+            </div>
+            <div style={{ display: 'flex', alignItems: 'flex-end' }}>
+              <button
+                onClick={saveWeeklyObjectives}
+                style={{
+                  padding: '10px 20px',
+                  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  fontWeight: '600'
+                }}
+              >
+                💾 Enregistrer Objectifs
+              </button>
+            </div>
+          </div>
+
+          {/* Tableau des présences */}
+          <div style={{ marginTop: '30px' }}>
+            <h3 style={{ marginBottom: '15px' }}>📅 Présences des Vendeuses</h3>
+            {(() => {
+              const vendeuses = employees.filter(emp => {
+                const roles = ['vendeuse', 'apprenti', 'manager', 'responsable'];
+                return roles.includes(emp.role);
+              });
+              const jours = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
+
+              return (
+                <table style={{ width: '100%', borderCollapse: 'collapse', background: 'white', borderRadius: '10px', overflow: 'hidden' }}>
+                  <thead>
+                    <tr style={{ background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', color: 'white' }}>
+                      <th style={{ padding: '15px', textAlign: 'left' }}>Vendeuse</th>
+                      {jours.map(jour => (
+                        <th key={jour} style={{ padding: '15px', textAlign: 'center' }}>{jour}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {vendeuses.map(v => (
+                      <tr key={v._id}>
+                        <td style={{ padding: '15px', fontWeight: '600' }}>{v.name}</td>
+                        {jours.map(jour => (
+                          <td key={jour} style={{ padding: '10px', textAlign: 'center' }}>
+                            <input
+                              type="checkbox"
+                              checked={presences[v._id]?.[jour] || false}
+                              onChange={() => togglePresence(v._id, jour)}
+                              style={{ width: '20px', height: '20px', cursor: 'pointer' }}
+                            />
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              );
+            })()}
+          </div>
+        </div>
+
         {/* Formulaire de saisie */}
         <div className="sales-form-section">
           <h2>📝 Saisie des données mensuelles</h2>
@@ -297,7 +499,7 @@ const SalesStats = () => {
                   <th>CA Net HT</th>
                   <th>Nb Clients</th>
                   <th>Panier Moyen</th>
-                  <th>Nb Menus</th>
+                  <th>Nb Promo</th>
                   <th>Nb Cartes Fid</th>
                                      <th>Nb Avis +</th>
                    <th>Nb Avis -</th>
@@ -343,8 +545,8 @@ const SalesStats = () => {
                      <td>
                        <input
                          type="number"
-                         value={salesData[emp._id]?.nbMenus || 0}
-                         onChange={(e) => updateSalesData(emp._id, 'nbMenus', e.target.value)}
+                         value={salesData[emp._id]?.nbPromo || 0}
+                         onChange={(e) => updateSalesData(emp._id, 'nbPromo', e.target.value)}
                          placeholder="0"
                          min="0"
                        />
@@ -389,7 +591,7 @@ const SalesStats = () => {
                                caNetHt: 0,
                                nbClients: 0,
                                panierMoyen: 0,
-                               nbMenus: 0,
+                               nbPromo: 0,
                                nbCartesFid: 0,
                                nbAvisPositifs: 0,
                                nbAvisNegatifs: 0
@@ -575,6 +777,64 @@ const SalesStats = () => {
              </table>
            </div>
          </div>
+
+        {/* Section Cumul Hebdomadaire avec Comparaison */}
+        {weeklyStats && (
+          <div className="sales-form-section">
+            <h2>📊 Cumul Hebdomadaire vs Objectifs</h2>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginTop: '20px' }}>
+              {/* Cartes Fidélité */}
+              <div style={{
+                padding: '20px',
+                borderRadius: '15px',
+                background: weeklyStats.colorCartesFid === 'green' ? '#d4edda' :
+                            weeklyStats.colorCartesFid === 'yellow' ? '#fff3cd' :
+                            weeklyStats.colorCartesFid === 'orange' ? '#ffeaa7' : '#f8d7da',
+                border: `3px solid ${
+                  weeklyStats.colorCartesFid === 'green' ? '#28a745' :
+                  weeklyStats.colorCartesFid === 'yellow' ? '#ffc107' :
+                  weeklyStats.colorCartesFid === 'orange' ? '#ff9800' : '#dc3545'
+                }`
+              }}>
+                <h3 style={{ marginBottom: '15px' }}>🎫 Cartes Fidélité</h3>
+                <div style={{ fontSize: '1.2rem', marginBottom: '10px' }}>
+                  <strong>Total Semaine :</strong> {weeklyStats.totalCartesFid}
+                </div>
+                <div style={{ fontSize: '1.2rem', marginBottom: '10px' }}>
+                  <strong>Objectif :</strong> {weeklyStats.objectifCartesFid}
+                </div>
+                <div style={{ fontSize: '1.5rem', fontWeight: 'bold', marginTop: '15px' }}>
+                  {weeklyStats.pourcentageCartesFid.toFixed(1)}%
+                </div>
+              </div>
+
+              {/* Promo Quinzaine */}
+              <div style={{
+                padding: '20px',
+                borderRadius: '15px',
+                background: weeklyStats.colorPromo === 'green' ? '#d4edda' :
+                            weeklyStats.colorPromo === 'yellow' ? '#fff3cd' :
+                            weeklyStats.colorPromo === 'orange' ? '#ffeaa7' : '#f8d7da',
+                border: `3px solid ${
+                  weeklyStats.colorPromo === 'green' ? '#28a745' :
+                  weeklyStats.colorPromo === 'yellow' ? '#ffc107' :
+                  weeklyStats.colorPromo === 'orange' ? '#ff9800' : '#dc3545'
+                }`
+              }}>
+                <h3 style={{ marginBottom: '15px' }}>🍔 Promo Quinzaine</h3>
+                <div style={{ fontSize: '1.2rem', marginBottom: '10px' }}>
+                  <strong>Total Semaine :</strong> {weeklyStats.totalPromo}
+                </div>
+                <div style={{ fontSize: '1.2rem', marginBottom: '10px' }}>
+                  <strong>Objectif :</strong> {weeklyStats.objectifPromo}
+                </div>
+                <div style={{ fontSize: '1.5rem', fontWeight: 'bold', marginTop: '15px' }}>
+                  {weeklyStats.pourcentagePromo.toFixed(1)}%
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -15,13 +15,37 @@ const EmployeeStatusPrint = () => {
     try {
       const response = await api.get('/advance-requests');
       if (response.data.success) {
-        // Filtrer les acomptes approuvés pour le mois sélectionné
+        // Filtrer les acomptes approuvés pour le mois sélectionné UNIQUEMENT
         const monthName = getMonthName(month);
         const yearStr = year.toString();
-        const filteredRequests = response.data.data.filter(request => 
-          request.status === 'approved' && 
-          request.deductionMonth === `${monthName} ${yearStr}`
-        );
+        const searchPattern = `${monthName} ${yearStr}`;
+        
+        console.log('🔍 Recherche acomptes pour le mois sélectionné UNIQUEMENT:', searchPattern);
+        console.log('📋 Tous les acomptes récupérés:', response.data.data);
+        
+        const filteredRequests = response.data.data.filter(request => {
+          const matchesStatus = request.status === 'approved';
+          if (!matchesStatus) {
+            console.log(`  ❌ ${request.employeeName}: status=${request.status} (non approuvé)`);
+            return false;
+          }
+          
+          // Chercher correspondance STRICTE avec le mois sélectionné uniquement
+          if (!request.deductionMonth) {
+            console.log(`  ❌ ${request.employeeName}: pas de mois de déduction`);
+            return false;
+          }
+          
+          const requestMonth = request.deductionMonth.toLowerCase().trim();
+          const matches = requestMonth === searchPattern.toLowerCase();
+          
+          console.log(`  ${matches ? '✅' : '❌'} ${request.employeeName}: month="${request.deductionMonth}" vs recherche="${searchPattern}" → ${matches ? 'MATCH' : 'NO MATCH'}`);
+          
+          return matches;
+        });
+        
+        console.log(`✅ Acomptes filtrés trouvés pour ${searchPattern}:`, filteredRequests.length, 'acompte(s)');
+        console.log('📋 Détails:', filteredRequests.map(r => `${r.employeeName}: ${r.amount}€`));
         setAdvanceRequests(filteredRequests);
       }
     } catch (error) {
@@ -134,25 +158,30 @@ const EmployeeStatusPrint = () => {
     let csvContent = "data:text/csv;charset=utf-8,";
     
     // En-têtes
-    const headers = ["Salarié", "Frais Repas", "Total KM", "Total Général"];
+    const headers = ["Salarié", "Frais Repas", "Total KM", "Acompte", "Total Général"];
     csvContent += headers.join(",") + "\n";
     
     // Données
     if (data.employees && data.employees.length > 0) {
       data.employees.forEach(employee => {
+        const advanceAmount = getEmployeeAdvance(employee.employeeName, employee.employeeId);
+        const totalGeneral = employee.mealExpense.totalAmount + advanceAmount;
         const row = [
-          `"${employee.name || 'N/A'}"`,
-          `"${employee.mealExpenses || '0,00 €'}"`,
-          `"${employee.totalKm || '0 km'}"`,
-          `"${employee.totalGeneral || '0,00 €'}"`
+          `"${employee.employeeName || 'N/A'}"`,
+          `"${formatCurrency(employee.mealExpense.totalAmount)}"`,
+          `"${employee.kmExpense.totalKm || 0} km"`,
+          `"${formatCurrency(advanceAmount)}"`,
+          `"${formatCurrency(totalGeneral)}"`
         ];
         csvContent += row.join(",") + "\n";
       });
       
-      // Ajouter les totaux si disponibles
-      if (data.totals) {
-        csvContent += `"TOTAUX","${data.totals.mealExpenses || '0,00 €'}","${data.totals.totalKm || '0 km'}","${data.totals.totalGeneral || '0,00 €'}"\n`;
-      }
+      // Ajouter les totaux
+      const totalMeal = data.employees.reduce((sum, emp) => sum + emp.mealExpense.totalAmount, 0);
+      const totalKm = data.employees.reduce((sum, emp) => sum + emp.kmExpense.totalKm, 0);
+      const totalAdvance = advanceRequests.reduce((sum, req) => sum + req.amount, 0);
+      const totalGeneral = totalMeal + totalAdvance;
+      csvContent += `"TOTAUX","${formatCurrency(totalMeal)}","${totalKm} km","${formatCurrency(totalAdvance)}","${formatCurrency(totalGeneral)}"\n`;
     } else {
       // Données par défaut si pas de données
       csvContent += `"Aucune donnée disponible","","",""\n`;
@@ -175,12 +204,64 @@ const EmployeeStatusPrint = () => {
     ];
     return months[monthNumber - 1];
   };
+  
+  // Fonction pour obtenir le mois de déduction (peut être différent du mois de consultation)
+  // Les acomptes sont déduits le mois suivant leur approbation généralement
 
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat('fr-FR', {
       style: 'currency',
       currency: 'EUR'
     }).format(amount);
+  };
+
+  // Fonction pour obtenir le montant total d'acompte d'un employé (peut avoir plusieurs acomptes)
+  const getEmployeeAdvance = (employeeName, employeeId) => {
+    if (!advanceRequests || advanceRequests.length === 0) {
+      console.log(`💰 Aucun acompte disponible pour ${employeeName}`);
+      return 0;
+    }
+    
+    // Nettoyer le nom (enlever les suffixes comme "- Manager", "- Salarié", etc.)
+    const cleanEmployeeName = employeeName.split(' - ')[0].trim().toLowerCase();
+    
+    console.log(`🔍 Recherche acomptes pour: "${employeeName}" (ID: ${employeeId})`);
+    console.log(`📋 Acomptes disponibles:`, advanceRequests.map(r => ({ name: r.employeeName, id: r.employeeId, amount: r.amount })));
+    
+    // Trouver TOUS les acomptes de cet employé (pas seulement le premier)
+    const matchingRequests = advanceRequests.filter(req => {
+      // 1. Correspondance par ID si disponible
+      if (employeeId && req.employeeId) {
+        const idMatch = req.employeeId.toString() === employeeId.toString();
+        if (idMatch) {
+          console.log(`  ✅ Correspondance par ID: ${req.employeeId} === ${employeeId} (${req.amount}€)`);
+          return true;
+        }
+      }
+      
+      // 2. Correspondance par nom exact (après nettoyage)
+      if (req.employeeName) {
+        const cleanRequestName = req.employeeName.split(' - ')[0].trim().toLowerCase();
+        if (cleanRequestName === cleanEmployeeName) {
+          console.log(`  ✅ Correspondance par nom exact: "${cleanRequestName}" === "${cleanEmployeeName}" (${req.amount}€)`);
+          return true;
+        }
+        
+        // 3. Correspondance partielle si nécessaire
+        if (cleanRequestName.includes(cleanEmployeeName) || cleanEmployeeName.includes(cleanRequestName)) {
+          console.log(`  ✅ Correspondance partielle: "${cleanRequestName}" contient "${cleanEmployeeName}" (${req.amount}€)`);
+          return true;
+        }
+      }
+      
+      return false;
+    });
+    
+    // Somme de tous les acomptes trouvés
+    const totalAmount = matchingRequests.reduce((sum, req) => sum + req.amount, 0);
+    console.log(`💰 Total acomptes trouvés pour ${employeeName}: ${matchingRequests.length} acompte(s) = ${totalAmount}€`);
+    
+    return totalAmount;
   };
 
   if (loading) {
@@ -269,33 +350,45 @@ const EmployeeStatusPrint = () => {
                   <th>Salarié</th>
                   <th>Frais Repas</th>
                   <th>Total KM</th>
+                  <th>Acompte</th>
                   <th>Total Général</th>
                 </tr>
               </thead>
               <tbody>
-                {data.employees.map((employee) => (
-                  <tr key={employee.employeeId}>
-                    <td className="employee-name">
-                      <strong>{employee.employeeName}</strong>
-                    </td>
-                    <td className="meal-amount">
-                      {formatCurrency(employee.mealExpense.totalAmount)}
-                    </td>
-                    <td className="km-amount">
-                      {employee.kmExpense.totalKm} km
-                    </td>
-                    <td className="total-amount">
-                      <strong>{formatCurrency(employee.mealExpense.totalAmount)}</strong>
-                    </td>
-                  </tr>
-                ))}
+                {data.employees.map((employee) => {
+                  const advanceAmount = getEmployeeAdvance(employee.employeeName, employee.employeeId);
+                  const totalGeneral = employee.mealExpense.totalAmount + advanceAmount;
+                  return (
+                    <tr key={employee.employeeId}>
+                      <td className="employee-name">
+                        <strong>{employee.employeeName}</strong>
+                      </td>
+                      <td className="meal-amount">
+                        {formatCurrency(employee.mealExpense.totalAmount)}
+                      </td>
+                      <td className="km-amount">
+                        {employee.kmExpense.totalKm} km
+                      </td>
+                      <td className="advance-amount">
+                        {formatCurrency(advanceAmount)}
+                      </td>
+                      <td className="total-amount">
+                        <strong>{formatCurrency(totalGeneral)}</strong>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
               <tfoot>
                 <tr className="totals-row">
                   <td><strong>TOTAUX</strong></td>
                   <td><strong>{formatCurrency(data.employees.reduce((sum, emp) => sum + emp.mealExpense.totalAmount, 0))}</strong></td>
                   <td><strong>{data.employees.reduce((sum, emp) => sum + emp.kmExpense.totalKm, 0)} km</strong></td>
-                  <td><strong>{formatCurrency(data.employees.reduce((sum, emp) => sum + emp.mealExpense.totalAmount, 0))}</strong></td>
+                  <td><strong>{formatCurrency(advanceRequests.reduce((sum, req) => sum + req.amount, 0))}</strong></td>
+                  <td><strong>{formatCurrency(
+                    data.employees.reduce((sum, emp) => sum + emp.mealExpense.totalAmount, 0) +
+                    advanceRequests.reduce((sum, req) => sum + req.amount, 0)
+                  )}</strong></td>
                 </tr>
               </tfoot>
             </table>
@@ -311,59 +404,11 @@ const EmployeeStatusPrint = () => {
             <div className="summary-item">
               <strong>Total kilomètres :</strong> {data.employees.reduce((sum, emp) => sum + emp.kmExpense.totalKm, 0)} km
             </div>
+            <div className="summary-item">
+              <strong>Total acomptes :</strong> {formatCurrency(advanceRequests.reduce((sum, req) => sum + req.amount, 0))}
+            </div>
           </div>
 
-          {/* Récapitulatif des acomptes */}
-          {advanceRequests.length > 0 && (
-            <div className="advance-summary">
-              <h3>💰 Acomptes sur Salaire - {getMonthName(month)} {year}</h3>
-              <div className="advance-table">
-                <table className="status-table">
-                  <thead>
-                    <tr>
-                      <th>Salarié</th>
-                      <th>Montant Acompte</th>
-                      <th>Date de Demande</th>
-                      <th>Commentaire</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {advanceRequests.map((request) => (
-                      <tr key={request._id}>
-                        <td className="employee-name">
-                          <strong>{request.employeeName}</strong>
-                        </td>
-                        <td className="advance-amount">
-                          <strong>{formatCurrency(request.amount)}</strong>
-                        </td>
-                        <td className="request-date">
-                          {new Date(request.createdAt).toLocaleDateString('fr-FR')}
-                        </td>
-                        <td className="comment">
-                          {request.managerComment || request.comment || '-'}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                  <tfoot>
-                    <tr className="totals-row">
-                      <td><strong>TOTAL ACOMPTES</strong></td>
-                      <td><strong>{formatCurrency(advanceRequests.reduce((sum, req) => sum + req.amount, 0))}</strong></td>
-                      <td colSpan="2"></td>
-                    </tr>
-                  </tfoot>
-                </table>
-              </div>
-              <div className="advance-summary-stats">
-                <div className="summary-item">
-                  <strong>Nombre d'acomptes :</strong> {advanceRequests.length}
-                </div>
-                <div className="summary-item">
-                  <strong>Montant total des acomptes :</strong> {formatCurrency(advanceRequests.reduce((sum, req) => sum + req.amount, 0))}
-                </div>
-              </div>
-            </div>
-          )}
         </div>
       )}
 

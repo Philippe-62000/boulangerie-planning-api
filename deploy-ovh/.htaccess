@@ -9,10 +9,11 @@ RewriteRule ^(.*)$ https://www.filmara.fr/plan/$1 [R=301,L]
 RewriteCond %{HTTP_HOST} ^filmara\.fr$ [NC]
 RewriteRule ^(.*)$ https://www.filmara.fr/plan/$1 [R=301,L]
 
-# Configuration pour React Router
+# Configuration pour React Router (fichiers dans /plan/)
+RewriteBase /plan/
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
-RewriteRule . /plan/index.html [L]
+RewriteRule . index.html [L]
 
 # Headers de sécurité
 Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains"

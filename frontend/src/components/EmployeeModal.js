@@ -12,6 +12,7 @@ const EmployeeModal = ({ employee, onSave, onClose, employees = [] }) => {
     contractEndDate: '',
     tutor: '',
     email: '',
+    saleCode: '',
     isActive: true,
     emergencyContact: {
       lastName: '',
@@ -34,6 +35,7 @@ const EmployeeModal = ({ employee, onSave, onClose, employees = [] }) => {
         contractEndDate: employee.contractEndDate ? new Date(employee.contractEndDate).toISOString().split('T')[0] : '',
         tutorName: employee.tutorName || '',
         email: employee.email || '',
+        saleCode: employee.saleCode || '',
         isActive: employee.isActive !== undefined ? employee.isActive : true,
         emergencyContact: employee.emergencyContact || {
           lastName: '',
@@ -342,6 +344,33 @@ const EmployeeModal = ({ employee, onSave, onClose, employees = [] }) => {
               />
             </div>
           </div>
+
+          {/* Champ Code Vente pour les rôles concernés */}
+          {(() => {
+            const rolesAvecCode = ['vendeuse', 'apprenti', 'manager', 'responsable', 'Apprenti Vendeuse'];
+            if (rolesAvecCode.includes(formData.role)) {
+              return (
+                <div className="form-group">
+                  <label className="form-label">Code Vente (3 chiffres)</label>
+                  <input
+                    type="text"
+                    name="saleCode"
+                    value={formData.saleCode}
+                    onChange={(e) => {
+                      const value = e.target.value.replace(/\D/g, '').slice(0, 3);
+                      setFormData({ ...formData, saleCode: value });
+                    }}
+                    className="form-control"
+                    placeholder="Ex: 123"
+                    pattern="[0-9]{3}"
+                    maxLength="3"
+                  />
+                  <small className="form-text">Code à 3 chiffres pour la saisie quotidienne des ventes</small>
+                </div>
+              );
+            }
+            return null;
+          })()}
 
 
 

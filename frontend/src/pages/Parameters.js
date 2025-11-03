@@ -51,6 +51,10 @@ const Parameters = () => {
   const [maintenanceCheck, setMaintenanceCheck] = useState(null);
   const [checkingMaintenance, setCheckingMaintenance] = useState(false);
 
+  // États pour les marges des objectifs
+  const [marges, setMarges] = useState({ vert: 100, jaune: 80, orange: 50 });
+  const [savingMarges, setSavingMarges] = useState(false);
+
   useEffect(() => {
     fetchParameters();
     fetchMenuPermissions();
@@ -58,7 +62,50 @@ const Parameters = () => {
     fetchDatabaseStats();
     fetchEmailTemplates();
     fetchEmployees();
+    fetchMarges();
   }, []);
+
+  // Charger les marges
+  const fetchMarges = async () => {
+    try {
+      const response = await api.get('/parameters');
+      const params = Array.isArray(response.data) ? response.data : [];
+      const margeVert = params.find(p => p.name === 'margeVert');
+      const margeJaune = params.find(p => p.name === 'margeJaune');
+      const margeOrange = params.find(p => p.name === 'margeOrange');
+      setMarges({
+        vert: margeVert?.kmValue || 100,
+        jaune: margeJaune?.kmValue || 80,
+        orange: margeOrange?.kmValue || 50
+      });
+    } catch (error) {
+      console.error('Erreur chargement marges:', error);
+    }
+  };
+
+  // Sauvegarder les marges
+  const saveMarges = async () => {
+    setSavingMarges(true);
+    try {
+      const paramsToSave = [
+        { name: 'margeVert', kmValue: marges.vert },
+        { name: 'margeJaune', kmValue: marges.jaune },
+        { name: 'margeOrange', kmValue: marges.orange }
+      ];
+
+      for (const param of paramsToSave) {
+        await api.put('/parameters', param);
+      }
+
+      toast.success('Marges enregistrées avec succès');
+      await fetchParameters();
+    } catch (error) {
+      console.error('Erreur sauvegarde marges:', error);
+      toast.error('Erreur lors de la sauvegarde');
+    } finally {
+      setSavingMarges(false);
+    }
+  };
 
   // Fonction pour changer d'onglet
   const handleTabChange = (tabName) => {
@@ -809,8 +856,8 @@ const Parameters = () => {
           <div className="parameters-list">
           {parameters
             .filter(param => {
-              // Filtrer uniquement les paramètres KM : ceux qui ont un kmValue défini OU un name qui commence par "km"
-              return param.kmValue !== undefined || (param.name && param.name.toLowerCase().startsWith('km'));
+              // Filtrer uniquement les paramètres KM : ceux qui ont un kmValue défini et >= 0 (exclure les -1)
+              return param.kmValue !== undefined && param.kmValue >= 0;
             })
             .slice(0, 12) // Limiter à 12 paramètres maximum
             .map((param, index) => (
@@ -1286,6 +1333,99 @@ const Parameters = () => {
         </div>
             </div>
           </>
+        )}
+
+        {/* Onglet: Marges des Objectifs */}
+        {activeTab === 'objectives' && (
+          <div className="card">
+            <div className="card-header">
+              <h3>🎯 Marges des Objectifs Hebdomadaires</h3>
+            </div>
+            <div className="card-body">
+              <div style={{ marginBottom: '30px', padding: '20px', background: '#f8f9fa', borderRadius: '10px' }}>
+                <p style={{ marginBottom: '15px', fontWeight: '600' }}>Configuration des seuils de performance :</p>
+                <ul style={{ marginLeft: '20px', lineHeight: '1.8' }}>
+                  <li><strong style={{ color: '#28a745' }}>Vert :</strong> 100% ou plus</li>
+                  <li><strong style={{ color: '#ffc107' }}>Jaune :</strong> 80% à moins de 100%</li>
+                  <li><strong style={{ color: '#ff9800' }}>Orange :</strong> 50% à moins de 80%</li>
+                  <li><strong style={{ color: '#dc3545' }}>Rouge :</strong> 0% à moins de 50%</li>
+                </ul>
+              </div>
+
+              <div className="form-group" style={{ marginBottom: '25px' }}>
+                <label style={{ display: 'block', marginBottom: '10px', fontWeight: '600' }}>
+                  <span style={{ color: '#28a745', fontSize: '1.2rem' }}>●</span> Seuil Vert (minimum) :
+                </label>
+                <input
+                  type="number"
+                  value={marges.vert}
+                  onChange={(e) => setMarges({ ...marges, vert: parseFloat(e.target.value) || 100 })}
+                  min="0"
+                  max="200"
+                  style={{
+                    width: '200px',
+                    padding: '10px',
+                    borderRadius: '8px',
+                    border: '2px solid #28a745',
+                    fontSize: '1rem'
+                  }}
+                />
+                <span style={{ marginLeft: '10px', color: '#666' }}>%</span>
+              </div>
+
+              <div className="form-group" style={{ marginBottom: '25px' }}>
+                <label style={{ display: 'block', marginBottom: '10px', fontWeight: '600' }}>
+                  <span style={{ color: '#ffc107', fontSize: '1.2rem' }}>●</span> Seuil Jaune (minimum) :
+                </label>
+                <input
+                  type="number"
+                  value={marges.jaune}
+                  onChange={(e) => setMarges({ ...marges, jaune: parseFloat(e.target.value) || 80 })}
+                  min="0"
+                  max="100"
+                  style={{
+                    width: '200px',
+                    padding: '10px',
+                    borderRadius: '8px',
+                    border: '2px solid #ffc107',
+                    fontSize: '1rem'
+                  }}
+                />
+                <span style={{ marginLeft: '10px', color: '#666' }}>%</span>
+              </div>
+
+              <div className="form-group" style={{ marginBottom: '25px' }}>
+                <label style={{ display: 'block', marginBottom: '10px', fontWeight: '600' }}>
+                  <span style={{ color: '#ff9800', fontSize: '1.2rem' }}>●</span> Seuil Orange (minimum) :
+                </label>
+                <input
+                  type="number"
+                  value={marges.orange}
+                  onChange={(e) => setMarges({ ...marges, orange: parseFloat(e.target.value) || 50 })}
+                  min="0"
+                  max="80"
+                  style={{
+                    width: '200px',
+                    padding: '10px',
+                    borderRadius: '8px',
+                    border: '2px solid #ff9800',
+                    fontSize: '1rem'
+                  }}
+                />
+                <span style={{ marginLeft: '10px', color: '#666' }}>%</span>
+              </div>
+
+              <div style={{ marginTop: '30px' }}>
+                <button
+                  className="btn btn-primary"
+                  onClick={saveMarges}
+                  disabled={savingMarges}
+                >
+                  {savingMarges ? '💾 Sauvegarde...' : '💾 Enregistrer les marges'}
+                </button>
+              </div>
+            </div>
+          </div>
         )}
 
         {/* Onglet: Gestion de la Base de Données */}

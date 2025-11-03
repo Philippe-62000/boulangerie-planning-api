@@ -31,7 +31,7 @@ const salesStatsSchema = new mongoose.Schema({
         default: 0,
         min: 0
       },
-      nbMenus: {
+      nbPromo: {
         type: Number,
         default: 0,
         min: 0
@@ -169,7 +169,7 @@ salesStatsSchema.statics.getEmployeeRanking = function(month, year) {
               caNetHt: "$$emp.v.caNetHt",
               nbClients: "$$emp.v.nbClients",
               panierMoyen: "$$emp.v.panierMoyen",
-              nbMenus: "$$emp.v.nbMenus",
+              nbPromo: "$$emp.v.nbPromo",
               nbCartesFid: "$$emp.v.nbCartesFid",
               nbAvisPositifs: "$$emp.v.nbAvisPositifs",
               nbAvisNegatifs: "$$emp.v.nbAvisNegatifs",
@@ -196,7 +196,7 @@ salesStatsSchema.statics.getEmployeeRanking = function(month, year) {
         caNetHt: "$employees.caNetHt",
         nbClients: "$employees.nbClients",
         panierMoyen: "$employees.panierMoyen",
-        nbMenus: "$employees.nbMenus",
+              nbPromo: "$employees.nbPromo",
         nbCartesFid: "$employees.nbCartesFid",
         nbAvisPositifs: "$employees.nbAvisPositifs",
         nbAvisNegatifs: "$employees.nbAvisNegatifs",

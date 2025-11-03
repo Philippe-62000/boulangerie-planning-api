@@ -413,6 +413,7 @@ const Employees = () => {
               <tr>
                 <th>Nom</th>
                 <th>Rôle</th>
+                <th>Code Vente</th>
                 <th>Contrat</th>
                 <th>Âge</th>
                 <th>Volume hebdo</th>
@@ -429,6 +430,17 @@ const Employees = () => {
                 <tr key={employee._id}>
                   <td>{employee.name}</td>
                   <td>{getRoleLabel(employee.role)}</td>
+                  <td>
+                    {(() => {
+                      const rolesAvecCode = ['vendeuse', 'apprenti', 'manager', 'responsable'];
+                      if (rolesAvecCode.includes(employee.role)) {
+                        return employee.saleCode || (
+                          <span style={{ color: '#999', fontStyle: 'italic' }}>Non généré</span>
+                        );
+                      }
+                      return '-';
+                    })()}
+                  </td>
                   <td>{getContractLabel(employee.contractType)}</td>
                   <td>
                     {employee.age} ans

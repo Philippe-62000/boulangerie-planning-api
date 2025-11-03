@@ -153,6 +153,20 @@ const employeeSchema = new mongoose.Schema({
     type: String,
     select: false // Ne pas inclure par défaut dans les requêtes
   },
+  saleCode: {
+    type: String,
+    unique: true,
+    sparse: true,
+    trim: true,
+    length: 3,
+    validate: {
+      validator: function(v) {
+        return !v || /^\d{3}$/.test(v);
+      },
+      message: 'Le code vente doit être composé de 3 chiffres'
+    },
+    comment: 'Code vente nominatif à 3 chiffres pour les vendeuses'
+  },
   isActive: {
     type: Boolean,
     default: true
@@ -167,9 +181,29 @@ const employeeSchema = new mongoose.Schema({
   }
 });
 
-// Middleware pour mettre à jour updatedAt
+// Middleware pour générer automatiquement le code vente pour les rôles concernés
 employeeSchema.pre('save', function(next) {
   this.updatedAt = Date.now();
+  
+  // Générer un code vente si le rôle est concerné et qu'il n'y a pas encore de code
+  const rolesAvecCode = ['vendeuse', 'apprenti', 'manager', 'responsable'];
+  if (rolesAvecCode.includes(this.role) && !this.saleCode && this.isNew) {
+    // Générer un code à 3 chiffres aléatoire (100-999)
+    let code;
+    let attempts = 0;
+    do {
+      code = String(Math.floor(Math.random() * 900) + 100);
+      attempts++;
+      if (attempts > 100) {
+        // Si on n'a pas trouvé de code unique après 100 tentatives, utiliser un timestamp tronqué
+        code = String(Date.now()).slice(-3);
+        break;
+      }
+    } while (false); // On vérifiera l'unicité au niveau de la base de données
+    
+    this.saleCode = code;
+  }
+  
   next();
 });
 

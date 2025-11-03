@@ -96,7 +96,7 @@
 /* Grille des cartes */
 .requests-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(450px, 1fr));
   gap: 20px;
   margin-top: 20px;
 }
@@ -106,9 +106,10 @@
   background: white;
   border-radius: 12px;
   box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-  overflow: hidden;
+  overflow: visible;
   transition: all 0.3s ease;
   border: 2px solid #e9ecef;
+  min-width: 450px;
 }
 
 .request-card:hover {

@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Saisie Quotidienne Ventes</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            max-width: 500px;
+            width: 100%;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 2rem;
+            text-align: center;
+        }
+
+        .subtitle {
+            color: #666;
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 0.9rem;
+        }
+
+        .form-group {
+            margin-bottom: 25px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-weight: 600;
+            font-size: 0.95rem;
+        }
+
+        input {
+            width: 100%;
+            padding: 15px;
+            border: 2px solid #e1e5e9;
+            border-radius: 10px;
+            font-size: 1.1rem;
+            transition: all 0.3s ease;
+            background: #f8f9fa;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: #667eea;
+            background: white;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        button {
+            width: 100%;
+            padding: 15px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 1.2rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+            margin-top: 10px;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .message {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 10px;
+            text-align: center;
+            font-weight: 600;
+            display: none;
+        }
+
+        .message.success {
+            background: #d4edda;
+            color: #155724;
+            border: 2px solid #28a745;
+            display: block;
+        }
+
+        .message.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 2px solid #dc3545;
+            display: block;
+        }
+
+        .info {
+            background: #e7f3ff;
+            border: 2px solid #2196F3;
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 20px;
+            color: #1565C0;
+            font-size: 0.9rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📊 Saisie Quotidienne</h1>
+        <p class="subtitle">Enregistrez vos ventes du jour</p>
+
+        <div class="info">
+            <strong>ℹ️ Informations :</strong><br>
+            Saisissez votre code vendeuse (3 chiffres) et les quantités du jour.
+        </div>
+
+        <form id="salesForm">
+            <div class="form-group">
+                <label for="saleCode">Code Vendeuse *</label>
+                <input
+                    type="text"
+                    id="saleCode"
+                    name="saleCode"
+                    placeholder="123"
+                    pattern="[0-9]{3}"
+                    maxlength="3"
+                    required
+                    autocomplete="off"
+                />
+            </div>
+
+            <div class="form-group">
+                <label for="nbPromo">Nombre de Promo Quinzaine du jour *</label>
+                <input
+                    type="number"
+                    id="nbPromo"
+                    name="nbPromo"
+                    placeholder="0"
+                    min="0"
+                    required
+                />
+            </div>
+
+            <div class="form-group">
+                <label for="nbCartesFid">Nombre de Cartes Fidélité du jour *</label>
+                <input
+                    type="number"
+                    id="nbCartesFid"
+                    name="nbCartesFid"
+                    placeholder="0"
+                    min="0"
+                    required
+                />
+            </div>
+
+            <button type="submit" id="submitBtn">
+                📤 Envoyer
+            </button>
+        </form>
+
+        <div id="message" class="message"></div>
+    </div>
+
+    <script>
+        const API_URL = 'https://boulangerie-planning-api-4-pbfy.onrender.com/api/daily-sales';
+
+        const form = document.getElementById('salesForm');
+        const messageDiv = document.getElementById('message');
+        const submitBtn = document.getElementById('submitBtn');
+
+        // Limiter le code vente à 3 chiffres
+        document.getElementById('saleCode').addEventListener('input', function(e) {
+            e.target.value = e.target.value.replace(/\D/g, '').slice(0, 3);
+        });
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const saleCode = document.getElementById('saleCode').value.trim();
+            const nbPromo = parseInt(document.getElementById('nbPromo').value) || 0;
+            const nbCartesFid = parseInt(document.getElementById('nbCartesFid').value) || 0;
+
+            if (saleCode.length !== 3) {
+                showMessage('Le code vendeuse doit contenir exactement 3 chiffres', 'error');
+                return;
+            }
+
+            submitBtn.disabled = true;
+            submitBtn.textContent = '⏳ Envoi...';
+
+            try {
+                const response = await fetch(`${API_URL}/submit`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        saleCode,
+                        nbPromo,
+                        nbCartesFid
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok && data.success) {
+                    showMessage('✅ Saisie enregistrée avec succès !', 'success');
+                    form.reset();
+                    
+                    // Réactiver le bouton après 2 secondes
+                    setTimeout(() => {
+                        submitBtn.disabled = false;
+                        submitBtn.textContent = '📤 Envoyer';
+                        messageDiv.classList.remove('success');
+                        messageDiv.style.display = 'none';
+                    }, 3000);
+                } else {
+                    showMessage(`❌ Erreur : ${data.message || 'Une erreur est survenue'}`, 'error');
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = '📤 Envoyer';
+                }
+            } catch (error) {
+                console.error('Erreur:', error);
+                showMessage('❌ Erreur de connexion. Vérifiez votre connexion internet.', 'error');
+                submitBtn.disabled = false;
+                submitBtn.textContent = '📤 Envoyer';
+            }
+        });
+
+        function showMessage(text, type) {
+            messageDiv.textContent = text;
+            messageDiv.className = `message ${type}`;
+            messageDiv.style.display = 'block';
+        }
+
+        // Focus sur le code vendeuse au chargement
+        window.addEventListener('load', () => {
+            document.getElementById('saleCode').focus();
+        });
+    </script>
+</body>
+</html>
+
+

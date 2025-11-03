@@ -52,7 +52,7 @@ exports.saveSalesStats = async (req, res) => {
         caNetHt: parseFloat(data.caNetHt) || 0,
         nbClients: parseInt(data.nbClients) || 0,
         panierMoyen: parseFloat(data.panierMoyen) || 0,
-        nbMenus: parseInt(data.nbMenus) || 0,
+        nbPromo: parseInt(data.nbPromo || data.nbMenus) || 0, // Support ancien format
         nbCartesFid: parseInt(data.nbCartesFid) || 0,
         nbAvisPositifs: parseInt(data.nbAvisPositifs) || 0,
         nbAvisNegatifs: parseInt(data.nbAvisNegatifs) || 0

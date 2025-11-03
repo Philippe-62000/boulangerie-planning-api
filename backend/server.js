@@ -100,6 +100,7 @@ app.use('/api/planning', require('./routes/planning'));
 app.use('/api/constraints', require('./routes/constraints'));
 app.use('/api/absences', require('./routes/absences'));
 app.use('/api/sales-stats', require('./routes/salesStats'));
+app.use('/api/daily-sales', require('./routes/dailySales'));
 app.use('/api/meal-expenses', require('./routes/mealExpenses'));
 app.use('/api/parameters', require('./routes/parameters'));
 app.use('/api/km-expenses', require('./routes/kmExpenses'));

@@ -1,0 +1,35 @@
+warning: in the working copy of 'backend/controllers/kmExpenseController.js', LF will be replaced by CRLF the next time Git touches it
+[1mdiff --git a/backend/controllers/kmExpenseController.js b/backend/controllers/kmExpenseController.js[m
+[1mindex 76928fa..2bdc8f6 100644[m
+[1m--- a/backend/controllers/kmExpenseController.js[m
+[1m+++ b/backend/controllers/kmExpenseController.js[m
+[36m@@ -18,13 +18,22 @@[m [mconst getKmExpenses = async (req, res) => {[m
+     [m
+     console.log(`📊 ${employees.length} employés récupérés pour les frais KM`);[m
+     [m
+[31m-    // Récupérer les paramètres KM (ceux qui ont un kmValue défini et > 0)[m
+[31m-    const parameters = await Parameter.find({ [m
+[31m-      $and: [[m
+[31m-        { kmValue: { $exists: true } },[m
+[31m-        { kmValue: { $gt: 0 } }[m
+[31m-      ][m
+[31m-    }).sort({ name: 1 });[m
+[32m+[m[32m    // Récupérer les paramètres KM (ceux qui ont un kmValue défini)[m
+[32m+[m[32m    // On prend tous les paramètres avec kmValue défini, même s'il est à 0[m
+[32m+[m[32m    // puis on les trie : d'abord ceux avec kmValue > 0, puis les autres[m
+[32m+[m[32m    const allParameters = await Parameter.find({[m[41m [m
+[32m+[m[32m      kmValue: { $exists: true }[m
+[32m+[m[32m    }).sort({[m[41m [m
+[32m+[m[32m      // Trier d'abord par kmValue décroissant (ceux avec valeur > 0 en premier)[m
+[32m+[m[32m      kmValue: -1,[m
+[32m+[m[32m      // Puis par nom[m
+[32m+[m[32m      name: 1[m[41m [m
+[32m+[m[32m    });[m
+[32m+[m[41m    [m
+[32m+[m[32m    // Limiter à 12 paramètres maximum[m
+[32m+[m[32m    // On prend les 12 premiers, même si certains ont kmValue = 0[m
+[32m+[m[32m    // Cela permet d'afficher toutes les colonnes définies dans Parameters[m
+[32m+[m[32m    const parameters = allParameters.slice(0, 12);[m
+     [m
+     console.log(`🚗 ${parameters.length} paramètres KM trouvés`);[m
+     parameters.forEach(param => {[m
