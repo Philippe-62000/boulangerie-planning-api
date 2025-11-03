@@ -28,9 +28,16 @@ class SFTPService {
       }
 
       console.log('🔌 Connexion au NAS Synology...');
-      // Utiliser directement la config avec family: 4 pour forcer IPv4
-      // La bibliothèque ssh2 gère elle-même la résolution DNS
-      await this.client.connect(this.config);
+      
+      // Configuration de connexion avec IPv4 forcé
+      // ssh2-sftp-client utilise ssh2 qui accepte 'family' dans les options
+      const connectConfig = {
+        ...this.config,
+        // Forcer IPv4 pour éviter les problèmes IPv6 depuis Render
+        family: 4
+      };
+      
+      await this.client.connect(connectConfig);
       this.isConnected = true;
       console.log('✅ Connecté au NAS Synology');
       return true;
