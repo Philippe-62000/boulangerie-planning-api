@@ -327,9 +327,14 @@ exports.uploadDocument = async (req, res) => {
         const buffer = Buffer.from(fileName, 'latin1');
         const decoded = buffer.toString('utf8');
         // Vérifier que le décodage a produit des caractères valides
-        if (decoded && !decoded.match(/[^\x00-\x7F]/) || decoded.includes('ï') || decoded.includes('é') || decoded.includes('è')) {
+        // (contient des caractères français valides ou pas de caractères invalides)
+        if (decoded && (decoded.includes('ï') || decoded.includes('é') || decoded.includes('è') || decoded.includes('à') || decoded.includes('ç'))) {
           fileName = decoded;
           console.log(`🔧 Nom de fichier corrigé: ${req.file.originalname} -> ${fileName}`);
+        } else if (decoded && decoded.length === buffer.length && decoded !== fileName) {
+          // Si le décodage a changé quelque chose et semble valide, l'utiliser
+          fileName = decoded;
+          console.log(`🔧 Nom de fichier corrigé (tentative): ${req.file.originalname} -> ${fileName}`);
         }
       } catch (e) {
         console.log(`⚠️ Impossible de corriger l'encodage du nom: ${e.message}`);
