@@ -311,10 +311,31 @@ exports.uploadDocument = async (req, res) => {
     
     // Créer le chemin de destination sur le NAS (avant le bloc try)
     const targetDir = type === 'personal' ? NAS_CONFIG.personalPath : NAS_CONFIG.generalPath;
-    // Garder le nom d'origine du fichier
+    // Garder le nom d'origine du fichier et normaliser l'encodage UTF-8
     // Utiliser des séparateurs Unix pour les chemins SFTP
     const normalizePath = (...parts) => parts.filter(p => p).join('/').replace(/\\/g, '/');
+    
+    // Normaliser le nom de fichier pour garantir l'encodage UTF-8 correct
     let fileName = req.file.originalname;
+    
+    // Corriger l'encodage si le nom contient des séquences mal encodées (ex: "AnaÃ¯s" -> "Anaïs")
+    // Détecter les patterns de mauvais encodage UTF-8 interprété comme latin1
+    if (fileName.includes('Ã')) {
+      try {
+        // Le nom semble mal encodé, tenter de le corriger
+        // "AnaÃ¯s" est "Anaïs" mal encodé (UTF-8 bytes interprétés comme latin1)
+        const buffer = Buffer.from(fileName, 'latin1');
+        const decoded = buffer.toString('utf8');
+        // Vérifier que le décodage a produit des caractères valides
+        if (decoded && !decoded.match(/[^\x00-\x7F]/) || decoded.includes('ï') || decoded.includes('é') || decoded.includes('è')) {
+          fileName = decoded;
+          console.log(`🔧 Nom de fichier corrigé: ${req.file.originalname} -> ${fileName}`);
+        }
+      } catch (e) {
+        console.log(`⚠️ Impossible de corriger l'encodage du nom: ${e.message}`);
+      }
+    }
+    
     let filePath = normalizePath(targetDir, fileName);
     let fullPath = normalizePath(NAS_CONFIG.basePath, filePath);
     
@@ -404,12 +425,13 @@ exports.uploadDocument = async (req, res) => {
     }
     
     // Créer l'enregistrement en base
+    // Utiliser le fileName normalisé (qui peut avoir été corrigé pour l'encodage)
     const documentData = {
       title,
       type,
       category,
       filePath: filePath, // Utiliser la variable filePath définie plus haut
-      fileName: req.file.originalname,
+      fileName: fileName, // Utiliser le fileName normalisé (encodage UTF-8 correct)
       fileSize: req.file.size,
       mimeType: req.file.mimetype,
       description: description || '',
