@@ -312,9 +312,11 @@ exports.uploadDocument = async (req, res) => {
     // Créer le chemin de destination sur le NAS (avant le bloc try)
     const targetDir = type === 'personal' ? NAS_CONFIG.personalPath : NAS_CONFIG.generalPath;
     // Garder le nom d'origine du fichier
+    // Utiliser des séparateurs Unix pour les chemins SFTP
+    const normalizePath = (...parts) => parts.filter(p => p).join('/').replace(/\\/g, '/');
     let fileName = req.file.originalname;
-    let filePath = path.join(targetDir, fileName);
-    let fullPath = path.join(NAS_CONFIG.basePath, filePath);
+    let filePath = normalizePath(targetDir, fileName);
+    let fullPath = normalizePath(NAS_CONFIG.basePath, filePath);
     
     // Utiliser le service SFTP pour uploader sur le NAS
     try {
@@ -322,7 +324,7 @@ exports.uploadDocument = async (req, res) => {
       await sftpService.connect();
       
       // Créer le dossier sur le NAS s'il n'existe pas
-      const dir = path.join(NAS_CONFIG.basePath, targetDir);
+      const dir = normalizePath(NAS_CONFIG.basePath, targetDir);
       console.log('📁 Création du dossier sur le NAS:', dir);
       
       try {
@@ -346,20 +348,30 @@ exports.uploadDocument = async (req, res) => {
       
       // Vérifier si le fichier existe déjà, et ajouter un suffixe si nécessaire
       let counter = 1;
+      const originalNameWithoutExt = path.parse(req.file.originalname).name;
+      const originalExt = path.parse(req.file.originalname).ext;
+      
       while (true) {
-        try {
-          await sftpService.client.stat(fullPath);
-          // Le fichier existe, ajouter un suffixe
-          const nameWithoutExt = path.parse(req.file.originalname).name;
-          const ext = path.parse(req.file.originalname).ext;
-          fileName = `${nameWithoutExt}_${counter}${ext}`;
-          filePath = path.join(targetDir, fileName);
-          fullPath = path.join(NAS_CONFIG.basePath, filePath);
-          counter++;
-          console.log(`⚠️ Fichier existe déjà, nouveau nom: ${fileName}`);
-        } catch (error) {
+        const fileExists = await sftpService.fileExists(fullPath);
+        if (!fileExists) {
           // Le fichier n'existe pas, on peut utiliser ce nom
+          console.log(`✅ Nom de fichier disponible: ${fileName}`);
           break;
+        }
+        // Le fichier existe, ajouter un suffixe
+        fileName = `${originalNameWithoutExt}_${counter}${originalExt}`;
+        filePath = normalizePath(targetDir, fileName);
+        fullPath = normalizePath(NAS_CONFIG.basePath, filePath);
+        counter++;
+        console.log(`⚠️ Fichier existe déjà, nouveau nom: ${fileName}`);
+        
+        // Limite de sécurité pour éviter les boucles infinies
+        if (counter > 100) {
+          console.error('❌ Trop de tentatives pour trouver un nom de fichier unique');
+          return res.status(500).json({
+            success: false,
+            message: 'Impossible de trouver un nom de fichier unique après 100 tentatives'
+          });
         }
       }
       
