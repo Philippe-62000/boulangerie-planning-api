@@ -311,25 +311,18 @@ exports.uploadDocument = async (req, res) => {
     
     // Créer le chemin de destination sur le NAS (avant le bloc try)
     const targetDir = type === 'personal' ? NAS_CONFIG.personalPath : NAS_CONFIG.generalPath;
-    const fileName = `${Date.now()}_${req.file.originalname}`;
-    const filePath = path.join(targetDir, fileName);
-    const fullPath = path.join(NAS_CONFIG.basePath, filePath);
+    // Garder le nom d'origine du fichier
+    let fileName = req.file.originalname;
+    let filePath = path.join(targetDir, fileName);
+    let fullPath = path.join(NAS_CONFIG.basePath, filePath);
     
     // Utiliser le service SFTP pour uploader sur le NAS
     try {
       // Connexion au NAS
       await sftpService.connect();
       
-      console.log('🔍 Configuration NAS:', {
-        basePath: NAS_CONFIG.basePath,
-        targetDir: targetDir,
-        fileName: fileName,
-        filePath: filePath,
-        fullPath: fullPath
-      });
-      
       // Créer le dossier sur le NAS s'il n'existe pas
-      const dir = path.dirname(fullPath);
+      const dir = path.join(NAS_CONFIG.basePath, targetDir);
       console.log('📁 Création du dossier sur le NAS:', dir);
       
       try {
@@ -350,6 +343,33 @@ exports.uploadDocument = async (req, res) => {
           message: 'Erreur lors de la création du dossier sur le NAS'
         });
       }
+      
+      // Vérifier si le fichier existe déjà, et ajouter un suffixe si nécessaire
+      let counter = 1;
+      while (true) {
+        try {
+          await sftpService.client.stat(fullPath);
+          // Le fichier existe, ajouter un suffixe
+          const nameWithoutExt = path.parse(req.file.originalname).name;
+          const ext = path.parse(req.file.originalname).ext;
+          fileName = `${nameWithoutExt}_${counter}${ext}`;
+          filePath = path.join(targetDir, fileName);
+          fullPath = path.join(NAS_CONFIG.basePath, filePath);
+          counter++;
+          console.log(`⚠️ Fichier existe déjà, nouveau nom: ${fileName}`);
+        } catch (error) {
+          // Le fichier n'existe pas, on peut utiliser ce nom
+          break;
+        }
+      }
+      
+      console.log('🔍 Configuration NAS:', {
+        basePath: NAS_CONFIG.basePath,
+        targetDir: targetDir,
+        fileName: fileName,
+        filePath: filePath,
+        fullPath: fullPath
+      });
       
       // Uploader le fichier sur le NAS
       console.log('📤 Upload du fichier vers le NAS:', fullPath);

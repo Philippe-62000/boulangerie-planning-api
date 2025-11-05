@@ -376,8 +376,9 @@
                     <h3>💡 Comment utiliser l'upload par lot :</h3>
                     <p><strong>Pour les fiches de paie :</strong></p>
                     <ul>
-                        <li>Nommez vos fichiers avec le nom du salarié : <code>Marie_Dupont_Janvier2025.pdf</code></li>
-                        <li>Ou utilisez le format : <code>Nom_Prenom_MoisAnnee.pdf</code></li>
+                        <li>Format recommandé : <code>202510 CASTEL Camille_Protege.pdf</code></li>
+                        <li>Le format est : <code>AAAAMM Nom Prenom_Type.pdf</code></li>
+                        <li>Exemple : <code>202510 CASTEL Camille_Protege.pdf</code> (octobre 2025, Camille CASTEL)</li>
                         <li>Le système tentera de faire correspondre automatiquement les fichiers aux salariés</li>
                     </ul>
                 </div>
@@ -722,13 +723,32 @@
                 const data = await response.json();
                 
                 if (data.success && data.data) {
+                    // Nettoyer le nom de fichier (enlever l'extension et les préfixes numériques)
+                    const nameWithoutExt = filename.replace(/\.[^/.]+$/, "");
+                    // Format: "202510 CASTEL Camille_Protege" -> extraire "CASTEL Camille"
+                    // Supprimer le préfixe numérique (année-mois) si présent
+                    const cleanedName = nameWithoutExt.replace(/^\d{6}\s+/, "");
+                    // Supprimer le suffixe après le underscore (ex: _Protege)
+                    const nameOnly = cleanedName.split('_')[0].trim();
+                    
                     // Rechercher par nom dans le fichier
                     for (const employee of data.data) {
-                        const nameParts = employee.name.toLowerCase().split(' ');
-                        const filenameLower = filename.toLowerCase();
+                        const employeeName = employee.name.toLowerCase();
+                        const nameParts = employeeName.split(' ').filter(part => part.length > 2);
+                        const filenameLower = nameOnly.toLowerCase();
                         
-                        // Vérifier si le nom de l'employé est dans le nom du fichier
-                        if (nameParts.some(part => part.length > 2 && filenameLower.includes(part))) {
+                        // Vérifier si tous les mots importants du nom de l'employé sont dans le nom du fichier
+                        const allPartsMatch = nameParts.length > 0 && nameParts.every(part => 
+                            filenameLower.includes(part)
+                        );
+                        
+                        // Vérifier aussi si le nom du fichier contient suffisamment de mots du nom de l'employé
+                        const matchingParts = nameParts.filter(part => 
+                            filenameLower.includes(part)
+                        );
+                        
+                        // Si tous les mots correspondent OU au moins 2 mots correspondent
+                        if (allPartsMatch || matchingParts.length >= 2) {
                             return employee._id;
                         }
                     }
