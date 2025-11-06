@@ -3,6 +3,13 @@ import './SalesStats.css';
 
 const WEEK_DAYS = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
 const VENDEUSE_ROLES = ['vendeuse', 'apprenti', 'manager', 'responsable'];
+const createFullWeekPresence = () => {
+  const presence = {};
+  WEEK_DAYS.forEach((jour) => {
+    presence[jour] = true;
+  });
+  return presence;
+};
 
 const capitalize = (value) => {
   if (!value || typeof value !== 'string') {
@@ -151,28 +158,18 @@ const SalesStats = () => {
         if (data.success) {
           setObjectifHebdoPromo(data.data.objectifPromo || 0);
           setObjectifHebdoCartesFid(data.data.objectifCartesFid || 0);
-          if (data.data.presences && typeof data.data.presences === 'object') {
-            const normalized = {};
-            Object.entries(data.data.presences).forEach(([employeeId, days]) => {
-              if (days && typeof days === 'object') {
-                normalized[employeeId] = { ...days };
-              }
-            });
-            setPresences(normalized);
-          } else {
-            setPresences({});
-          }
+          setPresences(buildPresenceState(data.data.presences || {}));
         } else {
-          setPresences({});
+          setPresences(buildPresenceState({}));
         }
       } else {
-        setPresences({});
+        setPresences(buildPresenceState({}));
       }
     } catch (error) {
       console.error('Erreur chargement objectifs:', error);
-      setPresences({});
+      setPresences(buildPresenceState({}));
     }
-  }, []);
+  }, [buildPresenceState]);
 
   // Charger les stats hebdomadaires
   const fetchWeeklyStats = useCallback(async (weekStartValue) => {
@@ -196,11 +193,11 @@ const SalesStats = () => {
 
   useEffect(() => {
     if (selectedWeekStart) {
-      setPresences({});
+      setPresences(buildPresenceState({}));
       fetchWeeklyObjectives(selectedWeekStart);
       fetchWeeklyStats(selectedWeekStart);
     }
-  }, [selectedWeekStart, fetchWeeklyObjectives, fetchWeeklyStats]);
+  }, [selectedWeekStart, fetchWeeklyObjectives, fetchWeeklyStats, buildPresenceState]);
 
   // Charger les marges depuis les paramètres
   const fetchMarges = async () => {
@@ -302,9 +299,10 @@ const SalesStats = () => {
     if (Number.isNaN(baseDate.getTime())) {
       return;
     }
-    baseDate.setDate(baseDate.getDate() + offset * 7);
     const { start } = getWeekRangeFromDate(baseDate);
-    setSelectedWeekStart(start.toISOString().split('T')[0]);
+    start.setDate(start.getDate() + offset * 7);
+    const { start: newStart } = getWeekRangeFromDate(start);
+    setSelectedWeekStart(newStart.toISOString().split('T')[0]);
   }, [selectedWeekStart]);
 
   const handleWeekDateChange = useCallback((event) => {
@@ -319,6 +317,47 @@ const SalesStats = () => {
     const { start } = getWeekRangeFromDate(pickedDate);
     setSelectedWeekStart(start.toISOString().split('T')[0]);
   }, []);
+
+  const buildPresenceState = useCallback((rawPresences = {}) => {
+    const result = {};
+    vendeuses.forEach((vendeuse) => {
+      const rawDays = rawPresences[vendeuse._id];
+      const presence = {};
+      const hasExplicitDays = rawDays && Object.keys(rawDays).length > 0;
+      WEEK_DAYS.forEach((jour) => {
+        if (hasExplicitDays) {
+          presence[jour] = !!rawDays[jour];
+        } else {
+          presence[jour] = true;
+        }
+      });
+      result[vendeuse._id] = presence;
+    });
+    return result;
+  }, [vendeuses]);
+
+  useEffect(() => {
+    if (vendeuses.length === 0) {
+      return;
+    }
+    setPresences((prev) => {
+      const merged = buildPresenceState(prev);
+      const prevKeys = Object.keys(prev);
+      const mergedKeys = Object.keys(merged);
+      const hasDifference = mergedKeys.length !== prevKeys.length ||
+        mergedKeys.some((key) => {
+          const prevEmployee = prev[key];
+          if (!prevEmployee) {
+            return true;
+          }
+          return WEEK_DAYS.some((jour) => merged[key][jour] !== !!prevEmployee[jour]);
+        });
+      if (!hasDifference) {
+        return prev;
+      }
+      return merged;
+    });
+  }, [vendeuses, buildPresenceState]);
 
   // Charger les employés
   const fetchEmployees = async () => {
