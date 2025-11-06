@@ -71,6 +71,7 @@ const SalesStats = () => {
   const [objectifHebdoPromo, setObjectifHebdoPromo] = useState(0);
   const [presences, setPresences] = useState({}); // { employeeId: { 'Lundi': true, 'Mardi': false, ... } }
   const [weeklyStats, setWeeklyStats] = useState(null);
+  const [selectedWeekStart, setSelectedWeekStart] = useState('');
   const [marges, setMarges] = useState({ vert: 100, jaune: 80, orange: 50 });
 
   const vendeuses = useMemo(() => {
@@ -78,14 +79,23 @@ const SalesStats = () => {
   }, [employees]);
 
   const totalCheckedBoxes = useMemo(() => {
-    return vendeuses.reduce((sum, vendeuse) => {
+    const computed = vendeuses.reduce((sum, vendeuse) => {
       const presence = presences[vendeuse._id] || {};
       const employeeCount = WEEK_DAYS.reduce((count, jour) => (
         presence[jour] ? count + 1 : count
       ), 0);
       return sum + employeeCount;
     }, 0);
-  }, [vendeuses, presences]);
+    if (computed === 0) {
+      const hasManualSelection = Object.values(presences).some((days) =>
+        days && typeof days === 'object' && Object.values(days).some(Boolean)
+      );
+      if (!hasManualSelection && weeklyStats?.totalPresences) {
+        return weeklyStats.totalPresences;
+      }
+    }
+    return computed;
+  }, [vendeuses, presences, weeklyStats]);
 
   const objectifParPresenceCartesFid = totalCheckedBoxes > 0
     ? Math.ceil(objectifHebdoCartesFid / totalCheckedBoxes)
@@ -95,15 +105,20 @@ const SalesStats = () => {
     ? Math.ceil(objectifHebdoPromo / totalCheckedBoxes)
     : 0;
 
+  const totalCartesObjective = objectifParPresenceCartesFid * totalCheckedBoxes;
+  const totalPromoObjective = objectifParPresencePromo * totalCheckedBoxes;
+
   const weekInfo = useMemo(() => {
-    const referenceDate = weeklyStats?.weekStart ? new Date(weeklyStats.weekStart) : new Date();
-    const { start, end } = getWeekRangeFromDate(referenceDate);
+    const baseDate = selectedWeekStart
+      ? new Date(selectedWeekStart)
+      : (weeklyStats?.weekStart ? new Date(weeklyStats.weekStart) : new Date());
+    const { start, end } = getWeekRangeFromDate(baseDate);
     return {
       weekNumber: getISOWeekNumber(start),
       startLabel: formatWeekDate(start),
       endLabel: formatWeekDate(end)
     };
-  }, [weeklyStats]);
+  }, [selectedWeekStart, weeklyStats]);
 
   // Initialiser le mois et l'année actuels
   useEffect(() => {
@@ -112,52 +127,70 @@ const SalesStats = () => {
     const year = now.getFullYear();
     setCurrentMonth(month);
     setCurrentYear(year);
+    const { start } = getWeekRangeFromDate(now);
+    setSelectedWeekStart(start.toISOString().split('T')[0]);
   }, []);
 
   // Charger les employés au montage
   useEffect(() => {
     fetchEmployees();
-    fetchWeeklyObjectives();
-    fetchWeeklyStats();
     fetchMarges();
   }, []);
 
+  useEffect(() => {
+    if (selectedWeekStart) {
+      setPresences({});
+      fetchWeeklyObjectives(selectedWeekStart);
+      fetchWeeklyStats(selectedWeekStart);
+    }
+  }, [selectedWeekStart, fetchWeeklyObjectives, fetchWeeklyStats]);
+
   // Charger les objectifs hebdomadaires
-  const fetchWeeklyObjectives = async () => {
+  const fetchWeeklyObjectives = useCallback(async (weekStartValue) => {
+    if (!weekStartValue) {
+      return;
+    }
     try {
-      const response = await fetch('https://boulangerie-planning-api-4-pbfy.onrender.com/api/daily-sales/objectives');
+      const url = new URL('https://boulangerie-planning-api-4-pbfy.onrender.com/api/daily-sales/objectives');
+      url.searchParams.set('weekStart', weekStartValue);
+      const response = await fetch(url.toString());
       if (response.ok) {
         const data = await response.json();
         if (data.success) {
           setObjectifHebdoPromo(data.data.objectifPromo || 0);
           setObjectifHebdoCartesFid(data.data.objectifCartesFid || 0);
-          if (data.data.presences) {
-            let parsedPresences = {};
-            if (typeof data.data.presences === 'string') {
-              try {
-                const raw = JSON.parse(data.data.presences);
-                if (raw && typeof raw === 'object') {
-                  parsedPresences = raw;
-                }
-              } catch (parseError) {
-                console.warn('⚠️ Impossible de parser les présences hebdo:', parseError.message);
+          if (data.data.presences && typeof data.data.presences === 'object') {
+            const normalized = {};
+            Object.entries(data.data.presences).forEach(([employeeId, days]) => {
+              if (days && typeof days === 'object') {
+                normalized[employeeId] = { ...days };
               }
-            } else if (typeof data.data.presences === 'object' && data.data.presences !== null) {
-              parsedPresences = data.data.presences;
-            }
-            setPresences(parsedPresences);
+            });
+            setPresences(normalized);
+          } else {
+            setPresences({});
           }
+        } else {
+          setPresences({});
         }
+      } else {
+        setPresences({});
       }
     } catch (error) {
       console.error('Erreur chargement objectifs:', error);
+      setPresences({});
     }
-  };
+  }, []);
 
   // Charger les stats hebdomadaires
-  const fetchWeeklyStats = async () => {
+  const fetchWeeklyStats = useCallback(async (weekStartValue) => {
+    if (!weekStartValue) {
+      return;
+    }
     try {
-      const response = await fetch('https://boulangerie-planning-api-4-pbfy.onrender.com/api/daily-sales/weekly');
+      const url = new URL('https://boulangerie-planning-api-4-pbfy.onrender.com/api/daily-sales/weekly');
+      url.searchParams.set('weekStart', weekStartValue);
+      const response = await fetch(url.toString());
       if (response.ok) {
         const data = await response.json();
         if (data.success) {
@@ -167,7 +200,7 @@ const SalesStats = () => {
     } catch (error) {
       console.error('Erreur chargement stats hebdo:', error);
     }
-  };
+  }, []);
 
   // Charger les marges depuis les paramètres
   const fetchMarges = async () => {
@@ -192,6 +225,10 @@ const SalesStats = () => {
   // Sauvegarder les objectifs hebdomadaires
   const saveWeeklyObjectives = async () => {
     try {
+      if (!selectedWeekStart) {
+        alert('Veuillez sélectionner une semaine.');
+        return;
+      }
       const presencesPayload = buildPresencesPayload();
 
       const response = await fetch('https://boulangerie-planning-api-4-pbfy.onrender.com/api/daily-sales/objectives', {
@@ -200,14 +237,15 @@ const SalesStats = () => {
         body: JSON.stringify({
           objectifPromo: objectifHebdoPromo,
           objectifCartesFid: objectifHebdoCartesFid,
-          presences: presencesPayload
+          presences: presencesPayload,
+          weekStart: selectedWeekStart
         })
       });
 
       if (response.ok) {
         alert('Objectifs hebdomadaires enregistrés avec succès !');
         setPresences(presencesPayload);
-        await fetchWeeklyStats();
+        await fetchWeeklyStats(selectedWeekStart);
       }
     } catch (error) {
       console.error('Erreur sauvegarde objectifs:', error);
@@ -258,6 +296,29 @@ const SalesStats = () => {
     });
     return payload;
   }, [vendeuses, presences]);
+
+  const shiftWeek = useCallback((offset) => {
+    const baseDate = selectedWeekStart ? new Date(selectedWeekStart) : new Date();
+    if (Number.isNaN(baseDate.getTime())) {
+      return;
+    }
+    baseDate.setDate(baseDate.getDate() + offset * 7);
+    const { start } = getWeekRangeFromDate(baseDate);
+    setSelectedWeekStart(start.toISOString().split('T')[0]);
+  }, [selectedWeekStart]);
+
+  const handleWeekDateChange = useCallback((event) => {
+    const { value } = event.target;
+    if (!value) {
+      return;
+    }
+    const pickedDate = new Date(value);
+    if (Number.isNaN(pickedDate.getTime())) {
+      return;
+    }
+    const { start } = getWeekRangeFromDate(pickedDate);
+    setSelectedWeekStart(start.toISOString().split('T')[0]);
+  }, []);
 
   // Charger les employés
   const fetchEmployees = async () => {
@@ -520,7 +581,36 @@ const SalesStats = () => {
         {/* Section Objectifs Hebdomadaires */}
         <div className="sales-form-section">
           <h2>🎯 Objectifs Hebdomadaires</h2>
-          <div style={{ marginBottom: '20px', display: 'flex', gap: '20px', flexWrap: 'wrap' }}>
+          <div style={{ marginBottom: '20px', display: 'flex', gap: '20px', flexWrap: 'wrap', alignItems: 'flex-end' }}>
+            <div className="week-selector-block">
+              <label style={{ display: 'block', marginBottom: '6px', fontWeight: 600 }}>
+                Semaine à planifier :
+              </label>
+              <div className="week-selector-controls">
+                <button
+                  type="button"
+                  onClick={() => shiftWeek(-1)}
+                  className="week-nav-button"
+                  title="Semaine précédente"
+                >
+                  ◀
+                </button>
+                <input
+                  type="date"
+                  value={selectedWeekStart}
+                  onChange={handleWeekDateChange}
+                  className="week-date-input"
+                />
+                <button
+                  type="button"
+                  onClick={() => shiftWeek(1)}
+                  className="week-nav-button"
+                  title="Semaine suivante"
+                >
+                  ▶
+                </button>
+              </div>
+            </div>
             <div>
               <label style={{ display: 'block', marginBottom: '5px', fontWeight: '600' }}>
                 Objectif Hebdomadaire total Carte Fidélité :
@@ -575,7 +665,9 @@ const SalesStats = () => {
               <div className="weekly-objective-summary">
                 <span className="objective-pill objective-pill-fid">🎫 {objectifParPresenceCartesFid} / présence</span>
                 <span className="objective-pill objective-pill-promo">🍔 {objectifParPresencePromo} / présence</span>
-                <span className="objective-pill objective-pill-count">✅ {totalCheckedBoxes} présences</span>
+                <span className="objective-pill objective-pill-total-fid">🎯 Total cartes : {totalCartesObjective}</span>
+                <span className="objective-pill objective-pill-total-promo">🔥 Total promo : {totalPromoObjective}</span>
+                <span className="objective-pill objective-pill-count">✅ {totalCheckedBoxes} présence{totalCheckedBoxes > 1 ? 's' : ''}</span>
               </div>
             </div>
             <table className="presence-table">

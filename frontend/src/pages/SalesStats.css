@@ -110,6 +110,57 @@
   align-items: center;
 }
 
+.week-selector-block {
+  min-width: 260px;
+}
+
+.week-selector-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.week-nav-button {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  padding: 8px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.9rem;
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.25);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.week-nav-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(102, 126, 234, 0.35);
+}
+
+.week-nav-button:active {
+  transform: translateY(0);
+}
+
+.week-date-input {
+  padding: 8px 12px;
+  border: 2px solid #667eea;
+  border-radius: 8px;
+  background: #f8f9ff;
+  color: #2d3748;
+  font-weight: 600;
+  font-size: 0.95rem;
+  min-width: 150px;
+  box-shadow: 0 3px 10px rgba(102, 126, 234, 0.15);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.week-date-input:focus {
+  outline: none;
+  border-color: #5a67d8;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.2);
+}
+
 .objective-pill {
   display: inline-flex;
   align-items: center;
@@ -138,6 +189,18 @@
   background: rgba(40, 167, 69, 0.12);
   color: #2f855a;
   border: 1px solid rgba(40, 167, 69, 0.3);
+}
+
+.objective-pill-total-fid {
+  background: rgba(102, 126, 234, 0.2);
+  color: #3c366b;
+  border: 1px solid rgba(102, 126, 234, 0.35);
+}
+
+.objective-pill-total-promo {
+  background: rgba(255, 152, 0, 0.18);
+  color: #7b341e;
+  border: 1px solid rgba(255, 152, 0, 0.35);
 }
 
 .presence-table {

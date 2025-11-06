@@ -2,6 +2,41 @@ const DailySales = require('../models/DailySales');
 const Employee = require('../models/Employee');
 const Parameter = require('../models/Parameters');
 
+const getWeekStartDate = (inputDate = new Date()) => {
+  const reference = inputDate instanceof Date ? new Date(inputDate) : new Date(inputDate);
+  if (Number.isNaN(reference.getTime())) {
+    const fallback = new Date();
+    fallback.setHours(0, 0, 0, 0);
+    return fallback;
+  }
+  reference.setHours(0, 0, 0, 0);
+  const day = reference.getDay();
+  const diff = day === 0 ? -6 : 1 - day; // Monday as start
+  reference.setDate(reference.getDate() + diff);
+  reference.setHours(0, 0, 0, 0);
+  return reference;
+};
+
+const getWeekKey = (date = new Date()) => {
+  const start = getWeekStartDate(date);
+  return start.toISOString().split('T')[0];
+};
+
+const parseWeeklyObjectives = (rawString) => {
+  if (!rawString || typeof rawString !== 'string') {
+    return {};
+  }
+  try {
+    const parsed = JSON.parse(rawString);
+    if (parsed && typeof parsed === 'object') {
+      return parsed;
+    }
+  } catch (error) {
+    console.warn('⚠️ Impossible de parser weeklyObjectives:', error.message);
+  }
+  return {};
+};
+
 // Enregistrer une saisie quotidienne
 exports.submitDailySales = async (req, res) => {
   try {
@@ -90,18 +125,8 @@ exports.getWeeklyStats = async (req, res) => {
   try {
     const { weekStart } = req.query; // Date de début de semaine (format YYYY-MM-DD)
     
-    let startDate;
-    if (weekStart) {
-      startDate = new Date(weekStart);
-    } else {
-      // Par défaut, début de la semaine actuelle (lundi)
-      const today = new Date();
-      const dayOfWeek = today.getDay();
-      const diff = dayOfWeek === 0 ? -6 : 1 - dayOfWeek; // Lundi = 1
-      startDate = new Date(today);
-      startDate.setDate(today.getDate() + diff);
-    }
-    startDate.setHours(0, 0, 0, 0);
+    const startDate = weekStart ? getWeekStartDate(weekStart) : getWeekStartDate();
+    const weekKey = getWeekKey(startDate);
     
     const endDate = new Date(startDate);
     endDate.setDate(startDate.getDate() + 6);
@@ -127,9 +152,20 @@ exports.getWeeklyStats = async (req, res) => {
     // Récupérer les objectifs hebdomadaires depuis les paramètres
     const objectifPromoParam = await Parameter.findOne({ name: 'objectifHebdoPromo' });
     const objectifCartesFidParam = await Parameter.findOne({ name: 'objectifHebdoCartesFid' });
+    const weeklyObjectivesParam = await Parameter.findOne({ name: 'weeklyObjectives' });
+    const weeklyObjectives = parseWeeklyObjectives(weeklyObjectivesParam?.stringValue);
+    const objectiveEntry = weeklyObjectives[weekKey];
     
-    const objectifPromo = objectifPromoParam?.kmValue || 0;
-    const objectifCartesFid = objectifCartesFidParam?.kmValue || 0;
+    const objectifPromoRaw = objectifPromoParam?.kmValue || 0;
+    const objectifCartesFidRaw = objectifCartesFidParam?.kmValue || 0;
+    
+    const objectifPromo = objectiveEntry?.adjustedPromo ?? objectifPromoRaw;
+    const objectifCartesFid = objectiveEntry?.adjustedCartesFid ?? objectifCartesFidRaw;
+    const perPresencePromo = objectiveEntry?.perPresencePromo ?? 0;
+    const perPresenceCartesFid = objectiveEntry?.perPresenceCartesFid ?? 0;
+    const totalPresences = objectiveEntry?.totalPresences ?? 0;
+    const objectivePromoRawValue = objectiveEntry?.objectifPromo ?? objectifPromoRaw;
+    const objectiveCartesFidRawValue = objectiveEntry?.objectifCartesFid ?? objectifCartesFidRaw;
     
     // Calculer les pourcentages
     const pourcentagePromo = objectifPromo > 0 ? (totalPromo / objectifPromo) * 100 : 0;
@@ -165,6 +201,11 @@ exports.getWeeklyStats = async (req, res) => {
         pourcentageCartesFid,
         colorPromo: getColor(pourcentagePromo),
         colorCartesFid: getColor(pourcentageCartesFid),
+        perPresencePromo,
+        perPresenceCartesFid,
+        totalPresences,
+        rawObjectivePromo: objectivePromoRawValue,
+        rawObjectiveCartesFid: objectiveCartesFidRawValue,
         dailySales: weeklySales
       }
     });
@@ -182,28 +223,35 @@ exports.getWeeklyStats = async (req, res) => {
 // Obtenir les objectifs hebdomadaires
 exports.getWeeklyObjectives = async (req, res) => {
   try {
+    const { weekStart } = req.query;
+    const startDate = weekStart ? getWeekStartDate(weekStart) : getWeekStartDate();
+    const weekKey = getWeekKey(startDate);
+
     const objectifPromoParam = await Parameter.findOne({ name: 'objectifHebdoPromo' });
     const objectifCartesFidParam = await Parameter.findOne({ name: 'objectifHebdoCartesFid' });
-    const presencesParam = await Parameter.findOne({ name: 'presencesHebdo' });
+    const weeklyObjectivesParam = await Parameter.findOne({ name: 'weeklyObjectives' });
 
-    let presences = {};
-    if (presencesParam?.stringValue) {
-      try {
-        const parsed = JSON.parse(presencesParam.stringValue);
-        if (parsed && typeof parsed === 'object') {
-          presences = parsed;
-        }
-      } catch (parseError) {
-        console.warn('⚠️ Impossible de parser presencesHebdo:', parseError.message);
-      }
-    }
-    
+    const weeklyObjectives = parseWeeklyObjectives(weeklyObjectivesParam?.stringValue);
+    const entry = weeklyObjectives[weekKey] || {};
+
+    const objectifPromoValue = entry.objectifPromo ?? objectifPromoParam?.kmValue ?? 0;
+    const objectifCartesFidValue = entry.objectifCartesFid ?? objectifCartesFidParam?.kmValue ?? 0;
+    const presences = entry.presences || {};
+    const perPresencePromo = entry.perPresencePromo ?? 0;
+    const perPresenceCartesFid = entry.perPresenceCartesFid ?? 0;
+    const totalPresences = entry.totalPresences ?? 0;
+
     res.json({
       success: true,
       data: {
-        objectifPromo: objectifPromoParam?.kmValue || 0,
-        objectifCartesFid: objectifCartesFidParam?.kmValue || 0,
-        presences
+        weekStart: startDate,
+        weekKey,
+        objectifPromo: objectifPromoValue,
+        objectifCartesFid: objectifCartesFidValue,
+        presences,
+        perPresencePromo,
+        perPresenceCartesFid,
+        totalPresences
       }
     });
   } catch (error) {
@@ -219,37 +267,72 @@ exports.getWeeklyObjectives = async (req, res) => {
 // Enregistrer les objectifs hebdomadaires
 exports.setWeeklyObjectives = async (req, res) => {
   try {
-    const { objectifPromo, objectifCartesFid, presences } = req.body;
+    const { objectifPromo, objectifCartesFid, presences, weekStart } = req.body;
     
-    // Enregistrer les objectifs dans les paramètres
-    if (objectifPromo !== undefined) {
-      await Parameter.findOneAndUpdate(
-        { name: 'objectifHebdoPromo' },
-        { kmValue: parseFloat(objectifPromo) || 0 },
-        { upsert: true, new: true }
-      );
-    }
-    
-    if (objectifCartesFid !== undefined) {
-      await Parameter.findOneAndUpdate(
-        { name: 'objectifHebdoCartesFid' },
-        { kmValue: parseFloat(objectifCartesFid) || 0 },
-        { upsert: true, new: true }
-      );
-    }
-    
-    // Enregistrer les présences (optionnel, peut être géré côté frontend)
-    if (presences) {
-      await Parameter.findOneAndUpdate(
-        { name: 'presencesHebdo' },
-        { stringValue: JSON.stringify(presences) },
-        { upsert: true, new: true }
-      );
-    }
+    const rawPromo = parseFloat(objectifPromo) || 0;
+    const rawCartesFid = parseFloat(objectifCartesFid) || 0;
+    const startDate = getWeekStartDate(weekStart);
+    const weekKey = getWeekKey(startDate);
+
+    const presencesData = presences && typeof presences === 'object' ? presences : {};
+    let totalPresences = 0;
+    Object.values(presencesData).forEach((employeePresences) => {
+      if (employeePresences && typeof employeePresences === 'object') {
+        totalPresences += Object.values(employeePresences).filter(Boolean).length;
+      }
+    });
+
+    const perPresencePromo = totalPresences > 0 ? Math.ceil(rawPromo / totalPresences) : 0;
+    const perPresenceCartesFid = totalPresences > 0 ? Math.ceil(rawCartesFid / totalPresences) : 0;
+
+    const adjustedPromo = totalPresences > 0 ? perPresencePromo * totalPresences : rawPromo;
+    const adjustedCartesFid = totalPresences > 0 ? perPresenceCartesFid * totalPresences : rawCartesFid;
+
+    // Enregistrer les objectifs ajustés dans les paramètres historiques
+    await Parameter.findOneAndUpdate(
+      { name: 'objectifHebdoPromo' },
+      { kmValue: adjustedPromo },
+      { upsert: true, new: true }
+    );
+
+    await Parameter.findOneAndUpdate(
+      { name: 'objectifHebdoCartesFid' },
+      { kmValue: adjustedCartesFid },
+      { upsert: true, new: true }
+    );
+
+    // Sauvegarder toutes les informations détaillées dans un paramètre dédié
+    const weeklyObjectivesParam = await Parameter.findOne({ name: 'weeklyObjectives' });
+    const weeklyObjectives = parseWeeklyObjectives(weeklyObjectivesParam?.stringValue);
+
+    weeklyObjectives[weekKey] = {
+      objectifPromo: rawPromo,
+      objectifCartesFid: rawCartesFid,
+      adjustedPromo,
+      adjustedCartesFid,
+      perPresencePromo,
+      perPresenceCartesFid,
+      totalPresences,
+      presences: presencesData
+    };
+
+    await Parameter.findOneAndUpdate(
+      { name: 'weeklyObjectives' },
+      { stringValue: JSON.stringify(weeklyObjectives) },
+      { upsert: true, new: true }
+    );
     
     res.json({
       success: true,
-      message: 'Objectifs hebdomadaires enregistrés'
+      message: 'Objectifs hebdomadaires enregistrés',
+      data: {
+        weekKey,
+        adjustedPromo,
+        adjustedCartesFid,
+        perPresencePromo,
+        perPresenceCartesFid,
+        totalPresences
+      }
     });
     
   } catch (error) {

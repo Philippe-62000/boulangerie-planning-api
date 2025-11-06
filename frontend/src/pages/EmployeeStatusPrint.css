@@ -84,55 +84,50 @@
 }
 
 .status-table th {
-  background: #e3f2fd;
-  padding: 1rem;
-  text-align: left;
+  background: #f5f7fb;
+  padding: 1rem 1.5rem;
+  text-align: right;
   font-weight: 600;
-  color: #1976d2;
-  border-bottom: 2px solid #1976d2;
-  font-size: 1.1rem;
+  color: #2c3e50;
+  border-bottom: 2px solid #dbe2ef;
+  font-size: 1.05rem;
+  vertical-align: middle;
 }
 
 .header-employee {
   text-align: left;
   color: #2c3e50;
-  background: rgba(44, 62, 80, 0.08);
   border-bottom-color: #2c3e50;
 }
 
 .header-meal {
   text-align: right;
   color: #28a745;
-  background: rgba(40, 167, 69, 0.08);
-  border-bottom-color: #28a745;
+  border-bottom-color: rgba(40, 167, 69, 0.4);
 }
 
 .header-km {
   text-align: right;
   color: #007bff;
-  background: rgba(0, 123, 255, 0.08);
-  border-bottom-color: #007bff;
+  border-bottom-color: rgba(0, 123, 255, 0.4);
 }
 
 .header-advance {
   text-align: right;
   color: #ff9800;
-  background: rgba(255, 152, 0, 0.08);
-  border-bottom-color: #ff9800;
+  border-bottom-color: rgba(255, 152, 0, 0.4);
 }
 
 .header-overpayment {
   text-align: right;
   color: #6f42c1;
-  background: rgba(111, 66, 193, 0.08);
-  border-bottom-color: #6f42c1;
+  border-bottom-color: rgba(111, 66, 193, 0.4);
 }
 
 .header-total {
   text-align: right;
   color: #dc3545;
-  background: rgba(220, 53, 69, 0.08);
-  border-bottom-color: #dc3545;
+  border-bottom-color: rgba(220, 53, 69, 0.4);
 }
 
 .status-table td {
