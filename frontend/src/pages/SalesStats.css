@@ -88,6 +88,164 @@
   border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
+.week-info-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 15px;
+  flex-wrap: wrap;
+  margin-bottom: 15px;
+}
+
+.week-info-text {
+  font-weight: 600;
+  color: #333;
+  font-size: 1rem;
+}
+
+.weekly-objective-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+.objective-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-weight: 600;
+  font-size: 0.85rem;
+  letter-spacing: 0.3px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+}
+
+.objective-pill-fid {
+  background: rgba(102, 126, 234, 0.12);
+  color: #4c51bf;
+  border: 1px solid rgba(102, 126, 234, 0.3);
+}
+
+.objective-pill-promo {
+  background: rgba(255, 152, 0, 0.12);
+  color: #b45309;
+  border: 1px solid rgba(255, 152, 0, 0.3);
+}
+
+.objective-pill-count {
+  background: rgba(40, 167, 69, 0.12);
+  color: #2f855a;
+  border: 1px solid rgba(40, 167, 69, 0.3);
+}
+
+.presence-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: white;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+}
+
+.presence-table th {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 14px 10px;
+  text-align: center;
+  font-weight: 600;
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.presence-header-name {
+  text-align: left;
+  padding-left: 18px;
+  min-width: 220px;
+}
+
+.presence-master-header {
+  width: 90px;
+}
+
+.presence-day-header {
+  min-width: 90px;
+}
+
+.presence-table td {
+  padding: 12px 10px;
+  text-align: center;
+  border-bottom: 1px solid #f0f2f5;
+  background: white;
+}
+
+.presence-table tr:nth-child(even) td {
+  background: #fafaff;
+}
+
+.presence-name-cell {
+  text-align: left;
+  font-weight: 600;
+  color: #333;
+  padding-left: 18px;
+}
+
+.presence-employee-name {
+  font-size: 1rem;
+  margin-bottom: 6px;
+}
+
+.employee-weekly-targets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.target-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+}
+
+.target-fid {
+  background: rgba(102, 126, 234, 0.1);
+  color: #4c51bf;
+}
+
+.target-promo {
+  background: rgba(255, 152, 0, 0.12);
+  color: #c05621;
+}
+
+.target-days {
+  background: rgba(40, 167, 69, 0.12);
+  color: #2f855a;
+}
+
+.presence-master-cell input,
+.day-checkbox input {
+  width: 20px;
+  height: 20px;
+  cursor: pointer;
+  accent-color: #667eea;
+}
+
+.day-checkbox input {
+  width: 22px;
+  height: 22px;
+}
+
+.presence-table tr:hover td {
+  background: #eef2ff;
+}
+
 .sales-form-section h2 {
   color: #333;
   margin-bottom: 20px;

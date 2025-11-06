@@ -1,5 +1,57 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import './SalesStats.css';
+
+const WEEK_DAYS = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
+const VENDEUSE_ROLES = ['vendeuse', 'apprenti', 'manager', 'responsable'];
+
+const capitalize = (value) => {
+  if (!value || typeof value !== 'string') {
+    return '';
+  }
+  return value.charAt(0).toUpperCase() + value.slice(1);
+};
+
+const formatWeekDate = (date) => {
+  if (!(date instanceof Date) || Number.isNaN(date.getTime())) {
+    return '';
+  }
+  const formatter = new Intl.DateTimeFormat('fr-FR', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric'
+  });
+  return capitalize(formatter.format(date));
+};
+
+const getISOWeekNumber = (date) => {
+  if (!(date instanceof Date) || Number.isNaN(date.getTime())) {
+    return null;
+  }
+  const target = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  const dayNr = (target.getUTCDay() + 6) % 7;
+  target.setUTCDate(target.getUTCDate() - dayNr + 3);
+  const firstThursday = new Date(Date.UTC(target.getUTCFullYear(), 0, 4));
+  const diff = target - firstThursday;
+  return 1 + Math.round(diff / (7 * 24 * 60 * 60 * 1000));
+};
+
+const getWeekRangeFromDate = (referenceDate) => {
+  const base = (referenceDate instanceof Date && !Number.isNaN(referenceDate.getTime()))
+    ? new Date(referenceDate)
+    : new Date();
+  const start = new Date(base);
+  const day = start.getDay() === 0 ? 7 : start.getDay();
+  const diff = 1 - day;
+  start.setDate(start.getDate() + diff);
+  start.setHours(0, 0, 0, 0);
+
+  const end = new Date(start);
+  end.setDate(start.getDate() + 6);
+  end.setHours(23, 59, 59, 999);
+
+  return { start, end };
+};
 
 const SalesStats = () => {
   // Configuration des années
@@ -20,6 +72,38 @@ const SalesStats = () => {
   const [presences, setPresences] = useState({}); // { employeeId: { 'Lundi': true, 'Mardi': false, ... } }
   const [weeklyStats, setWeeklyStats] = useState(null);
   const [marges, setMarges] = useState({ vert: 100, jaune: 80, orange: 50 });
+
+  const vendeuses = useMemo(() => {
+    return employees.filter(emp => VENDEUSE_ROLES.includes(emp.role));
+  }, [employees]);
+
+  const totalCheckedBoxes = useMemo(() => {
+    return vendeuses.reduce((sum, vendeuse) => {
+      const presence = presences[vendeuse._id] || {};
+      const employeeCount = WEEK_DAYS.reduce((count, jour) => (
+        presence[jour] ? count + 1 : count
+      ), 0);
+      return sum + employeeCount;
+    }, 0);
+  }, [vendeuses, presences]);
+
+  const objectifParPresenceCartesFid = totalCheckedBoxes > 0
+    ? Math.ceil(objectifHebdoCartesFid / totalCheckedBoxes)
+    : 0;
+
+  const objectifParPresencePromo = totalCheckedBoxes > 0
+    ? Math.ceil(objectifHebdoPromo / totalCheckedBoxes)
+    : 0;
+
+  const weekInfo = useMemo(() => {
+    const referenceDate = weeklyStats?.weekStart ? new Date(weeklyStats.weekStart) : new Date();
+    const { start, end } = getWeekRangeFromDate(referenceDate);
+    return {
+      weekNumber: getISOWeekNumber(start),
+      startLabel: formatWeekDate(start),
+      endLabel: formatWeekDate(end)
+    };
+  }, [weeklyStats]);
 
   // Initialiser le mois et l'année actuels
   useEffect(() => {
@@ -47,6 +131,22 @@ const SalesStats = () => {
         if (data.success) {
           setObjectifHebdoPromo(data.data.objectifPromo || 0);
           setObjectifHebdoCartesFid(data.data.objectifCartesFid || 0);
+          if (data.data.presences) {
+            let parsedPresences = {};
+            if (typeof data.data.presences === 'string') {
+              try {
+                const raw = JSON.parse(data.data.presences);
+                if (raw && typeof raw === 'object') {
+                  parsedPresences = raw;
+                }
+              } catch (parseError) {
+                console.warn('⚠️ Impossible de parser les présences hebdo:', parseError.message);
+              }
+            } else if (typeof data.data.presences === 'object' && data.data.presences !== null) {
+              parsedPresences = data.data.presences;
+            }
+            setPresences(parsedPresences);
+          }
         }
       }
     } catch (error) {
@@ -92,10 +192,7 @@ const SalesStats = () => {
   // Sauvegarder les objectifs hebdomadaires
   const saveWeeklyObjectives = async () => {
     try {
-      const vendeuses = employees.filter(emp => {
-        const roles = ['vendeuse', 'apprenti', 'manager', 'responsable'];
-        return roles.includes(emp.role);
-      });
+      const presencesPayload = buildPresencesPayload();
 
       const response = await fetch('https://boulangerie-planning-api-4-pbfy.onrender.com/api/daily-sales/objectives', {
         method: 'POST',
@@ -103,12 +200,13 @@ const SalesStats = () => {
         body: JSON.stringify({
           objectifPromo: objectifHebdoPromo,
           objectifCartesFid: objectifHebdoCartesFid,
-          presences: presences
+          presences: presencesPayload
         })
       });
 
       if (response.ok) {
         alert('Objectifs hebdomadaires enregistrés avec succès !');
+        setPresences(presencesPayload);
         await fetchWeeklyStats();
       }
     } catch (error) {
@@ -128,18 +226,38 @@ const SalesStats = () => {
     }));
   };
 
-  // Calculer l'objectif individuel (objectif total / (nb jours * nb vendeuses présentes))
-  const calculateIndividualObjective = (objectifTotal, jours, vendeuses) => {
-    const joursPresents = jours.filter(j => 
-      vendeuses.some(v => presences[v._id]?.[j])
-    ).length;
-    const vendeusesPresentes = vendeuses.filter(v => 
-      jours.some(j => presences[v._id]?.[j])
-    ).length;
-    
-    const totalPresences = joursPresents * vendeusesPresentes;
-    return totalPresences > 0 ? objectifTotal / totalPresences : 0;
-  };
+  const toggleEmployeeWeek = useCallback((employeeId) => {
+    setPresences(prev => {
+      const currentPresence = prev[employeeId] || {};
+      const allChecked = WEEK_DAYS.every(jour => currentPresence[jour]);
+      const newValue = !allChecked;
+      const updatedPresence = {};
+      WEEK_DAYS.forEach(jour => {
+        updatedPresence[jour] = newValue;
+      });
+      return {
+        ...prev,
+        [employeeId]: updatedPresence
+      };
+    });
+  }, []);
+
+  const buildPresencesPayload = useCallback(() => {
+    const payload = {};
+    vendeuses.forEach(vendeuse => {
+      const presence = presences[vendeuse._id] || {};
+      const activeDays = {};
+      WEEK_DAYS.forEach(jour => {
+        if (presence[jour]) {
+          activeDays[jour] = true;
+        }
+      });
+      if (Object.keys(activeDays).length > 0) {
+        payload[vendeuse._id] = activeDays;
+      }
+    });
+    return payload;
+  }, [vendeuses, presences]);
 
   // Charger les employés
   const fetchEmployees = async () => {
@@ -448,43 +566,75 @@ const SalesStats = () => {
           {/* Tableau des présences */}
           <div style={{ marginTop: '30px' }}>
             <h3 style={{ marginBottom: '15px' }}>📅 Présences des Vendeuses</h3>
-            {(() => {
-              const vendeuses = employees.filter(emp => {
-                const roles = ['vendeuse', 'apprenti', 'manager', 'responsable'];
-                return roles.includes(emp.role);
-              });
-              const jours = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
+            <div className="week-info-bar">
+              <div className="week-info-text">
+                {weekInfo.weekNumber
+                  ? `Semaine ${weekInfo.weekNumber} · du ${weekInfo.startLabel} au ${weekInfo.endLabel}`
+                  : `Semaine du ${weekInfo.startLabel} au ${weekInfo.endLabel}`}
+              </div>
+              <div className="weekly-objective-summary">
+                <span className="objective-pill objective-pill-fid">🎫 {objectifParPresenceCartesFid} / présence</span>
+                <span className="objective-pill objective-pill-promo">🍔 {objectifParPresencePromo} / présence</span>
+                <span className="objective-pill objective-pill-count">✅ {totalCheckedBoxes} présences</span>
+              </div>
+            </div>
+            <table className="presence-table">
+              <thead>
+                <tr>
+                  <th className="presence-header-name">Vendeuse</th>
+                  <th className="presence-master-header">Semaine</th>
+                  {WEEK_DAYS.map(jour => (
+                    <th key={jour} className="presence-day-header">{jour}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {vendeuses.map((vendeuse) => {
+                  const presence = presences[vendeuse._id] || {};
+                  const employeePresenceCount = WEEK_DAYS.reduce((count, jour) => (
+                    presence[jour] ? count + 1 : count
+                  ), 0);
+                  const areAllDaysChecked = WEEK_DAYS.every(jour => presence[jour]);
+                  const hasSomeDaysChecked = employeePresenceCount > 0 && !areAllDaysChecked;
+                  const objectifFidEmployee = employeePresenceCount * objectifParPresenceCartesFid;
+                  const objectifPromoEmployee = employeePresenceCount * objectifParPresencePromo;
 
-              return (
-                <table style={{ width: '100%', borderCollapse: 'collapse', background: 'white', borderRadius: '10px', overflow: 'hidden' }}>
-                  <thead>
-                    <tr style={{ background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', color: 'white' }}>
-                      <th style={{ padding: '15px', textAlign: 'left' }}>Vendeuse</th>
-                      {jours.map(jour => (
-                        <th key={jour} style={{ padding: '15px', textAlign: 'center' }}>{jour}</th>
+                  return (
+                    <tr key={vendeuse._id}>
+                      <td className="presence-name-cell">
+                        <div className="presence-employee-name">{vendeuse.name}</div>
+                        <div className="employee-weekly-targets">
+                          <span className="target-badge target-fid">🎯 Carte : {objectifFidEmployee}</span>
+                          <span className="target-badge target-promo">🔥 Promo : {objectifPromoEmployee}</span>
+                          <span className="target-badge target-days">✅ {employeePresenceCount} jour{employeePresenceCount > 1 ? 's' : ''}</span>
+                        </div>
+                      </td>
+                      <td className="presence-master-cell">
+                        <input
+                          type="checkbox"
+                          checked={areAllDaysChecked && employeePresenceCount > 0}
+                          ref={(element) => {
+                            if (element) {
+                              element.indeterminate = hasSomeDaysChecked;
+                            }
+                          }}
+                          onChange={() => toggleEmployeeWeek(vendeuse._id)}
+                        />
+                      </td>
+                      {WEEK_DAYS.map(jour => (
+                        <td key={jour} className="day-checkbox">
+                          <input
+                            type="checkbox"
+                            checked={!!presence[jour]}
+                            onChange={() => togglePresence(vendeuse._id, jour)}
+                          />
+                        </td>
                       ))}
                     </tr>
-                  </thead>
-                  <tbody>
-                    {vendeuses.map(v => (
-                      <tr key={v._id}>
-                        <td style={{ padding: '15px', fontWeight: '600' }}>{v.name}</td>
-                        {jours.map(jour => (
-                          <td key={jour} style={{ padding: '10px', textAlign: 'center' }}>
-                            <input
-                              type="checkbox"
-                              checked={presences[v._id]?.[jour] || false}
-                              onChange={() => togglePresence(v._id, jour)}
-                              style={{ width: '20px', height: '20px', cursor: 'pointer' }}
-                            />
-                          </td>
-                        ))}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              );
-            })()}
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
         </div>
 

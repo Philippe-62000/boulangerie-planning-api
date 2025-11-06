@@ -184,12 +184,26 @@ exports.getWeeklyObjectives = async (req, res) => {
   try {
     const objectifPromoParam = await Parameter.findOne({ name: 'objectifHebdoPromo' });
     const objectifCartesFidParam = await Parameter.findOne({ name: 'objectifHebdoCartesFid' });
+    const presencesParam = await Parameter.findOne({ name: 'presencesHebdo' });
+
+    let presences = {};
+    if (presencesParam?.stringValue) {
+      try {
+        const parsed = JSON.parse(presencesParam.stringValue);
+        if (parsed && typeof parsed === 'object') {
+          presences = parsed;
+        }
+      } catch (parseError) {
+        console.warn('⚠️ Impossible de parser presencesHebdo:', parseError.message);
+      }
+    }
     
     res.json({
       success: true,
       data: {
         objectifPromo: objectifPromoParam?.kmValue || 0,
-        objectifCartesFid: objectifCartesFidParam?.kmValue || 0
+        objectifCartesFid: objectifCartesFidParam?.kmValue || 0,
+        presences
       }
     });
   } catch (error) {
