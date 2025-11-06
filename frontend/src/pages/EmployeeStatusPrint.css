@@ -93,6 +93,36 @@
   font-size: 1.1rem;
 }
 
+.header-employee {
+  text-align: left;
+  color: #2c3e50;
+}
+
+.header-meal {
+  text-align: right;
+  color: #28a745;
+}
+
+.header-km {
+  text-align: right;
+  color: #007bff;
+}
+
+.header-advance {
+  text-align: right;
+  color: #ff9800;
+}
+
+.header-overpayment {
+  text-align: right;
+  color: #6f42c1;
+}
+
+.header-total {
+  text-align: right;
+  color: #dc3545;
+}
+
 .status-table td {
   padding: 1rem;
   border-bottom: 1px solid #e9ecef;
@@ -124,6 +154,42 @@
   color: #ff9800;
   font-weight: 500;
   text-align: right;
+}
+
+.overpayment-amount {
+  color: #6f42c1;
+  font-weight: 500;
+  text-align: right;
+}
+
+.overpayment-input-wrapper {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.overpayment-input {
+  width: 110px;
+  padding: 0.35rem 0.5rem;
+  border: 1px solid #ced4da;
+  border-radius: 4px;
+  text-align: right;
+  font-weight: 500;
+  color: #6f42c1;
+  background: #ffffff;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.overpayment-input:focus {
+  outline: none;
+  border-color: #6f42c1;
+  box-shadow: 0 0 0 0.2rem rgba(111, 66, 193, 0.15);
+}
+
+.overpayment-saving {
+  font-size: 0.9rem;
+  color: #6f42c1;
 }
 
 .total-amount {
@@ -209,6 +275,18 @@
   
   .status-table td {
     border-bottom: 1px solid #ccc;
+  }
+
+  .overpayment-input {
+    border: none;
+    background: transparent;
+    box-shadow: none;
+    width: 100px;
+    padding: 0;
+  }
+
+  .overpayment-saving {
+    display: none;
   }
   
   .status-table tbody tr:hover {
@@ -303,7 +381,18 @@
   .status-table td {
     padding: 0.5rem;
   }
-  
+
+  .overpayment-input-wrapper {
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0.25rem;
+    width: 100%;
+  }
+
+  .overpayment-input {
+    width: 100%;
+  }
+
   .print-summary {
     padding: 1rem;
     grid-template-columns: 1fr;

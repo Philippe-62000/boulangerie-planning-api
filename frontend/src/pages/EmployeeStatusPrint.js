@@ -10,6 +10,9 @@ const EmployeeStatusPrint = () => {
   const [month, setMonth] = useState(new Date().getMonth() + 1);
   const [year, setYear] = useState(new Date().getFullYear());
   const [advanceRequests, setAdvanceRequests] = useState([]);
+const [overpayments, setOverpayments] = useState({});
+const [persistedOverpayments, setPersistedOverpayments] = useState({});
+const [savingOverpayment, setSavingOverpayment] = useState({});
 
   const fetchAdvanceRequests = async () => {
     try {
@@ -57,7 +60,49 @@ const EmployeeStatusPrint = () => {
     setLoading(true);
     try {
       const response = await api.get(`/employee-status?month=${month}&year=${year}`);
-      setData(response.data);
+    const employees = Array.isArray(response.data?.employees) ? response.data.employees : [];
+
+    const sanitizedEmployees = employees.map((employee) => {
+      const rawAmount = typeof employee.overpaymentAmount === 'number' ? employee.overpaymentAmount : 0;
+      const normalizedAmount = Math.round(rawAmount * 100) / 100;
+      return {
+        ...employee,
+        overpaymentAmount: normalizedAmount
+      };
+    });
+
+    const initialOverpayments = {};
+    const initialPersistedOverpayments = {};
+
+    sanitizedEmployees.forEach((employee) => {
+      const employeeKey = employee.employeeId?.toString?.() ?? employee.employeeId;
+      if (!employeeKey) {
+        return;
+      }
+
+      const normalizedValue = Number((employee.overpaymentAmount || 0).toFixed(2));
+      const normalizedString = normalizedValue.toString();
+      initialOverpayments[employeeKey] = normalizedString;
+      initialPersistedOverpayments[employeeKey] = normalizedString;
+    });
+
+    const fallbackOverpaymentTotal = sanitizedEmployees.reduce((sum, employee) => {
+      return sum + (employee.overpaymentAmount || 0);
+    }, 0);
+
+    const rawOverpaymentTotal = typeof response.data?.overpaymentTotal === 'number'
+      ? response.data.overpaymentTotal
+      : fallbackOverpaymentTotal;
+
+    const normalizedOverpaymentTotal = Math.round((rawOverpaymentTotal || 0) * 100) / 100;
+
+    setOverpayments(initialOverpayments);
+    setPersistedOverpayments(initialPersistedOverpayments);
+    setData({
+      ...response.data,
+      employees: sanitizedEmployees,
+      overpaymentTotal: normalizedOverpaymentTotal
+    });
       // Récupérer aussi les acomptes
       await fetchAdvanceRequests();
     } catch (error) {
@@ -67,6 +112,152 @@ const EmployeeStatusPrint = () => {
       setLoading(false);
     }
   };
+
+const handleOverpaymentChange = (employeeId, value) => {
+  if (!employeeId && employeeId !== 0) {
+    return;
+  }
+
+  const employeeKey = employeeId?.toString?.() ?? employeeId;
+  if (value === undefined || value === null) {
+    return;
+  }
+
+  setOverpayments((prev) => ({
+    ...prev,
+    [employeeKey]: value
+  }));
+};
+
+const handleOverpaymentBlur = async (employee) => {
+  if (!employee?.employeeId) {
+    return;
+  }
+
+  const employeeKey = employee.employeeId?.toString?.() ?? employee.employeeId;
+  const currentValue = (overpayments[employeeKey] ?? '0').toString();
+  const normalizedInput = currentValue.trim() === '' ? '0' : currentValue.replace(',', '.');
+  const numericValue = parseFloat(normalizedInput);
+
+  if (Number.isNaN(numericValue) || numericValue < 0) {
+    toast.error('Montant de trop perçu invalide');
+    setOverpayments((prev) => ({
+      ...prev,
+      [employeeKey]: persistedOverpayments[employeeKey] ?? '0'
+    }));
+    return;
+  }
+
+  const normalizedValueNumber = Math.round(numericValue * 100) / 100;
+  const normalizedValueString = normalizedValueNumber.toString();
+
+  setOverpayments((prev) => ({
+    ...prev,
+    [employeeKey]: normalizedValueString
+  }));
+
+  const previousPersistedValue = parseFloat(
+    (persistedOverpayments[employeeKey] ?? '0').toString().replace(',', '.')
+  );
+
+  const previousPersistedNumber = Number.isNaN(previousPersistedValue) ? 0 : previousPersistedValue;
+
+  if (Math.abs(previousPersistedNumber - normalizedValueNumber) < 0.005) {
+    return;
+  }
+
+  try {
+    setSavingOverpayment((prev) => ({
+      ...prev,
+      [employeeKey]: true
+    }));
+
+    await api.put('/employee-status/overpayment', {
+      employeeId: employee.employeeId,
+      employeeName: employee.employeeName,
+      month,
+      year,
+      amount: normalizedValueNumber
+    });
+
+    setPersistedOverpayments((prev) => ({
+      ...prev,
+      [employeeKey]: normalizedValueString
+    }));
+
+    setData((prev) => {
+      if (!prev?.employees) {
+        return prev;
+      }
+
+      const updatedEmployees = prev.employees.map((emp) => {
+        const empKey = emp.employeeId?.toString?.() ?? emp.employeeId;
+        if (empKey === employeeKey) {
+          return {
+            ...emp,
+            overpaymentAmount: normalizedValueNumber
+          };
+        }
+        return emp;
+      });
+
+      const updatedOverpaymentTotal = updatedEmployees.reduce((sum, emp) => {
+        return sum + (emp.overpaymentAmount || 0);
+      }, 0);
+
+      return {
+        ...prev,
+        employees: updatedEmployees,
+        overpaymentTotal: Math.round(updatedOverpaymentTotal * 100) / 100
+      };
+    });
+
+    toast.success(`Trop perçu sauvegardé pour ${employee.employeeName}`);
+  } catch (error) {
+    console.error('Erreur lors de la sauvegarde du trop perçu:', error);
+    toast.error(`Erreur lors de la sauvegarde du trop perçu pour ${employee.employeeName}`);
+    setOverpayments((prev) => ({
+      ...prev,
+      [employeeKey]: persistedOverpayments[employeeKey] ?? '0'
+    }));
+  } finally {
+    setSavingOverpayment((prev) => ({
+      ...prev,
+      [employeeKey]: false
+    }));
+  }
+};
+
+const getEmployeeOverpayment = (employeeId) => {
+  if (!employeeId && employeeId !== 0) {
+    return 0;
+  }
+
+  const employeeKey = employeeId?.toString?.() ?? employeeId;
+  const rawValue = overpayments[employeeKey];
+
+  if (rawValue === undefined || rawValue === null || rawValue === '') {
+    return 0;
+  }
+
+  const numericValue = parseFloat(rawValue.toString().replace(',', '.'));
+
+  if (Number.isNaN(numericValue)) {
+    return 0;
+  }
+
+  return Math.round(numericValue * 100) / 100;
+};
+
+const calculateTotalOverpayments = () => {
+  if (!data?.employees) {
+    return 0;
+  }
+
+  return data.employees.reduce((sum, employee) => {
+    return sum + getEmployeeOverpayment(employee.employeeId);
+  }, 0);
+};
 
   const handlePrint = () => {
     // Créer une nouvelle fenêtre pour l'impression
@@ -157,21 +348,23 @@ const EmployeeStatusPrint = () => {
     // Créer un fichier CSV avec les bonnes données
     let csvContent = "data:text/csv;charset=utf-8,";
     
-    // En-têtes
-    const headers = ["Salarié", "Frais Repas", "Total KM", "Acompte", "Total Général"];
+  // En-têtes
+  const headers = ["Salarié", "Frais Repas", "Total KM", "Acompte", "Trop Perçu", "Total Général"];
     csvContent += headers.join(",") + "\n";
     
     // Données
     if (data.employees && data.employees.length > 0) {
       data.employees.forEach(employee => {
         const advanceAmount = getEmployeeAdvance(employee.employeeName, employee.employeeId);
-        const totalGeneral = employee.mealExpense.totalAmount + advanceAmount;
+      const overpaymentAmount = getEmployeeOverpayment(employee.employeeId);
+      const totalGeneral = employee.mealExpense.totalAmount + advanceAmount - overpaymentAmount;
         const row = [
           `"${employee.employeeName || 'N/A'}"`,
           `"${formatCurrency(employee.mealExpense.totalAmount)}"`,
           `"${employee.kmExpense.totalKm || 0} km"`,
           `"${formatCurrency(advanceAmount)}"`,
-          `"${formatCurrency(totalGeneral)}"`
+        `"${formatCurrency(overpaymentAmount)}"`,
+        `"${formatCurrency(totalGeneral)}"`
         ];
         csvContent += row.join(",") + "\n";
       });
@@ -180,12 +373,13 @@ const EmployeeStatusPrint = () => {
       const totalMeal = data.employees.reduce((sum, emp) => sum + emp.mealExpense.totalAmount, 0);
       const totalKm = data.employees.reduce((sum, emp) => sum + emp.kmExpense.totalKm, 0);
       const totalAdvance = advanceRequests.reduce((sum, req) => sum + req.amount, 0);
-      const totalGeneral = totalMeal + totalAdvance;
-      csvContent += `"TOTAUX","${formatCurrency(totalMeal)}","${totalKm} km","${formatCurrency(totalAdvance)}","${formatCurrency(totalGeneral)}"\n`;
-    } else {
-      // Données par défaut si pas de données
-      csvContent += `"Aucune donnée disponible","","",""\n`;
-    }
+    const totalOverpayment = calculateTotalOverpayments();
+    const totalGeneral = totalMeal + totalAdvance - totalOverpayment;
+    csvContent += `"TOTAUX","${formatCurrency(totalMeal)}","${totalKm} km","${formatCurrency(totalAdvance)}","${formatCurrency(totalOverpayment)}","${formatCurrency(totalGeneral)}"\n`;
+  } else {
+    // Données par défaut si pas de données
+    csvContent += `"Aucune donnée disponible","","","","",""\n`;
+  }
     
     // Télécharger le fichier
     const encodedUri = encodeURI(csvContent);
@@ -277,6 +471,12 @@ const EmployeeStatusPrint = () => {
     );
   }
 
+  const totalMealAmount = data?.employees?.reduce((sum, emp) => sum + (emp.mealExpense?.totalAmount || 0), 0) || 0;
+  const totalKmAmount = data?.employees?.reduce((sum, emp) => sum + (emp.kmExpense?.totalKm || 0), 0) || 0;
+  const totalAdvanceAmount = advanceRequests?.reduce((sum, req) => sum + (req.amount || 0), 0) || 0;
+  const totalOverpaymentAmount = data?.employees ? calculateTotalOverpayments() : 0;
+  const totalGeneralAmount = totalMealAmount + totalAdvanceAmount - totalOverpaymentAmount;
+
   return (
     <div className="employee-status-print fade-in">
       <div className="page-header">
@@ -347,17 +547,23 @@ const EmployeeStatusPrint = () => {
             <table className="status-table">
               <thead>
                 <tr>
-                  <th>Salarié</th>
-                  <th>Frais Repas</th>
-                  <th>Total KM</th>
-                  <th>Acompte</th>
-                  <th>Total Général</th>
+                  <th className="header-employee">Salarié</th>
+                  <th className="header-meal">Frais Repas</th>
+                  <th className="header-km">Total KM</th>
+                  <th className="header-advance">Acompte</th>
+                  <th className="header-overpayment">Trop Perçu</th>
+                  <th className="header-total">Total Général</th>
                 </tr>
               </thead>
               <tbody>
                 {data.employees.map((employee) => {
                   const advanceAmount = getEmployeeAdvance(employee.employeeName, employee.employeeId);
-                  const totalGeneral = employee.mealExpense.totalAmount + advanceAmount;
+                  const overpaymentAmount = getEmployeeOverpayment(employee.employeeId);
+                  const totalGeneral = employee.mealExpense.totalAmount + advanceAmount - overpaymentAmount;
+                  const employeeKey = employee.employeeId?.toString?.() ?? employee.employeeId;
+                  const inputValue = Object.prototype.hasOwnProperty.call(overpayments, employeeKey)
+                    ? overpayments[employeeKey]
+                    : '0';
                   return (
                     <tr key={employee.employeeId}>
                       <td className="employee-name">
@@ -367,10 +573,34 @@ const EmployeeStatusPrint = () => {
                         {formatCurrency(employee.mealExpense.totalAmount)}
                       </td>
                       <td className="km-amount">
-                        {employee.kmExpense.totalKm} km
+                        {employee.kmExpense.totalKm || 0} km
                       </td>
                       <td className="advance-amount">
                         {formatCurrency(advanceAmount)}
+                      </td>
+                      <td className="overpayment-amount">
+                        <div className="overpayment-input-wrapper">
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            className="overpayment-input"
+                            value={inputValue}
+                            onChange={(e) => handleOverpaymentChange(employee.employeeId, e.target.value)}
+                            onBlur={() => handleOverpaymentBlur(employee)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault();
+                                e.currentTarget.blur();
+                              }
+                            }}
+                          />
+                          {savingOverpayment[employeeKey] && (
+                            <span className="overpayment-saving" aria-live="polite" title="Sauvegarde en cours">
+                              ⏳
+                            </span>
+                          )}
+                        </div>
                       </td>
                       <td className="total-amount">
                         <strong>{formatCurrency(totalGeneral)}</strong>
@@ -382,13 +612,11 @@ const EmployeeStatusPrint = () => {
               <tfoot>
                 <tr className="totals-row">
                   <td><strong>TOTAUX</strong></td>
-                  <td><strong>{formatCurrency(data.employees.reduce((sum, emp) => sum + emp.mealExpense.totalAmount, 0))}</strong></td>
-                  <td><strong>{data.employees.reduce((sum, emp) => sum + emp.kmExpense.totalKm, 0)} km</strong></td>
-                  <td><strong>{formatCurrency(advanceRequests.reduce((sum, req) => sum + req.amount, 0))}</strong></td>
-                  <td><strong>{formatCurrency(
-                    data.employees.reduce((sum, emp) => sum + emp.mealExpense.totalAmount, 0) +
-                    advanceRequests.reduce((sum, req) => sum + req.amount, 0)
-                  )}</strong></td>
+                  <td><strong>{formatCurrency(totalMealAmount)}</strong></td>
+                  <td><strong>{totalKmAmount} km</strong></td>
+                  <td><strong>{formatCurrency(totalAdvanceAmount)}</strong></td>
+                  <td><strong>{formatCurrency(totalOverpaymentAmount)}</strong></td>
+                  <td><strong>{formatCurrency(totalGeneralAmount)}</strong></td>
                 </tr>
               </tfoot>
             </table>
@@ -399,13 +627,19 @@ const EmployeeStatusPrint = () => {
               <strong>Nombre de salariés :</strong> {data.employees.length}
             </div>
             <div className="summary-item">
-              <strong>Total frais repas :</strong> {formatCurrency(data.employees.reduce((sum, emp) => sum + emp.mealExpense.totalAmount, 0))}
+              <strong>Total frais repas :</strong> {formatCurrency(totalMealAmount)}
             </div>
             <div className="summary-item">
-              <strong>Total kilomètres :</strong> {data.employees.reduce((sum, emp) => sum + emp.kmExpense.totalKm, 0)} km
+              <strong>Total kilomètres :</strong> {totalKmAmount} km
             </div>
             <div className="summary-item">
-              <strong>Total acomptes :</strong> {formatCurrency(advanceRequests.reduce((sum, req) => sum + req.amount, 0))}
+              <strong>Total acomptes :</strong> {formatCurrency(totalAdvanceAmount)}
+            </div>
+            <div className="summary-item">
+              <strong>Total trop perçu :</strong> {formatCurrency(totalOverpaymentAmount)}
+            </div>
+            <div className="summary-item">
+              <strong>Total général :</strong> {formatCurrency(totalGeneralAmount)}
             </div>
           </div>
 
