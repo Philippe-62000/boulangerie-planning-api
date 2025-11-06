@@ -137,14 +137,6 @@ const SalesStats = () => {
     fetchMarges();
   }, []);
 
-  useEffect(() => {
-    if (selectedWeekStart) {
-      setPresences({});
-      fetchWeeklyObjectives(selectedWeekStart);
-      fetchWeeklyStats(selectedWeekStart);
-    }
-  }, [selectedWeekStart, fetchWeeklyObjectives, fetchWeeklyStats]);
-
   // Charger les objectifs hebdomadaires
   const fetchWeeklyObjectives = useCallback(async (weekStartValue) => {
     if (!weekStartValue) {
@@ -201,6 +193,14 @@ const SalesStats = () => {
       console.error('Erreur chargement stats hebdo:', error);
     }
   }, []);
+
+  useEffect(() => {
+    if (selectedWeekStart) {
+      setPresences({});
+      fetchWeeklyObjectives(selectedWeekStart);
+      fetchWeeklyStats(selectedWeekStart);
+    }
+  }, [selectedWeekStart, fetchWeeklyObjectives, fetchWeeklyStats]);
 
   // Charger les marges depuis les paramètres
   const fetchMarges = async () => {
