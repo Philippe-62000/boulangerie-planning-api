@@ -9,6 +9,7 @@ router.post('/submit', dailySalesController.submitDailySales);
 router.get('/weekly', dailySalesController.getWeeklyStats);
 router.get('/objectives', dailySalesController.getWeeklyObjectives);
 router.post('/objectives', dailySalesController.setWeeklyObjectives);
+router.get('/employee/:saleCode', dailySalesController.getEmployeeInfoForDailySales);
 
 module.exports = router;
 

@@ -22,6 +22,15 @@ const getWeekKey = (date = new Date()) => {
   return start.toISOString().split('T')[0];
 };
 
+const getISOWeekNumber = (date) => {
+  const target = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  const dayNr = (target.getUTCDay() + 6) % 7;
+  target.setUTCDate(target.getUTCDate() - dayNr + 3);
+  const firstThursday = new Date(Date.UTC(target.getUTCFullYear(), 0, 4));
+  const diff = target - firstThursday;
+  return 1 + Math.round(diff / (7 * 24 * 60 * 60 * 1000));
+};
+
 const parseWeeklyObjectives = (rawString) => {
   if (!rawString || typeof rawString !== 'string') {
     return {};
@@ -59,7 +68,7 @@ exports.submitDailySales = async (req, res) => {
     }
     
     // Vérifier que le rôle est concerné
-    const rolesAvecCode = ['vendeuse', 'apprenti', 'manager', 'responsable'];
+    const rolesAvecCode = ['vendeuse', 'apprenti', 'manager', 'responsable', 'responsable magasin', 'responsable magasin adjointe'];
     if (!rolesAvecCode.includes(employee.role)) {
       return res.status(403).json({
         success: false,
@@ -340,6 +349,104 @@ exports.setWeeklyObjectives = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Erreur lors de l\'enregistrement',
+      error: error.message
+    });
+  }
+};
+
+// Obtenir les informations hebdomadaires pour une vendeuse donnée
+exports.getEmployeeInfoForDailySales = async (req, res) => {
+  try {
+    const { saleCode } = req.params;
+    const { weekStart } = req.query;
+
+    if (!saleCode) {
+      return res.status(400).json({
+        success: false,
+        message: 'Code vendeuse requis'
+      });
+    }
+
+    const employee = await Employee.findOne({ saleCode, isActive: true })
+      .select('name role saleCode');
+
+    if (!employee) {
+      return res.status(404).json({
+        success: false,
+        message: 'Vendeuse non trouvée ou inactive'
+      });
+    }
+
+    const startDate = weekStart ? getWeekStartDate(weekStart) : getWeekStartDate();
+    const weekKey = getWeekKey(startDate);
+    const endDate = new Date(startDate);
+    endDate.setDate(startDate.getDate() + 6);
+    endDate.setHours(23, 59, 59, 999);
+
+    const objectifPromoParam = await Parameter.findOne({ name: 'objectifHebdoPromo' });
+    const objectifCartesFidParam = await Parameter.findOne({ name: 'objectifHebdoCartesFid' });
+    const weeklyObjectivesParam = await Parameter.findOne({ name: 'weeklyObjectives' });
+
+    const weeklyObjectives = parseWeeklyObjectives(weeklyObjectivesParam?.stringValue);
+    const entry = weeklyObjectives[weekKey] || {};
+    const presences = entry.presences || {};
+    const employeeId = employee._id.toString();
+    const employeePresence = presences[employeeId] || {};
+    const presenceCount = Object.values(employeePresence).filter(Boolean).length;
+
+    const rawPromo = entry.objectifPromo ?? objectifPromoParam?.kmValue ?? 0;
+    const rawCartesFid = entry.objectifCartesFid ?? objectifCartesFidParam?.kmValue ?? 0;
+    const totalPresences = entry.totalPresences ?? 0;
+
+    const perPresencePromo = entry.perPresencePromo ?? (totalPresences > 0 ? Math.ceil(rawPromo / totalPresences) : 0);
+    const perPresenceCartesFid = entry.perPresenceCartesFid ?? (totalPresences > 0 ? Math.ceil(rawCartesFid / totalPresences) : 0);
+
+    const adjustedPromo = entry.adjustedPromo ?? (totalPresences > 0 ? perPresencePromo * totalPresences : rawPromo);
+    const adjustedCartesFid = entry.adjustedCartesFid ?? (totalPresences > 0 ? perPresenceCartesFid * totalPresences : rawCartesFid);
+
+    const employeePromoObjective = presenceCount > 0 ? perPresencePromo * presenceCount : 0;
+    const employeeCartesObjective = presenceCount > 0 ? perPresenceCartesFid * presenceCount : 0;
+
+    res.json({
+      success: true,
+      data: {
+        employee: {
+          id: employee._id,
+          name: employee.name,
+          role: employee.role,
+          saleCode: employee.saleCode
+        },
+        week: {
+          key: weekKey,
+          start: startDate,
+          end: endDate,
+          number: getISOWeekNumber(startDate)
+        },
+        objectives: {
+          totals: {
+            promo: adjustedPromo,
+            cartesFid: adjustedCartesFid,
+            rawPromo,
+            rawCartesFid,
+            totalPresences
+          },
+          perPresence: {
+            promo: perPresencePromo,
+            cartesFid: perPresenceCartesFid
+          },
+          employee: {
+            presenceCount,
+            promo: employeePromoObjective,
+            cartesFid: employeeCartesObjective
+          }
+        }
+      }
+    });
+  } catch (error) {
+    console.error('❌ Erreur récupération informations vendeuse:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erreur lors de la récupération des informations',
       error: error.message
     });
   }

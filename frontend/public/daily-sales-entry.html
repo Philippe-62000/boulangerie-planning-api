@@ -44,6 +44,42 @@
             font-size: 0.9rem;
         }
 
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 15px;
+            margin-bottom: 25px;
+        }
+
+        .summary-card {
+            background: #f1f5ff;
+            border: 2px solid rgba(102, 126, 234, 0.3);
+            border-radius: 14px;
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .summary-title {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: #4c51bf;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .summary-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #1a202c;
+        }
+
+        .summary-sub {
+            font-size: 0.85rem;
+            color: #4a5568;
+        }
+
         .form-group {
             margin-bottom: 25px;
         }
@@ -135,6 +171,81 @@
             color: #1565C0;
             font-size: 0.9rem;
         }
+
+        .employee-card {
+            border: 2px solid rgba(102, 126, 234, 0.25);
+            border-radius: 14px;
+            padding: 18px;
+            margin-bottom: 25px;
+            background: linear-gradient(135deg, rgba(102, 126, 234, 0.12) 0%, rgba(118, 75, 162, 0.12) 100%);
+        }
+
+        .employee-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+
+        .employee-icon {
+            font-size: 2rem;
+        }
+
+        .employee-name {
+            font-size: 1.3rem;
+            font-weight: 700;
+            color: #1a202c;
+        }
+
+        .employee-role {
+            font-size: 0.9rem;
+            color: #4a5568;
+        }
+
+        .employee-objectives {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .objective-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(255, 255, 255, 0.6);
+            border-radius: 10px;
+            padding: 10px 14px;
+            font-size: 0.95rem;
+            color: #2d3748;
+            border: 1px solid rgba(102, 126, 234, 0.2);
+        }
+
+        .objective-value {
+            font-weight: 700;
+            color: #1a202c;
+        }
+
+        .helper-text {
+            margin-top: 8px;
+            font-size: 0.85rem;
+            color: #4a5568;
+        }
+
+        .helper-text.success {
+            color: #1b5e20;
+        }
+
+        .helper-text.error {
+            color: #c53030;
+        }
+
+        .helper-text.info {
+            color: #2b6cb0;
+        }
+
+        .hidden {
+            display: none !important;
+        }
     </style>
 </head>
 <body>
@@ -142,9 +253,51 @@
         <h1>📊 Saisie Quotidienne</h1>
         <p class="subtitle">Enregistrez vos ventes du jour</p>
 
+        <div class="summary-grid">
+            <div class="summary-card">
+                <div class="summary-title">📅 Jour en cours</div>
+                <div class="summary-value" id="currentDayLabel">--</div>
+                <div class="summary-sub" id="currentWeekLabel">Semaine --</div>
+            </div>
+            <div class="summary-card">
+                <div class="summary-title">🎯 Objectif cartes fidélité</div>
+                <div class="summary-value" id="weeklyCartesObjective">--</div>
+                <div class="summary-sub">Total hebdomadaire</div>
+            </div>
+            <div class="summary-card">
+                <div class="summary-title">🔥 Objectif promo quinzaine</div>
+                <div class="summary-value" id="weeklyPromoObjective">--</div>
+                <div class="summary-sub">Total hebdomadaire</div>
+            </div>
+        </div>
+
         <div class="info">
             <strong>ℹ️ Informations :</strong><br>
-            Saisissez votre code vendeuse (3 chiffres) et les quantités du jour.
+            Indiquez votre code vendeuse et vos résultats du jour. L'objectif hebdomadaire s'affiche automatiquement.
+        </div>
+
+        <div id="employeeInfo" class="employee-card hidden">
+            <div class="employee-header">
+                <span class="employee-icon">👩‍💼</span>
+                <div>
+                    <div class="employee-name" id="employeeName">-</div>
+                    <div class="employee-role" id="employeeRole">-</div>
+                </div>
+            </div>
+            <div class="employee-objectives">
+                <div class="objective-item">
+                    <span class="objective-label">Objectif Carte Fidélité (salarié / total)</span>
+                    <span class="objective-value" id="employeeCartesObjectiveValue">-- / --</span>
+                </div>
+                <div class="objective-item">
+                    <span class="objective-label">Objectif Promo Quinzaine (salarié / total)</span>
+                    <span class="objective-value" id="employeePromoObjectiveValue">-- / --</span>
+                </div>
+                <div class="objective-item">
+                    <span class="objective-label">Présences planifiées</span>
+                    <span class="objective-value" id="employeePresence">--</span>
+                </div>
+            </div>
         </div>
 
         <form id="salesForm">
@@ -160,6 +313,7 @@
                     required
                     autocomplete="off"
                 />
+                <div id="employeeHelper" class="helper-text"></div>
             </div>
 
             <div class="form-group">
@@ -195,21 +349,181 @@
     </div>
 
     <script>
-        const API_URL = 'https://boulangerie-planning-api-4-pbfy.onrender.com/api/daily-sales';
+        const API_BASE_URL = 'https://boulangerie-planning-api-4-pbfy.onrender.com/api';
+        const DAILY_SALES_API = `${API_BASE_URL}/daily-sales`;
+        const OBJECTIVES_ENDPOINT = `${DAILY_SALES_API}/objectives`;
 
         const form = document.getElementById('salesForm');
         const messageDiv = document.getElementById('message');
         const submitBtn = document.getElementById('submitBtn');
+        const saleCodeInput = document.getElementById('saleCode');
+        const helperText = document.getElementById('employeeHelper');
 
-        // Limiter le code vente à 3 chiffres
-        document.getElementById('saleCode').addEventListener('input', function(e) {
-            e.target.value = e.target.value.replace(/\D/g, '').slice(0, 3);
+        const weeklyCartesObjectiveSpan = document.getElementById('weeklyCartesObjective');
+        const weeklyPromoObjectiveSpan = document.getElementById('weeklyPromoObjective');
+        const currentDayLabel = document.getElementById('currentDayLabel');
+        const currentWeekLabel = document.getElementById('currentWeekLabel');
+
+        const employeeInfoCard = document.getElementById('employeeInfo');
+        const employeeNameSpan = document.getElementById('employeeName');
+        const employeeRoleSpan = document.getElementById('employeeRole');
+        const employeeCartesObjectiveValue = document.getElementById('employeeCartesObjectiveValue');
+        const employeePromoObjectiveValue = document.getElementById('employeePromoObjectiveValue');
+        const employeePresenceSpan = document.getElementById('employeePresence');
+
+        let currentWeekData = null;
+        let lastLookupCode = '';
+
+        const formatNumber = (value) => Number(value || 0).toLocaleString('fr-FR');
+
+        const capitalize = (text = '') => {
+            if (typeof text !== 'string' || text.length === 0) {
+                return '';
+            }
+            return text.charAt(0).toUpperCase() + text.slice(1);
+        };
+
+        const formatDateLong = (date) => new Intl.DateTimeFormat('fr-FR', {
+            weekday: 'long',
+            day: 'numeric',
+            month: 'long',
+            year: 'numeric'
+        }).format(date);
+
+        const formatDateShort = (date) => new Intl.DateTimeFormat('fr-FR', {
+            weekday: 'long',
+            day: 'numeric',
+            month: 'long'
+        }).format(date);
+
+        const getISOWeekNumber = (date) => {
+            const temp = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+            const dayNr = (temp.getUTCDay() + 6) % 7;
+            temp.setUTCDate(temp.getUTCDate() - dayNr + 3);
+            const firstThursday = new Date(Date.UTC(temp.getUTCFullYear(), 0, 4));
+            const diff = temp - firstThursday;
+            return 1 + Math.round(diff / (7 * 24 * 60 * 60 * 1000));
+        };
+
+        const formatWeekLabel = (startDate) => {
+            const start = new Date(startDate);
+            const end = new Date(start);
+            end.setDate(start.getDate() + 6);
+            const weekNumber = getISOWeekNumber(start);
+            return `Semaine ${weekNumber} · du ${capitalize(formatDateShort(start))} au ${capitalize(formatDateShort(end))}`;
+        };
+
+        const updateDayInformation = () => {
+            const today = new Date();
+            currentDayLabel.textContent = capitalize(formatDateLong(today));
+        };
+
+        const updateWeeklySummary = (data) => {
+            if (!data) {
+                return;
+            }
+
+            weeklyCartesObjectiveSpan.textContent = formatNumber(data.objectifCartesFid);
+            weeklyPromoObjectiveSpan.textContent = formatNumber(data.objectifPromo);
+            currentWeekLabel.textContent = formatWeekLabel(new Date(data.weekStart || new Date()));
+        };
+
+        const showHelper = (text, type = '') => {
+            helperText.textContent = text;
+            helperText.className = `helper-text ${type}`.trim();
+        };
+
+        const hideEmployeeInfo = () => {
+            employeeInfoCard.classList.add('hidden');
+            showHelper('', '');
+        };
+
+        const lookupEmployee = async (saleCode) => {
+            if (!currentWeekData) {
+                showHelper('Chargement des objectifs en cours...', 'info');
+                return;
+            }
+
+            if (saleCode === lastLookupCode) {
+                return;
+            }
+
+            lastLookupCode = saleCode;
+            showHelper('🔎 Vérification du code vendeuse...', 'info');
+
+            try {
+                const params = currentWeekData.weekKey ? `?weekStart=${encodeURIComponent(currentWeekData.weekKey)}` : '';
+                const response = await fetch(`${DAILY_SALES_API}/employee/${saleCode}${params}`);
+                const result = await response.json();
+
+                if (response.ok && result.success) {
+                    const { employee, objectives, week } = result.data;
+
+                    employeeNameSpan.textContent = employee.name;
+                    employeeRoleSpan.textContent = capitalize(employee.role);
+
+                    const totalCartes = formatNumber(objectives.totals.cartesFid);
+                    const totalPromo = formatNumber(objectives.totals.promo);
+                    const employeeCartes = formatNumber(objectives.employee.cartesFid);
+                    const employeePromo = formatNumber(objectives.employee.promo);
+                    const presenceCount = objectives.employee.presenceCount || 0;
+                    const presenceLabel = presenceCount > 1 ? `${presenceCount} jours` : `${presenceCount} jour`;
+
+                    employeeCartesObjectiveValue.textContent = `${employeeCartes} / ${totalCartes}`;
+                    employeePromoObjectiveValue.textContent = `${employeePromo} / ${totalPromo}`;
+                    employeePresenceSpan.textContent = presenceCount > 0 ? presenceLabel : 'Aucune présence planifiée';
+
+                    currentWeekLabel.textContent = formatWeekLabel(new Date(week.start));
+
+                    employeeInfoCard.classList.remove('hidden');
+                    showHelper(`✅ ${employee.name} identifié(e) - ${capitalize(employee.role)}`, 'success');
+                } else {
+                    employeeInfoCard.classList.add('hidden');
+                    showHelper(result.message || 'Code vendeuse introuvable', 'error');
+                }
+            } catch (error) {
+                console.error('Erreur récupération vendeuse:', error);
+                employeeInfoCard.classList.add('hidden');
+                showHelper('Erreur lors de la recherche. Vérifiez votre connexion.', 'error');
+            }
+        };
+
+        const initializePage = async () => {
+            updateDayInformation();
+
+            try {
+                const response = await fetch(OBJECTIVES_ENDPOINT);
+                const data = await response.json();
+
+                if (response.ok && data.success) {
+                    currentWeekData = data.data;
+                    updateWeeklySummary(currentWeekData);
+                } else {
+                    console.warn('Impossible de charger les objectifs hebdomadaires');
+                }
+            } catch (error) {
+                console.error('Erreur chargement objectifs hebdomadaires:', error);
+            }
+        };
+
+        saleCodeInput.addEventListener('input', (event) => {
+            const cleanValue = event.target.value.replace(/\D/g, '').slice(0, 3);
+            if (cleanValue !== event.target.value) {
+                event.target.value = cleanValue;
+            }
+
+            if (cleanValue.length === 3) {
+                lookupEmployee(cleanValue);
+            } else {
+                lastLookupCode = '';
+                hideEmployeeInfo();
+            }
         });
 
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
             
-            const saleCode = document.getElementById('saleCode').value.trim();
+            const saleCode = saleCodeInput.value.trim();
             const nbPromo = parseInt(document.getElementById('nbPromo').value) || 0;
             const nbCartesFid = parseInt(document.getElementById('nbCartesFid').value) || 0;
 
@@ -222,7 +536,7 @@
             submitBtn.textContent = '⏳ Envoi...';
 
             try {
-                const response = await fetch(`${API_URL}/submit`, {
+                const response = await fetch(`${DAILY_SALES_API}/submit`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
@@ -237,8 +551,11 @@
                 const data = await response.json();
 
                 if (response.ok && data.success) {
-                    showMessage('✅ Saisie enregistrée avec succès !', 'success');
+                    const successLabel = helperText.textContent ? ` (${helperText.textContent.replace('✅ ', '')})` : '';
+                    showMessage(`✅ Saisie enregistrée avec succès${successLabel ? ' ' + successLabel : ' !'}`, 'success');
                     form.reset();
+                    lastLookupCode = '';
+                    hideEmployeeInfo();
                     
                     // Réactiver le bouton après 2 secondes
                     setTimeout(() => {
@@ -268,7 +585,8 @@
 
         // Focus sur le code vendeuse au chargement
         window.addEventListener('load', () => {
-            document.getElementById('saleCode').focus();
+            initializePage();
+            saleCodeInput.focus();
         });
     </script>
 </body>
