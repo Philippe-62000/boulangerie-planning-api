@@ -510,31 +510,40 @@ const employeeMessagesList = document.getElementById('employeeMessagesList');
             currentDayLabel.textContent = capitalize(formatDateLong(today));
         };
 
+        const resetSummaryValues = () => {
+            weeklyCartesObjectiveSpan.textContent = '--';
+            weeklyPromoObjectiveSpan.textContent = '--';
+        };
+
+        const setSummaryValues = (cartesActual, cartesTarget, promoActual, promoTarget) => {
+            weeklyCartesObjectiveSpan.textContent = `${formatNumber(cartesActual)} / ${formatNumber(cartesTarget)}`;
+            weeklyPromoObjectiveSpan.textContent = `${formatNumber(promoActual)} / ${formatNumber(promoTarget)}`;
+        };
+
         const updateWeeklySummary = (data) => {
             if (!data) {
                 return;
             }
 
-            weeklyCartesObjectiveSpan.textContent = formatNumber(data.objectifCartesFid);
-            weeklyPromoObjectiveSpan.textContent = formatNumber(data.objectifPromo);
             currentWeekLabel.textContent = formatWeekLabel(new Date(data.weekStart || new Date()));
+            resetSummaryValues();
         };
 
-const hideEmployeeMessages = () => {
-    employeeMessagesSection.classList.add('hidden');
-    employeeMessagesList.innerHTML = '';
-};
+        const hideEmployeeMessages = () => {
+            employeeMessagesSection.classList.add('hidden');
+            employeeMessagesList.innerHTML = '';
+        };
 
-const formatMessageDate = (value) => {
-    if (!value) return '';
-    const date = new Date(value);
-    if (Number.isNaN(date.getTime())) return '';
-    return date.toLocaleDateString('fr-FR');
-};
+        const formatMessageDate = (value) => {
+            if (!value) return '';
+            const date = new Date(value);
+            if (Number.isNaN(date.getTime())) return '';
+            return date.toLocaleDateString('fr-FR');
+        };
 
-const buildMessageStorageKey = (messageId, saleCode) => `message:${messageId}:${saleCode}`;
+        const buildMessageStorageKey = (messageId, saleCode) => `message:${messageId}:${saleCode}`;
 
-const renderEmployeeMessages = (messages, saleCode) => {
+        const renderEmployeeMessages = (messages, saleCode) => {
     const visibleMessages = messages.filter((msg) => {
         if (!msg) return false;
         if (msg.untilRead) {
@@ -661,16 +670,19 @@ const loadEmployeeMessages = async (saleCode) => {
                     employeeInfoCard.classList.remove('hidden');
                     showHelper(`✅ ${employee.name} identifié(e) - ${capitalize(employee.role)}`, 'success');
                     loadEmployeeMessages(saleCode);
+                    setSummaryValues(employeeActualCartes, employeeTargetCartes, employeeActualPromo, employeeTargetPromo);
                 } else {
                     employeeInfoCard.classList.add('hidden');
                     showHelper(result.message || 'Code vendeuse introuvable', 'error');
                     hideEmployeeMessages();
+                    resetSummaryValues();
                 }
             } catch (error) {
                 console.error('Erreur récupération vendeuse:', error);
                 employeeInfoCard.classList.add('hidden');
                 showHelper('Erreur lors de la recherche. Vérifiez votre connexion.', 'error');
                 hideEmployeeMessages();
+                resetSummaryValues();
             }
         };
 
@@ -685,6 +697,7 @@ const loadEmployeeMessages = async (saleCode) => {
                 if (response.ok && data.success) {
                     currentWeekData = data.data;
                     updateWeeklySummary(currentWeekData);
+                    resetSummaryValues();
                 } else {
                     console.warn('Impossible de charger les objectifs hebdomadaires');
                 }

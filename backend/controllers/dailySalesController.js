@@ -246,11 +246,11 @@ exports.getWeeklyObjectives = async (req, res) => {
     const objectifPromoValue = entry.objectifPromo ?? objectifPromoParam?.kmValue ?? 0;
     const objectifCartesFidValue = entry.objectifCartesFid ?? objectifCartesFidParam?.kmValue ?? 0;
     const presences = entry.presences || {};
+    const totalPresences = entry.totalPresences ?? 0;
     const perPresencePromoRaw = entry.perPresencePromoRaw ?? (totalPresences > 0 ? objectifPromoValue / Math.max(totalPresences, 1) : 0);
     const perPresenceCartesFidRaw = entry.perPresenceCartesFidRaw ?? (totalPresences > 0 ? objectifCartesFidValue / Math.max(totalPresences, 1) : 0);
     const perPresencePromo = entry.perPresencePromo ?? (perPresencePromoRaw > 0 ? Math.ceil(perPresencePromoRaw) : 0);
     const perPresenceCartesFid = entry.perPresenceCartesFid ?? (perPresenceCartesFidRaw > 0 ? Math.ceil(perPresenceCartesFidRaw) : 0);
-    const totalPresences = entry.totalPresences ?? 0;
 
     res.json({
       success: true,

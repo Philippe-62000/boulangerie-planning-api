@@ -455,8 +455,7 @@ const SalesStats = () => {
 
       if (response.ok) {
         alert('Objectifs hebdomadaires enregistrés avec succès !');
-        setPresences(presencesPayload);
-        await fetchWeeklyStats(selectedWeekStart);
+        await initializeWeeklyData(selectedWeekStart, presencesPayload);
       }
     } catch (error) {
       console.error('Erreur sauvegarde objectifs:', error);
@@ -1082,8 +1081,12 @@ const SalesStats = () => {
                       onChange={() => toggleEmployeeSelection(employee._id)}
                     />
                     <span>
-                      {employee.name}
-                      {employee.saleCode ? ` (${employee.saleCode})` : ''}
+                      {(() => {
+                        const parts = employee.name?.trim().split(/\s+/) || [];
+                        const firstName = parts[0] || employee.name;
+                        const lastInitial = parts.length > 1 ? `${parts[parts.length - 1][0]}.` : '';
+                        return `${firstName} ${lastInitial}`.trim();
+                      })()}
                     </span>
                   </label>
                 ))}
