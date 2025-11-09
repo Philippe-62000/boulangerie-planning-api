@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import './Login.css';
 
+const API_URL = import.meta.env.VITE_API_URL || 'https://boulangerie-planning-api-4-pbfy.onrender.com/api';
+
 const Login = () => {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -17,7 +19,7 @@ const Login = () => {
 
     try {
       // Appel API pour obtenir un token JWT
-      const response = await fetch('https://boulangerie-planning-api-4-pbfy.onrender.com/api/auth/admin-login', {
+      const response = await fetch(`${API_URL}/auth/admin-login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

@@ -48,7 +48,8 @@ const Sidebar = () => {
       if (!user) return;
 
       try {
-        const response = await fetch(`https://boulangerie-planning-api-4-pbfy.onrender.com/api/menu-permissions?role=${user.role}`);
+        const apiBaseUrl = import.meta.env.VITE_API_URL || 'https://boulangerie-planning-api-4-pbfy.onrender.com/api';
+        const response = await fetch(`${apiBaseUrl}/menu-permissions?role=${user.role}`);
         
         // Vérifier si la réponse est du JSON
         const contentType = response.headers.get('content-type');

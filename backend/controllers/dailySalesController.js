@@ -246,8 +246,10 @@ exports.getWeeklyObjectives = async (req, res) => {
     const objectifPromoValue = entry.objectifPromo ?? objectifPromoParam?.kmValue ?? 0;
     const objectifCartesFidValue = entry.objectifCartesFid ?? objectifCartesFidParam?.kmValue ?? 0;
     const presences = entry.presences || {};
-    const perPresencePromo = entry.perPresencePromo ?? 0;
-    const perPresenceCartesFid = entry.perPresenceCartesFid ?? 0;
+    const perPresencePromoRaw = entry.perPresencePromoRaw ?? (totalPresences > 0 ? objectifPromoValue / Math.max(totalPresences, 1) : 0);
+    const perPresenceCartesFidRaw = entry.perPresenceCartesFidRaw ?? (totalPresences > 0 ? objectifCartesFidValue / Math.max(totalPresences, 1) : 0);
+    const perPresencePromo = entry.perPresencePromo ?? (perPresencePromoRaw > 0 ? Math.ceil(perPresencePromoRaw) : 0);
+    const perPresenceCartesFid = entry.perPresenceCartesFid ?? (perPresenceCartesFidRaw > 0 ? Math.ceil(perPresenceCartesFidRaw) : 0);
     const totalPresences = entry.totalPresences ?? 0;
 
     res.json({
@@ -260,6 +262,8 @@ exports.getWeeklyObjectives = async (req, res) => {
         presences,
         perPresencePromo,
         perPresenceCartesFid,
+        perPresencePromoRaw,
+        perPresenceCartesFidRaw,
         totalPresences
       }
     });
@@ -291,11 +295,20 @@ exports.setWeeklyObjectives = async (req, res) => {
       }
     });
 
-    const perPresencePromo = totalPresences > 0 ? Math.ceil(rawPromo / totalPresences) : 0;
-    const perPresenceCartesFid = totalPresences > 0 ? Math.ceil(rawCartesFid / totalPresences) : 0;
+    // Répartition plus précise : conserver l'objectif brut et arrondir à 2 décimales par présence
+    const computePerPresenceRaw = (rawValue) => {
+      if (totalPresences <= 0) return 0;
+      return rawValue / totalPresences;
+    };
 
-    const adjustedPromo = totalPresences > 0 ? perPresencePromo * totalPresences : rawPromo;
-    const adjustedCartesFid = totalPresences > 0 ? perPresenceCartesFid * totalPresences : rawCartesFid;
+    const perPresencePromoRaw = computePerPresenceRaw(rawPromo);
+    const perPresenceCartesFidRaw = computePerPresenceRaw(rawCartesFid);
+
+    const perPresencePromoRounded = perPresencePromoRaw > 0 ? Math.ceil(perPresencePromoRaw) : 0;
+    const perPresenceCartesFidRounded = perPresenceCartesFidRaw > 0 ? Math.ceil(perPresenceCartesFidRaw) : 0;
+
+    const adjustedPromo = totalPresences > 0 ? rawPromo : 0;
+    const adjustedCartesFid = totalPresences > 0 ? rawCartesFid : 0;
 
     // Enregistrer les objectifs ajustés dans les paramètres historiques
     await Parameter.findOneAndUpdate(
@@ -319,8 +332,10 @@ exports.setWeeklyObjectives = async (req, res) => {
       objectifCartesFid: rawCartesFid,
       adjustedPromo,
       adjustedCartesFid,
-      perPresencePromo,
-      perPresenceCartesFid,
+      perPresencePromo: perPresencePromoRounded,
+      perPresenceCartesFid: perPresenceCartesFidRounded,
+      perPresencePromoRaw,
+      perPresenceCartesFidRaw,
       totalPresences,
       presences: presencesData
     };
@@ -338,8 +353,8 @@ exports.setWeeklyObjectives = async (req, res) => {
         weekKey,
         adjustedPromo,
         adjustedCartesFid,
-        perPresencePromo,
-        perPresenceCartesFid,
+        perPresencePromo: perPresencePromoRounded,
+        perPresenceCartesFid: perPresenceCartesFidRounded,
         totalPresences
       }
     });
@@ -398,14 +413,42 @@ exports.getEmployeeInfoForDailySales = async (req, res) => {
     const rawCartesFid = entry.objectifCartesFid ?? objectifCartesFidParam?.kmValue ?? 0;
     const totalPresences = entry.totalPresences ?? 0;
 
-    const perPresencePromo = entry.perPresencePromo ?? (totalPresences > 0 ? Math.ceil(rawPromo / totalPresences) : 0);
-    const perPresenceCartesFid = entry.perPresenceCartesFid ?? (totalPresences > 0 ? Math.ceil(rawCartesFid / totalPresences) : 0);
+    const computePerPresenceRaw = (value) => {
+      if (totalPresences <= 0) return 0;
+      return value / totalPresences;
+    };
 
-    const adjustedPromo = entry.adjustedPromo ?? (totalPresences > 0 ? perPresencePromo * totalPresences : rawPromo);
-    const adjustedCartesFid = entry.adjustedCartesFid ?? (totalPresences > 0 ? perPresenceCartesFid * totalPresences : rawCartesFid);
+    const perPresencePromoRaw = entry.perPresencePromoRaw ?? computePerPresenceRaw(rawPromo);
+    const perPresenceCartesFidRaw = entry.perPresenceCartesFidRaw ?? computePerPresenceRaw(rawCartesFid);
 
-    const employeePromoObjective = presenceCount > 0 ? perPresencePromo * presenceCount : 0;
-    const employeeCartesObjective = presenceCount > 0 ? perPresenceCartesFid * presenceCount : 0;
+    const perPresencePromoRounded = perPresencePromoRaw > 0 ? Math.ceil(perPresencePromoRaw) : 0;
+    const perPresenceCartesFidRounded = perPresenceCartesFidRaw > 0 ? Math.ceil(perPresenceCartesFidRaw) : 0;
+
+    const adjustedPromo = entry.adjustedPromo ?? (totalPresences > 0 ? rawPromo : 0);
+    const adjustedCartesFid = entry.adjustedCartesFid ?? (totalPresences > 0 ? rawCartesFid : 0);
+
+    const employeePromoObjectiveRaw = presenceCount > 0 ? perPresencePromoRaw * presenceCount : 0;
+    const employeeCartesObjectiveRaw = presenceCount > 0 ? perPresenceCartesFidRaw * presenceCount : 0;
+
+    const employeePromoObjective = employeePromoObjectiveRaw > 0 ? Math.ceil(employeePromoObjectiveRaw) : 0;
+    const employeeCartesObjective = employeeCartesObjectiveRaw > 0 ? Math.ceil(employeeCartesObjectiveRaw) : 0;
+
+    const employeeWeeklySales = await DailySales.find({
+      saleCode,
+      date: {
+        $gte: startDate,
+        $lte: endDate
+      }
+    });
+
+    const employeeActualTotals = employeeWeeklySales.reduce(
+      (acc, sale) => {
+        acc.cartes += sale.nbCartesFid || 0;
+        acc.promo += sale.nbPromo || 0;
+        return acc;
+      },
+      { cartes: 0, promo: 0 }
+    );
 
     res.json({
       success: true,
@@ -422,24 +465,30 @@ exports.getEmployeeInfoForDailySales = async (req, res) => {
           end: endDate,
           number: getISOWeekNumber(startDate)
         },
-        objectives: {
-          totals: {
-            promo: adjustedPromo,
-            cartesFid: adjustedCartesFid,
-            rawPromo,
-            rawCartesFid,
-            totalPresences
-          },
-          perPresence: {
-            promo: perPresencePromo,
-            cartesFid: perPresenceCartesFid
-          },
-          employee: {
-            presenceCount,
-            promo: employeePromoObjective,
-            cartesFid: employeeCartesObjective
-          }
+      objectives: {
+        totals: {
+          promo: adjustedPromo,
+          cartesFid: adjustedCartesFid,
+          rawPromo,
+          rawCartesFid,
+          totalPresences
+        },
+        perPresence: {
+          promo: perPresencePromoRounded,
+          cartesFid: perPresenceCartesFidRounded,
+          rawPromo: perPresencePromoRaw,
+          rawCartesFid: perPresenceCartesFidRaw
+        },
+        employee: {
+          presenceCount,
+          promo: employeePromoObjective,
+          cartesFid: employeeCartesObjective,
+          rawPromo: employeePromoObjectiveRaw,
+          rawCartesFid: employeeCartesObjectiveRaw,
+          actualPromo: employeeActualTotals.promo,
+          actualCartes: employeeActualTotals.cartes
         }
+      }
       }
     });
   } catch (error) {

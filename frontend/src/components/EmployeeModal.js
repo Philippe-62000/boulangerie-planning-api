@@ -12,6 +12,7 @@ const EmployeeModal = ({ employee, onSave, onClose, employees = [] }) => {
     contractEndDate: '',
     tutor: '',
     email: '',
+    connectionCode: '',
     saleCode: '',
     isActive: true,
     emergencyContact: {
@@ -33,8 +34,8 @@ const EmployeeModal = ({ employee, onSave, onClose, employees = [] }) => {
         weeklyHours: employee.weeklyHours || 35,
         trainingDays: employee.trainingDays || [],
         contractEndDate: employee.contractEndDate ? new Date(employee.contractEndDate).toISOString().split('T')[0] : '',
-        tutorName: employee.tutorName || '',
         email: employee.email || '',
+        connectionCode: employee.connectionCode || '',
         saleCode: employee.saleCode || '',
         isActive: employee.isActive !== undefined ? employee.isActive : true,
         emergencyContact: employee.emergencyContact || {
@@ -63,6 +64,11 @@ const EmployeeModal = ({ employee, onSave, onClose, employees = [] }) => {
     } else {
       setFormData(prev => ({
         ...prev,
+        ...(name === 'contractType' && value !== 'Apprentissage' ? {
+          tutor: '',
+          trainingDays: [],
+          contractEndDate: ''
+        } : {}),
         [name]: type === 'checkbox' ? checked : value
       }));
     }
@@ -177,7 +183,8 @@ const EmployeeModal = ({ employee, onSave, onClose, employees = [] }) => {
       // S'assurer que les champs optionnels sont correctement formatés
       contractEndDate: formData.contractEndDate || undefined,
       tutor: formData.tutor || undefined,
-      email: formData.email || undefined
+      email: formData.email || undefined,
+      connectionCode: formData.connectionCode || undefined
     };
 
     console.log('📤 Données préparées pour l\'envoi:', dataToSend);
@@ -251,39 +258,6 @@ const EmployeeModal = ({ employee, onSave, onClose, employees = [] }) => {
               </select>
             </div>
 
-            {/* Champs spécifiques aux apprentis */}
-            {(formData.contractType === 'Apprentissage' || 
-              formData.role === 'Apprenti Vendeuse' || 
-              formData.role === 'Apprenti Boulanger' || 
-              formData.role === 'Apprenti Préparateur') && (
-              <>
-                <div className="form-group">
-                  <label className="form-label">Fin du contrat d'apprentissage *</label>
-                  <input
-                    type="date"
-                    name="contractEndDate"
-                    value={formData.contractEndDate}
-                    onChange={handleInputChange}
-                    className="form-control"
-                    required
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label className="form-label">Nom du tuteur *</label>
-                  <input
-                    type="text"
-                    name="tutorName"
-                    value={formData.tutorName}
-                    onChange={handleInputChange}
-                    className="form-control"
-                    placeholder="Nom du maître d'apprentissage"
-                    required
-                  />
-                </div>
-              </>
-            )}
-
             <div className="form-group">
               <label className="form-label">Âge *</label>
               <input
@@ -345,50 +319,93 @@ const EmployeeModal = ({ employee, onSave, onClose, employees = [] }) => {
             </div>
           </div>
 
-          {/* Champ Code Vente pour les rôles concernés */}
-          {(() => {
-            const rolesAvecCode = ['vendeuse', 'apprenti', 'manager', 'responsable', 'Apprenti Vendeuse'];
-            const roleNormalized = formData.role?.toLowerCase();
-            const isRoleConcerned = rolesAvecCode.some(r => r.toLowerCase() === roleNormalized);
-            
-            if (isRoleConcerned) {
-              return (
-                <div className="form-group" style={{ marginTop: '15px' }}>
-                  <label className="form-label">
-                    <strong>Code Vente (3 chiffres)</strong>
-                    {!formData.saleCode && (
-                      <span style={{ color: '#ffc107', marginLeft: '10px', fontSize: '0.85rem' }}>
-                        (sera généré automatiquement à la création)
-                      </span>
-                    )}
-                  </label>
-                  <input
-                    type="text"
-                    name="saleCode"
-                    value={formData.saleCode || ''}
-                    onChange={(e) => {
-                      const value = e.target.value.replace(/\D/g, '').slice(0, 3);
-                      setFormData({ ...formData, saleCode: value });
-                    }}
-                    className="form-control"
-                    placeholder={formData.saleCode ? formData.saleCode : "Ex: 123"}
-                    pattern="[0-9]{3}"
-                    maxLength="3"
-                    style={{
-                      backgroundColor: formData.saleCode ? '#fff' : '#f8f9fa',
-                      border: formData.saleCode ? '2px solid #28a745' : '2px solid #e1e5e9'
-                    }}
-                  />
-                  <small className="form-text" style={{ color: '#666', marginTop: '5px' }}>
-                    {formData.saleCode 
-                      ? '✅ Code modifiable manuellement si nécessaire' 
-                      : 'Code à 3 chiffres pour la saisie quotidienne des ventes'}
-                  </small>
-                </div>
-              );
-            }
-            return null;
-          })()}
+          {/* Bloc dédié aux codes d'identification */}
+          <div
+            style={{
+              marginTop: '1.5rem',
+              padding: '1.25rem',
+              border: '1px solid #e1e5e9',
+              borderRadius: '10px',
+              backgroundColor: '#f8f9fa'
+            }}
+          >
+            <h3 style={{ marginBottom: '1rem', color: '#333', fontSize: '1.05rem' }}>
+              🔐 Codes d'identification
+            </h3>
+            <div className="form-row">
+              <div className="form-group" style={{ flex: 1 }}>
+                <label className="form-label">
+                  Code connexion (optionnel)
+                </label>
+                <input
+                  type="text"
+                  name="connectionCode"
+                  value={formData.connectionCode || ''}
+                  onChange={(e) => {
+                    const value = e.target.value.replace(/\D/g, '').slice(0, 3);
+                    setFormData(prev => ({ ...prev, connectionCode: value }));
+                  }}
+                  className="form-control"
+                  placeholder={formData.connectionCode ? formData.connectionCode : 'Ex : 123'}
+                  inputMode="numeric"
+                  pattern="[0-9]{3}"
+                  maxLength="3"
+                  style={{
+                    backgroundColor: formData.connectionCode ? '#fff' : '#eef5ff',
+                    border: formData.connectionCode ? '2px solid #17a2b8' : '2px dashed #8fb3ff'
+                  }}
+                />
+                <small className="form-text" style={{ color: '#555', marginTop: '5px' }}>
+                  Code interne utilisé pour identifier le salarié sur les interfaces de connexion.
+                </small>
+              </div>
+
+              {/* Champ Code Vente pour les rôles concernés */}
+              {(() => {
+                const rolesAvecCode = ['vendeuse', 'apprenti', 'manager', 'responsable', 'Apprenti Vendeuse'];
+                const roleNormalized = formData.role?.toLowerCase();
+                const isRoleConcerned = rolesAvecCode.some(r => r.toLowerCase() === roleNormalized);
+                
+                if (isRoleConcerned) {
+                  return (
+                    <div className="form-group" style={{ flex: 1 }}>
+                      <label className="form-label">
+                        <strong>Code Vente (3 chiffres)</strong>
+                        {!formData.saleCode && (
+                          <span style={{ color: '#ffc107', marginLeft: '10px', fontSize: '0.85rem' }}>
+                            (sera généré automatiquement à la création)
+                          </span>
+                        )}
+                      </label>
+                      <input
+                        type="text"
+                        name="saleCode"
+                        value={formData.saleCode || ''}
+                        onChange={(e) => {
+                          const value = e.target.value.replace(/\D/g, '').slice(0, 3);
+                          setFormData(prev => ({ ...prev, saleCode: value }));
+                        }}
+                        className="form-control"
+                        placeholder={formData.saleCode ? formData.saleCode : 'Ex : 123'}
+                        pattern="[0-9]{3}"
+                        maxLength="3"
+                        style={{
+                          backgroundColor: formData.saleCode ? '#fff' : '#fef9e7',
+                          border: formData.saleCode ? '2px solid #28a745' : '2px dashed #ffd966'
+                        }}
+                      />
+                      <small className="form-text" style={{ color: '#666', marginTop: '5px' }}>
+                        {formData.saleCode 
+                          ? '✅ Code modifiable manuellement si nécessaire' 
+                          : 'Code à 3 chiffres pour la saisie quotidienne des ventes'}
+                      </small>
+                    </div>
+                  );
+                }
+                return null;
+              })()}
+            </div>
+          </div>
 
 
 
@@ -452,7 +469,7 @@ const EmployeeModal = ({ employee, onSave, onClose, employees = [] }) => {
               </div>
 
               <div className="form-group">
-                <label className="form-label">Date de fin de contrat *</label>
+              <label className="form-label">Fin du contrat d'apprentissage *</label>
                 <input
                   type="date"
                   name="contractEndDate"

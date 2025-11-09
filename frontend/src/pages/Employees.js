@@ -414,6 +414,7 @@ const Employees = () => {
                 <th>Nom</th>
                 <th>Rôle</th>
                 <th>Code Vente</th>
+                <th>Code connexion</th>
                 <th>Contrat</th>
                 <th>Âge</th>
                 <th>Volume hebdo</th>
@@ -445,6 +446,12 @@ const Employees = () => {
                       }
                       return <span style={{ color: '#ccc' }}>-</span>;
                     })()}
+                  </td>
+                  <td>
+                    {employee.connectionCode
+                      ? employee.connectionCode
+                      : <span style={{ color: '#999', fontStyle: 'italic', fontSize: '0.9rem' }}>Non défini</span>
+                    }
                   </td>
                   <td>{getContractLabel(employee.contractType)}</td>
                   <td>

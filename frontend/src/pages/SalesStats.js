@@ -3,6 +3,7 @@ import './SalesStats.css';
 
 const WEEK_DAYS = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
 const VENDEUSE_ROLES = ['vendeuse', 'apprenti', 'manager', 'responsable'];
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://boulangerie-planning-api-4-pbfy.onrender.com/api';
 const createFullWeekPresence = () => {
   const presence = {};
   WEEK_DAYS.forEach((jour) => {
@@ -60,6 +61,23 @@ const getWeekRangeFromDate = (referenceDate) => {
   return { start, end };
 };
 
+const formatDateForInput = (date) => {
+  if (!(date instanceof Date) || Number.isNaN(date.getTime())) {
+    return '';
+  }
+  const localDate = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
+  return localDate.toISOString().split('T')[0];
+};
+
+const getDayNameFromDate = (dateInput) => {
+  const date = new Date(dateInput);
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+  const dayIndex = (date.getDay() + 6) % 7; // Convert Sunday=0 to 6
+  return WEEK_DAYS[dayIndex];
+};
+
 const SalesStats = () => {
   // Configuration des années
   // ⚠️  MODIFIER CES VALEURS POUR CHANGER LA PLAGE D'ANNÉES
@@ -80,6 +98,17 @@ const SalesStats = () => {
   const [weeklyStats, setWeeklyStats] = useState(null);
   const [selectedWeekStart, setSelectedWeekStart] = useState('');
   const [marges, setMarges] = useState({ vert: 100, jaune: 80, orange: 50 });
+  const [messages, setMessages] = useState([]);
+  const [loadingMessages, setLoadingMessages] = useState(false);
+  const [messageForm, setMessageForm] = useState({
+    title: '',
+    content: '',
+    startDate: '',
+    endDate: '',
+    untilRead: false,
+    recipientsType: 'all',
+    selectedEmployeeIds: []
+  });
 
   const vendeuses = useMemo(() => {
     return employees.filter(emp => VENDEUSE_ROLES.includes(emp.role));
@@ -112,8 +141,49 @@ const SalesStats = () => {
     ? Math.ceil(objectifHebdoPromo / totalCheckedBoxes)
     : 0;
 
-  const totalCartesObjective = objectifParPresenceCartesFid * totalCheckedBoxes;
-  const totalPromoObjective = objectifParPresencePromo * totalCheckedBoxes;
+  const totalCartesObjective = objectifHebdoCartesFid;
+  const totalPromoObjective = objectifHebdoPromo;
+
+  const weeklyEmployeeMetrics = useMemo(() => {
+    if (!weeklyStats?.dailySales) {
+      return {};
+    }
+    const aggregated = {};
+    weeklyStats.dailySales.forEach((sale) => {
+      const employeeId = sale.employeeId?._id || sale.employeeId;
+      if (!employeeId) {
+        return;
+      }
+      if (!aggregated[employeeId]) {
+        aggregated[employeeId] = {
+          totalCartes: 0,
+          totalPromo: 0,
+          perDay: {}
+        };
+      }
+      const cartesValue = parseInt(sale.nbCartesFid, 10) || 0;
+      const promoValue = parseInt(sale.nbPromo, 10) || 0;
+
+      aggregated[employeeId].totalCartes += cartesValue;
+      aggregated[employeeId].totalPromo += promoValue;
+
+      const dayLabel = getDayNameFromDate(sale.date);
+      if (dayLabel) {
+        const dayEntry = aggregated[employeeId].perDay[dayLabel] || { cartes: 0, promo: 0 };
+        dayEntry.cartes += cartesValue;
+        dayEntry.promo += promoValue;
+        aggregated[employeeId].perDay[dayLabel] = dayEntry;
+      }
+    });
+    return aggregated;
+  }, [weeklyStats]);
+
+  const totalWeekCartes = weeklyStats?.totalCartesFid ?? 0;
+  const totalWeekPromo = weeklyStats?.totalPromo ?? 0;
+  const totalCartesPercent = totalCartesObjective > 0 ? Math.round((totalWeekCartes / totalCartesObjective) * 100) : 0;
+  const totalPromoPercent = totalPromoObjective > 0 ? Math.round((totalWeekPromo / totalPromoObjective) * 100) : 0;
+  const totalCartesReached = totalCartesObjective > 0 ? totalWeekCartes >= totalCartesObjective : totalWeekCartes > 0;
+  const totalPromoReached = totalPromoObjective > 0 ? totalWeekPromo >= totalPromoObjective : totalWeekPromo > 0;
 
   const weekInfo = useMemo(() => {
     const baseDate = selectedWeekStart
@@ -135,8 +205,35 @@ const SalesStats = () => {
     setCurrentMonth(month);
     setCurrentYear(year);
     const { start } = getWeekRangeFromDate(now);
-    setSelectedWeekStart(start.toISOString().split('T')[0]);
+    setSelectedWeekStart(formatDateForInput(start));
   }, []);
+
+  useEffect(() => {
+    if (selectedWeekStart) {
+      setMessageForm(prev => ({
+        ...prev,
+        startDate: prev.startDate || selectedWeekStart
+      }));
+    }
+  }, [selectedWeekStart]);
+
+  const buildPresenceState = useCallback((rawPresences = {}) => {
+    const result = {};
+    vendeuses.forEach((vendeuse) => {
+      const rawDays = rawPresences[vendeuse._id];
+      const presence = {};
+      const hasExplicitDays = rawDays && Object.keys(rawDays).length > 0;
+      WEEK_DAYS.forEach((jour) => {
+        if (hasExplicitDays) {
+          presence[jour] = !!rawDays[jour];
+        } else {
+          presence[jour] = true;
+        }
+      });
+      result[vendeuse._id] = presence;
+    });
+    return result;
+  }, [vendeuses]);
 
   // Charger les employés au montage
   useEffect(() => {
@@ -150,7 +247,7 @@ const SalesStats = () => {
       return;
     }
     try {
-      const url = new URL('https://boulangerie-planning-api-4-pbfy.onrender.com/api/daily-sales/objectives');
+      const url = new URL(`${API_BASE_URL}/daily-sales/objectives`);
       url.searchParams.set('weekStart', weekStartValue);
       const response = await fetch(url.toString());
       if (response.ok) {
@@ -177,7 +274,7 @@ const SalesStats = () => {
       return;
     }
     try {
-      const url = new URL('https://boulangerie-planning-api-4-pbfy.onrender.com/api/daily-sales/weekly');
+      const url = new URL(`${API_BASE_URL}/daily-sales/weekly`);
       url.searchParams.set('weekStart', weekStartValue);
       const response = await fetch(url.toString());
       if (response.ok) {
@@ -202,7 +299,7 @@ const SalesStats = () => {
   // Charger les marges depuis les paramètres
   const fetchMarges = async () => {
     try {
-      const response = await fetch('https://boulangerie-planning-api-4-pbfy.onrender.com/api/parameters');
+      const response = await fetch(`${API_BASE_URL}/parameters`);
       if (response.ok) {
         const params = await response.json();
         const margeVert = params.find(p => p.name === 'margeVert');
@@ -219,6 +316,123 @@ const SalesStats = () => {
     }
   };
 
+  const loadMessages = useCallback(async () => {
+    setLoadingMessages(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/employee-messages`);
+      if (response.ok) {
+        const data = await response.json();
+        setMessages(Array.isArray(data.data) ? data.data : []);
+      }
+    } catch (error) {
+      console.error('Erreur chargement messages salariés:', error);
+    } finally {
+      setLoadingMessages(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadMessages();
+  }, [loadMessages]);
+
+  const handleMessageFormChange = (field, value) => {
+    setMessageForm(prev => {
+      const next = {
+        ...prev,
+        [field]: value
+      };
+      if (field === 'recipientsType' && value === 'all') {
+        next.selectedEmployeeIds = [];
+      }
+      if (field === 'untilRead' && value) {
+        next.endDate = '';
+      }
+      return next;
+    });
+  };
+
+  const toggleEmployeeSelection = (employeeId) => {
+    setMessageForm(prev => {
+      const alreadySelected = prev.selectedEmployeeIds.includes(employeeId);
+      return {
+        ...prev,
+        selectedEmployeeIds: alreadySelected
+          ? prev.selectedEmployeeIds.filter(id => id !== employeeId)
+          : [...prev.selectedEmployeeIds, employeeId]
+      };
+    });
+  };
+
+  const resetMessageForm = (preserveRecipientsType = false) => {
+    setMessageForm(prev => ({
+      title: '',
+      content: '',
+      startDate: selectedWeekStart || formatDateForInput(new Date()),
+      endDate: '',
+      untilRead: false,
+      recipientsType: preserveRecipientsType ? prev.recipientsType : 'all',
+      selectedEmployeeIds: preserveRecipientsType && prev.recipientsType === 'selected' ? prev.selectedEmployeeIds : []
+    }));
+  };
+
+  const submitMessage = async (event) => {
+    event.preventDefault();
+    if (!messageForm.content || !messageForm.content.trim()) {
+      alert('Le message est obligatoire');
+      return;
+    }
+    if (messageForm.recipientsType === 'selected' && messageForm.selectedEmployeeIds.length === 0) {
+      alert('Sélectionnez au moins un salarié');
+      return;
+    }
+    try {
+      const response = await fetch(`${API_BASE_URL}/employee-messages`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          title: messageForm.title,
+          content: messageForm.content,
+          startDate: messageForm.startDate || selectedWeekStart,
+          endDate: messageForm.untilRead ? null : (messageForm.endDate || null),
+          untilRead: messageForm.untilRead,
+          recipientsType: messageForm.recipientsType,
+          selectedEmployeeIds: messageForm.recipientsType === 'selected' ? messageForm.selectedEmployeeIds : []
+        })
+      });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Erreur lors de l\'enregistrement du message');
+      }
+      resetMessageForm(true);
+      await loadMessages();
+      alert('Message enregistré avec succès');
+    } catch (error) {
+      console.error('Erreur enregistrement message:', error);
+      alert(error.message);
+    }
+  };
+
+  const handleDeleteMessage = async (messageId) => {
+    if (!window.confirm('Supprimer ce message ?')) {
+      return;
+    }
+    try {
+      const response = await fetch(`${API_BASE_URL}/employee-messages/${messageId}`, {
+        method: 'DELETE'
+      });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Suppression impossible');
+      }
+      await loadMessages();
+    } catch (error) {
+      console.error('Erreur suppression message:', error);
+      alert(error.message);
+    }
+  };
+
   // Sauvegarder les objectifs hebdomadaires
   const saveWeeklyObjectives = async () => {
     try {
@@ -228,7 +442,7 @@ const SalesStats = () => {
       }
       const presencesPayload = buildPresencesPayload();
 
-      const response = await fetch('https://boulangerie-planning-api-4-pbfy.onrender.com/api/daily-sales/objectives', {
+      const response = await fetch(`${API_BASE_URL}/daily-sales/objectives`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -302,7 +516,7 @@ const SalesStats = () => {
     const { start } = getWeekRangeFromDate(baseDate);
     start.setDate(start.getDate() + offset * 7);
     const { start: newStart } = getWeekRangeFromDate(start);
-    setSelectedWeekStart(newStart.toISOString().split('T')[0]);
+    setSelectedWeekStart(formatDateForInput(newStart));
   }, [selectedWeekStart]);
 
   const handleWeekDateChange = useCallback((event) => {
@@ -315,26 +529,8 @@ const SalesStats = () => {
       return;
     }
     const { start } = getWeekRangeFromDate(pickedDate);
-    setSelectedWeekStart(start.toISOString().split('T')[0]);
+    setSelectedWeekStart(formatDateForInput(start));
   }, []);
-
-  const buildPresenceState = useCallback((rawPresences = {}) => {
-    const result = {};
-    vendeuses.forEach((vendeuse) => {
-      const rawDays = rawPresences[vendeuse._id];
-      const presence = {};
-      const hasExplicitDays = rawDays && Object.keys(rawDays).length > 0;
-      WEEK_DAYS.forEach((jour) => {
-        if (hasExplicitDays) {
-          presence[jour] = !!rawDays[jour];
-        } else {
-          presence[jour] = true;
-        }
-      });
-      result[vendeuse._id] = presence;
-    });
-    return result;
-  }, [vendeuses]);
 
   useEffect(() => {
     if (vendeuses.length === 0) {
@@ -362,7 +558,7 @@ const SalesStats = () => {
   // Charger les employés
   const fetchEmployees = async () => {
     try {
-      const response = await fetch('https://boulangerie-planning-api-4-pbfy.onrender.com/api/employees');
+      const response = await fetch(`${API_BASE_URL}/employees`);
       if (response.ok) {
         const data = await response.json();
         // S'assurer que data est un tableau - gérer le nouveau format API
@@ -418,7 +614,7 @@ const SalesStats = () => {
      // Supprimer les données du mois
    // const deleteSalesData = async () => {
    //   try {
-   //     const response = await fetch(`https://boulangerie-planning-api-4-pbfy.onrender.com/api/sales-stats/period/${currentMonth}/${currentYear}`, {
+  //     const response = await fetch(`${API_BASE_URL}/sales-stats/period/${currentMonth}/${currentYear}`, {
    //       method: 'DELETE'
    //     });
    //     
@@ -445,7 +641,7 @@ const SalesStats = () => {
         salesData: salesData
       };
 
-      const response = await fetch('https://boulangerie-planning-api-4-pbfy.onrender.com/api/sales-stats', {
+      const response = await fetch(`${API_BASE_URL}/sales-stats`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -480,7 +676,7 @@ const SalesStats = () => {
   // Charger les données de vente pour la période actuelle
   const loadSalesDataForPeriod = useCallback(async () => {
     try {
-      const response = await fetch(`https://boulangerie-planning-api-4-pbfy.onrender.com/api/sales-stats/period/${currentMonth}/${currentYear}`);
+      const response = await fetch(`${API_BASE_URL}/sales-stats/period/${currentMonth}/${currentYear}`);
       if (response.ok) {
         const data = await response.json();
         if (data.success && data.data && data.data.salesData) {
@@ -532,7 +728,7 @@ const SalesStats = () => {
   // Charger les statistiques mensuelles
   const loadMonthlyStats = useCallback(async () => {
     try {
-      const response = await fetch(`https://boulangerie-planning-api-4-pbfy.onrender.com/api/sales-stats/monthly/${currentYear}`);
+      const response = await fetch(`${API_BASE_URL}/sales-stats/monthly/${currentYear}`);
       if (response.ok) {
         const data = await response.json();
         if (data.success) {
@@ -687,7 +883,7 @@ const SalesStats = () => {
                   fontWeight: '600'
                 }}
               >
-                💾 Enregistrer Objectifs
+                💾 Enregistrer
               </button>
             </div>
           </div>
@@ -704,11 +900,19 @@ const SalesStats = () => {
               <div className="weekly-objective-summary">
                 <span className="objective-pill objective-pill-fid">🎫 {objectifParPresenceCartesFid} / présence</span>
                 <span className="objective-pill objective-pill-promo">🍔 {objectifParPresencePromo} / présence</span>
-                <span className="objective-pill objective-pill-total-fid">🎯 Total cartes : {totalCartesObjective}</span>
-                <span className="objective-pill objective-pill-total-promo">🔥 Total promo : {totalPromoObjective}</span>
                 <span className="objective-pill objective-pill-count">✅ {totalCheckedBoxes} présence{totalCheckedBoxes > 1 ? 's' : ''}</span>
               </div>
             </div>
+            {weeklyStats && (
+              <div className="weekly-performance-quick-summary">
+                <span className={`performance-pill ${totalCartesReached ? 'success' : 'danger'}`}>
+                  🎯 Cartes : {totalWeekCartes} / {totalCartesObjective} ({totalCartesObjective > 0 ? `${totalCartesPercent}%` : '—'})
+                </span>
+                <span className={`performance-pill ${totalPromoReached ? 'success' : 'danger'}`}>
+                  🔥 Promo : {totalWeekPromo} / {totalPromoObjective} ({totalPromoObjective > 0 ? `${totalPromoPercent}%` : '—'})
+                </span>
+              </div>
+            )}
             <table className="presence-table">
               <thead>
                 <tr>
@@ -729,6 +933,13 @@ const SalesStats = () => {
                   const hasSomeDaysChecked = employeePresenceCount > 0 && !areAllDaysChecked;
                   const objectifFidEmployee = employeePresenceCount * objectifParPresenceCartesFid;
                   const objectifPromoEmployee = employeePresenceCount * objectifParPresencePromo;
+                  const employeeMetrics = weeklyEmployeeMetrics[vendeuse._id] || { totalCartes: 0, totalPromo: 0, perDay: {} };
+                  const employeeCartesActual = employeeMetrics.totalCartes || 0;
+                  const employeePromoActual = employeeMetrics.totalPromo || 0;
+                  const employeeCartesPercent = objectifFidEmployee > 0 ? Math.round((employeeCartesActual / objectifFidEmployee) * 100) : 0;
+                  const employeePromoPercent = objectifPromoEmployee > 0 ? Math.round((employeePromoActual / objectifPromoEmployee) * 100) : 0;
+                  const employeeCartesReached = objectifFidEmployee > 0 ? employeeCartesActual >= objectifFidEmployee : employeeCartesActual > 0;
+                  const employeePromoReached = objectifPromoEmployee > 0 ? employeePromoActual >= objectifPromoEmployee : employeePromoActual > 0;
 
                   return (
                     <tr key={vendeuse._id}>
@@ -738,6 +949,12 @@ const SalesStats = () => {
                           <span className="target-badge target-fid">🎯 Carte : {objectifFidEmployee}</span>
                           <span className="target-badge target-promo">🔥 Promo : {objectifPromoEmployee}</span>
                           <span className="target-badge target-days">✅ {employeePresenceCount} jour{employeePresenceCount > 1 ? 's' : ''}</span>
+                          <span className={`target-badge target-result ${employeeCartesReached ? 'success' : 'danger'}`}>
+                            🎯 Réalisé : {employeeCartesActual}/{objectifFidEmployee || 0}{objectifFidEmployee > 0 ? ` (${employeeCartesPercent}%)` : ''}
+                          </span>
+                          <span className={`target-badge target-result ${employeePromoReached ? 'success' : 'danger'}`}>
+                            🔥 Réalisé : {employeePromoActual}/{objectifPromoEmployee || 0}{objectifPromoEmployee > 0 ? ` (${employeePromoPercent}%)` : ''}
+                          </span>
                         </div>
                       </td>
                       <td className="presence-master-cell">
@@ -754,11 +971,30 @@ const SalesStats = () => {
                       </td>
                       {WEEK_DAYS.map(jour => (
                         <td key={jour} className="day-checkbox">
-                          <input
-                            type="checkbox"
-                            checked={!!presence[jour]}
-                            onChange={() => togglePresence(vendeuse._id, jour)}
-                          />
+                          <div className="presence-day-wrapper">
+                            <input
+                              type="checkbox"
+                              checked={!!presence[jour]}
+                              onChange={() => togglePresence(vendeuse._id, jour)}
+                            />
+                            {(() => {
+                              const dayMetrics = employeeMetrics.perDay?.[jour] || { cartes: 0, promo: 0 };
+                              const expectedCartes = presence[jour] ? objectifParPresenceCartesFid : 0;
+                              const expectedPromo = presence[jour] ? objectifParPresencePromo : 0;
+                              const hasExpectation = expectedCartes > 0 || expectedPromo > 0;
+                              let statusClass = 'neutral';
+                              if (hasExpectation) {
+                                statusClass = (dayMetrics.cartes >= expectedCartes && dayMetrics.promo >= expectedPromo) ? 'success' : 'danger';
+                              } else if (dayMetrics.cartes > 0 || dayMetrics.promo > 0) {
+                                statusClass = 'info';
+                              }
+                              return (
+                                <span className={`day-metrics ${statusClass}`}>
+                                  {dayMetrics.cartes}/{dayMetrics.promo}
+                                </span>
+                              );
+                            })()}
+                          </div>
                         </td>
                       ))}
                     </tr>
@@ -766,6 +1002,159 @@ const SalesStats = () => {
                 })}
               </tbody>
             </table>
+          </div>
+        </div>
+
+        <div className="sales-form-section">
+          <h2>💬 Messages aux salariés</h2>
+          <form className="message-form" onSubmit={submitMessage}>
+            <div className="message-form-grid">
+              <div className="form-group">
+                <label>Titre du message</label>
+                <input
+                  type="text"
+                  value={messageForm.title}
+                  onChange={(e) => handleMessageFormChange('title', e.target.value)}
+                  placeholder="Information importante"
+                  maxLength={120}
+                />
+              </div>
+              <div className="form-group">
+                <label>Début d'affichage</label>
+                <input
+                  type="date"
+                  value={messageForm.startDate || ''}
+                  onChange={(e) => handleMessageFormChange('startDate', e.target.value)}
+                />
+              </div>
+              <div className="form-group">
+                <label>Fin d'affichage</label>
+                <input
+                  type="date"
+                  value={messageForm.untilRead ? '' : (messageForm.endDate || '')}
+                  onChange={(e) => handleMessageFormChange('endDate', e.target.value)}
+                  disabled={messageForm.untilRead}
+                  min={messageForm.startDate || undefined}
+                />
+                <label className="inline-checkbox">
+                  <input
+                    type="checkbox"
+                    checked={messageForm.untilRead}
+                    onChange={(e) => handleMessageFormChange('untilRead', e.target.checked)}
+                  />
+                  Afficher jusqu'à lecture
+                </label>
+              </div>
+              <div className="form-group">
+                <label>Destinataires</label>
+                <div className="recipient-options">
+                  <label>
+                    <input
+                      type="radio"
+                      name="recipientsType"
+                      value="all"
+                      checked={messageForm.recipientsType === 'all'}
+                      onChange={(e) => handleMessageFormChange('recipientsType', e.target.value)}
+                    />
+                    Tous les salariés
+                  </label>
+                  <label>
+                    <input
+                      type="radio"
+                      name="recipientsType"
+                      value="selected"
+                      checked={messageForm.recipientsType === 'selected'}
+                      onChange={(e) => handleMessageFormChange('recipientsType', e.target.value)}
+                    />
+                    Salariés sélectionnés
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            {messageForm.recipientsType === 'selected' && (
+              <div className="recipient-select">
+                {employees.map((employee) => (
+                  <label key={employee._id} className="recipient-item">
+                    <input
+                      type="checkbox"
+                      checked={messageForm.selectedEmployeeIds.includes(employee._id)}
+                      onChange={() => toggleEmployeeSelection(employee._id)}
+                    />
+                    <span>
+                      {employee.name}
+                      {employee.saleCode ? ` (${employee.saleCode})` : ''}
+                    </span>
+                  </label>
+                ))}
+              </div>
+            )}
+
+            <div className="form-group">
+              <label>Message</label>
+              <textarea
+                value={messageForm.content}
+                onChange={(e) => handleMessageFormChange('content', e.target.value)}
+                rows={4}
+                placeholder="Votre message pour les salariés (instructions, félicitations, rappel important...)"
+                maxLength={2000}
+              />
+            </div>
+            <div className="message-form-actions">
+              <button type="submit" className="btn-primary">💾 Enregistrer le message</button>
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={() => resetMessageForm(false)}
+              >
+                ↩️ Réinitialiser
+              </button>
+            </div>
+          </form>
+
+          <div className="message-list">
+            {loadingMessages ? (
+              <div className="message-empty">Chargement des messages...</div>
+            ) : messages.length === 0 ? (
+              <div className="message-empty">Aucun message défini pour l'instant.</div>
+            ) : (
+              messages.map((msg) => {
+                const startLabel = msg.startDate ? new Date(msg.startDate).toLocaleDateString('fr-FR') : '';
+                const endLabel = msg.endDate
+                  ? new Date(msg.endDate).toLocaleDateString('fr-FR')
+                  : (msg.untilRead ? 'Jusqu\'à lecture' : 'Sans limite');
+                const recipientsLabel = msg.recipientsType === 'all'
+                  ? 'Tous les salariés'
+                  : (msg.selectedEmployees && msg.selectedEmployees.length > 0
+                      ? msg.selectedEmployees.map(emp => `${emp.name}${emp.saleCode ? ` (${emp.saleCode})` : ''}`).join(', ')
+                      : 'Sélection manuelle');
+                return (
+                  <div className="message-card" key={msg._id}>
+                    <div className="message-card-header">
+                      <div>
+                        <h3>{msg.title || 'Information'}</h3>
+                        <div className="message-meta">
+                          <span>Du {startLabel}</span>
+                          <span>Au {endLabel}</span>
+                          <span>{recipientsLabel}</span>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        className="message-delete"
+                        onClick={() => handleDeleteMessage(msg._id)}
+                      >
+                        🗑️
+                      </button>
+                    </div>
+                    <p className="message-content">{msg.content}</p>
+                    {msg.untilRead && (
+                      <div className="message-note">Ce message reste affiché tant que le salarié ne l'a pas confirmé comme lu.</div>
+                    )}
+                  </div>
+                );
+              })
+            )}
           </div>
         </div>
 

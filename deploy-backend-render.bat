@@ -19,15 +19,19 @@ echo ✅ Fichiers backend présents
 echo.
 echo 📦 Étape 2: Vérification de la route dans server.js...
 findstr /C:"ticket-restaurant" backend\server.js >nul
-if %errorlevel% neq 0 (
-    echo ❌ Route manquante dans server.js
-    echo 🔧 Ajout de la route...
-    echo. >> backend\server.js
-    echo app.use('/api/ticket-restaurant', require('./routes/ticketRestaurant')); >> backend\server.js
-    echo ✅ Route ajoutée
-) else (
-    echo ✅ Route trouvée dans server.js
-)
+if errorlevel 1 goto ADD_TICKET_ROUTE
+
+echo ✅ Route trouvée dans server.js
+goto AFTER_TICKET_ROUTE
+
+:ADD_TICKET_ROUTE
+echo ❌ Route manquante dans server.js
+echo 🔧 Ajout de la route...
+powershell -Command "Add-Content -Path 'backend/server.js' -Value ''"
+powershell -Command "Add-Content -Path 'backend/server.js' -Value \"app.use('/api/ticket-restaurant', require('./routes/ticketRestaurant'));\""
+echo ✅ Route ajoutée
+
+:AFTER_TICKET_ROUTE
 
 echo.
 echo 📦 Étape 3: Vérification du package.json backend...
@@ -58,19 +62,14 @@ echo.
 echo 1. 📁 Aller sur le dashboard Render
 echo 2. 🔄 Redémarrer le service backend
 echo 3. 📋 Vérifier les logs de déploiement
-echo 4. 🧪 Tester l'API avec : test-ticket-api.bat
+echo 4. 🧪 Vérifier rapidement l'API employés (création / modification)
 echo.
-echo 📋 Routes API à vérifier après redémarrage :
-echo    - GET /api/ticket-restaurant?month=YYYY-MM
-echo    - POST /api/ticket-restaurant
-echo    - DELETE /api/ticket-restaurant/:id
-echo    - GET /api/ticket-restaurant/stats/:month
+echo 📋 Points à contrôler après redémarrage :
+echo    - GET /api/employees (liste des salariés)
+echo    - POST /api/employees (création avec connectionCode)
+echo    - PUT /api/employees/:id (modification des codes)
 echo.
-echo 🧪 Test du bouton "Simuler scan" :
-echo    - Le bouton génère un code-barres simulé
-echo    - Extrait un montant aléatoire (5-15€)
-echo    - Envoie les données à l'API
-echo    - Affiche les statistiques en temps réel
+echo 🧪 Astuce : utiliser Postman ou les scripts de tests internes pour valider les codes de connexion.
 echo.
 echo ⚠️ IMPORTANT : Le backend doit être redémarré sur Render
 echo    pour que les nouvelles routes soient disponibles.
