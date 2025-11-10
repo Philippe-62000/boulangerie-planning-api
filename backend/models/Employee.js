@@ -23,7 +23,20 @@ const employeeSchema = new mongoose.Schema({
   }],
   role: {
     type: String,
-    enum: ['vendeuse', 'apprenti', 'responsable', 'manager'],
+    enum: [
+      'vendeuse',
+      'responsable',
+      'manager',
+      'apprenti',
+      'Apprenti Vendeuse',
+      'chef prod',
+      'boulanger',
+      'préparateur',
+      'Apprenti Boulanger',
+      'Apprenti Préparateur',
+      'responsable magasin',
+      'responsable magasin adjointe'
+    ],
     required: true
   },
   weeklyHours: {

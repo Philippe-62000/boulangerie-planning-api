@@ -1,71 +1,58 @@
-# 🚀 Instructions de Déploiement Rapide
+# 🚀 Instructions de Déploiement – Novembre 2025
 
-## ✅ Fichiers prêts pour le déploiement
+## ✅ Avant de commencer
+- Vérifier que la base MongoDB production est propre (données de test purgées).
+- Conserver la sauvegarde locale `sauvegarde-avant-deployement/` créée le 09/11/2025.
 
-Le dossier **`deploy-frontend/`** contient tous les fichiers nécessaires pour OVH.
-
-## 📋 Étapes de déploiement
-
-### 1. **Backend (Render) - Déploiement automatique**
-
-Les modifications backend seront déployées automatiquement lors du push Git :
-
+## 1. 🔨 Build Frontend (local)
 ```bash
-git commit -m "Modifications acomptes: modal simplifié, sélection nominative, contact urgence"
-git push origin main
+build-frontend-simple.bat
 ```
+- Génère le dossier `frontend/build/` avec les assets Vite à jour.
 
-⏱️ **Délai :** ~2-3 minutes pour le déploiement automatique sur Render
-
-### 2. **Frontend (OVH) - Déploiement manuel**
-
-1. **Connectez-vous à OVH**
-   - Allez sur https://www.ovh.com/auth/
-   - Hébergements → Votre hébergement → Gestionnaire de fichiers
-
-2. **Uploadez les fichiers**
-   - Sélectionnez **TOUS** les fichiers du dossier `deploy-frontend/`
-   - Uploadez vers `/www/` ou `/www/votre-domaine/`
-   - Remplacez les fichiers existants
-
-3. **Vérifiez les permissions** (optionnel)
-   - Fichiers : 644
-   - Dossiers : 755
-
-## 🧪 Tests rapides après déploiement
-
-1. **Modal d'acompte** : https://www.filmara.fr/plan/employee-dashboard.html
-   - Ouvrir le modal "💰 Demande d'Acompte"
-   - Vérifier que le mois est pré-rempli automatiquement
-
-2. **Sélection nominative** : https://www.filmara.fr/plan/parameters
-   - Templates disponibles → Configuration Demande d'Acompte
-   - Vérifier la liste de checkboxes par employé
-
-3. **Contact d'urgence** : https://www.filmara.fr/plan/employees
-   - Ajouter/modifier un employé
-   - Vérifier la section "🚨 Personne à Contacter en Cas d'Urgence"
-
-## 📁 Contenu du dossier deploy-frontend
-
+## 2. 📦 Préparation upload OVH
+```bash
+deploy-frontend-complet.bat
 ```
-deploy-frontend/
-├── index.html                    ← Application React principale
-├── employee-dashboard.html       ← Dashboard salarié (modifié)
-├── static/
-│   ├── css/
-│   │   └── main.71ce68f0.css
-│   └── js/
-│       └── main.db543bcf.js      ← JavaScript avec toutes les modifs
-└── [autres fichiers HTML...]
+- Copie les fichiers de build vers le dossier d’export pour OVH.
+- Si le script boucle, interrompre une fois la copie terminée puis vérifier le dossier généré.
+
+## 3. 🌐 Déploiement OVH (manuel)
+1. Ouvrir FileZilla (ou le gestionnaire OVH) et se connecter à l’hébergement.
+2. Uploader tout le contenu exporté vers `/www/plan/` (écrasement autorisé).
+3. Vider le cache OVH si nécessaire.
+
+## 4. ⚙️ Backend Render
+```bash
+deploy-backend-render.bat
 ```
+- Pousse le backend sur GitHub.
+- Dans le dashboard Render → **Manual Deploy → Deploy latest commit**.
+- Attendre le passage au statut « Live ».
 
-## ⚡ Résumé des modifications
+## 5. 🧪 Tests post-déploiement
+- `https://www.filmara.fr/plan/` : authentification + navigation générale.
+- `SalesStats` :
+  - Changement de semaine (flèches ◀ ▶).
+  - Sauvegarde objectifs (`💾 Enregistrer`).
+  - Affichage ventes quotidiennes cartes/promo et badges objectifs.
+  - Module messages (création, destinataires multiples, suppression).
+- `daily-sales-entry.html` :
+  - Saisie code vendeur → affichage objectifs cumulés (`real / objectif`).
+  - Téléchargement messages en cours + bouton « J’ai lu ».
+- Vérifier qu’aucune donnée résiduelle (acomptes, congés, arrêts) ne réapparaît.
 
-- ✅ Modal d'acompte simplifié (mois automatique, pas de commentaire)
-- ✅ Sélection nominative des salariés dans Paramètres
-- ✅ Retrait du bouton redondant dans Employees.js
-- ✅ Contact d'urgence dans formulaire employé
+## 6. 🗂️ Checklist finale
+- [ ] Sauvegarde `sauvegarde-avant-deployement/` archivée hors poste.
+- [ ] Scripts `.bat` disponibles dans la racine et testés.
+- [ ] Base MongoDB production toujours vide de données de test.
+- [ ] Hard refresh navigateur (`Ctrl+F5`) après déploiement.
 
-**Tout est prêt ! 🎉**
+## 📌 Résumé modifications principales
+- Refonte objectifs ventes (arrondis par présence, totaux bruts).
+- Module messages salariés (backend + frontend).
+- Page saisie quotidienne enrichie (objectifs cumulés, messages).
+- Nettoyage complet des collections de test (salariés, ventes, acomptes, congés, arrêts, tickets, frais, paramètres objectifs).
+
+**Le site est prêt pour la mise en production.** 🎉
 
