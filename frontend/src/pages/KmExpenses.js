@@ -158,14 +158,14 @@ const KmExpenses = () => {
                   );
                 })}
               </select>
+              <button
+                className="btn btn-success"
+                onClick={saveExpenses}
+                disabled={saving}
+              >
+                {saving ? '💾 Sauvegarde...' : '💾 Sauvegarder'}
+              </button>
             </div>
-            <button
-              className="btn btn-success"
-              onClick={saveExpenses}
-              disabled={saving}
-            >
-              {saving ? '💾 Sauvegarde...' : '💾 Sauvegarder'}
-            </button>
           </div>
         </div>
       </div>

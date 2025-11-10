@@ -542,15 +542,11 @@ const SalesStats = () => {
     const payload = {};
     vendeuses.forEach(vendeuse => {
       const presence = presences[vendeuse._id] || {};
-      const activeDays = {};
+      const dayStates = {};
       WEEK_DAYS.forEach(jour => {
-        if (presence[jour]) {
-          activeDays[jour] = true;
-        }
+        dayStates[jour] = !!presence[jour];
       });
-      if (Object.keys(activeDays).length > 0) {
-        payload[vendeuse._id] = activeDays;
-      }
+      payload[vendeuse._id] = dayStates;
     });
     return payload;
   }, [vendeuses, presences]);
