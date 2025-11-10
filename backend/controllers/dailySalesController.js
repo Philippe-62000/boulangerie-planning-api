@@ -68,7 +68,15 @@ exports.submitDailySales = async (req, res) => {
     }
     
     // Vérifier que le rôle est concerné
-    const rolesAvecCode = ['vendeuse', 'apprenti', 'manager', 'responsable', 'responsable magasin', 'responsable magasin adjointe'];
+    const rolesAvecCode = [
+      'vendeuse',
+      'apprenti',
+      'Apprenti Vendeuse',
+      'manager',
+      'responsable',
+      'responsable magasin',
+      'responsable magasin adjointe'
+    ];
     if (!rolesAvecCode.includes(employee.role)) {
       return res.status(403).json({
         success: false,

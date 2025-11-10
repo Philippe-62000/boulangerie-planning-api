@@ -52,12 +52,134 @@ const menuPermissionsSchema = new mongoose.Schema({
 // Méthode statique pour créer les permissions de menu par défaut
 menuPermissionsSchema.statics.createDefaultPermissions = async function() {
   try {
-    // Vérifier si le menu advance-requests existe déjà
-    const advanceRequestsExists = await this.findOne({ menuId: 'advance-requests' });
-    
-    // Si le menu advance-requests n'existe pas, le créer
-    if (!advanceRequestsExists) {
-      await this.create({
+    const defaultMenus = [
+      {
+        menuId: 'dashboard',
+        menuName: 'Tableau de bord',
+        menuPath: '/dashboard',
+        isVisibleToAdmin: true,
+        isVisibleToEmployee: true,
+        requiredPermissions: ['all'],
+        order: 0
+      },
+      {
+        menuId: 'planning',
+        menuName: 'Planning',
+        menuPath: '/planning',
+        isVisibleToAdmin: true,
+        isVisibleToEmployee: true,
+        requiredPermissions: ['view_planning'],
+        order: 1
+      },
+      {
+        menuId: 'employees',
+        menuName: 'Gestion des salariés',
+        menuPath: '/employees',
+        isVisibleToAdmin: true,
+        isVisibleToEmployee: false,
+        requiredPermissions: ['manage_employees'],
+        order: 2
+      },
+      {
+        menuId: 'constraints',
+        menuName: 'Contraintes hebdomadaires',
+        menuPath: '/constraints',
+        isVisibleToAdmin: true,
+        isVisibleToEmployee: false,
+        requiredPermissions: ['manage_planning'],
+        order: 3
+      },
+      {
+        menuId: 'absences',
+        menuName: 'État des absences',
+        menuPath: '/absences',
+        isVisibleToAdmin: true,
+        isVisibleToEmployee: true,
+        requiredPermissions: ['view_absences'],
+        order: 4
+      },
+      {
+        menuId: 'sales-stats',
+        menuName: 'Stats Vente',
+        menuPath: '/sales-stats',
+        isVisibleToAdmin: true,
+        isVisibleToEmployee: true,
+        requiredPermissions: ['view_sales_stats'],
+        order: 5
+      },
+      {
+        menuId: 'parameters',
+        menuName: 'Paramètres',
+        menuPath: '/parameters',
+        isVisibleToAdmin: true,
+        isVisibleToEmployee: false,
+        requiredPermissions: ['manage_parameters'],
+        order: 6
+      },
+      {
+        menuId: 'employee-status',
+        menuName: 'État Salariés',
+        menuPath: '/employee-status',
+        isVisibleToAdmin: true,
+        isVisibleToEmployee: false,
+        requiredPermissions: ['view_reports'],
+        order: 7
+      },
+      {
+        menuId: 'meal-expenses',
+        menuName: 'Frais Repas',
+        menuPath: '/meal-expenses',
+        isVisibleToAdmin: true,
+        isVisibleToEmployee: true,
+        requiredPermissions: ['view_meal_expenses'],
+        order: 8
+      },
+      {
+        menuId: 'km-expenses',
+        menuName: 'Frais KM',
+        menuPath: '/km-expenses',
+        isVisibleToAdmin: true,
+        isVisibleToEmployee: true,
+        requiredPermissions: ['view_km_expenses'],
+        order: 9
+      },
+      {
+        menuId: 'employee-status-print',
+        menuName: 'Imprimer État',
+        menuPath: '/employee-status-print',
+        isVisibleToAdmin: true,
+        isVisibleToEmployee: false,
+        requiredPermissions: ['view_reports'],
+        order: 10
+      },
+      {
+        menuId: 'sick-leave-management',
+        menuName: 'Gestion des Arrêts Maladie',
+        menuPath: '/sick-leave-management',
+        isVisibleToAdmin: true,
+        isVisibleToEmployee: false,
+        requiredPermissions: ['manage_employees'],
+        order: 11
+      },
+      {
+        menuId: 'vacation-management',
+        menuName: 'Gestion des Congés',
+        menuPath: '/vacation-management',
+        isVisibleToAdmin: true,
+        isVisibleToEmployee: false,
+        requiredPermissions: ['manage_employees'],
+        order: 12
+      },
+      {
+        menuId: 'ticket-restaurant',
+        menuName: 'Ticket restaurant',
+        menuPath: '/ticket-restaurant',
+        isVisibleToAdmin: true,
+        isVisibleToEmployee: false,
+        requiredPermissions: ['view_meal_expenses'],
+        order: 13
+      },
+      {
         menuId: 'advance-requests',
         menuName: 'Demandes d\'Acompte',
         menuPath: '/advance-requests',
@@ -65,145 +187,73 @@ menuPermissionsSchema.statics.createDefaultPermissions = async function() {
         isVisibleToEmployee: false,
         requiredPermissions: ['manage_employees'],
         order: 13
-      });
-      console.log('✅ Menu advance-requests créé');
-    }
-    
-    // Vérifier si des permissions existent déjà
-    const existingPermissions = await this.countDocuments();
-    
-    if (existingPermissions === 0) {
-      const defaultMenus = [
-        {
-          menuId: 'dashboard',
-          menuName: 'Tableau de bord',
-          menuPath: '/dashboard',
-          isVisibleToAdmin: true,
-          isVisibleToEmployee: true,
-          requiredPermissions: ['all'],
-          order: 0
-        },
-        {
-          menuId: 'planning',
-          menuName: 'Planning',
-          menuPath: '/planning',
-          isVisibleToAdmin: true,
-          isVisibleToEmployee: true,
-          requiredPermissions: ['view_planning'],
-          order: 1
-        },
-        {
-          menuId: 'employees',
-          menuName: 'Gestion des salariés',
-          menuPath: '/employees',
-          isVisibleToAdmin: true,
-          isVisibleToEmployee: false,
-          requiredPermissions: ['manage_employees'],
-          order: 2
-        },
-        {
-          menuId: 'constraints',
-          menuName: 'Contraintes hebdomadaires',
-          menuPath: '/constraints',
-          isVisibleToAdmin: true,
-          isVisibleToEmployee: false,
-          requiredPermissions: ['manage_planning'],
-          order: 3
-        },
-        {
-          menuId: 'absences',
-          menuName: 'État des absences',
-          menuPath: '/absences',
-          isVisibleToAdmin: true,
-          isVisibleToEmployee: true,
-          requiredPermissions: ['view_absences'],
-          order: 4
-        },
-        {
-          menuId: 'sales-stats',
-          menuName: 'Stats Vente',
-          menuPath: '/sales-stats',
-          isVisibleToAdmin: true,
-          isVisibleToEmployee: true,
-          requiredPermissions: ['view_sales_stats'],
-          order: 5
-        },
-        {
-          menuId: 'parameters',
-          menuName: 'Paramètres',
-          menuPath: '/parameters',
-          isVisibleToAdmin: true,
-          isVisibleToEmployee: false,
-          requiredPermissions: ['manage_parameters'],
-          order: 6
-        },
-        {
-          menuId: 'employee-status',
-          menuName: 'État Salariés',
-          menuPath: '/employee-status',
-          isVisibleToAdmin: true,
-          isVisibleToEmployee: false,
-          requiredPermissions: ['view_reports'],
-          order: 7
-        },
-        {
-          menuId: 'meal-expenses',
-          menuName: 'Frais Repas',
-          menuPath: '/meal-expenses',
-          isVisibleToAdmin: true,
-          isVisibleToEmployee: true,
-          requiredPermissions: ['view_meal_expenses'],
-          order: 8
-        },
-        {
-          menuId: 'km-expenses',
-          menuName: 'Frais KM',
-          menuPath: '/km-expenses',
-          isVisibleToAdmin: true,
-          isVisibleToEmployee: true,
-          requiredPermissions: ['view_km_expenses'],
-          order: 9
-        },
-        {
-          menuId: 'employee-status-print',
-          menuName: 'Imprimer État',
-          menuPath: '/employee-status-print',
-          isVisibleToAdmin: true,
-          isVisibleToEmployee: false,
-          requiredPermissions: ['view_reports'],
-          order: 10
-        },
-        {
-          menuId: 'sick-leave-management',
-          menuName: 'Gestion des Arrêts Maladie',
-          menuPath: '/sick-leave-management',
-          isVisibleToAdmin: true,
-          isVisibleToEmployee: false,
-          requiredPermissions: ['manage_employees'],
-          order: 11
-        },
-        {
-          menuId: 'vacation-management',
-          menuName: 'Gestion des Congés',
-          menuPath: '/vacation-management',
-          isVisibleToAdmin: true,
-          isVisibleToEmployee: false,
-          requiredPermissions: ['manage_employees'],
-          order: 12
-        },
-        {
-          menuId: 'advance-requests',
-          menuName: 'Demandes d\'Acompte',
-          menuPath: '/advance-requests',
-          isVisibleToAdmin: true,
-          isVisibleToEmployee: false,
-          requiredPermissions: ['manage_employees'],
-          order: 13
-        }
-      ];
+      },
+      {
+        menuId: 'recup',
+        menuName: 'Heures de récup',
+        menuPath: '/recup',
+        isVisibleToAdmin: true,
+        isVisibleToEmployee: false,
+        requiredPermissions: ['manage_employees'],
+        order: 14
+      }
+    ];
 
-      await this.insertMany(defaultMenus);
-      console.log('✅ Permissions de menu par défaut créées');
+    const ensureMenuExists = async (menuConfig) => {
+      const {
+        menuId,
+        menuName,
+        menuPath,
+        isVisibleToAdmin = true,
+        isVisibleToEmployee = false,
+        requiredPermissions = [],
+        order = 0
+      } = menuConfig;
+
+      const existing = await this.findOne({ menuId });
+      if (!existing) {
+        await this.create({
+          menuId,
+          menuName,
+          menuPath,
+          isVisibleToAdmin,
+          isVisibleToEmployee,
+          requiredPermissions,
+          order
+        });
+        console.log(`✅ Menu ${menuId} créé`);
+      } else {
+        const existingPermissions = existing.requiredPermissions || [];
+        const desiredPermissions = requiredPermissions || [];
+        const permissionsChanged =
+          existingPermissions.length !== desiredPermissions.length ||
+          !desiredPermissions.every(permission => existingPermissions.includes(permission));
+
+        const needsUpdate =
+          existing.menuName !== menuName ||
+          existing.menuPath !== menuPath ||
+          existing.isVisibleToAdmin !== isVisibleToAdmin ||
+          existing.isVisibleToEmployee !== isVisibleToEmployee ||
+          existing.order !== order ||
+          existing.isActive !== true ||
+          permissionsChanged;
+
+        if (needsUpdate) {
+          existing.menuName = menuName;
+          existing.menuPath = menuPath;
+          existing.isVisibleToAdmin = isVisibleToAdmin;
+          existing.isVisibleToEmployee = isVisibleToEmployee;
+          existing.requiredPermissions = desiredPermissions;
+          existing.order = order;
+          existing.isActive = true;
+          await existing.save();
+          console.log(`🔄 Menu ${menuId} mis à jour`);
+        }
+      }
+    };
+
+    for (const menuConfig of defaultMenus) {
+      await ensureMenuExists(menuConfig);
     }
   } catch (error) {
     console.error('❌ Erreur lors de la création des permissions de menu:', error);

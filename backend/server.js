@@ -118,6 +118,7 @@ app.use('/api/documents', require('./routes/documents'));
 app.use('/api/advance-requests', require('./routes/advanceRequests'));
 app.use('/api/maintenance', require('./routes/maintenance'));
 app.use('/api/employee-messages', require('./routes/employeeMessages'));
+app.use('/api/recup-hours', require('./routes/recupHours'));
 
 // Route de santé pour vérifier que l'API fonctionne
 app.get('/health', (req, res) => {
@@ -145,6 +146,7 @@ app.get('/', (req, res) => {
         mealExpenses: '/api/meal-expenses',
         parameters: '/api/parameters',
         kmExpenses: '/api/km-expenses',
+        recupHours: '/api/recup-hours',
         employeeStatus: '/api/employee-status'
       }
   });

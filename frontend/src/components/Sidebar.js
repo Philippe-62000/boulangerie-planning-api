@@ -21,6 +21,7 @@ const Sidebar = () => {
         { menuId: 'absences', isVisibleToAdmin: true, isVisibleToEmployee: true },
         { menuId: 'meal-expenses', isVisibleToAdmin: true, isVisibleToEmployee: true },
         { menuId: 'km-expenses', isVisibleToAdmin: true, isVisibleToEmployee: true },
+        { menuId: 'recup', isVisibleToAdmin: true, isVisibleToEmployee: false },
         { menuId: 'employee-status-print', isVisibleToAdmin: true, isVisibleToEmployee: false },
         { menuId: 'parameters', isVisibleToAdmin: true, isVisibleToEmployee: false },
         { menuId: 'sick-leave-management', isVisibleToAdmin: true, isVisibleToEmployee: false },
@@ -37,6 +38,7 @@ const Sidebar = () => {
         { menuId: 'absences', isVisibleToAdmin: false, isVisibleToEmployee: true },
         { menuId: 'meal-expenses', isVisibleToAdmin: false, isVisibleToEmployee: true },
         { menuId: 'km-expenses', isVisibleToAdmin: false, isVisibleToEmployee: true },
+        { menuId: 'recup', isVisibleToAdmin: false, isVisibleToEmployee: false },
         { menuId: 'ticket-restaurant', isVisibleToAdmin: false, isVisibleToEmployee: true }
       ];
     }
@@ -90,6 +92,7 @@ const Sidebar = () => {
     { path: '/absences', label: 'État des absences', icon: '📈', menuId: 'absences' },
     { path: '/meal-expenses', label: 'Frais Repas', icon: '🍽️', menuId: 'meal-expenses' },
     { path: '/km-expenses', label: 'Frais KM', icon: '🚗', menuId: 'km-expenses' },
+    { path: '/recup', label: 'Heures de récup', icon: '⏱️', menuId: 'recup' },
     { path: '/employee-status-print', label: 'Imprimer État', icon: '🖨️', menuId: 'employee-status-print' },
     { path: '/parameters', label: 'Paramètres', icon: '⚙️', menuId: 'parameters' },
     { path: '/sick-leave-management', label: 'Gestion des Arrêts Maladie', icon: '🏥', menuId: 'sick-leave-management' },

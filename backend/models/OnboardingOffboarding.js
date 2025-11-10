@@ -148,6 +148,14 @@ onboardingOffboardingSchema.statics.getPendingLegalObligations = async function(
   const pendingObligations = [];
   
   records.forEach(record => {
+    if (!record || !record.employeeId) {
+      console.warn('⚠️ Obligation légale sans employé lié, entrée ignorée:', record?._id?.toString?.());
+      return;
+    }
+
+    const resolvedEmployeeId = record.employeeId._id || record.employeeId;
+    const resolvedEmployeeName = record.employeeName || record.employeeId.name || 'Salarié inconnu';
+
     // Vérifier chaque démarche d'entrée
     const onboardingTasks = [
       { key: 'contratSigne', label: 'Contrat de travail signé' },
@@ -168,22 +176,22 @@ onboardingOffboardingSchema.statics.getPendingLegalObligations = async function(
         if (task.key === 'demandeMutuelle') {
           if (!record.onboarding.demandeMutuelle.refused || !record.onboarding.demandeMutuelle.attestationFournie) {
             pendingObligations.push({
-              employeeId: record.employeeId._id,
-              employeeName: record.employeeName,
+              employeeId: resolvedEmployeeId,
+              employeeName: resolvedEmployeeName,
               taskType: 'onboarding',
               taskKey: task.key,
               taskLabel: task.label,
-              comment: record.onboarding[task.key].comment || ''
+              comment: record.onboarding[task.key]?.comment || ''
             });
           }
         } else {
           pendingObligations.push({
-            employeeId: record.employeeId._id,
-            employeeName: record.employeeName,
+            employeeId: resolvedEmployeeId,
+            employeeName: resolvedEmployeeName,
             taskType: 'onboarding',
             taskKey: task.key,
             taskLabel: task.label,
-            comment: record.onboarding[task.key].comment || ''
+            comment: record.onboarding[task.key]?.comment || ''
           });
         }
       }
@@ -203,12 +211,12 @@ onboardingOffboardingSchema.statics.getPendingLegalObligations = async function(
       offboardingTasks.forEach(task => {
         if (record.offboarding && record.offboarding[task.key] && !record.offboarding[task.key].done) {
           pendingObligations.push({
-            employeeId: record.employeeId._id,
-            employeeName: record.employeeName,
+            employeeId: resolvedEmployeeId,
+            employeeName: resolvedEmployeeName,
             taskType: 'offboarding',
             taskKey: task.key,
             taskLabel: task.label,
-            comment: record.offboarding[task.key].comment || ''
+            comment: record.offboarding[task.key]?.comment || ''
           });
         }
       });

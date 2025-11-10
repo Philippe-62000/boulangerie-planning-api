@@ -2,7 +2,19 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import './SalesStats.css';
 
 const WEEK_DAYS = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
-const VENDEUSE_ROLES = ['vendeuse', 'apprenti', 'manager', 'responsable'];
+const VENDEUSE_ROLES = [
+  'vendeuse',
+  'apprenti',
+  'Apprenti Vendeuse',
+  'manager',
+  'responsable'
+];
+const MESSAGE_TARGET_ROLES = [
+  'vendeuse',
+  'Apprenti Vendeuse',
+  'manager',
+  'responsable'
+];
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://boulangerie-planning-api-4-pbfy.onrender.com/api';
 const createFullWeekPresence = () => {
   const presence = {};
@@ -112,6 +124,11 @@ const SalesStats = () => {
 
   const vendeuses = useMemo(() => {
     return employees.filter(emp => VENDEUSE_ROLES.includes(emp.role));
+  }, [employees]);
+
+  const messageEligibleEmployees = useMemo(() => {
+    const allowedRoles = new Set(MESSAGE_TARGET_ROLES.map(role => role.toLowerCase()));
+    return employees.filter(emp => allowedRoles.has((emp.role || '').toLowerCase()));
   }, [employees]);
 
   const totalCheckedBoxes = useMemo(() => {
@@ -352,6 +369,10 @@ const SalesStats = () => {
   };
 
   const toggleEmployeeSelection = (employeeId) => {
+    const isEligible = messageEligibleEmployees.some(emp => emp._id === employeeId);
+    if (!isEligible) {
+      return;
+    }
     setMessageForm(prev => {
       const alreadySelected = prev.selectedEmployeeIds.includes(employeeId);
       return {
@@ -362,6 +383,26 @@ const SalesStats = () => {
       };
     });
   };
+
+  useEffect(() => {
+    if (messageForm.recipientsType !== 'selected') {
+      return;
+    }
+    const allowedIds = new Set(messageEligibleEmployees.map(emp => emp._id));
+    setMessageForm(prev => {
+      if (prev.recipientsType !== 'selected') {
+        return prev;
+      }
+      const filteredIds = prev.selectedEmployeeIds.filter(id => allowedIds.has(id));
+      if (filteredIds.length === prev.selectedEmployeeIds.length) {
+        return prev;
+      }
+      return {
+        ...prev,
+        selectedEmployeeIds: filteredIds
+      };
+    });
+  }, [messageEligibleEmployees, messageForm.recipientsType]);
 
   const resetMessageForm = (preserveRecipientsType = false) => {
     setMessageForm(prev => ({
@@ -455,11 +496,18 @@ const SalesStats = () => {
 
       if (response.ok) {
         alert('Objectifs hebdomadaires enregistrés avec succès !');
-        await initializeWeeklyData(selectedWeekStart, presencesPayload);
+        await Promise.all([
+          fetchWeeklyObjectives(selectedWeekStart),
+          fetchWeeklyStats(selectedWeekStart)
+        ]);
+      } else {
+        const errorData = await response.json().catch(() => null);
+        const message = errorData?.error || errorData?.message || 'Erreur lors de la sauvegarde';
+        throw new Error(message);
       }
     } catch (error) {
       console.error('Erreur sauvegarde objectifs:', error);
-      alert('Erreur lors de la sauvegarde');
+      alert(error.message || 'Erreur lors de la sauvegarde');
     }
   };
 
@@ -1073,23 +1121,29 @@ const SalesStats = () => {
 
             {messageForm.recipientsType === 'selected' && (
               <div className="recipient-select">
-                {employees.map((employee) => (
-                  <label key={employee._id} className="recipient-item">
-                    <input
-                      type="checkbox"
-                      checked={messageForm.selectedEmployeeIds.includes(employee._id)}
-                      onChange={() => toggleEmployeeSelection(employee._id)}
-                    />
-                    <span>
-                      {(() => {
-                        const parts = employee.name?.trim().split(/\s+/) || [];
-                        const firstName = parts[0] || employee.name;
-                        const lastInitial = parts.length > 1 ? `${parts[parts.length - 1][0]}.` : '';
-                        return `${firstName} ${lastInitial}`.trim();
-                      })()}
-                    </span>
-                  </label>
-                ))}
+                {messageEligibleEmployees.length === 0 ? (
+                  <div className="message-empty">
+                    Aucun salarié éligible pour recevoir un message ciblé.
+                  </div>
+                ) : (
+                  messageEligibleEmployees.map((employee) => (
+                    <label key={employee._id} className="recipient-item">
+                      <input
+                        type="checkbox"
+                        checked={messageForm.selectedEmployeeIds.includes(employee._id)}
+                        onChange={() => toggleEmployeeSelection(employee._id)}
+                      />
+                      <span>
+                        {(() => {
+                          const parts = employee.name?.trim().split(/\s+/) || [];
+                          const firstName = parts[0] || employee.name;
+                          const lastInitial = parts.length > 1 ? `${parts[parts.length - 1][0]}.` : '';
+                          return `${firstName} ${lastInitial}`.trim();
+                        })()}
+                      </span>
+                    </label>
+                  ))
+                )}
               </div>
             )}
 

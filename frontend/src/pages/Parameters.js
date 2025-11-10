@@ -795,6 +795,7 @@ const Parameters = () => {
                         {permission.menuId === 'employee-status' && '👤'}
                         {permission.menuId === 'meal-expenses' && '🍽️'}
                         {permission.menuId === 'km-expenses' && '🚗'}
+                        {permission.menuId === 'recup' && '⏱️'}
                         {permission.menuId === 'employee-status-print' && '🖨️'}
                         {permission.menuId === 'sick-leave-management' && '🏥'}
                         {permission.menuId === 'vacation-management' && '🏖️'}

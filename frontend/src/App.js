@@ -26,6 +26,7 @@ import VacationPlanning from './pages/VacationPlanning';
 import TicketRestaurant from './pages/TicketRestaurant';
 import EmployeeDashboard from './pages/EmployeeDashboard';
 import AdvanceRequests from './pages/AdvanceRequests';
+import Recup from './pages/Recup';
 
 const AppContent = () => {
   const { user } = useAuth();
@@ -129,6 +130,11 @@ const AppContent = () => {
             <Route path="/advance-requests" element={
               <ProtectedRoute>
                 <AdvanceRequests />
+              </ProtectedRoute>
+            } />
+            <Route path="/recup" element={
+              <ProtectedRoute>
+                <Recup />
               </ProtectedRoute>
             } />
           </Routes>

@@ -1,5 +1,18 @@
 import React, { useState, useEffect } from 'react';
 
+const getTutorId = (value) => {
+  if (!value) {
+    return '';
+  }
+  if (typeof value === 'string') {
+    return value;
+  }
+  if (typeof value === 'object') {
+    return value._id || value.id || '';
+  }
+  return '';
+};
+
 const EmployeeModal = ({ employee, onSave, onClose, employees = [] }) => {
   const [formData, setFormData] = useState({
     name: '',
@@ -31,8 +44,9 @@ const EmployeeModal = ({ employee, onSave, onClose, employees = [] }) => {
         skills: employee.skills || [],
         role: employee.role || 'vendeuse',
         weeklyHours: employee.weeklyHours || 35,
-        trainingDays: employee.trainingDays || [],
+        trainingDays: Array.isArray(employee.trainingDays) ? employee.trainingDays : [],
         contractEndDate: employee.contractEndDate ? new Date(employee.contractEndDate).toISOString().split('T')[0] : '',
+        tutor: getTutorId(employee.tutor),
         email: employee.email || '',
         saleCode: employee.saleCode || '',
         isActive: employee.isActive !== undefined ? employee.isActive : true,
@@ -173,6 +187,8 @@ const EmployeeModal = ({ employee, onSave, onClose, employees = [] }) => {
       }
     }
 
+    const tutorValue = formData.contractType === 'Apprentissage' ? getTutorId(formData.tutor) : '';
+
     // Préparer les données pour l'envoi
     const dataToSend = {
       ...formData,
@@ -180,7 +196,7 @@ const EmployeeModal = ({ employee, onSave, onClose, employees = [] }) => {
       weeklyHours: parseInt(formData.weeklyHours),
       // S'assurer que les champs optionnels sont correctement formatés
       contractEndDate: formData.contractEndDate || undefined,
-      tutor: formData.tutor || undefined,
+      tutor: formData.contractType === 'Apprentissage' ? (tutorValue || undefined) : undefined,
       email: formData.email || undefined
     };
 

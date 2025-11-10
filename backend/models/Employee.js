@@ -171,7 +171,6 @@ const employeeSchema = new mongoose.Schema({
     unique: true,
     sparse: true,
     trim: true,
-    length: 3,
     validate: {
       validator: function(v) {
         return !v || /^\d{3}$/.test(v);
@@ -185,7 +184,6 @@ const employeeSchema = new mongoose.Schema({
     unique: true,
     sparse: true,
     trim: true,
-    length: 3,
     validate: {
       validator: function(v) {
         return !v || /^\d{3}$/.test(v);
