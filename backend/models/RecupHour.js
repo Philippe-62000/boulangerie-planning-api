@@ -16,6 +16,12 @@ const recupHourSchema = new mongoose.Schema({
     type: Number,
     default: 0
   },
+  comment: {
+    type: String,
+    trim: true,
+    maxlength: 500,
+    default: ''
+  },
   updatedBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',

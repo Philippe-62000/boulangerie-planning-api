@@ -69,7 +69,8 @@ const Recup = () => {
           (data.employees || []).map((employee) => ({
             ...employee,
             weekHours: Number(employee.weekHours || 0),
-            totalHours: Number(employee.totalHours || 0)
+            totalHours: Number(employee.totalHours || 0),
+            comment: employee.comment || ''
           }))
         );
       } else {
@@ -109,6 +110,14 @@ const Recup = () => {
     );
   };
 
+  const handleCommentChange = (employeeId, value) => {
+    setEmployees((prev) =>
+      prev.map((employee) =>
+        employee.employeeId === employeeId ? { ...employee, comment: value } : employee
+      )
+    );
+  };
+
   const saveRecupHours = async () => {
     try {
       setSaving(true);
@@ -116,7 +125,8 @@ const Recup = () => {
         weekStart,
         entries: employees.map((employee) => ({
           employeeId: employee.employeeId,
-          hours: Number(employee.weekHours) || 0
+          hours: Number(employee.weekHours) || 0,
+          comment: employee.comment || ''
         }))
       });
       toast.success('Heures de récup enregistrées avec succès');
@@ -231,6 +241,7 @@ const Recup = () => {
                 <th>Salarié</th>
                 <th>Total cumulé</th>
                 <th>Heures semaine</th>
+                <th>Justificatif</th>
               </tr>
             </thead>
             <tbody>
@@ -266,6 +277,16 @@ const Recup = () => {
                           {employee.weekHours > 0 ? 'À récupérer' : employee.weekHours < 0 ? 'Récupéré' : 'Équilibre'}
                         </span>
                       </div>
+                    </td>
+                    <td>
+                      <textarea
+                        className="justificatif-input"
+                        rows={2}
+                        value={employee.comment}
+                        disabled={!isAdminUser}
+                        onChange={(e) => handleCommentChange(employee.employeeId, e.target.value)}
+                        placeholder="Raison du dépassement"
+                      />
                     </td>
                   </tr>
                 );

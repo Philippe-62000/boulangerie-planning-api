@@ -145,7 +145,7 @@
 .recup-table {
   width: 100%;
   border-collapse: collapse;
-  min-width: 680px;
+  min-width: 820px;
 }
 
 .recup-table thead {
@@ -258,6 +258,30 @@
   color: #7f8c8d;
 }
 
+.justificatif-input {
+  width: 100%;
+  min-width: 220px;
+  padding: 0.55rem 0.6rem;
+  border: 1px solid #d0d7de;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  resize: vertical;
+  min-height: 70px;
+  background: #fff;
+  transition: border 0.2s, box-shadow 0.2s;
+}
+
+.justificatif-input:focus {
+  outline: none;
+  border-color: #3498db;
+  box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.15);
+}
+
+.justificatif-input:disabled {
+  background: #f8f9fa;
+  color: #6c757d;
+}
+
 .recup-empty {
   padding: 2.5rem;
   text-align: center;
@@ -286,12 +310,12 @@
     justify-content: space-between;
   }
 
-  .recup-table {
-    min-width: 100%;
-  }
-
   .hours-input {
     width: 100%;
+  }
+
+  .justificatif-input {
+    min-width: auto;
   }
 }
 

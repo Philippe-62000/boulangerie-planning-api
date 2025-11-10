@@ -58,7 +58,8 @@ exports.getRecupHours = async (req, res) => {
         employeeName: employee.name,
         role: employee.role,
         weekHours: entry ? entry.hours : 0,
-        totalHours: total
+        totalHours: total,
+        comment: entry?.comment || ''
       };
     });
 
@@ -93,6 +94,8 @@ exports.saveRecupHours = async (req, res) => {
 
     const operations = entries.map((entry) => {
       const hours = Number.parseFloat(entry.hours);
+      const comment =
+        typeof entry.comment === 'string' ? entry.comment.trim().slice(0, 500) : '';
 
       return {
         updateOne: {
@@ -103,6 +106,7 @@ exports.saveRecupHours = async (req, res) => {
           update: {
             $set: {
               hours: Number.isNaN(hours) ? 0 : hours,
+              comment,
               updatedBy: req.user?.id || null
             }
           },

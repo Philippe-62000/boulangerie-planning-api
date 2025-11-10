@@ -2,35 +2,42 @@
   padding: 1.5rem;
 }
 
-.page-header {
+.km-expenses .page-header {
   display: flex;
-  align-items: center;
+  flex-direction: column;
+  align-items: flex-start;
   margin-bottom: 1.5rem;
-  flex-wrap: wrap;
-  gap: 1.5rem;
-  justify-content: flex-start;
+  gap: 0.75rem;
 }
 
-.page-header h2 {
+.km-expenses .header-left {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1rem;
+}
+
+.km-expenses .page-header h2 {
   margin: 0;
   color: #2c3e50;
   font-size: 1.8rem;
 }
 
-.header-actions {
+.km-expenses .header-actions {
   display: flex;
   align-items: center;
   gap: 0.75rem;
   flex-wrap: wrap;
+  justify-content: flex-start;
 }
 
-.date-selector {
+.km-expenses .date-selector {
   display: flex;
   gap: 0.5rem;
   align-items: center;
 }
 
-.date-selector select {
+.km-expenses .date-selector select {
   padding: 0.5rem;
   border: 1px solid #ddd;
   border-radius: 4px;
@@ -182,26 +189,28 @@
     padding: 1rem;
   }
   
-  .page-header {
+  .km-expenses .page-header h2 {
+    font-size: 1.5rem;
+  }
+  
+  .km-expenses .header-left {
     flex-direction: column;
+    align-items: flex-start;
+    gap: 0.75rem;
+  }
+  
+  .km-expenses .header-actions {
+    width: 100%;
+  }
+  
+  .km-expenses .date-selector {
+    width: 100%;
+    flex-direction: column;
+    gap: 0.5rem;
     align-items: stretch;
   }
   
-  .page-header h2 {
-    font-size: 1.5rem;
-    margin-bottom: 1rem;
-  }
-  
-  .header-actions {
-    justify-content: space-between;
-  }
-  
-  .date-selector {
-    flex-direction: column;
-    gap: 0.5rem;
-  }
-  
-  .date-selector select {
+  .km-expenses .date-selector select {
     width: 100%;
   }
   
@@ -219,6 +228,19 @@
   }
 }
 
+@media (min-width: 992px) {
+  .km-expenses .page-header {
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-start;
+  }
+
+  .km-expenses .header-left {
+    flex-direction: row;
+    align-items: center;
+  }
+}
+
 /* Animation pour les changements de valeur */
 .count-input:not(:focus) {
   transition: background-color 0.3s;
@@ -229,7 +251,7 @@
 }
 
 /* Style pour les boutons */
-.btn {
+.km-expenses .btn {
   padding: 0.5rem 1rem;
   border: none;
   border-radius: 4px;
@@ -242,33 +264,33 @@
   gap: 0.5rem;
 }
 
-.btn-success {
+.km-expenses .btn-success {
   background: #28a745;
   color: white;
 }
 
-.btn-success:hover:not(:disabled) {
+.km-expenses .btn-success:hover:not(:disabled) {
   background: #218838;
   transform: translateY(-1px);
 }
 
-.btn-success:disabled {
+.km-expenses .btn-success:disabled {
   background: #6c757d;
   cursor: not-allowed;
   transform: none;
 }
 
-.btn-warning {
+.km-expenses .btn-warning {
   background: #ffc107;
   color: #212529;
 }
 
-.btn-warning:hover:not(:disabled) {
+.km-expenses .btn-warning:hover:not(:disabled) {
   background: #e0a800;
   transform: translateY(-1px);
 }
 
-.btn-warning:disabled {
+.km-expenses .btn-warning:disabled {
   background: #6c757d;
   cursor: not-allowed;
   transform: none;
