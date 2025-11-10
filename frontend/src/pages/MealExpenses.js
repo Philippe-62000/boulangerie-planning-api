@@ -112,44 +112,44 @@ const MealExpenses = () => {
   return (
     <div className="meal-expenses fade-in">
       <div className="page-header">
-        <div className="header-title-section">
-          <h2>🍽️ Frais Repas</h2>
-          <div className="date-selector">
-            <select
-              value={month}
-              onChange={(e) => setMonth(parseInt(e.target.value))}
-              className="form-control"
-            >
-              {Array.from({ length: 12 }, (_, i) => (
-                <option key={i + 1} value={i + 1}>
-                  {getMonthName(i + 1)}
-                </option>
-              ))}
-            </select>
-            <select
-              value={year}
-              onChange={(e) => setYear(parseInt(e.target.value))}
-              className="form-control"
-            >
-              {Array.from({ length: 10 }, (_, i) => {
-                const yearOption = new Date().getFullYear() - 2 + i;
-                return (
-                  <option key={yearOption} value={yearOption}>
-                    {yearOption}
+        <div className="header-left">
+          <h2>🍽️ Frais Repas - {getMonthName(month)} {year}</h2>
+          <div className="header-actions">
+            <div className="date-selector">
+              <select
+                value={month}
+                onChange={(e) => setMonth(parseInt(e.target.value))}
+                className="form-control"
+              >
+                {Array.from({ length: 12 }, (_, i) => (
+                  <option key={i + 1} value={i + 1}>
+                    {getMonthName(i + 1)}
                   </option>
-                );
-              })}
-            </select>
+                ))}
+              </select>
+              <select
+                value={year}
+                onChange={(e) => setYear(parseInt(e.target.value))}
+                className="form-control"
+              >
+                {Array.from({ length: 10 }, (_, i) => {
+                  const yearOption = new Date().getFullYear() - 2 + i;
+                  return (
+                    <option key={yearOption} value={yearOption}>
+                      {yearOption}
+                    </option>
+                  );
+                })}
+              </select>
+              <button
+                className="btn btn-success"
+                onClick={saveExpenses}
+                disabled={saving}
+              >
+                {saving ? '💾 Sauvegarde...' : '💾 Sauvegarder'}
+              </button>
+            </div>
           </div>
-        </div>
-        <div className="header-actions">
-          <button
-            className="btn btn-success"
-            onClick={saveExpenses}
-            disabled={saving}
-          >
-            {saving ? '💾 Sauvegarde...' : '💾 Sauvegarder'}
-          </button>
         </div>
       </div>
 
