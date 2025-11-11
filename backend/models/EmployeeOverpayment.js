@@ -37,12 +37,3 @@ employeeOverpaymentSchema.index(
 );
 
 module.exports = mongoose.model('EmployeeOverpayment', employeeOverpaymentSchema);
-
-
-
-
-
-
-
-
-

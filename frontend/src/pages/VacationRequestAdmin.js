@@ -3,6 +3,9 @@ import api from '../services/api';
 import { toast } from 'react-toastify';
 import './VacationRequestAdmin.css';
 
+const YEAR_MAX = 2032;
+const YEAR_MIN_FALLBACK = 2020;
+
 const VacationRequestAdmin = () => {
   const [vacationRequests, setVacationRequests] = useState([]);
   const [filteredRequests, setFilteredRequests] = useState([]);
@@ -69,6 +72,7 @@ const VacationRequestAdmin = () => {
 
   const availableYears = useMemo(() => {
     const years = new Set();
+    const currentYear = new Date().getFullYear();
 
     vacationRequests.forEach((req) => {
       const startYear = parseYear(req.startDate);
@@ -80,8 +84,22 @@ const VacationRequestAdmin = () => {
       if (createdYear) years.add(createdYear);
     });
 
+    const dynamicYears = Array.from(years);
+    const minDynamicYear = dynamicYears.length > 0 ? Math.min(...dynamicYears) : null;
+    const baseStartYear = Math.min(
+      currentYear - 1,
+      minDynamicYear ?? currentYear - 1,
+      YEAR_MIN_FALLBACK
+    );
+
+    for (let year = baseStartYear; year <= YEAR_MAX; year += 1) {
+      years.add(year);
+    }
+
     if (years.size === 0) {
-      years.add(new Date().getFullYear());
+      for (let year = currentYear; year <= YEAR_MAX; year += 1) {
+        years.add(year);
+      }
     }
 
     return Array.from(years).sort((a, b) => a - b);
