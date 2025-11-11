@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import api from '../services/api';
 import { toast } from 'react-toastify';
 import './VacationRequestAdmin.css';
@@ -11,7 +11,7 @@ const VacationRequestAdmin = () => {
   const [editingVacationRequest, setEditingVacationRequest] = useState(null);
   const [editFormData, setEditFormData] = useState({ startDate: '', endDate: '' });
   const [statusFilter, setStatusFilter] = useState('all');
-  const [yearFilter, setYearFilter] = useState(new Date().getFullYear());
+  const [yearFilter, setYearFilter] = useState('all');
 
   console.log('🔧 VacationRequestAdmin - Rendu du composant');
 
@@ -61,6 +61,32 @@ const VacationRequestAdmin = () => {
   };
 
   // Appliquer les filtres
+  const parseYear = (value) => {
+    if (!value) return null;
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? null : parsed.getFullYear();
+  };
+
+  const availableYears = useMemo(() => {
+    const years = new Set();
+
+    vacationRequests.forEach((req) => {
+      const startYear = parseYear(req.startDate);
+      const endYear = parseYear(req.endDate);
+      const createdYear = parseYear(req.createdAt);
+
+      if (startYear) years.add(startYear);
+      if (endYear) years.add(endYear);
+      if (createdYear) years.add(createdYear);
+    });
+
+    if (years.size === 0) {
+      years.add(new Date().getFullYear());
+    }
+
+    return Array.from(years).sort((a, b) => a - b);
+  }, [vacationRequests]);
+
   const applyFilters = (requests = vacationRequests) => {
     let filtered = requests;
 
@@ -70,10 +96,17 @@ const VacationRequestAdmin = () => {
     }
 
     // Filtre par année (basé sur la date de début des congés)
-    filtered = filtered.filter(req => {
-      const vacationYear = new Date(req.startDate).getFullYear();
-      return vacationYear === yearFilter;
-    });
+    if (yearFilter !== 'all') {
+      const targetYear = parseInt(yearFilter, 10);
+      filtered = filtered.filter(req => {
+        const vacationYear =
+          parseYear(req.startDate) ??
+          parseYear(req.endDate) ??
+          parseYear(req.createdAt);
+
+        return vacationYear === targetYear;
+      });
+    }
 
     setFilteredRequests(filtered);
   };
@@ -265,13 +298,14 @@ const VacationRequestAdmin = () => {
           <label htmlFor="year-filter">Année des congés :</label>
           <select 
             id="year-filter"
-            value={yearFilter} 
-            onChange={(e) => setYearFilter(parseInt(e.target.value))}
+            value={yearFilter}
+            onChange={(e) => setYearFilter(e.target.value)}
             className="form-control"
           >
-            <option value={new Date().getFullYear()}>{new Date().getFullYear()}</option>
-            <option value={new Date().getFullYear() + 1}>{new Date().getFullYear() + 1}</option>
-            <option value={new Date().getFullYear() - 1}>{new Date().getFullYear() - 1}</option>
+            <option value="all">Toutes les années</option>
+            {availableYears.map((year) => (
+              <option key={year} value={year}>{year}</option>
+            ))}
           </select>
         </div>
       </div>
