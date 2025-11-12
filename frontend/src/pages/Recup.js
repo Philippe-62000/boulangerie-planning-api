@@ -40,6 +40,33 @@ const formatWeekLabel = (date) => {
   return formatter.format(date);
 };
 
+const formatWeekRange = (weekStartValue) => {
+  if (!weekStartValue) {
+    return '';
+  }
+  const start = new Date(weekStartValue);
+  if (Number.isNaN(start.getTime())) {
+    return '';
+  }
+  const end = new Date(start);
+  end.setDate(start.getDate() + 6);
+
+  const dayFormatter = new Intl.DateTimeFormat('fr-FR', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric'
+  });
+
+  return `${dayFormatter.format(start)} → ${dayFormatter.format(end)}`;
+};
+
+const formatHours = (value) => {
+  const numberValue = Number.parseFloat(value) || 0;
+  const rounded = Math.round(numberValue * 100) / 100;
+  const sign = rounded > 0 ? '+' : '';
+  return `${sign}${rounded.toFixed(2)} h`;
+};
+
 const getWeekNumber = (date) => {
   const target = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
   const dayNr = (target.getUTCDay() + 6) % 7;
@@ -55,6 +82,14 @@ const Recup = () => {
   const [employees, setEmployees] = useState([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [historyModal, setHistoryModal] = useState({
+    open: false,
+    loading: false,
+    employee: null,
+    entries: [],
+    total: 0,
+    aggregateTotal: 0
+  });
 
   const loadRecupData = useCallback(async (weekValue) => {
     setLoading(true);
@@ -116,6 +151,58 @@ const Recup = () => {
         employee.employeeId === employeeId ? { ...employee, comment: value } : employee
       )
     );
+  };
+
+  const openHistoryModal = async (employee) => {
+    setHistoryModal({
+      open: true,
+      loading: true,
+      employee,
+      entries: [],
+      total: 0,
+      aggregateTotal: Number(employee.totalHours || 0)
+    });
+
+    try {
+      const response = await api.get(`/recup-hours/${employee.employeeId}/history`);
+
+      if (response.data?.success) {
+        const { data } = response.data;
+        setHistoryModal((prev) => ({
+          ...prev,
+          loading: false,
+          entries: (data.entries || []).map((entry) => ({
+            ...entry,
+            hours: Number(entry.hours || 0)
+          })),
+          total: Number(data.totalHours || 0)
+        }));
+      } else {
+        setHistoryModal((prev) => ({
+          ...prev,
+          loading: false
+        }));
+        toast.error('Impossible de récupérer les détails de cette personne');
+      }
+    } catch (error) {
+      console.error('❌ Erreur historique heures récup:', error);
+      setHistoryModal((prev) => ({
+        ...prev,
+        loading: false
+      }));
+      toast.error('Erreur lors du chargement des détails');
+    }
+  };
+
+  const closeHistoryModal = () => {
+    setHistoryModal({
+      open: false,
+      loading: false,
+      employee: null,
+      entries: [],
+      total: 0,
+      aggregateTotal: 0
+    });
   };
 
   const saveRecupHours = async () => {
@@ -256,6 +343,18 @@ const Recup = () => {
                     <td>
                       <div className="employee-name">{employee.employeeName}</div>
                       <div className="employee-role">{employee.role}</div>
+                      <button
+                        type="button"
+                        className="detail-button"
+                        onClick={() => openHistoryModal(employee)}
+                        disabled={
+                          loading ||
+                          (historyModal.loading &&
+                            historyModal.employee?.employeeId === employee.employeeId)
+                        }
+                      >
+                        Détails
+                      </button>
                     </td>
                     <td>
                       <span className={`badge ${cumulativeClass}`}>
@@ -300,6 +399,120 @@ const Recup = () => {
         <div className="recup-empty card">
           <h3>👥 Aucun salarié</h3>
           <p>Ajoutez des salariés pour commencer à suivre les heures de récup.</p>
+        </div>
+      )}
+
+      {historyModal.open && (
+        <div className="recup-history-backdrop" role="presentation" onClick={closeHistoryModal}>
+          <div
+            className="recup-history-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="recup-history-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="history-header">
+              <div>
+                <h3 id="recup-history-title">Détails des heures</h3>
+                <p className="history-employee">
+                  {historyModal.employee?.employeeName}{' '}
+                  <span className="history-role">{historyModal.employee?.role}</span>
+                </p>
+              </div>
+              <button type="button" className="history-close" onClick={closeHistoryModal}>
+                ✕
+              </button>
+            </div>
+
+            <div className="history-summary">
+              <div className="history-summary-item">
+                <span className="summary-label">Total cumulé (tableau)</span>
+                <span
+                  className={`summary-value ${
+                    historyModal.aggregateTotal >= 0 ? 'positive' : 'negative'
+                  }`}
+                >
+                  {formatHours(historyModal.aggregateTotal)}
+                </span>
+              </div>
+              <div className="history-summary-item">
+                <span className="summary-label">Somme du détail</span>
+                <span className={`summary-value ${historyModal.total >= 0 ? 'positive' : 'negative'}`}>
+                  {formatHours(historyModal.total)}
+                </span>
+              </div>
+              <div className="history-summary-item">
+                <span className="summary-label">Écart</span>
+                <span
+                  className={`summary-value ${
+                    Math.abs(historyModal.aggregateTotal - historyModal.total) < 0.01
+                      ? 'neutral'
+                      : 'negative'
+                  }`}
+                >
+                  {formatHours(historyModal.aggregateTotal - historyModal.total)}
+                </span>
+              </div>
+            </div>
+
+            {historyModal.loading ? (
+              <div className="history-loading">
+                <div className="loading-spinner" />
+                <p>Chargement du détail...</p>
+              </div>
+            ) : historyModal.entries.length === 0 ? (
+              <div className="history-empty">
+                <p>Aucun historique d’heures de récup enregistré pour ce salarié.</p>
+              </div>
+            ) : (
+              <div className="history-table-wrapper">
+                <table className="recup-history-table">
+                  <thead>
+                    <tr>
+                      <th>Semaine</th>
+                      <th>Heures</th>
+                      <th>Justificatif</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {historyModal.entries.map((entry) => {
+                      const weekStartDate = entry.weekStart ? new Date(entry.weekStart) : null;
+                      const weekNumberLabel =
+                        weekStartDate && !Number.isNaN(weekStartDate.getTime())
+                          ? `Semaine ${getWeekNumber(weekStartDate)}`
+                          : '';
+                      return (
+                        <tr key={`${entry.weekStart}-${entry.hours}`}>
+                          <td>
+                            <div className="history-week">
+                              <span className="week-number">{weekNumberLabel}</span>
+                              <span className="week-range">{formatWeekRange(entry.weekStart)}</span>
+                            </div>
+                          </td>
+                          <td>
+                            <span
+                              className={`badge ${
+                                entry.hours > 0 ? 'positive' : entry.hours < 0 ? 'negative' : 'neutral'
+                              }`}
+                            >
+                              {formatHours(entry.hours)}
+                            </span>
+                          </td>
+                          <td>
+                            {entry.comment ? (
+                              <span className="history-comment">{entry.comment}</span>
+                            ) : (
+                              <span className="history-comment muted">—</span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>

@@ -229,23 +229,38 @@ menuPermissionsSchema.statics.createDefaultPermissions = async function() {
           existingPermissions.length !== desiredPermissions.length ||
           !desiredPermissions.every(permission => existingPermissions.includes(permission));
 
-        const needsUpdate =
-          existing.menuName !== menuName ||
-          existing.menuPath !== menuPath ||
-          existing.isVisibleToAdmin !== isVisibleToAdmin ||
-          existing.isVisibleToEmployee !== isVisibleToEmployee ||
-          existing.order !== order ||
-          existing.isActive !== true ||
-          permissionsChanged;
+        let hasChanges = false;
 
-        if (needsUpdate) {
+        if (existing.menuName !== menuName) {
           existing.menuName = menuName;
+          hasChanges = true;
+        }
+        if (existing.menuPath !== menuPath) {
           existing.menuPath = menuPath;
-          existing.isVisibleToAdmin = isVisibleToAdmin;
-          existing.isVisibleToEmployee = isVisibleToEmployee;
-          existing.requiredPermissions = desiredPermissions;
+          hasChanges = true;
+        }
+        if (existing.order !== order) {
           existing.order = order;
+          hasChanges = true;
+        }
+        if (permissionsChanged) {
+          existing.requiredPermissions = desiredPermissions;
+          hasChanges = true;
+        }
+        if (existing.isActive !== true) {
           existing.isActive = true;
+          hasChanges = true;
+        }
+        if (typeof existing.isVisibleToAdmin !== 'boolean') {
+          existing.isVisibleToAdmin = isVisibleToAdmin;
+          hasChanges = true;
+        }
+        if (typeof existing.isVisibleToEmployee !== 'boolean') {
+          existing.isVisibleToEmployee = isVisibleToEmployee;
+          hasChanges = true;
+        }
+
+        if (hasChanges) {
           await existing.save();
           console.log(`🔄 Menu ${menuId} mis à jour`);
         }

@@ -124,17 +124,51 @@ const SickLeaveManagement = () => {
     }
   };
 
+  const getMimeExtension = (mimeType = '') => {
+    const map = {
+      'application/pdf': 'pdf',
+      'image/jpeg': 'jpg',
+      'image/jpg': 'jpg',
+      'image/png': 'png'
+    };
+    return map[mimeType.toLowerCase()] || '';
+  };
+
   const handleDownload = async (id) => {
     try {
       const response = await axios.get(`${API_URL}/sick-leaves/${id}/download`, {
         responseType: 'blob'
       });
 
-      // Créer un lien de téléchargement
-      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const mimeType = response.headers['content-type'] || 'application/octet-stream';
+      const blob = new Blob([response.data], { type: mimeType });
+
+      const contentDisposition = response.headers['content-disposition'];
+      const sickLeave = sickLeaves.find((item) => item._id === id);
+      let fileName = sickLeave?.originalFileName || `arret-maladie-${id}`;
+
+      if (contentDisposition) {
+        const fileNameMatch = contentDisposition.match(/filename\*?=(?:UTF-8'')?\"?([^\";]+)/i);
+        if (fileNameMatch && fileNameMatch[1]) {
+          try {
+            fileName = decodeURIComponent(fileNameMatch[1].replace(/\"/g, '').trim());
+          } catch (decodeError) {
+            fileName = fileNameMatch[1].replace(/\"/g, '').trim();
+          }
+        }
+      }
+
+      if (!fileName.includes('.')) {
+        const extension = getMimeExtension(mimeType);
+        if (extension) {
+          fileName = `${fileName}.${extension}`;
+        }
+      }
+
+      const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.setAttribute('download', `arret-maladie-${id}.pdf`);
+      link.setAttribute('download', fileName);
       document.body.appendChild(link);
       link.click();
       link.remove();

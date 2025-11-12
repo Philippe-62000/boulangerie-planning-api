@@ -44,6 +44,26 @@
 **Fichiers modifiés** :
 - `frontend/src/pages/VacationPlanning.css` : Lignes 324-327, 353-355
 
+### 5. ✅ Téléchargement arrêts maladie & historique récup
+**Problèmes** :
+- Les arrêts maladie envoyés en JPEG étaient convertis en PDF corrompus au téléchargement.
+- La page `Heures de récup` ne proposait pas d’historique détaillé par salarié.
+- Le menu `Planning` se réactivait côté salariés à chaque réouverture de la page de permissions.
+- La racine `https://www.filmara.fr/` affichait un index Apache.
+
+**Solutions** :
+- Utilisation du type MIME réel pour restituer le format d’origine (`.jpg`, `.png`, `.pdf`) dans `SickLeaveAdmin` et `SickLeaveManagement`.
+- Ajout d’une modale « Détails » listant toutes les semaines avec justificatif depuis un nouvel endpoint `GET /api/recup-hours/:employeeId/history`.
+- Stabilisation de `MenuPermissions.createDefaultPermissions` pour ne plus écraser `isVisibleToEmployee` existant.
+- Simplification du `.htaccess` racine pour rediriger proprement vers `/plan/` sans exposer le chemin physique.
+
+**Fichiers modifiés** :
+- `backend/controllers/recupHourController.js`, `backend/routes/recupHours.js`
+- `backend/models/MenuPermissions.js`
+- `frontend/src/pages/Recup.js`, `frontend/src/pages/Recup.css`
+- `frontend/src/pages/SickLeaveAdmin.js`, `frontend/src/pages/SickLeaveManagement.js`
+- `deploy-ovh/.htaccess`
+
 ## Déploiement
 
 ### Backend (Render)
@@ -59,6 +79,11 @@ Les fichiers sont prêts dans `deploy-frontend/` :
 - `index.html` et `static/` mis à jour
 - Upload nécessaire sur OVH
 
+### Scripts exécutés le 12/11/2025
+- `build-frontend-simple.bat`
+- `deploy-frontend-complet.bat` (copie vers OVH)
+- `deploy-backend-render.bat` (build + rappel reboot Render)
+
 ## État Actuel
 
 ✅ **Terminé** :
@@ -68,6 +93,10 @@ Les fichiers sont prêts dans `deploy-frontend/` :
 - Suppression du bouton "Réinitialiser Adélaïde"
 - Correction de la troncature dans vacation-management
 - Masquage de la colonne numéros de jour à l'impression
+- Historique détaillé des heures de récup avec justificatifs
+- Téléchargement fiable des arrêts maladie au format d’origine
+- Redirection propre de la racine `filmara.fr` vers `/plan/`
+- Conservation des permissions personnalisées du menu `Planning`
 
 ⚠️ **En attente de déploiement** :
 - Backend : Commit et push nécessaires

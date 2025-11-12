@@ -1,3 +1,4 @@
+const mongoose = require('mongoose');
 const RecupHour = require('../models/RecupHour');
 const Employee = require('../models/Employee');
 
@@ -128,6 +129,62 @@ exports.saveRecupHours = async (req, res) => {
     res.status(500).json({
       success: false,
       error: 'Erreur serveur lors de la sauvegarde des heures de récup'
+    });
+  }
+};
+
+exports.getRecupHistory = async (req, res) => {
+  try {
+    const { employeeId } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(employeeId)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Identifiant salarié invalide'
+      });
+    }
+
+    const employee = await Employee.findById(employeeId).select('name role');
+
+    if (!employee) {
+      return res.status(404).json({
+        success: false,
+        error: 'Salarié introuvable'
+      });
+    }
+
+    const entries = await RecupHour.find({
+      employeeId,
+      hours: { $ne: 0 }
+    })
+      .sort({ weekStart: -1 })
+      .lean();
+
+    const totalHours = entries.reduce((sum, entry) => sum + (entry.hours || 0), 0);
+
+    res.json({
+      success: true,
+      data: {
+        employee: {
+          id: employee._id,
+          name: employee.name,
+          role: employee.role
+        },
+        totalHours,
+        entries: entries.map((entry) => ({
+          weekStart: entry.weekStart ? entry.weekStart.toISOString() : null,
+          hours: entry.hours || 0,
+          comment: entry.comment || '',
+          updatedAt: entry.updatedAt ? entry.updatedAt.toISOString() : null,
+          createdAt: entry.createdAt ? entry.createdAt.toISOString() : null
+        }))
+      }
+    });
+  } catch (error) {
+    console.error('❌ Erreur historique heures de récup:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Erreur serveur lors de la récupération de l’historique'
     });
   }
 };
