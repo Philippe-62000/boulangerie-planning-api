@@ -38,7 +38,7 @@ const Sidebar = () => {
         { menuId: 'absences', isVisibleToAdmin: false, isVisibleToEmployee: true },
         { menuId: 'meal-expenses', isVisibleToAdmin: false, isVisibleToEmployee: true },
         { menuId: 'km-expenses', isVisibleToAdmin: false, isVisibleToEmployee: true },
-        { menuId: 'recup', isVisibleToAdmin: false, isVisibleToEmployee: false },
+        { menuId: 'recup', isVisibleToAdmin: false, isVisibleToEmployee: true },
         { menuId: 'ticket-restaurant', isVisibleToAdmin: false, isVisibleToEmployee: true }
       ];
     }

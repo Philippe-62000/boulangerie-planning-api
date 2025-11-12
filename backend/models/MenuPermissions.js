@@ -193,8 +193,8 @@ menuPermissionsSchema.statics.createDefaultPermissions = async function() {
         menuName: 'Heures de récup',
         menuPath: '/recup',
         isVisibleToAdmin: true,
-        isVisibleToEmployee: false,
-        requiredPermissions: ['manage_employees'],
+        isVisibleToEmployee: true,
+        requiredPermissions: [],
         order: 14
       }
     ];
@@ -251,11 +251,18 @@ menuPermissionsSchema.statics.createDefaultPermissions = async function() {
           existing.isActive = true;
           hasChanges = true;
         }
-        if (typeof existing.isVisibleToAdmin !== 'boolean') {
+        if (existing.isVisibleToAdmin !== isVisibleToAdmin) {
           existing.isVisibleToAdmin = isVisibleToAdmin;
           hasChanges = true;
         }
-        if (typeof existing.isVisibleToEmployee !== 'boolean') {
+        const legacyRecupVisibilityFix =
+          menuId === 'recup' &&
+          Array.isArray(existingPermissions) &&
+          existingPermissions.includes('manage_employees');
+        if (
+          (typeof existing.isVisibleToEmployee !== 'boolean' ||
+            (legacyRecupVisibilityFix && existing.isVisibleToEmployee !== isVisibleToEmployee))
+        ) {
           existing.isVisibleToEmployee = isVisibleToEmployee;
           hasChanges = true;
         }

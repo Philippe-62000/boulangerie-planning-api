@@ -464,16 +464,6 @@ const SickLeaveAdmin = () => {
           <option value="rejected">Rejetés</option>
         </select>
         
-        <div className="quick-actions">
-          <a 
-            href="/plan/sick-leave-standalone.html" 
-            target="_blank" 
-            rel="noopener noreferrer"
-            className="action-link"
-          >
-            📤 Lien pour salariés
-          </a>
-        </div>
       </div>
 
       {/* Message */}

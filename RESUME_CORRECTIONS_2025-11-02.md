@@ -55,6 +55,7 @@
 - Utilisation du type MIME réel pour restituer le format d’origine (`.jpg`, `.png`, `.pdf`) dans `SickLeaveAdmin` et `SickLeaveManagement`.
 - Ajout d’une modale « Détails » listant toutes les semaines avec justificatif depuis un nouvel endpoint `GET /api/recup-hours/:employeeId/history`.
 - Stabilisation de `MenuPermissions.createDefaultPermissions` pour ne plus écraser `isVisibleToEmployee` existant.
+- Affichage de `recup` activé par défaut pour les salariés et nettoyage du bouton obsolète « Lien pour salariés » dans la gestion des arrêts maladie.
 - Simplification du `.htaccess` racine pour rediriger proprement vers `/plan/` sans exposer le chemin physique.
 - Exposition explicite du header `Content-Disposition` via CORS et normalisation des types MIME pour forcer l’extension correcte lors du téléchargement.
 
