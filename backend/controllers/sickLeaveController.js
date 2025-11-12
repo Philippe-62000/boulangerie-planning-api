@@ -845,7 +845,8 @@ const downloadFile = async (req, res) => {
       }
     }
 
-    res.set({
+  res.set({
+    'Access-Control-Expose-Headers': 'Content-Disposition, Content-Type, Content-Length',
       'Content-Type': sickLeave.fileType,
       'Content-Disposition': `attachment; filename="${sickLeave.originalFileName}"`,
       'Content-Length': fileBuffer.length

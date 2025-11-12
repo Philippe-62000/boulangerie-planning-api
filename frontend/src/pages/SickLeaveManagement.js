@@ -124,28 +124,35 @@ const SickLeaveManagement = () => {
     }
   };
 
+  const normalizeMimeType = (mimeType = '') => mimeType.split(';')[0].trim().toLowerCase();
+
   const getMimeExtension = (mimeType = '') => {
+    const normalized = normalizeMimeType(mimeType);
     const map = {
       'application/pdf': 'pdf',
       'image/jpeg': 'jpg',
       'image/jpg': 'jpg',
       'image/png': 'png'
     };
-    return map[mimeType.toLowerCase()] || '';
+    return map[normalized] || '';
   };
 
-  const handleDownload = async (id) => {
+  const handleDownload = async (sickLeave) => {
+    if (!sickLeave?._id) {
+      return;
+    }
+
     try {
-      const response = await axios.get(`${API_URL}/sick-leaves/${id}/download`, {
+      const response = await axios.get(`${API_URL}/sick-leaves/${sickLeave._id}/download`, {
         responseType: 'blob'
       });
 
-      const mimeType = response.headers['content-type'] || 'application/octet-stream';
-      const blob = new Blob([response.data], { type: mimeType });
+      const rawMimeType = response.headers['content-type'] || 'application/octet-stream';
+      const blob = new Blob([response.data], { type: rawMimeType });
+      const mimeType = normalizeMimeType(rawMimeType);
 
       const contentDisposition = response.headers['content-disposition'];
-      const sickLeave = sickLeaves.find((item) => item._id === id);
-      let fileName = sickLeave?.originalFileName || `arret-maladie-${id}`;
+      let fileName = sickLeave.originalFileName || `arret-maladie-${sickLeave._id}`;
 
       if (contentDisposition) {
         const fileNameMatch = contentDisposition.match(/filename\*?=(?:UTF-8'')?\"?([^\";]+)/i);
@@ -158,11 +165,9 @@ const SickLeaveManagement = () => {
         }
       }
 
-      if (!fileName.includes('.')) {
-        const extension = getMimeExtension(mimeType);
-        if (extension) {
-          fileName = `${fileName}.${extension}`;
-        }
+      const extension = getMimeExtension(mimeType);
+      if (extension && !fileName.toLowerCase().endsWith(`.${extension}`)) {
+        fileName = `${fileName}.${extension}`;
       }
 
       const url = window.URL.createObjectURL(blob);
@@ -323,7 +328,7 @@ const SickLeaveManagement = () => {
                 
                 <div className="actions">
                   <button 
-                    onClick={() => handleDownload(sickLeave._id)}
+                    onClick={() => handleDownload(sickLeave)}
                     className="action-btn download"
                     title="Télécharger"
                   >

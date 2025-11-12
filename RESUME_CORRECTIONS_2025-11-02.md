@@ -56,10 +56,12 @@
 - Ajout d’une modale « Détails » listant toutes les semaines avec justificatif depuis un nouvel endpoint `GET /api/recup-hours/:employeeId/history`.
 - Stabilisation de `MenuPermissions.createDefaultPermissions` pour ne plus écraser `isVisibleToEmployee` existant.
 - Simplification du `.htaccess` racine pour rediriger proprement vers `/plan/` sans exposer le chemin physique.
+- Exposition explicite du header `Content-Disposition` via CORS et normalisation des types MIME pour forcer l’extension correcte lors du téléchargement.
 
 **Fichiers modifiés** :
 - `backend/controllers/recupHourController.js`, `backend/routes/recupHours.js`
 - `backend/models/MenuPermissions.js`
+- `backend/controllers/sickLeaveController.js`
 - `frontend/src/pages/Recup.js`, `frontend/src/pages/Recup.css`
 - `frontend/src/pages/SickLeaveAdmin.js`, `frontend/src/pages/SickLeaveManagement.js`
 - `deploy-ovh/.htaccess`
