@@ -22,6 +22,9 @@ api.interceptors.request.use(
     // Si un token est trouvé, l'ajouter dans les headers
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
+      console.log('🔑 Token ajouté au header Authorization pour:', config.url);
+    } else {
+      console.warn('⚠️ Aucun token trouvé dans localStorage pour:', config.url);
     }
     
     return config;

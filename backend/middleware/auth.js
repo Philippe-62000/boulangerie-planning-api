@@ -1,9 +1,13 @@
 // Middleware d'authentification pour les salariés
 const authenticateEmployee = async (req, res, next) => {
   try {
-    const token = req.header('Authorization')?.replace('Bearer ', '');
+    const authHeader = req.header('Authorization');
+    console.log('🔍 Header Authorization reçu:', authHeader ? 'présent' : 'absent');
+    
+    const token = authHeader?.replace('Bearer ', '');
     
     if (!token) {
+      console.log('❌ Aucun token trouvé dans le header Authorization');
       return res.status(401).json({
         success: false,
         error: 'Token d\'authentification requis'
@@ -13,8 +17,16 @@ const authenticateEmployee = async (req, res, next) => {
     const jwt = require('jsonwebtoken');
     const decoded = jwt.verify(token, process.env.JWT_SECRET || 'votre-cle-secrete-ici');
     
+    console.log('🔍 Token décodé:', { 
+      role: decoded.role, 
+      userId: decoded.userId, 
+      employeeId: decoded.employeeId,
+      id: decoded.id 
+    });
+    
     // Accepter à la fois 'employee' et 'admin' pour compatibilité
     if (decoded.role !== 'employee' && decoded.role !== 'admin') {
+      console.log('❌ Rôle non autorisé:', decoded.role);
       return res.status(403).json({
         success: false,
         error: 'Accès non autorisé'
