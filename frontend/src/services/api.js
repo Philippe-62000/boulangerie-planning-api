@@ -52,9 +52,18 @@ api.interceptors.response.use(
         localStorage.removeItem('managerToken');
         localStorage.removeItem('employeeToken');
         
+        // Déterminer le chemin de login en fonction de l'URL actuelle
+        const currentPath = window.location.pathname;
+        let loginPath = '/login';
+        
+        // Si on est dans /plan/, rediriger vers /plan/login
+        if (currentPath.startsWith('/plan/')) {
+          loginPath = '/plan/login';
+        }
+        
         // Rediriger vers la page de login (seulement si on n'y est pas déjà)
-        if (window.location.pathname !== '/login') {
-          window.location.href = '/login';
+        if (currentPath !== loginPath && !currentPath.endsWith('/login')) {
+          window.location.href = loginPath;
         }
       } else {
         console.error('Erreur d\'authentification:', errorData?.error || 'Token invalide');
