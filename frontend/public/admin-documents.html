@@ -579,6 +579,12 @@
                 
                 if (generalData.success && generalData.data && generalData.data.length > 0) {
                     generalData.data.forEach(doc => {
+                        // Vérifier si le document a été téléchargé
+                        const hasBeenDownloaded = doc.downloadCount && doc.downloadCount > 0;
+                        const downloadInfo = hasBeenDownloaded 
+                                            ? `<span style="color: #28a745; font-weight: 600; margin-right: 10px;">✅ Téléchargé ${doc.downloadCount} fois${doc.lastDownloadDate ? ' (dernier: ' + formatDate(doc.lastDownloadDate) + ')' : ''}</span>`
+                                            : `<span style="color: #6c757d; font-weight: 500; margin-right: 10px;">⏳ Non téléchargé</span>`;
+                        
                         html += `
                             <div class="file-item">
                                 <div class="file-info">
@@ -589,6 +595,7 @@
                                     </div>
                                 </div>
                                 <div class="file-actions">
+                                    ${downloadInfo}
                                     <button class="btn btn-danger" onclick="deleteDocument('${doc._id}')">🗑️ Supprimer</button>
                                 </div>
                             </div>
