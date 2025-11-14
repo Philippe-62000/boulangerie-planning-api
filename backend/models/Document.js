@@ -70,6 +70,17 @@ const documentSchema = new mongoose.Schema({
     type: Date,
     comment: 'Date du dernier téléchargement'
   },
+  downloads: [{
+    employeeId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Employee',
+      required: true
+    },
+    downloadDate: {
+      type: Date,
+      default: Date.now
+    }
+  }],
   description: {
     type: String,
     default: '',
@@ -99,7 +110,9 @@ documentSchema.statics.getGeneralDocuments = async function() {
   return await this.find({ 
     type: 'general', 
     isActive: true 
-  }).sort({ uploadDate: -1 });
+  })
+  .populate('downloads.employeeId', 'name email')
+  .sort({ uploadDate: -1 });
 };
 
 // Méthode statique pour récupérer les documents personnels d'un employé
@@ -112,13 +125,25 @@ documentSchema.statics.getPersonalDocuments = async function(employeeId) {
 };
 
 // Méthode statique pour marquer un téléchargement
-documentSchema.statics.recordDownload = async function(documentId) {
+documentSchema.statics.recordDownload = async function(documentId, employeeId = null) {
+  const updateData = {
+    $inc: { downloadCount: 1 },
+    $set: { lastDownloadDate: new Date() }
+  };
+  
+  // Si un employeeId est fourni, l'ajouter au tableau downloads
+  if (employeeId) {
+    updateData.$push = {
+      downloads: {
+        employeeId: employeeId,
+        downloadDate: new Date()
+      }
+    };
+  }
+  
   return await this.findByIdAndUpdate(
     documentId,
-    { 
-      $inc: { downloadCount: 1 },
-      lastDownloadDate: new Date()
-    },
+    updateData,
     { new: true }
   );
 };

@@ -149,8 +149,19 @@ exports.downloadDocument = async (req, res) => {
       // Télécharger le fichier depuis le NAS
       const fileBuffer = await sftpService.downloadFile(filePath);
       
+      // Récupérer l'employeeId depuis la requête (query ou user)
+      let employeeId = null;
+      if (req.query.employeeId) {
+        employeeId = req.query.employeeId;
+      } else if (req.user?.employeeId) {
+        employeeId = req.user.employeeId;
+      } else if (req.user?.id) {
+        // Si l'utilisateur est un employé connecté, utiliser son ID
+        employeeId = req.user.id;
+      }
+      
       // Enregistrer le téléchargement AVANT d'envoyer la réponse
-      await Document.recordDownload(id);
+      await Document.recordDownload(id, employeeId);
       
       // Envoyer directement le buffer au client sans fichier temporaire
       res.setHeader('Content-Disposition', `attachment; filename="${document.fileName}"`);
