@@ -47,40 +47,6 @@ const AbsenceStatus = ({ employees }) => {
           endDate = new Date(selectedYear, selectedMonth, 0);
       }
 
-      console.log('📅 Période sélectionnée:', { selectedPeriod, startDate, endDate });
-      console.log('👥 Nombre d\'employés:', employees.length);
-    
-    // Debug: Vérifier la structure des données pour tous les employés
-    console.log('🔍 Debug complet des employés:');
-    employees.forEach((employee, index) => {
-      const sickLeaveInfo = employee.sickLeave ? {
-        isOnSickLeave: employee.sickLeave.isOnSickLeave,
-        startDate: employee.sickLeave.startDate,
-        endDate: employee.sickLeave.endDate,
-        startDateISO: employee.sickLeave.startDate ? new Date(employee.sickLeave.startDate).toISOString() : null,
-        endDateISO: employee.sickLeave.endDate ? new Date(employee.sickLeave.endDate).toISOString() : null
-      } : null;
-      
-      console.log(`👤 Employé ${index + 1} (${employee.name}):`, {
-        name: employee.name,
-        sickLeave: sickLeaveInfo,
-        absencesAllLength: employee.absences?.all?.length || 0,
-        sickLeavesAllLength: employee.sickLeaves?.all?.length || 0,
-        delaysAllLength: employee.delays?.all?.length || 0
-      });
-      
-      // Log spécifique pour Gregory DELOBELLE
-      if (employee.name === 'Gregory DELOBELLE') {
-        console.log('🔍 DÉTAIL GREGORY DELOBELLE:', {
-          sickLeave: employee.sickLeave,
-          sickLeaveIsOnSickLeave: employee.sickLeave?.isOnSickLeave,
-          sickLeaveStartDate: employee.sickLeave?.startDate,
-          sickLeaveEndDate: employee.sickLeave?.endDate,
-          absencesAll: employee.absences?.all,
-          sickLeavesAll: employee.sickLeaves?.all
-        });
-      }
-    });
 
     // Calculer les statistiques par employé
     const byEmployee = employees.map(employee => {
@@ -116,26 +82,11 @@ const AbsenceStatus = ({ employees }) => {
         if (start && end) {
           // Vérifier si l'arrêt maladie chevauche la période sélectionnée
           if (start <= endDate && end >= startDate) {
-            console.log(`🏥 Arrêt maladie manuel trouvé pour ${employee.name}:`, {
-              start: start.toISOString(),
-              end: end.toISOString(),
-              periodStart: startDate.toISOString(),
-              periodEnd: endDate.toISOString()
-            });
             employeeSickLeaves.push({
               startDate: employee.sickLeave.startDate,
               endDate: employee.sickLeave.endDate
             });
-          } else {
-            console.log(`⚠️ Arrêt maladie manuel pour ${employee.name} hors période:`, {
-              start: start.toISOString(),
-              end: end.toISOString(),
-              periodStart: startDate.toISOString(),
-              periodEnd: endDate.toISOString()
-            });
           }
-        } else {
-          console.log(`⚠️ Arrêt maladie manuel pour ${employee.name} sans dates valides:`, employee.sickLeave);
         }
       }
       
