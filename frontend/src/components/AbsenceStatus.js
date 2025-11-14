@@ -53,22 +53,33 @@ const AbsenceStatus = ({ employees }) => {
     // Debug: Vérifier la structure des données pour tous les employés
     console.log('🔍 Debug complet des employés:');
     employees.forEach((employee, index) => {
+      const sickLeaveInfo = employee.sickLeave ? {
+        isOnSickLeave: employee.sickLeave.isOnSickLeave,
+        startDate: employee.sickLeave.startDate,
+        endDate: employee.sickLeave.endDate,
+        startDateISO: employee.sickLeave.startDate ? new Date(employee.sickLeave.startDate).toISOString() : null,
+        endDateISO: employee.sickLeave.endDate ? new Date(employee.sickLeave.endDate).toISOString() : null
+      } : null;
+      
       console.log(`👤 Employé ${index + 1} (${employee.name}):`, {
         name: employee.name,
-        sickLeave: employee.sickLeave,
-        isOnSickLeave: employee.isOnSickLeave,
-        startDate: employee.startDate,
-        endDate: employee.endDate,
-        absences: employee.absences,
-        absencesAll: employee.absences?.all,
+        sickLeave: sickLeaveInfo,
         absencesAllLength: employee.absences?.all?.length || 0,
-        sickLeaves: employee.sickLeaves,
-        sickLeavesAll: employee.sickLeaves?.all,
         sickLeavesAllLength: employee.sickLeaves?.all?.length || 0,
-        delays: employee.delays,
-        delaysAll: employee.delays?.all,
         delaysAllLength: employee.delays?.all?.length || 0
       });
+      
+      // Log spécifique pour Gregory DELOBELLE
+      if (employee.name === 'Gregory DELOBELLE') {
+        console.log('🔍 DÉTAIL GREGORY DELOBELLE:', {
+          sickLeave: employee.sickLeave,
+          sickLeaveIsOnSickLeave: employee.sickLeave?.isOnSickLeave,
+          sickLeaveStartDate: employee.sickLeave?.startDate,
+          sickLeaveEndDate: employee.sickLeave?.endDate,
+          absencesAll: employee.absences?.all,
+          sickLeavesAll: employee.sickLeaves?.all
+        });
+      }
     });
 
     // Calculer les statistiques par employé
