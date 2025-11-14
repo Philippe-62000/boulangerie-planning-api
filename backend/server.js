@@ -116,6 +116,7 @@ app.use('/api/onboarding-offboarding', require('./routes/onboardingOffboarding')
 app.use('/api/uniforms', require('./routes/uniforms'));
 app.use('/api/documents', require('./routes/documents'));
 app.use('/api/advance-requests', require('./routes/advanceRequests'));
+app.use('/api/primes', require('./routes/primes'));
 app.use('/api/maintenance', require('./routes/maintenance'));
 app.use('/api/employee-messages', require('./routes/employeeMessages'));
 app.use('/api/recup-hours', require('./routes/recupHours'));

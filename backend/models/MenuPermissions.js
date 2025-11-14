@@ -196,6 +196,15 @@ menuPermissionsSchema.statics.createDefaultPermissions = async function() {
         isVisibleToEmployee: true,
         requiredPermissions: [],
         order: 14
+      },
+      {
+        menuId: 'primes',
+        menuName: 'Primes',
+        menuPath: '/primes',
+        isVisibleToAdmin: true,
+        isVisibleToEmployee: false,
+        requiredPermissions: ['manage_employees'],
+        order: 15
       }
     ];
 

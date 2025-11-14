@@ -589,12 +589,17 @@
                             downloadsDetailsHtml = '<div style="margin-top: 10px; padding: 10px; background: #f8f9fa; border-radius: 5px; font-size: 0.9rem;">';
                             downloadsDetailsHtml += '<strong style="display: block; margin-bottom: 8px; color: #495057;">📥 Téléchargements détaillés:</strong>';
                             downloadsList.forEach((download, index) => {
-                                const employeeName = download.employeeId && download.employeeId.name ? download.employeeId.name : 'Salarié inconnu';
+                                const employeeName = download.employeeId && download.employeeId.name ? download.employeeId.name : (download.employeeId ? 'Salarié ID: ' + download.employeeId : 'Salarié inconnu');
                                 const downloadDate = download.downloadDate ? formatDate(download.downloadDate) : 'Date inconnue';
                                 downloadsDetailsHtml += `<div style="padding: 5px 0; border-bottom: ${index < downloadsList.length - 1 ? '1px solid #dee2e6' : 'none'};">
                                     <span style="color: #28a745;">✓</span> ${employeeName} - ${downloadDate}
                                 </div>`;
                             });
+                            downloadsDetailsHtml += '</div>';
+                        } else if (hasBeenDownloaded && doc.downloadCount > 0) {
+                            // Si des téléchargements existent mais pas de détails (anciens téléchargements)
+                            downloadsDetailsHtml = '<div style="margin-top: 10px; padding: 10px; background: #fff3cd; border-radius: 5px; font-size: 0.9rem; color: #856404;">';
+                            downloadsDetailsHtml += '<em>⚠️ Les téléchargements précédents n\'ont pas été enregistrés avec les détails. Seuls les nouveaux téléchargements afficheront les noms des salariés.</em>';
                             downloadsDetailsHtml += '</div>';
                         }
                         

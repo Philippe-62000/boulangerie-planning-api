@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import api from '../services/api';
 import { toast } from 'react-toastify';
 import HolidayStatus from '../components/HolidayStatus';
@@ -13,6 +13,40 @@ const EmployeeStatusPrint = () => {
 const [overpayments, setOverpayments] = useState({});
 const [persistedOverpayments, setPersistedOverpayments] = useState({});
 const [savingOverpayment, setSavingOverpayment] = useState({});
+const [employeePrimes, setEmployeePrimes] = useState({}); // { employeeId: [{ primeName, amount }] }
+
+  useEffect(() => {
+    if (data?.employees && data.employees.length > 0) {
+      fetchEmployeePrimes(data.employees);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [month, year, data?.employees]);
+
+  const fetchEmployeePrimes = async (employeesList) => {
+    try {
+      const primesMap = {};
+      if (employeesList && employeesList.length > 0) {
+        await Promise.all(
+          employeesList.map(async (employee) => {
+            try {
+              const response = await api.get(`/primes/employee/${employee.employeeId}/month/${month}/year/${year}`);
+              if (response.data.success && response.data.data) {
+                primesMap[employee.employeeId] = response.data.data.map(calc => ({
+                  primeName: calc.primeId.name,
+                  amount: calc.amount
+                }));
+              }
+            } catch (error) {
+              console.error(`Erreur lors du chargement des primes pour ${employee.employeeName}:`, error);
+            }
+          })
+        );
+      }
+      setEmployeePrimes(primesMap);
+    } catch (error) {
+      console.error('Erreur lors du chargement des primes:', error);
+    }
+  };
 
   const fetchAdvanceRequests = async () => {
     try {
@@ -105,6 +139,8 @@ const [savingOverpayment, setSavingOverpayment] = useState({});
     });
       // Récupérer aussi les acomptes
       await fetchAdvanceRequests();
+      // Récupérer les primes
+      await fetchEmployeePrimes(sanitizedEmployees);
     } catch (error) {
       console.error('Erreur lors du chargement des données:', error);
       toast.error('Erreur lors du chargement des données');
@@ -349,7 +385,7 @@ const calculateTotalOverpayments = () => {
     let csvContent = "data:text/csv;charset=utf-8,";
     
   // En-têtes
-  const headers = ["Salarié", "Frais Repas", "Total KM", "Acompte", "Trop Perçu", "Total Général"];
+  const headers = ["Salarié", "Frais Repas", "Total KM", "Acompte", "Trop Perçu", "Primes", "Total Général"];
     csvContent += headers.join(",") + "\n";
     
     // Données
@@ -357,13 +393,15 @@ const calculateTotalOverpayments = () => {
       data.employees.forEach(employee => {
         const advanceAmount = getEmployeeAdvance(employee.employeeName, employee.employeeId);
       const overpaymentAmount = getEmployeeOverpayment(employee.employeeId);
-      const totalGeneral = employee.mealExpense.totalAmount + advanceAmount - overpaymentAmount;
+      const primesAmount = getEmployeePrimesTotal(employee.employeeId);
+      const totalGeneral = employee.mealExpense.totalAmount + advanceAmount - overpaymentAmount + primesAmount;
         const row = [
           `"${employee.employeeName || 'N/A'}"`,
           `"${formatCurrency(employee.mealExpense.totalAmount)}"`,
           `"${employee.kmExpense.totalKm || 0} km"`,
           `"${formatCurrency(advanceAmount)}"`,
         `"${formatCurrency(overpaymentAmount)}"`,
+        `"${formatCurrency(primesAmount)}"`,
         `"${formatCurrency(totalGeneral)}"`
         ];
         csvContent += row.join(",") + "\n";
@@ -374,11 +412,12 @@ const calculateTotalOverpayments = () => {
       const totalKm = data.employees.reduce((sum, emp) => sum + emp.kmExpense.totalKm, 0);
       const totalAdvance = advanceRequests.reduce((sum, req) => sum + req.amount, 0);
     const totalOverpayment = calculateTotalOverpayments();
-    const totalGeneral = totalMeal + totalAdvance - totalOverpayment;
-    csvContent += `"TOTAUX","${formatCurrency(totalMeal)}","${totalKm} km","${formatCurrency(totalAdvance)}","${formatCurrency(totalOverpayment)}","${formatCurrency(totalGeneral)}"\n`;
+    const totalPrimes = data.employees.reduce((sum, emp) => sum + getEmployeePrimesTotal(emp.employeeId), 0);
+    const totalGeneral = totalMeal + totalAdvance - totalOverpayment + totalPrimes;
+    csvContent += `"TOTAUX","${formatCurrency(totalMeal)}","${totalKm} km","${formatCurrency(totalAdvance)}","${formatCurrency(totalOverpayment)}","${formatCurrency(totalPrimes)}","${formatCurrency(totalGeneral)}"\n`;
   } else {
     // Données par défaut si pas de données
-    csvContent += `"Aucune donnée disponible","","","","",""\n`;
+    csvContent += `"Aucune donnée disponible","","","","","",""\n`;
   }
     
     // Télécharger le fichier
@@ -407,6 +446,14 @@ const calculateTotalOverpayments = () => {
       style: 'currency',
       currency: 'EUR'
     }).format(amount);
+  };
+
+  // Fonction pour obtenir le montant total des primes d'un employé
+  const getEmployeePrimesTotal = (employeeId) => {
+    if (!employeePrimes[employeeId] || employeePrimes[employeeId].length === 0) {
+      return 0;
+    }
+    return employeePrimes[employeeId].reduce((sum, prime) => sum + (prime.amount || 0), 0);
   };
 
   // Fonction pour obtenir le montant total d'acompte d'un employé (peut avoir plusieurs acomptes)
@@ -475,7 +522,8 @@ const calculateTotalOverpayments = () => {
   const totalKmAmount = data?.employees?.reduce((sum, emp) => sum + (emp.kmExpense?.totalKm || 0), 0) || 0;
   const totalAdvanceAmount = advanceRequests?.reduce((sum, req) => sum + (req.amount || 0), 0) || 0;
   const totalOverpaymentAmount = data?.employees ? calculateTotalOverpayments() : 0;
-  const totalGeneralAmount = totalMealAmount + totalAdvanceAmount - totalOverpaymentAmount;
+  const totalPrimesAmount = data?.employees?.reduce((sum, emp) => sum + getEmployeePrimesTotal(emp.employeeId), 0) || 0;
+  const totalGeneralAmount = totalMealAmount + totalAdvanceAmount - totalOverpaymentAmount + totalPrimesAmount;
 
   return (
     <div className="employee-status-print fade-in">
@@ -552,6 +600,7 @@ const calculateTotalOverpayments = () => {
                   <th className="header-km">Total KM</th>
                   <th className="header-advance">Acompte</th>
                   <th className="header-overpayment">Trop Perçu</th>
+                  <th className="header-primes">Primes</th>
                   <th className="header-total">Total Général</th>
                 </tr>
               </thead>
@@ -559,7 +608,8 @@ const calculateTotalOverpayments = () => {
                 {data.employees.map((employee) => {
                   const advanceAmount = getEmployeeAdvance(employee.employeeName, employee.employeeId);
                   const overpaymentAmount = getEmployeeOverpayment(employee.employeeId);
-                  const totalGeneral = employee.mealExpense.totalAmount + advanceAmount - overpaymentAmount;
+                  const primesAmount = getEmployeePrimesTotal(employee.employeeId);
+                  const totalGeneral = employee.mealExpense.totalAmount + advanceAmount - overpaymentAmount + primesAmount;
                   const employeeKey = employee.employeeId?.toString?.() ?? employee.employeeId;
                   const inputValue = Object.prototype.hasOwnProperty.call(overpayments, employeeKey)
                     ? overpayments[employeeKey]
@@ -602,6 +652,22 @@ const calculateTotalOverpayments = () => {
                           )}
                         </div>
                       </td>
+                      <td className="primes-amount">
+                        {employeePrimes[employee.employeeId] && employeePrimes[employee.employeeId].length > 0 ? (
+                          <div>
+                            {employeePrimes[employee.employeeId].map((prime, idx) => (
+                              <div key={idx} style={{ fontSize: '0.9rem' }}>
+                                {prime.primeName}: {formatCurrency(prime.amount)}
+                              </div>
+                            ))}
+                            <div style={{ marginTop: '5px', fontWeight: 'bold', borderTop: '1px solid #ddd', paddingTop: '3px' }}>
+                              Total: {formatCurrency(primesAmount)}
+                            </div>
+                          </div>
+                        ) : (
+                          <span style={{ color: '#999' }}>-</span>
+                        )}
+                      </td>
                       <td className="total-amount">
                         <strong>{formatCurrency(totalGeneral)}</strong>
                       </td>
@@ -616,6 +682,7 @@ const calculateTotalOverpayments = () => {
                   <td><strong>{totalKmAmount} km</strong></td>
                   <td><strong>{formatCurrency(totalAdvanceAmount)}</strong></td>
                   <td><strong>{formatCurrency(totalOverpaymentAmount)}</strong></td>
+                  <td><strong>{formatCurrency(totalPrimesAmount)}</strong></td>
                   <td><strong>{formatCurrency(totalGeneralAmount)}</strong></td>
                 </tr>
               </tfoot>
@@ -637,6 +704,9 @@ const calculateTotalOverpayments = () => {
             </div>
             <div className="summary-item">
               <strong>Total trop perçu :</strong> {formatCurrency(totalOverpaymentAmount)}
+            </div>
+            <div className="summary-item">
+              <strong>Total primes :</strong> {formatCurrency(totalPrimesAmount)}
             </div>
             <div className="summary-item">
               <strong>Total général :</strong> {formatCurrency(totalGeneralAmount)}

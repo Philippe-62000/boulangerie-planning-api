@@ -1,0 +1,151 @@
+.primes-page {
+  padding: 2rem;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.primes-page h2 {
+  margin-bottom: 2rem;
+  color: #333;
+}
+
+.primes-page .card {
+  background: white;
+  border-radius: 8px;
+  padding: 2rem;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  margin-bottom: 2rem;
+}
+
+.primes-page .card h3 {
+  margin-bottom: 1.5rem;
+  color: #495057;
+  border-bottom: 2px solid #e9ecef;
+  padding-bottom: 0.5rem;
+}
+
+.primes-page .form-row {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+}
+
+.primes-page .form-group {
+  flex: 1;
+  min-width: 200px;
+}
+
+.primes-page .form-group label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-weight: 600;
+  color: #495057;
+}
+
+.primes-page .form-control {
+  width: 100%;
+  padding: 0.5rem;
+  border: 1px solid #ced4da;
+  border-radius: 4px;
+  font-size: 1rem;
+}
+
+.primes-page .btn {
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 1rem;
+  transition: background-color 0.2s;
+}
+
+.primes-page .btn-primary {
+  background-color: #007bff;
+  color: white;
+}
+
+.primes-page .btn-primary:hover {
+  background-color: #0056b3;
+}
+
+.primes-page .btn-success {
+  background-color: #28a745;
+  color: white;
+}
+
+.primes-page .btn-success:hover {
+  background-color: #218838;
+}
+
+.primes-page .btn-secondary {
+  background-color: #6c757d;
+  color: white;
+}
+
+.primes-page .btn-secondary:hover {
+  background-color: #5a6268;
+}
+
+.primes-page .btn-danger {
+  background-color: #dc3545;
+  color: white;
+}
+
+.primes-page .btn-danger:hover {
+  background-color: #c82333;
+}
+
+.primes-page .btn-sm {
+  padding: 0.25rem 0.5rem;
+  font-size: 0.875rem;
+  margin-right: 0.5rem;
+}
+
+.primes-page .table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 1rem;
+}
+
+.primes-page .table th,
+.primes-page .table td {
+  padding: 0.75rem;
+  text-align: left;
+  border-bottom: 1px solid #dee2e6;
+}
+
+.primes-page .table th {
+  background-color: #f8f9fa;
+  font-weight: 600;
+  color: #495057;
+}
+
+.primes-page .table tbody tr:hover {
+  background-color: #f8f9fa;
+}
+
+.primes-page .primes-list {
+  margin-top: 2rem;
+}
+
+.primes-page .loading {
+  text-align: center;
+  padding: 2rem;
+  color: #666;
+}
+
+@media (max-width: 768px) {
+  .primes-page {
+    padding: 1rem;
+  }
+  
+  .primes-page .form-row {
+    flex-direction: column;
+  }
+  
+  .primes-page .table {
+    font-size: 0.875rem;
+  }
+}
+
