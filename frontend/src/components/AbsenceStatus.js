@@ -97,15 +97,34 @@ const AbsenceStatus = ({ employees }) => {
       let employeeSickLeaves = [];
       
       // Vérifier si l'employé a un arrêt maladie actuel (déclaré via declareSickLeave)
-      if (employee.sickLeave?.isOnSickLeave && employee.sickLeave?.startDate && employee.sickLeave?.endDate) {
-        const start = new Date(employee.sickLeave.startDate);
-        const end = new Date(employee.sickLeave.endDate);
-        // Vérifier si l'arrêt maladie chevauche la période sélectionnée
-        if (start <= endDate && end >= startDate) {
-          employeeSickLeaves.push({
-            startDate: employee.sickLeave.startDate,
-            endDate: employee.sickLeave.endDate
-          });
+      // C'est un arrêt maladie déclaré manuellement, stocké dans employee.sickLeave
+      if (employee.sickLeave && employee.sickLeave.isOnSickLeave) {
+        const start = employee.sickLeave.startDate ? new Date(employee.sickLeave.startDate) : null;
+        const end = employee.sickLeave.endDate ? new Date(employee.sickLeave.endDate) : null;
+        
+        if (start && end) {
+          // Vérifier si l'arrêt maladie chevauche la période sélectionnée
+          if (start <= endDate && end >= startDate) {
+            console.log(`🏥 Arrêt maladie manuel trouvé pour ${employee.name}:`, {
+              start: start.toISOString(),
+              end: end.toISOString(),
+              periodStart: startDate.toISOString(),
+              periodEnd: endDate.toISOString()
+            });
+            employeeSickLeaves.push({
+              startDate: employee.sickLeave.startDate,
+              endDate: employee.sickLeave.endDate
+            });
+          } else {
+            console.log(`⚠️ Arrêt maladie manuel pour ${employee.name} hors période:`, {
+              start: start.toISOString(),
+              end: end.toISOString(),
+              periodStart: startDate.toISOString(),
+              periodEnd: endDate.toISOString()
+            });
+          }
+        } else {
+          console.log(`⚠️ Arrêt maladie manuel pour ${employee.name} sans dates valides:`, employee.sickLeave);
         }
       }
       
