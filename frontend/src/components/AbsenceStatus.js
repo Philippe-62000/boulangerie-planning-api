@@ -80,10 +80,11 @@ const AbsenceStatus = ({ employees }) => {
       // Calculer les arrêts maladie
       let employeeSickLeaves = [];
       
-      // Vérifier si l'employé a un arrêt maladie actuel
+      // Vérifier si l'employé a un arrêt maladie actuel (déclaré via declareSickLeave)
       if (employee.sickLeave?.isOnSickLeave && employee.sickLeave?.startDate && employee.sickLeave?.endDate) {
         const start = new Date(employee.sickLeave.startDate);
         const end = new Date(employee.sickLeave.endDate);
+        // Vérifier si l'arrêt maladie chevauche la période sélectionnée
         if (start <= endDate && end >= startDate) {
           employeeSickLeaves.push({
             startDate: employee.sickLeave.startDate,
@@ -92,12 +93,17 @@ const AbsenceStatus = ({ employees }) => {
         }
       }
       
-      // Ajouter les arrêts maladie depuis les absences (type: 'Arrêt maladie')
-      const sickLeaveAbsences = absences.filter(absence => 
-        absence.type === 'Arrêt maladie' && 
-        new Date(absence.startDate) <= endDate && 
-        new Date(absence.endDate) >= startDate
-      );
+      // Ajouter les arrêts maladie depuis les absences (type: 'Arrêt maladie' ou 'MAL')
+      const sickLeaveAbsences = absences.filter(absence => {
+        const absenceType = absence.type || '';
+        const isSickLeave = absenceType === 'Arrêt maladie' || absenceType === 'MAL';
+        if (!isSickLeave) return false;
+        
+        const absenceStart = new Date(absence.startDate);
+        const absenceEnd = new Date(absence.endDate);
+        // Vérifier si l'absence chevauche la période sélectionnée
+        return absenceStart <= endDate && absenceEnd >= startDate;
+      });
       
       employeeSickLeaves = employeeSickLeaves.concat(sickLeaveAbsences);
       
@@ -116,18 +122,27 @@ const AbsenceStatus = ({ employees }) => {
         return delayDate >= startDate && delayDate <= endDate;
       }) : [];
 
+      // Calculer le nombre de jours d'arrêt maladie dans la période sélectionnée
+      const sickLeaveDays = employeeSickLeaves.reduce((total, sl) => {
+        const start = new Date(sl.startDate);
+        const end = new Date(sl.endDate);
+        
+        // Calculer l'intersection entre la période de l'arrêt maladie et la période sélectionnée
+        const intersectionStart = start > startDate ? start : startDate;
+        const intersectionEnd = end < endDate ? end : endDate;
+        
+        // Calculer le nombre de jours dans l'intersection
+        const days = Math.max(0, Math.ceil((intersectionEnd - intersectionStart) / (1000 * 60 * 60 * 24)) + 1);
+        return total + days;
+      }, 0);
+
       return {
         id: employee._id,
         name: employee.name,
         absences: employeeAbsences.length,
-        sickLeave: employeeSickLeaves.reduce((total, sl) => {
-          const start = new Date(sl.startDate);
-          const end = new Date(sl.endDate);
-          const days = Math.ceil((end - start) / (1000 * 60 * 60 * 24)) + 1;
-          return total + days;
-        }, 0),
+        sickLeave: sickLeaveDays,
         delays: employeeDelays.length,
-        total: employeeAbsences.length + employeeSickLeaves.length + employeeDelays.length
+        total: employeeAbsences.length + (sickLeaveDays > 0 ? 1 : 0) + employeeDelays.length
       };
     });
 
