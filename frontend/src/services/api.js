@@ -41,9 +41,24 @@ api.interceptors.response.use(
     if (error.code === 'ECONNABORTED') {
       console.warn('⚠️ Timeout API - Render en mode sleep, veuillez patienter...');
     } else if (error.response?.status === 401) {
-      console.error('Erreur d\'authentification');
-      // Optionnel : rediriger vers la page de login
-      // window.location.href = '/login';
+      const errorData = error.response.data;
+      
+      // Si le token a expiré, nettoyer le localStorage et rediriger vers login
+      if (errorData?.expired === true) {
+        console.warn('⚠️ Token expiré, redirection vers la page de connexion...');
+        // Nettoyer tous les tokens
+        localStorage.removeItem('token');
+        localStorage.removeItem('adminToken');
+        localStorage.removeItem('managerToken');
+        localStorage.removeItem('employeeToken');
+        
+        // Rediriger vers la page de login (seulement si on n'y est pas déjà)
+        if (window.location.pathname !== '/login') {
+          window.location.href = '/login';
+        }
+      } else {
+        console.error('Erreur d\'authentification:', errorData?.error || 'Token invalide');
+      }
     } else if (error.response?.status >= 500) {
       console.error('Erreur serveur:', error.response.data);
     } else if (!error.response) {

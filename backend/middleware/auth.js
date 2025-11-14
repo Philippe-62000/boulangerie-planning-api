@@ -52,6 +52,18 @@ const authenticateEmployee = async (req, res, next) => {
     next();
   } catch (error) {
     console.error('❌ Erreur authentification:', error);
+    
+    // Gérer spécifiquement l'expiration du token
+    if (error.name === 'TokenExpiredError') {
+      return res.status(401).json({
+        success: false,
+        error: 'Token expiré',
+        expired: true,
+        expiredAt: error.expiredAt
+      });
+    }
+    
+    // Autres erreurs (token invalide, etc.)
     res.status(401).json({
       success: false,
       error: 'Token invalide'
@@ -92,6 +104,18 @@ const authenticateManager = async (req, res, next) => {
     next();
   } catch (error) {
     console.error('❌ Erreur authentification manager:', error);
+    
+    // Gérer spécifiquement l'expiration du token
+    if (error.name === 'TokenExpiredError') {
+      return res.status(401).json({
+        success: false,
+        error: 'Token expiré',
+        expired: true,
+        expiredAt: error.expiredAt
+      });
+    }
+    
+    // Autres erreurs (token invalide, etc.)
     res.status(401).json({
       success: false,
       error: 'Token invalide'
