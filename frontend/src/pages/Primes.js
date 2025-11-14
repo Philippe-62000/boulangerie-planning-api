@@ -351,7 +351,10 @@ const Primes = () => {
               </thead>
               <tbody>
                 {primes.map(prime => (
-                  <tr key={prime._id}>
+                  <tr 
+                    key={prime._id}
+                    style={prime.frequency === 'annuelle' || prime.frequency === 'annual' ? { color: '#dc3545', fontWeight: 'bold' } : {}}
+                  >
                     {editingPrime?._id === prime._id ? (
                       <>
                         <td>
@@ -462,7 +465,12 @@ const Primes = () => {
                   <tr>
                     <th>Salarié</th>
                     {primes.map(prime => (
-                      <th key={prime._id}>{prime.name}</th>
+                      <th 
+                        key={prime._id}
+                        style={prime.frequency === 'annuelle' || prime.frequency === 'annual' ? { color: '#dc3545', fontWeight: 'bold' } : {}}
+                      >
+                        {prime.name}
+                      </th>
                     ))}
                   </tr>
                 </thead>
@@ -537,10 +545,13 @@ const Primes = () => {
                   <tr>
                     <th>Salarié</th>
                     {primes.map(prime => (
-                      <th key={prime._id}>
+                      <th 
+                        key={prime._id}
+                        style={prime.frequency === 'annuelle' || prime.frequency === 'annual' ? { color: '#dc3545', fontWeight: 'bold' } : {}}
+                      >
                         {prime.name}
                         <br />
-                        <small style={{ fontSize: '0.8rem', color: '#666' }}>
+                        <small style={{ fontSize: '0.8rem', color: prime.frequency === 'annuelle' || prime.frequency === 'annual' ? '#dc3545' : '#666' }}>
                           (0: {prime.amountLevel0 || 0}€ | 1: {prime.amountLevel1}€ | 2: {prime.amountLevel2}€)
                         </small>
                       </th>
