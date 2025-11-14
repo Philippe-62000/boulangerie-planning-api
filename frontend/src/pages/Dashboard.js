@@ -157,25 +157,34 @@ const Dashboard = () => {
                 </tr>
               </thead>
               <tbody>
-                {sickEmployees.map((employee) => (
-                  <tr key={employee._id}>
-                    <td>{employee.name}</td>
-                    <td>{formatDate(employee.sickLeave?.endDate)}</td>
-                    <td>
-                      {(() => {
-                        const daysUntilReturn = calculateDaysUntil(employee.sickLeave?.endDate);
-                        return (
-                          <span style={{ 
-                            color: daysUntilReturn > 0 ? '#28a745' : '#dc3545',
-                            fontWeight: 'bold'
-                          }}>
-                            {daysUntilReturn > 0 ? `${daysUntilReturn} jours` : 'Repris'}
-                          </span>
-                        );
-                      })()}
-                    </td>
-                  </tr>
-                ))}
+                {sickEmployees.map((employee) => {
+                  // Calculer la date de reprise (lendemain du dernier jour de maladie)
+                  const endDate = employee.sickLeave?.endDate ? new Date(employee.sickLeave.endDate) : null;
+                  const returnDate = endDate ? new Date(endDate) : null;
+                  if (returnDate) {
+                    returnDate.setDate(returnDate.getDate() + 1); // Ajouter 1 jour
+                  }
+                  
+                  return (
+                    <tr key={employee._id}>
+                      <td>{employee.name}</td>
+                      <td>{returnDate ? formatDate(returnDate.toISOString()) : '-'}</td>
+                      <td>
+                        {(() => {
+                          const daysUntilReturn = returnDate ? calculateDaysUntil(returnDate.toISOString()) : 0;
+                          return (
+                            <span style={{ 
+                              color: daysUntilReturn > 0 ? '#28a745' : '#dc3545',
+                              fontWeight: 'bold'
+                            }}>
+                              {daysUntilReturn > 0 ? `${daysUntilReturn} jours` : 'Repris'}
+                            </span>
+                          );
+                        })()}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

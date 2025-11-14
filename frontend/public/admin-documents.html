@@ -577,7 +577,7 @@
 
                 let html = '<h3>📋 Documents Généraux</h3>';
                 
-                if (generalData.success && generalData.data) {
+                if (generalData.success && generalData.data && generalData.data.length > 0) {
                     generalData.data.forEach(doc => {
                         html += `
                             <div class="file-item">
@@ -596,6 +596,56 @@
                     });
                 } else {
                     html += '<p>Aucun document général trouvé.</p>';
+                }
+
+                // Charger les documents personnels
+                html += '<h3 style="margin-top: 30px;">👤 Documents Personnels</h3>';
+                
+                try {
+                    // Récupérer tous les employés
+                    const employeesResponse = await fetch(`${API_URL}/employees`);
+                    const employeesData = await employeesResponse.json();
+                    
+                    let personalDocsFound = false;
+                    
+                    if (employeesData.success && employeesData.data) {
+                        // Pour chaque employé, récupérer ses documents personnels
+                        for (const employee of employeesData.data) {
+                            try {
+                                const personalResponse = await fetch(`${API_URL}/documents/personal/${employee._id}`);
+                                const personalData = await personalResponse.json();
+                                
+                                if (personalData.success && personalData.data && personalData.data.length > 0) {
+                                    personalDocsFound = true;
+                                    personalData.data.forEach(doc => {
+                                        html += `
+                                            <div class="file-item">
+                                                <div class="file-info">
+                                                    <div class="file-icon">📄</div>
+                                                    <div class="file-details">
+                                                        <h4>${doc.title}</h4>
+                                                        <p><strong>Salarié:</strong> ${employee.name} | Catégorie: ${doc.category} | Taille: ${formatFileSize(doc.fileSize)} | Upload: ${formatDate(doc.uploadDate)}</p>
+                                                    </div>
+                                                </div>
+                                                <div class="file-actions">
+                                                    <button class="btn btn-danger" onclick="deleteDocument('${doc._id}')">🗑️ Supprimer</button>
+                                                </div>
+                                            </div>
+                                        `;
+                                    });
+                                }
+                            } catch (error) {
+                                console.error(`Erreur chargement documents pour ${employee.name}:`, error);
+                            }
+                        }
+                    }
+                    
+                    if (!personalDocsFound) {
+                        html += '<p>Aucun document personnel trouvé.</p>';
+                    }
+                } catch (error) {
+                    console.error('Erreur chargement employés:', error);
+                    html += '<p>Erreur lors du chargement des documents personnels.</p>';
                 }
 
                 container.innerHTML = html;
