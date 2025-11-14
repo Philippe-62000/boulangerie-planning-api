@@ -60,21 +60,37 @@ const AbsenceStatus = ({ employees }) => {
         startDate: employee.startDate,
         endDate: employee.endDate,
         absences: employee.absences,
+        absencesAll: employee.absences?.all,
+        absencesAllLength: employee.absences?.all?.length || 0,
         sickLeaves: employee.sickLeaves,
-        delays: employee.delays
+        sickLeavesAll: employee.sickLeaves?.all,
+        sickLeavesAllLength: employee.sickLeaves?.all?.length || 0,
+        delays: employee.delays,
+        delaysAll: employee.delays?.all,
+        delaysAllLength: employee.delays?.all?.length || 0
       });
     });
 
     // Calculer les statistiques par employé
     const byEmployee = employees.map(employee => {
       // Vérifier la structure des données et adapter
-      const absences = employee.absences?.all || employee.absences || [];
-      const sickLeaves = employee.sickLeaves?.all || employee.sickLeaves || [];
-      const delays = employee.delays?.all || employee.delays || [];
+      // Le backend retourne { absences: { all: [...] }, sickLeaves: { all: [...] }, delays: { all: [...] } }
+      const absencesArray = employee.absences?.all || (Array.isArray(employee.absences) ? employee.absences : []);
+      const sickLeavesArray = employee.sickLeaves?.all || (Array.isArray(employee.sickLeaves) ? employee.sickLeaves : []);
+      const delaysArray = employee.delays?.all || (Array.isArray(employee.delays) ? employee.delays : []);
 
-      const employeeAbsences = Array.isArray(absences) ? absences.filter(absence => {
-        const absenceDate = new Date(absence.date);
-        return absenceDate >= startDate && absenceDate <= endDate;
+      // Pour les absences, vérifier si elles ont une date ou startDate/endDate
+      const employeeAbsences = Array.isArray(absencesArray) ? absencesArray.filter(absence => {
+        // Gérer les deux formats : { date: ... } ou { startDate: ..., endDate: ... }
+        if (absence.date) {
+          const absenceDate = new Date(absence.date);
+          return absenceDate >= startDate && absenceDate <= endDate;
+        } else if (absence.startDate && absence.endDate) {
+          const absenceStart = new Date(absence.startDate);
+          const absenceEnd = new Date(absence.endDate);
+          return absenceStart <= endDate && absenceEnd >= startDate;
+        }
+        return false;
       }) : [];
 
       // Calculer les arrêts maladie
@@ -94,22 +110,27 @@ const AbsenceStatus = ({ employees }) => {
       }
       
       // Ajouter les arrêts maladie depuis les absences (type: 'Arrêt maladie' ou 'MAL')
-      const sickLeaveAbsences = absences.filter(absence => {
+      // Le backend filtre déjà les absences par type, donc on doit chercher dans absencesArray aussi
+      const allAbsencesForSickLeave = absencesArray.filter(absence => {
         const absenceType = absence.type || '';
         const isSickLeave = absenceType === 'Arrêt maladie' || absenceType === 'MAL';
         if (!isSickLeave) return false;
         
-        const absenceStart = new Date(absence.startDate);
-        const absenceEnd = new Date(absence.endDate);
-        // Vérifier si l'absence chevauche la période sélectionnée
-        return absenceStart <= endDate && absenceEnd >= startDate;
+        if (absence.startDate && absence.endDate) {
+          const absenceStart = new Date(absence.startDate);
+          const absenceEnd = new Date(absence.endDate);
+          // Vérifier si l'absence chevauche la période sélectionnée
+          return absenceStart <= endDate && absenceEnd >= startDate;
+        }
+        return false;
       });
       
-      employeeSickLeaves = employeeSickLeaves.concat(sickLeaveAbsences);
+      employeeSickLeaves = employeeSickLeaves.concat(allAbsencesForSickLeave);
       
-      // Ajouter les arrêts maladie stockés dans sickLeaves
-      if (Array.isArray(sickLeaves)) {
-        const filteredSickLeaves = sickLeaves.filter(sickLeave => {
+      // Ajouter les arrêts maladie stockés dans sickLeaves (déjà filtrés par le backend)
+      if (Array.isArray(sickLeavesArray)) {
+        const filteredSickLeaves = sickLeavesArray.filter(sickLeave => {
+          if (!sickLeave.startDate || !sickLeave.endDate) return false;
           const start = new Date(sickLeave.startDate);
           const end = new Date(sickLeave.endDate);
           return (start <= endDate && end >= startDate);
@@ -117,9 +138,12 @@ const AbsenceStatus = ({ employees }) => {
         employeeSickLeaves = [...employeeSickLeaves, ...filteredSickLeaves];
       }
 
-      const employeeDelays = Array.isArray(delays) ? delays.filter(delay => {
-        const delayDate = new Date(delay.date);
-        return delayDate >= startDate && delayDate <= endDate;
+      const employeeDelays = Array.isArray(delaysArray) ? delaysArray.filter(delay => {
+        if (delay.date) {
+          const delayDate = new Date(delay.date);
+          return delayDate >= startDate && delayDate <= endDate;
+        }
+        return false;
       }) : [];
 
       // Calculer le nombre de jours d'arrêt maladie dans la période sélectionnée
