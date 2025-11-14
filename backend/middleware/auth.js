@@ -22,15 +22,18 @@ const authenticateEmployee = async (req, res, next) => {
     }
     
     // Ajouter les informations de l'utilisateur à req.user pour compatibilité
+    // Gérer à la fois les tokens admin (userId) et employee (employeeId)
+    const userId = decoded.employeeId || decoded.userId || decoded.id;
+    
     req.user = {
-      id: decoded.employeeId || decoded.id,
+      id: userId,
       email: decoded.email,
       name: decoded.name,
       role: decoded.role,
-      employeeId: decoded.employeeId || decoded.id
+      employeeId: decoded.role === 'admin' ? null : userId
     };
     
-    req.employeeId = decoded.employeeId || decoded.id;
+    req.employeeId = decoded.role === 'admin' ? null : userId;
     req.employeeEmail = decoded.email;
     req.employeeName = decoded.name;
     

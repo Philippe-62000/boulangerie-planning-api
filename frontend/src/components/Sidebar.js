@@ -29,7 +29,8 @@ const Sidebar = () => {
         { menuId: 'vacation-management', isVisibleToAdmin: true, isVisibleToEmployee: false },
         { menuId: 'ticket-restaurant', isVisibleToAdmin: true, isVisibleToEmployee: true },
         { menuId: 'advance-requests', isVisibleToAdmin: true, isVisibleToEmployee: false },
-        { menuId: 'employee-dashboard', isVisibleToAdmin: false, isVisibleToEmployee: true }
+        { menuId: 'employee-dashboard', isVisibleToAdmin: false, isVisibleToEmployee: true },
+        { menuId: 'primes', isVisibleToAdmin: true, isVisibleToEmployee: false }
       ];
     } else {
       return [
