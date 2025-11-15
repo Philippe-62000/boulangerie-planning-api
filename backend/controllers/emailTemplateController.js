@@ -1254,6 +1254,409 @@ Boulangerie Planning - {{rejection_date}}`,
           { name: 'rejection_date', description: 'Date de refus', example: '29/10/2025' },
           { name: 'dashboard_url', description: 'URL du tableau de bord', example: 'https://www.filmara.fr/plan/employee-dashboard.html' }
         ]
+      },
+      {
+        name: 'mutuelle_acknowledgement',
+        displayName: 'Email d\'Accusé de Réception - Justificatif Mutuelle',
+        subject: 'Accusé de réception - Justificatif mutuelle de {{employeeName}}',
+        htmlContent: `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+    .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+    .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; border-radius: 10px 10px 0 0; }
+    .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; }
+    .info-box { background: white; border-left: 4px solid #28a745; padding: 15px; margin: 20px 0; border-radius: 5px; }
+    .footer { text-align: center; margin-top: 30px; color: #666; font-size: 12px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>✅ Accusé de réception</h1>
+      <p>Votre justificatif de mutuelle a bien été reçu</p>
+    </div>
+    <div class="content">
+      <p>Bonjour <strong>{{employeeName}}</strong>,</p>
+      
+      <p>Nous accusons réception de votre justificatif de mutuelle personnelle qui a été déposé le <strong>{{uploadDate}}</strong>.</p>
+      
+      <div class="info-box">
+        <h3>📋 Informations :</h3>
+        <ul>
+          <li><strong>Document déposé :</strong> {{fileName}}</li>
+          <li><strong>Date de dépôt :</strong> {{uploadDate}}</li>
+        </ul>
+      </div>
+      
+      <p>Votre justificatif va être examiné par l'administration dans les plus brefs délais.</p>
+      
+      <p>Vous recevrez une notification par email dès que votre justificatif aura été validé ou si des informations complémentaires sont nécessaires.</p>
+      
+      <p>En cas de question, n'hésitez pas à nous contacter.</p>
+      
+      <p>Cordialement,<br>
+      <strong>L'équipe de la Boulangerie Ange - Arras</strong></p>
+    </div>
+    <div class="footer">
+      <p>Cet email est envoyé automatiquement, merci de ne pas y répondre.</p>
+    </div>
+  </div>
+</body>
+</html>`,
+        textContent: `
+Accusé de réception - Votre justificatif de mutuelle a bien été reçu
+
+Bonjour {{employeeName}},
+
+Nous accusons réception de votre justificatif de mutuelle personnelle qui a été déposé le {{uploadDate}}.
+
+Informations :
+- Document déposé : {{fileName}}
+- Date de dépôt : {{uploadDate}}
+
+Votre justificatif va être examiné par l'administration dans les plus brefs délais.
+
+Vous recevrez une notification par email dès que votre justificatif aura été validé ou si des informations complémentaires sont nécessaires.
+
+En cas de question, n'hésitez pas à nous contacter.
+
+Cordialement,
+L'équipe de la Boulangerie Ange - Arras
+
+----
+Cet email est envoyé automatiquement, merci de ne pas y répondre.`,
+        description: 'Email d\'accusé de réception envoyé automatiquement au salarié lors du dépôt d\'un justificatif de mutuelle',
+        variables: [
+          { name: 'employeeName', description: 'Nom du salarié', example: 'Marie Dupont' },
+          { name: 'fileName', description: 'Nom du fichier déposé', example: 'justificatif_mutuelle.pdf' },
+          { name: 'uploadDate', description: 'Date de dépôt', example: '15/11/2025' }
+        ]
+      },
+      {
+        name: 'mutuelle_alert',
+        displayName: 'Email d\'Alerte - Nouveau Justificatif Mutuelle',
+        subject: '🚨 Nouveau justificatif mutuelle à valider - {{employeeName}}',
+        htmlContent: `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+    .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+    .header { background: #dc3545; color: white; padding: 20px; border-radius: 10px 10px 0 0; }
+    .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; }
+    .alert-box { background: #fff3cd; border-left: 4px solid #ffc107; padding: 15px; margin: 20px 0; border-radius: 5px; }
+    .btn { display: inline-block; background: #007bff; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; margin: 10px 0; }
+    .footer { text-align: center; margin-top: 30px; color: #666; font-size: 12px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>🚨 Nouveau Justificatif Mutuelle</h1>
+      <p>Action requise</p>
+    </div>
+    <div class="content">
+      <div class="alert-box">
+        <h3>⚠️ Attention</h3>
+        <p>Un nouveau justificatif de mutuelle personnelle nécessite votre validation.</p>
+      </div>
+      
+      <p><strong>Salarié :</strong> {{employeeName}}</p>
+      <p><strong>Email :</strong> {{employeeEmail}}</p>
+      <p><strong>Fichier :</strong> {{fileName}}</p>
+      <p><strong>Date de dépôt :</strong> {{uploadDate}}</p>
+      
+      <p>Merci de valider ou rejeter ce justificatif sur <a href="{{adminUrl}}/mutuelle-management" class="btn">la page de gestion des mutuelles</a>.</p>
+      
+      <p>Cordialement,<br>
+      <strong>L'équipe de la Boulangerie Ange - Arras</strong></p>
+    </div>
+    <div class="footer">
+      <p>Cet email est envoyé automatiquement, merci de ne pas y répondre.</p>
+    </div>
+  </div>
+</body>
+</html>`,
+        textContent: `
+🚨 NOUVEAU JUSTIFICATIF MUTUELLE À VALIDER
+
+Un nouveau justificatif de mutuelle personnelle nécessite votre validation.
+
+Salarié : {{employeeName}}
+Email : {{employeeEmail}}
+Fichier : {{fileName}}
+Date de dépôt : {{uploadDate}}
+
+Merci de valider ou rejeter ce justificatif sur {{adminUrl}}/mutuelle-management.
+
+Cordialement,
+L'équipe de la Boulangerie Ange - Arras
+
+----
+Cet email est envoyé automatiquement, merci de ne pas y répondre.`,
+        description: 'Email d\'alerte envoyé aux administrateurs lors du dépôt d\'un nouveau justificatif de mutuelle',
+        variables: [
+          { name: 'employeeName', description: 'Nom du salarié', example: 'Marie Dupont' },
+          { name: 'employeeEmail', description: 'Email du salarié', example: 'marie.dupont@example.com' },
+          { name: 'fileName', description: 'Nom du fichier déposé', example: 'justificatif_mutuelle.pdf' },
+          { name: 'uploadDate', description: 'Date de dépôt', example: '15/11/2025' },
+          { name: 'adminUrl', description: 'URL de l\'administration', example: 'https://www.filmara.fr/plan' }
+        ]
+      },
+      {
+        name: 'mutuelle_validation',
+        displayName: 'Email de Validation - Justificatif Mutuelle Validé',
+        subject: 'Justificatif mutuelle validé - {{employeeName}}',
+        htmlContent: `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+    .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+    .header { background: #28a745; color: white; padding: 20px; border-radius: 10px 10px 0 0; }
+    .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; }
+    .success-box { background: #d4edda; border-left: 4px solid #28a745; padding: 15px; margin: 20px 0; border-radius: 5px; }
+    .info-box { background: white; border-left: 4px solid #007bff; padding: 15px; margin: 20px 0; border-radius: 5px; }
+    .footer { text-align: center; margin-top: 30px; color: #666; font-size: 12px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>✅ Justificatif Mutuelle Validé</h1>
+      <p>Tout est conforme</p>
+    </div>
+    <div class="content">
+      <p>Bonjour <strong>{{employeeName}}</strong>,</p>
+      
+      <div class="success-box">
+        <h3>🎉 Excellente nouvelle !</h3>
+        <p>Votre justificatif de mutuelle personnelle a été <strong>validé</strong> par {{validatedBy}}.</p>
+        <p><strong>Tout est conforme.</strong></p>
+      </div>
+      
+      <div class="info-box">
+        <h3>📋 Informations :</h3>
+        <ul>
+          <li><strong>Date de validation :</strong> {{validationDate}}</li>
+          <li><strong>Date d'expiration :</strong> {{expirationDate}}</li>
+        </ul>
+      </div>
+      
+      <p>Votre justificatif est valide jusqu'au <strong>{{expirationDate}}</strong>. Vous recevrez un rappel par email avant l'expiration pour mettre à jour votre justificatif.</p>
+      
+      <p>En cas de question, n'hésitez pas à nous contacter.</p>
+      
+      <p>Cordialement,<br>
+      <strong>L'équipe de la Boulangerie Ange - Arras</strong></p>
+    </div>
+    <div class="footer">
+      <p>Cet email est envoyé automatiquement, merci de ne pas y répondre.</p>
+    </div>
+  </div>
+</body>
+</html>`,
+        textContent: `
+✅ JUSTIFICATIF MUTUELLE VALIDÉ
+
+Bonjour {{employeeName}},
+
+🎉 Excellente nouvelle !
+Votre justificatif de mutuelle personnelle a été validé par {{validatedBy}}.
+Tout est conforme.
+
+📋 INFORMATIONS :
+- Date de validation : {{validationDate}}
+- Date d'expiration : {{expirationDate}}
+
+Votre justificatif est valide jusqu'au {{expirationDate}}. Vous recevrez un rappel par email avant l'expiration pour mettre à jour votre justificatif.
+
+En cas de question, n'hésitez pas à nous contacter.
+
+Cordialement,
+L'équipe de la Boulangerie Ange - Arras
+
+----
+Cet email est envoyé automatiquement, merci de ne pas y répondre.`,
+        description: 'Email de validation envoyé au salarié lorsque son justificatif de mutuelle est validé',
+        variables: [
+          { name: 'employeeName', description: 'Nom du salarié', example: 'Marie Dupont' },
+          { name: 'validatedBy', description: 'Nom de la personne qui a validé', example: 'Admin' },
+          { name: 'validationDate', description: 'Date de validation', example: '15/11/2025' },
+          { name: 'expirationDate', description: 'Date d\'expiration du justificatif', example: '15/11/2026' }
+        ]
+      },
+      {
+        name: 'mutuelle_rejection',
+        displayName: 'Email de Rejet - Justificatif Mutuelle Rejeté',
+        subject: 'Justificatif mutuelle rejeté - {{employeeName}}',
+        htmlContent: `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+    .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+    .header { background: #dc3545; color: white; padding: 20px; border-radius: 10px 10px 0 0; }
+    .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; }
+    .rejection-box { background: #f8d7da; border-left: 4px solid #dc3545; padding: 15px; margin: 20px 0; border-radius: 5px; }
+    .info-box { background: white; border-left: 4px solid #ffc107; padding: 15px; margin: 20px 0; border-radius: 5px; }
+    .btn { display: inline-block; background: #007bff; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; margin: 10px 0; }
+    .footer { text-align: center; margin-top: 30px; color: #666; font-size: 12px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>❌ Justificatif Mutuelle Rejeté</h1>
+      <p>Action requise</p>
+    </div>
+    <div class="content">
+      <p>Bonjour <strong>{{employeeName}}</strong>,</p>
+      
+      <div class="rejection-box">
+        <h3>⚠️ Justificatif rejeté</h3>
+        <p>Votre justificatif de mutuelle personnelle a été <strong>rejeté</strong> par {{rejectedBy}}.</p>
+      </div>
+      
+      <div class="info-box">
+        <h3>📋 Informations :</h3>
+        <ul>
+          <li><strong>Date de rejet :</strong> {{rejectionDate}}</li>
+          <li><strong>Raison :</strong> {{rejectionReason}}</li>
+        </ul>
+      </div>
+      
+      <p>Merci de déposer un nouveau justificatif lisible et conforme sur <a href="{{dashboardUrl}}" class="btn">votre espace salarié</a>.</p>
+      
+      <p>En cas de question, n'hésitez pas à nous contacter.</p>
+      
+      <p>Cordialement,<br>
+      <strong>L'équipe de la Boulangerie Ange - Arras</strong></p>
+    </div>
+    <div class="footer">
+      <p>Cet email est envoyé automatiquement, merci de ne pas y répondre.</p>
+    </div>
+  </div>
+</body>
+</html>`,
+        textContent: `
+❌ JUSTIFICATIF MUTUELLE REJETÉ
+
+Bonjour {{employeeName}},
+
+⚠️ Justificatif rejeté
+Votre justificatif de mutuelle personnelle a été rejeté par {{rejectedBy}}.
+
+📋 INFORMATIONS :
+- Date de rejet : {{rejectionDate}}
+- Raison : {{rejectionReason}}
+
+Merci de déposer un nouveau justificatif lisible et conforme sur {{dashboardUrl}}.
+
+En cas de question, n'hésitez pas à nous contacter.
+
+Cordialement,
+L'équipe de la Boulangerie Ange - Arras
+
+----
+Cet email est envoyé automatiquement, merci de ne pas y répondre.`,
+        description: 'Email de rejet envoyé au salarié lorsque son justificatif de mutuelle est rejeté',
+        variables: [
+          { name: 'employeeName', description: 'Nom du salarié', example: 'Marie Dupont' },
+          { name: 'rejectedBy', description: 'Nom de la personne qui a rejeté', example: 'Admin' },
+          { name: 'rejectionDate', description: 'Date de rejet', example: '15/11/2025' },
+          { name: 'rejectionReason', description: 'Raison du rejet', example: 'Document illisible' },
+          { name: 'dashboardUrl', description: 'URL du tableau de bord salarié', example: 'https://www.filmara.fr/plan/employee-dashboard.html' }
+        ]
+      },
+      {
+        name: 'mutuelle_reminder',
+        displayName: 'Email de Rappel - Mise à Jour Justificatif Mutuelle',
+        subject: 'Rappel - Mise à jour de votre justificatif mutuelle',
+        htmlContent: `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+    .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+    .header { background: #ff9800; color: white; padding: 20px; border-radius: 10px 10px 0 0; }
+    .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; }
+    .reminder-box { background: #fff3cd; border-left: 4px solid #ffc107; padding: 15px; margin: 20px 0; border-radius: 5px; }
+    .info-box { background: white; border-left: 4px solid #007bff; padding: 15px; margin: 20px 0; border-radius: 5px; }
+    .btn { display: inline-block; background: #007bff; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; margin: 10px 0; }
+    .footer { text-align: center; margin-top: 30px; color: #666; font-size: 12px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>⏰ Rappel - Mise à Jour Justificatif</h1>
+      <p>Action requise</p>
+    </div>
+    <div class="content">
+      <p>Bonjour <strong>{{employeeName}}</strong>,</p>
+      
+      <div class="reminder-box">
+        <h3>⚠️ Rappel Important</h3>
+        <p>Votre justificatif de mutuelle personnelle expire le <strong>{{expirationDate}}</strong>.</p>
+      </div>
+      
+      <div class="info-box">
+        <h3>📋 Action requise :</h3>
+        <p>Merci de déposer un nouveau justificatif à jour sur <a href="{{dashboardUrl}}" class="btn">votre espace salarié</a> avant l'expiration.</p>
+      </div>
+      
+      <p>Ce rappel vous est envoyé automatiquement pour vous permettre de mettre à jour votre justificatif dans les meilleurs délais.</p>
+      
+      <p>En cas de question, n'hésitez pas à nous contacter.</p>
+      
+      <p>Cordialement,<br>
+      <strong>L'équipe de la Boulangerie Ange - Arras</strong></p>
+    </div>
+    <div class="footer">
+      <p>Cet email est envoyé automatiquement, merci de ne pas y répondre.</p>
+    </div>
+  </div>
+</body>
+</html>`,
+        textContent: `
+⏰ RAPPEL - MISE À JOUR JUSTIFICATIF MUTUELLE
+
+Bonjour {{employeeName}},
+
+⚠️ RAPPEL IMPORTANT
+Votre justificatif de mutuelle personnelle expire le {{expirationDate}}.
+
+📋 ACTION REQUISE :
+Merci de déposer un nouveau justificatif à jour sur {{dashboardUrl}} avant l'expiration.
+
+Ce rappel vous est envoyé automatiquement pour vous permettre de mettre à jour votre justificatif dans les meilleurs délais.
+
+En cas de question, n'hésitez pas à nous contacter.
+
+Cordialement,
+L'équipe de la Boulangerie Ange - Arras
+
+----
+Cet email est envoyé automatiquement, merci de ne pas y répondre.`,
+        description: 'Email de rappel envoyé au salarié pour mettre à jour son justificatif de mutuelle avant expiration',
+        variables: [
+          { name: 'employeeName', description: 'Nom du salarié', example: 'Marie Dupont' },
+          { name: 'expirationDate', description: 'Date d\'expiration du justificatif', example: '15/11/2026' },
+          { name: 'dashboardUrl', description: 'URL du tableau de bord salarié', example: 'https://www.filmara.fr/plan/employee-dashboard.html' }
+        ]
       }
     ];
     

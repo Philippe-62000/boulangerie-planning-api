@@ -1310,6 +1310,11 @@ const Parameters = () => {
                             {template.name === 'advance_request_manager' && '🔔 Alerte Acompte'}
                             {template.name === 'advance_approved' && '✅ Validation Acompte'}
                             {template.name === 'advance_rejected' && '❌ Rejet Acompte'}
+                            {template.name === 'mutuelle_acknowledgement' && '📧 Accusé Mutuelle'}
+                            {template.name === 'mutuelle_alert' && '🚨 Alerte Mutuelle'}
+                            {template.name === 'mutuelle_validation' && '✅ Validation Mutuelle'}
+                            {template.name === 'mutuelle_rejection' && '❌ Rejet Mutuelle'}
+                            {template.name === 'mutuelle_reminder' && '⏰ Rappel Mutuelle'}
                           </span>
                         </div>
                         <p className="template-description">{template.description}</p>

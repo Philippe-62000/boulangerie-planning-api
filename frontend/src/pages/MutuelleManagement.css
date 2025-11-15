@@ -239,6 +239,14 @@
   color: #dc3545;
 }
 
+.action-btn.delete {
+  color: #dc3545;
+}
+
+.action-btn.delete:hover {
+  background-color: #f8d7da;
+}
+
 .pagination {
   display: flex;
   justify-content: center;

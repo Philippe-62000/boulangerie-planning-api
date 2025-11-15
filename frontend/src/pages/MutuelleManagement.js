@@ -116,6 +116,27 @@ const MutuelleManagement = () => {
     }
   };
 
+  const handleDelete = async (id) => {
+    if (!window.confirm('Êtes-vous sûr de vouloir supprimer ce justificatif ? Cette action est irréversible.')) {
+      return;
+    }
+
+    try {
+      const response = await axios.delete(`${API_URL}/mutuelle/${id}`);
+
+      if (response.data.success) {
+        setMessage('Justificatif mutuelle supprimé avec succès');
+        setMessageType('success');
+        fetchMutuelles();
+        fetchStats();
+      }
+    } catch (error) {
+      console.error('Erreur suppression:', error);
+      setMessage('Erreur lors de la suppression');
+      setMessageType('error');
+    }
+  };
+
   const normalizeMimeType = (mimeType = '') => mimeType.split(';')[0].trim().toLowerCase();
 
   const getMimeExtension = (mimeType = '') => {
@@ -181,68 +202,93 @@ const MutuelleManagement = () => {
     setShowPrintModal(true);
   };
 
-  const handlePrintList = () => {
-    const printWindow = window.open('', '_blank');
-    const employeesWithMutuelle = employees.filter(emp => emp.mutuelle === 'Oui Entreprise');
-    const employeesWithoutMutuelle = employees.filter(emp => emp.mutuelle === 'Non Perso');
-    
-    printWindow.document.write(`
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <title>Liste des Mutuelles</title>
-          <style>
-            body { font-family: Arial, sans-serif; padding: 20px; }
-            h1 { text-align: center; }
-            h2 { margin-top: 30px; }
-            table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-            th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-            th { background-color: #f2f2f2; }
-          </style>
-        </head>
-        <body>
-          <h1>Liste des Mutuelles - ${new Date().toLocaleDateString('fr-FR')}</h1>
-          
-          <h2>Salariés avec Mutuelle Entreprise (${employeesWithMutuelle.length})</h2>
-          <table>
-            <thead>
-              <tr>
-                <th>Nom</th>
-                <th>Email</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${employeesWithMutuelle.map(emp => `
+  const handlePrintList = async () => {
+    try {
+      // Récupérer les justificatifs mutuelle pour avoir les dates d'envoi
+      const mutuellesResponse = await axios.get(`${API_URL}/mutuelle?limit=1000`);
+      const allMutuelles = mutuellesResponse.data.success ? mutuellesResponse.data.data.mutuelles : [];
+      
+      const printWindow = window.open('', '_blank');
+      const employeesWithMutuelle = employees.filter(emp => emp.mutuelle === 'Oui Entreprise');
+      const employeesWithoutMutuelle = employees.filter(emp => emp.mutuelle === 'Non Perso');
+      
+      // Créer un map des dates d'envoi par employé (dernier justificatif envoyé)
+      const mutuelleDatesMap = {};
+      allMutuelles.forEach(mut => {
+        const empId = mut.employeeId?._id || mut.employeeId;
+        if (empId && (!mutuelleDatesMap[empId] || new Date(mut.uploadDate) > new Date(mutuelleDatesMap[empId]))) {
+          mutuelleDatesMap[empId] = mut.uploadDate;
+        }
+      });
+      
+      printWindow.document.write(`
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <title>Liste des Mutuelles</title>
+            <style>
+              body { font-family: Arial, sans-serif; padding: 20px; }
+              h1 { text-align: center; }
+              h2 { margin-top: 30px; }
+              table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+              th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+              th { background-color: #f2f2f2; }
+            </style>
+          </head>
+          <body>
+            <h1>Liste des Mutuelles - ${new Date().toLocaleDateString('fr-FR')}</h1>
+            
+            <h2>Salariés avec Mutuelle Entreprise (${employeesWithMutuelle.length})</h2>
+            <table>
+              <thead>
                 <tr>
-                  <td>${emp.name}</td>
-                  <td>${emp.email || '-'}</td>
+                  <th>Nom</th>
+                  <th>Email</th>
                 </tr>
-              `).join('')}
-            </tbody>
-          </table>
-          
-          <h2>Salariés avec Mutuelle Personnelle (${employeesWithoutMutuelle.length})</h2>
-          <table>
-            <thead>
-              <tr>
-                <th>Nom</th>
-                <th>Email</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${employeesWithoutMutuelle.map(emp => `
+              </thead>
+              <tbody>
+                ${employeesWithMutuelle.map(emp => `
+                  <tr>
+                    <td>${emp.name}</td>
+                    <td>${emp.email || '-'}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+            
+            <h2>Salariés avec Mutuelle Personnelle (${employeesWithoutMutuelle.length})</h2>
+            <table>
+              <thead>
                 <tr>
-                  <td>${emp.name}</td>
-                  <td>${emp.email || '-'}</td>
+                  <th>Nom</th>
+                  <th>Date d'envoi du justificatif</th>
                 </tr>
-              `).join('')}
-            </tbody>
-          </table>
-        </body>
-      </html>
-    `);
-    printWindow.document.close();
-    printWindow.print();
+              </thead>
+              <tbody>
+                ${employeesWithoutMutuelle.map(emp => {
+                  const empId = emp._id || emp.id;
+                  const uploadDate = mutuelleDatesMap[empId] 
+                    ? new Date(mutuelleDatesMap[empId]).toLocaleDateString('fr-FR')
+                    : '-';
+                  return `
+                    <tr>
+                      <td>${emp.name}</td>
+                      <td>${uploadDate}</td>
+                    </tr>
+                  `;
+                }).join('')}
+              </tbody>
+            </table>
+          </body>
+        </html>
+      `);
+      printWindow.document.close();
+      printWindow.print();
+    } catch (error) {
+      console.error('Erreur récupération justificatifs pour impression:', error);
+      setMessage('Erreur lors de la récupération des données pour impression');
+      setMessageType('error');
+    }
   };
 
   const getStatusBadge = (status) => {
@@ -416,6 +462,14 @@ const MutuelleManagement = () => {
                       </button>
                     </>
                   )}
+                  
+                  <button 
+                    onClick={() => handleDelete(mutuelle._id)}
+                    className="action-btn delete"
+                    title="Supprimer"
+                  >
+                    🗑️
+                  </button>
                 </div>
               </div>
             ))}
