@@ -26,6 +26,7 @@ const EmployeeModal = ({ employee, onSave, onClose, employees = [] }) => {
     tutor: '',
     email: '',
     saleCode: '',
+    mutuelle: 'Oui Entreprise',
     isActive: true,
     emergencyContact: {
       lastName: '',
@@ -49,6 +50,7 @@ const EmployeeModal = ({ employee, onSave, onClose, employees = [] }) => {
         tutor: getTutorId(employee.tutor),
         email: employee.email || '',
         saleCode: employee.saleCode || '',
+        mutuelle: employee.mutuelle || 'Oui Entreprise',
         isActive: employee.isActive !== undefined ? employee.isActive : true,
         emergencyContact: employee.emergencyContact || {
           lastName: '',
@@ -463,6 +465,22 @@ const EmployeeModal = ({ employee, onSave, onClose, employees = [] }) => {
               </div>
             </>
           )}
+
+          {/* Champ Mutuelle */}
+          <div className="form-group" style={{ marginTop: '1.5rem' }}>
+            <label className="form-label">Mutuelle *</label>
+            <select
+              name="mutuelle"
+              value={formData.mutuelle}
+              onChange={handleInputChange}
+              className="form-control"
+              required
+            >
+              <option value="Oui Entreprise">Oui Entreprise</option>
+              <option value="Non Perso">Non Perso</option>
+            </select>
+            <small className="form-text">Choisissez si l'employé a la mutuelle entreprise ou une mutuelle personnelle</small>
+          </div>
 
           {/* Section Contact d'urgence */}
           <div style={{ marginTop: '2rem', paddingTop: '1.5rem', borderTop: '2px solid #e0e0e0' }}>

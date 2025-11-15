@@ -2277,6 +2277,213 @@ Date : ${new Date().toLocaleDateString('fr-FR')}
       return { success: false, message: error.message };
     }
   }
+
+  // Envoyer un accusé de réception de justificatif mutuelle
+  async sendMutuelleAcknowledgement(mutuelle) {
+    try {
+      console.log(`📧 Envoi accusé de réception mutuelle à ${mutuelle.employeeName} (${mutuelle.employeeEmail})`);
+      
+      const EmailTemplate = require('../models/EmailTemplate');
+      const template = await EmailTemplate.findOne({ name: 'mutuelle_acknowledgement' });
+      
+      if (!template) {
+        return await this.sendEmail(
+          mutuelle.employeeEmail,
+          `Accusé de réception - Justificatif mutuelle de ${mutuelle.employeeName}`,
+          `<p>Bonjour ${mutuelle.employeeName},<br><br>Nous avons bien reçu votre justificatif de mutuelle personnelle.<br>Il sera examiné par l'administration dans les plus brefs délais.<br><br>Cordialement</p>`,
+          `Bonjour ${mutuelle.employeeName},\n\nNous avons bien reçu votre justificatif de mutuelle personnelle.\nIl sera examiné par l'administration dans les plus brefs délais.\n\nCordialement`
+        );
+      }
+
+      const htmlContent = this.replaceTemplateVariables(template.htmlContent, {
+        employeeName: mutuelle.employeeName,
+        uploadDate: new Date(mutuelle.uploadDate).toLocaleDateString('fr-FR'),
+        fileName: mutuelle.originalFileName || mutuelle.fileName
+      });
+
+      const textContent = this.replaceTemplateVariables(template.textContent, {
+        employeeName: mutuelle.employeeName,
+        uploadDate: new Date(mutuelle.uploadDate).toLocaleDateString('fr-FR'),
+        fileName: mutuelle.originalFileName || mutuelle.fileName
+      });
+      
+      return await this.sendEmail(
+        mutuelle.employeeEmail,
+        this.replaceTemplateVariables(template.subject, { employeeName: mutuelle.employeeName }),
+        htmlContent,
+        textContent
+      );
+    } catch (error) {
+      console.error('❌ Erreur envoi accusé de réception mutuelle:', error.message);
+      return { success: false, message: error.message };
+    }
+  }
+
+  // Envoyer une alerte mutuelle aux administrateurs
+  async sendMutuelleAlert(mutuelle, recipientEmails) {
+    try {
+      const EmailTemplate = require('../models/EmailTemplate');
+      const template = await EmailTemplate.findOne({ name: 'mutuelle_alert' });
+      
+      if (!template) {
+        return await this.sendEmail(
+          recipientEmails.join(', '),
+          `🚨 Nouveau justificatif mutuelle à valider - ${mutuelle.employeeName}`,
+          `<p>Un nouveau justificatif de mutuelle personnelle a été déposé par ${mutuelle.employeeName} (${mutuelle.employeeEmail}).<br>Merci de le valider sur <a href="https://www.filmara.fr/plan/mutuelle-management">la page de gestion des mutuelles</a>.</p>`,
+          `Un nouveau justificatif de mutuelle personnelle a été déposé par ${mutuelle.employeeName} (${mutuelle.employeeEmail}).\nMerci de le valider sur https://www.filmara.fr/plan/mutuelle-management`
+        );
+      }
+
+      const htmlContent = this.replaceTemplateVariables(template.htmlContent, {
+        employeeName: mutuelle.employeeName,
+        employeeEmail: mutuelle.employeeEmail,
+        fileName: mutuelle.fileName,
+        uploadDate: new Date(mutuelle.uploadDate).toLocaleDateString('fr-FR'),
+        adminUrl: 'https://www.filmara.fr/plan'
+      });
+
+      const textContent = this.replaceTemplateVariables(template.textContent, {
+        employeeName: mutuelle.employeeName,
+        employeeEmail: mutuelle.employeeEmail,
+        fileName: mutuelle.fileName,
+        uploadDate: new Date(mutuelle.uploadDate).toLocaleDateString('fr-FR'),
+        adminUrl: 'https://www.filmara.fr/plan'
+      });
+      
+      return await this.sendEmail(
+        recipientEmails.join(', '),
+        this.replaceTemplateVariables(template.subject, { employeeName: mutuelle.employeeName }),
+        htmlContent,
+        textContent
+      );
+    } catch (error) {
+      console.error('❌ Erreur envoi alerte mutuelle:', error.message);
+      return { success: false, message: error.message };
+    }
+  }
+
+  // Envoyer une validation de justificatif mutuelle
+  async sendMutuelleValidation(mutuelle, validatedBy) {
+    try {
+      const EmailTemplate = require('../models/EmailTemplate');
+      const template = await EmailTemplate.findOne({ name: 'mutuelle_validation' });
+      
+      if (!template) {
+        return await this.sendEmail(
+          mutuelle.employeeEmail,
+          `Justificatif mutuelle validé - ${mutuelle.employeeName}`,
+          `<p>Bonjour ${mutuelle.employeeName},<br><br>Votre justificatif de mutuelle personnelle a été validé par ${validatedBy}.<br>Tout est conforme.<br><br>Cordialement</p>`,
+          `Bonjour ${mutuelle.employeeName},\n\nVotre justificatif de mutuelle personnelle a été validé par ${validatedBy}.\nTout est conforme.\n\nCordialement`
+        );
+      }
+
+      const htmlContent = this.replaceTemplateVariables(template.htmlContent, {
+        employeeName: mutuelle.employeeName,
+        validatedBy: validatedBy,
+        validationDate: new Date().toLocaleDateString('fr-FR'),
+        expirationDate: mutuelle.expirationDate ? new Date(mutuelle.expirationDate).toLocaleDateString('fr-FR') : 'Non définie'
+      });
+
+      const textContent = this.replaceTemplateVariables(template.textContent, {
+        employeeName: mutuelle.employeeName,
+        validatedBy: validatedBy,
+        validationDate: new Date().toLocaleDateString('fr-FR'),
+        expirationDate: mutuelle.expirationDate ? new Date(mutuelle.expirationDate).toLocaleDateString('fr-FR') : 'Non définie'
+      });
+      
+      return await this.sendEmail(
+        mutuelle.employeeEmail,
+        this.replaceTemplateVariables(template.subject, { employeeName: mutuelle.employeeName }),
+        htmlContent,
+        textContent
+      );
+    } catch (error) {
+      console.error('❌ Erreur envoi validation mutuelle:', error.message);
+      return { success: false, message: error.message };
+    }
+  }
+
+  // Envoyer un rejet de justificatif mutuelle
+  async sendMutuelleRejection(mutuelle, reason, rejectedBy) {
+    try {
+      const EmailTemplate = require('../models/EmailTemplate');
+      const template = await EmailTemplate.findOne({ name: 'mutuelle_rejection' });
+      
+      if (!template) {
+        return await this.sendEmail(
+          mutuelle.employeeEmail,
+          `Justificatif mutuelle rejeté - ${mutuelle.employeeName}`,
+          `<p>Bonjour ${mutuelle.employeeName},<br><br>Votre justificatif de mutuelle personnelle a été rejeté par ${rejectedBy}.<br>Raison : ${reason}<br>Merci de déposer un nouveau justificatif lisible.<br><br>Cordialement</p>`,
+          `Bonjour ${mutuelle.employeeName},\n\nVotre justificatif de mutuelle personnelle a été rejeté par ${rejectedBy}.\nRaison : ${reason}\nMerci de déposer un nouveau justificatif lisible.\n\nCordialement`
+        );
+      }
+
+      const htmlContent = this.replaceTemplateVariables(template.htmlContent, {
+        employeeName: mutuelle.employeeName,
+        rejectionReason: reason,
+        rejectedBy: rejectedBy,
+        rejectionDate: new Date().toLocaleDateString('fr-FR')
+      });
+
+      const textContent = this.replaceTemplateVariables(template.textContent, {
+        employeeName: mutuelle.employeeName,
+        rejectionReason: reason,
+        rejectedBy: rejectedBy,
+        rejectionDate: new Date().toLocaleDateString('fr-FR')
+      });
+      
+      return await this.sendEmail(
+        mutuelle.employeeEmail,
+        this.replaceTemplateVariables(template.subject, { employeeName: mutuelle.employeeName }),
+        htmlContent,
+        textContent
+      );
+    } catch (error) {
+      console.error('❌ Erreur envoi rejet mutuelle:', error.message);
+      return { success: false, message: error.message };
+    }
+  }
+
+  // Envoyer un rappel pour la mise à jour du justificatif mutuelle
+  async sendMutuelleReminder(mutuelle) {
+    try {
+      const EmailTemplate = require('../models/EmailTemplate');
+      const template = await EmailTemplate.findOne({ name: 'mutuelle_reminder' });
+      
+      if (!template) {
+        const expirationDate = mutuelle.expirationDate ? new Date(mutuelle.expirationDate).toLocaleDateString('fr-FR') : 'bientôt';
+        return await this.sendEmail(
+          mutuelle.employeeEmail,
+          `Rappel - Mise à jour de votre justificatif mutuelle`,
+          `<p>Bonjour ${mutuelle.employeeName},<br><br>Votre justificatif de mutuelle personnelle expire le ${expirationDate}.<br>Merci de déposer un nouveau justificatif à jour sur <a href="https://www.filmara.fr/plan/employee-dashboard.html">votre espace salarié</a>.<br><br>Cordialement</p>`,
+          `Bonjour ${mutuelle.employeeName},\n\nVotre justificatif de mutuelle personnelle expire le ${expirationDate}.\nMerci de déposer un nouveau justificatif à jour sur https://www.filmara.fr/plan/employee-dashboard.html\n\nCordialement`
+        );
+      }
+
+      const expirationDate = mutuelle.expirationDate ? new Date(mutuelle.expirationDate).toLocaleDateString('fr-FR') : 'bientôt';
+      const htmlContent = this.replaceTemplateVariables(template.htmlContent, {
+        employeeName: mutuelle.employeeName,
+        expirationDate: expirationDate,
+        dashboardUrl: 'https://www.filmara.fr/plan/employee-dashboard.html'
+      });
+
+      const textContent = this.replaceTemplateVariables(template.textContent, {
+        employeeName: mutuelle.employeeName,
+        expirationDate: expirationDate,
+        dashboardUrl: 'https://www.filmara.fr/plan/employee-dashboard.html'
+      });
+      
+      return await this.sendEmail(
+        mutuelle.employeeEmail,
+        this.replaceTemplateVariables(template.subject, { employeeName: mutuelle.employeeName }),
+        htmlContent,
+        textContent
+      );
+    } catch (error) {
+      console.error('❌ Erreur envoi rappel mutuelle:', error.message);
+      return { success: false, message: error.message };
+    }
+  }
 }
 
 // Instance singleton

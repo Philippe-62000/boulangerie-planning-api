@@ -192,6 +192,12 @@ const employeeSchema = new mongoose.Schema({
     },
     comment: 'Code vente nominatif à 3 chiffres pour les vendeuses'
   },
+  mutuelle: {
+    type: String,
+    enum: ['Oui Entreprise', 'Non Perso'],
+    default: 'Oui Entreprise',
+    comment: 'Choix de la mutuelle : Oui Entreprise ou Non Perso'
+  },
   isActive: {
     type: Boolean,
     default: true

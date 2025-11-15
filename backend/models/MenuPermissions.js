@@ -162,6 +162,15 @@ menuPermissionsSchema.statics.createDefaultPermissions = async function() {
         order: 11
       },
       {
+        menuId: 'mutuelle-management',
+        menuName: 'Gestion des Mutuelles',
+        menuPath: '/mutuelle-management',
+        isVisibleToAdmin: true,
+        isVisibleToEmployee: false,
+        requiredPermissions: ['manage_employees'],
+        order: 11.5
+      },
+      {
         menuId: 'vacation-management',
         menuName: 'Gestion des Congés',
         menuPath: '/vacation-management',

@@ -235,7 +235,8 @@ const getEmployeeProfile = async (req, res) => {
         name: employee.name,
         email: employee.email,
         role: employee.role,
-        contractType: employee.contractType
+        contractType: employee.contractType,
+        mutuelle: employee.mutuelle || 'Oui Entreprise'
       }
     });
     

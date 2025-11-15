@@ -87,6 +87,22 @@ mongoose.connect(config.MONGODB_URI, {
   } catch (error) {
     console.error('❌ Erreur nettoyage documents expirés:', error);
   }
+  
+  // Planifier l'envoi de rappels pour les justificatifs mutuelle expirant bientôt
+  try {
+    const cron = require('node-cron');
+    const mutuelleController = require('./controllers/mutuelleController');
+    
+    // Exécuter tous les lundis à 9h du matin
+    cron.schedule('0 9 * * 1', () => {
+      console.log('⏰ Exécution programmée des rappels mutuelle...');
+      mutuelleController.sendExpirationReminders();
+    });
+    
+    console.log('⏰ Rappels mutuelle programmés (tous les lundis à 9h)');
+  } catch (error) {
+    console.error('❌ Erreur programmation rappels mutuelle:', error);
+  }
 })
 .catch(err => console.error('❌ Erreur de connexion MongoDB:', err));
 
@@ -117,6 +133,7 @@ app.use('/api/uniforms', require('./routes/uniforms'));
 app.use('/api/documents', require('./routes/documents'));
 app.use('/api/advance-requests', require('./routes/advanceRequests'));
 app.use('/api/primes', require('./routes/primes'));
+app.use('/api/mutuelle', require('./routes/mutuelle'));
 app.use('/api/maintenance', require('./routes/maintenance'));
 app.use('/api/employee-messages', require('./routes/employeeMessages'));
 app.use('/api/recup-hours', require('./routes/recupHours'));

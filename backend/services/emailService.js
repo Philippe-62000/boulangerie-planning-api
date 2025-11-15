@@ -98,6 +98,31 @@ class EmailService {
     }
   }
 
+  // Envoyer un accusé de réception de justificatif mutuelle
+  async sendMutuelleAcknowledgement(mutuelle) {
+    return await emailServiceAlternative.sendMutuelleAcknowledgement(mutuelle);
+  }
+
+  // Envoyer une alerte mutuelle aux administrateurs
+  async sendMutuelleAlert(mutuelle, recipientEmails) {
+    return await emailServiceAlternative.sendMutuelleAlert(mutuelle, recipientEmails);
+  }
+
+  // Envoyer une validation de justificatif mutuelle
+  async sendMutuelleValidation(mutuelle, validatedBy) {
+    return await emailServiceAlternative.sendMutuelleValidation(mutuelle, validatedBy);
+  }
+
+  // Envoyer un rejet de justificatif mutuelle
+  async sendMutuelleRejection(mutuelle, reason, rejectedBy) {
+    return await emailServiceAlternative.sendMutuelleRejection(mutuelle, reason, rejectedBy);
+  }
+
+  // Envoyer un rappel pour la mise à jour du justificatif mutuelle
+  async sendMutuelleReminder(mutuelle) {
+    return await emailServiceAlternative.sendMutuelleReminder(mutuelle);
+  }
+
   // Envoyer notification demande d'acompte au manager
   async sendAdvanceRequestNotification(managerEmail, managerName, employeeName, amount, deductionMonth, comment) {
     try {
