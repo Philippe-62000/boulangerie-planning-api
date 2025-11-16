@@ -427,7 +427,7 @@
     </div>
 
     <script>
-        const API_URL = 'https://boulangerie-planning-api-4-pbfy.onrender.com/api';
+    const API_URL = 'https://boulangerie-planning-api-4-pbfy.onrender.com/api';
 
         // Charger les employés au démarrage
         document.addEventListener('DOMContentLoaded', async () => {
@@ -577,18 +577,48 @@
 
                 let html = '<h3>📋 Documents Généraux</h3>';
                 
-                if (generalData.success && generalData.data) {
+                if (generalData.success && generalData.data && generalData.data.length > 0) {
                     generalData.data.forEach(doc => {
+                        // Vérifier si le document a été téléchargé
+                        const hasBeenDownloaded = doc.downloadCount && doc.downloadCount > 0;
+                        const downloadsList = doc.downloads && doc.downloads.length > 0 ? doc.downloads : [];
+                        
+                        // Construire la liste des téléchargements
+                        let downloadsDetailsHtml = '';
+                        if (downloadsList.length > 0) {
+                            downloadsDetailsHtml = '<div style="margin-top: 10px; padding: 10px; background: #f8f9fa; border-radius: 5px; font-size: 0.9rem;">';
+                            downloadsDetailsHtml += '<strong style="display: block; margin-bottom: 8px; color: #495057;">📥 Téléchargements détaillés:</strong>';
+                            downloadsList.forEach((download, index) => {
+                                const employeeName = download.employeeId && download.employeeId.name ? download.employeeId.name : (download.employeeId ? 'Salarié ID: ' + download.employeeId : 'Salarié inconnu');
+                                const downloadDate = download.downloadDate ? formatDate(download.downloadDate) : 'Date inconnue';
+                                downloadsDetailsHtml += `<div style="padding: 5px 0; border-bottom: ${index < downloadsList.length - 1 ? '1px solid #dee2e6' : 'none'};">
+                                    <span style="color: #28a745;">✓</span> ${employeeName} - ${downloadDate}
+                                </div>`;
+                            });
+                            downloadsDetailsHtml += '</div>';
+                        } else if (hasBeenDownloaded && doc.downloadCount > 0) {
+                            // Si des téléchargements existent mais pas de détails (anciens téléchargements)
+                            downloadsDetailsHtml = '<div style="margin-top: 10px; padding: 10px; background: #fff3cd; border-radius: 5px; font-size: 0.9rem; color: #856404;">';
+                            downloadsDetailsHtml += '<em>⚠️ Les téléchargements précédents n\'ont pas été enregistrés avec les détails. Seuls les nouveaux téléchargements afficheront les noms des salariés.</em>';
+                            downloadsDetailsHtml += '</div>';
+                        }
+                        
+                        const downloadInfo = hasBeenDownloaded 
+                                            ? `<span style="color: #28a745; font-weight: 600; margin-right: 10px;">✅ Téléchargé ${doc.downloadCount} fois${doc.lastDownloadDate ? ' (dernier: ' + formatDate(doc.lastDownloadDate) + ')' : ''}</span>`
+                                            : `<span style="color: #6c757d; font-weight: 500; margin-right: 10px;">⏳ Non téléchargé</span>`;
+                        
                         html += `
                             <div class="file-item">
-                                <div class="file-info">
+                                <div class="file-info" style="flex: 1;">
                                     <div class="file-icon">📄</div>
-                                    <div class="file-details">
+                                    <div class="file-details" style="flex: 1;">
                                         <h4>${doc.title}</h4>
                                         <p>Catégorie: ${doc.category} | Taille: ${formatFileSize(doc.fileSize)} | Upload: ${formatDate(doc.uploadDate)}</p>
+                                        ${downloadsDetailsHtml}
                                     </div>
                                 </div>
                                 <div class="file-actions">
+                                    ${downloadInfo}
                                     <button class="btn btn-danger" onclick="deleteDocument('${doc._id}')">🗑️ Supprimer</button>
                                 </div>
                             </div>
@@ -596,6 +626,63 @@
                     });
                 } else {
                     html += '<p>Aucun document général trouvé.</p>';
+                }
+
+                // Charger les documents personnels
+                html += '<h3 style="margin-top: 30px;">👤 Documents Personnels</h3>';
+                
+                try {
+                    // Récupérer tous les employés
+                    const employeesResponse = await fetch(`${API_URL}/employees`);
+                    const employeesData = await employeesResponse.json();
+                    
+                    let personalDocsFound = false;
+                    
+                    if (employeesData.success && employeesData.data) {
+                        // Pour chaque employé, récupérer ses documents personnels
+                        for (const employee of employeesData.data) {
+                            try {
+                                const personalResponse = await fetch(`${API_URL}/documents/personal/${employee._id}`);
+                                const personalData = await personalResponse.json();
+                                
+                                if (personalData.success && personalData.data && personalData.data.length > 0) {
+                                    personalDocsFound = true;
+                                    personalData.data.forEach(doc => {
+                                        // Vérifier si le document a été téléchargé
+                                        const hasBeenDownloaded = doc.downloadCount && doc.downloadCount > 0;
+                                        const downloadInfo = hasBeenDownloaded 
+                                            ? `<span style="color: #28a745; font-weight: 600; margin-right: 10px;">✅ Téléchargé ${doc.downloadCount} fois${doc.lastDownloadDate ? ' (dernier: ' + formatDate(doc.lastDownloadDate) + ')' : ''}</span>`
+                                            : `<span style="color: #6c757d; font-weight: 500; margin-right: 10px;">⏳ Non téléchargé</span>`;
+                                        
+                                        html += `
+                                            <div class="file-item">
+                                                <div class="file-info">
+                                                    <div class="file-icon">📄</div>
+                                                    <div class="file-details">
+                                                        <h4>${doc.title}</h4>
+                                                        <p><strong>Salarié:</strong> ${employee.name} | Catégorie: ${doc.category} | Taille: ${formatFileSize(doc.fileSize)} | Upload: ${formatDate(doc.uploadDate)}</p>
+                                                    </div>
+                                                </div>
+                                                <div class="file-actions">
+                                                    ${downloadInfo}
+                                                    <button class="btn btn-danger" onclick="deleteDocument('${doc._id}')">🗑️ Supprimer</button>
+                                                </div>
+                                            </div>
+                                        `;
+                                    });
+                                }
+                            } catch (error) {
+                                console.error(`Erreur chargement documents pour ${employee.name}:`, error);
+                            }
+                        }
+                    }
+                    
+                    if (!personalDocsFound) {
+                        html += '<p>Aucun document personnel trouvé.</p>';
+                    }
+                } catch (error) {
+                    console.error('Erreur chargement employés:', error);
+                    html += '<p>Erreur lors du chargement des documents personnels.</p>';
                 }
 
                 container.innerHTML = html;

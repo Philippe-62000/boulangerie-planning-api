@@ -48,6 +48,36 @@ class PlanningBoulangerieSolver:
         
         return weekend_scores
     
+    def slot_overlaps(self, slot: str, start: str, end: str) -> bool:
+        """
+        Vérifie si un créneau texte du type '06h00-14h00' chevauche
+        l'intervalle [start, end] donné au format 'HH:MM'.
+        """
+        try:
+            # Exemple slot: '06h00-14h00'
+            start_part, end_part = slot.split('-')
+            start_part = start_part.replace('h', ':')
+            end_part = end_part.replace('h', ':')
+
+            sh, sm = map(int, start_part.split(':'))
+            eh, em = map(int, end_part.split(':'))
+            s_minutes = sh * 60 + sm
+            e_minutes = eh * 60 + em
+
+            ref_sh, ref_sm = map(int, start.split(':'))
+            ref_eh, ref_em = map(int, end.split(':'))
+            rs_minutes = ref_sh * 60 + ref_sm
+            re_minutes = ref_eh * 60 + ref_em
+
+            # Pas de chevauchement si le créneau finit avant le début de l'intervalle
+            # ou commence après la fin de l'intervalle
+            if e_minutes <= rs_minutes or s_minutes >= re_minutes:
+                return False
+            return True
+        except Exception:
+            # Si le format ne correspond pas (Repos, MAL, etc.), on considère qu'il ne chevauche pas
+            return False
+    
     def adjust_weekly_hours_and_balance(self, solution, employees, slot_hours):
         """
         Ajuster les heures réglementaires et équilibrer selon l'affluence
@@ -662,7 +692,66 @@ class PlanningBoulangerieSolver:
                         # Augmenter la probabilité de repos dimanche
                         pass  # OR-Tools gérera via l'objectif
             
-            # 8. NOUVELLE CONTRAINTE: Équilibrage lundi-vendredi pour même affluence
+            # 8. CONTRAINTE SUPERVISION: au moins 1 superviseur sur ouverture / midi / fermeture
+            opening_interval = ('06:00', '09:00')
+            midi_interval = ('12:00', '13:30')
+            closing_interval = ('16:00', '20:30')
+
+            supervisor_roles = [
+                'manager',
+                'responsable',
+                'responsable magasin',
+                'responsable magasin adjointe'
+            ]
+
+            # Variables de pénalité pour les plages avec plusieurs superviseurs simultanés
+            multi_supervisor_penalties = []
+
+            for day in range(7):
+                opening_supervisors = []
+                midi_supervisors = []
+                closing_supervisors = []
+
+                # Pour compter le nombre de superviseurs par plage (pour la pénalité)
+                closing_supervisors_vars_for_penalty = []
+
+                for emp in employees:
+                    emp_id = str(emp['id'])
+                    raw_role = (emp.get('role') or '')
+                    normalized_role = raw_role.lower()
+                    is_supervisor = emp.get('is_supervisor', False) or normalized_role in supervisor_roles
+
+                    for slot, var in shifts[emp_id][day].items():
+                        if slot in ['Repos', 'MAL', 'Maladie', 'Formation', 'CP']:
+                            continue
+
+                        if self.slot_overlaps(slot, *opening_interval) and is_supervisor:
+                            opening_supervisors.append(var)
+
+                        if self.slot_overlaps(slot, *midi_interval) and is_supervisor:
+                            midi_supervisors.append(var)
+
+                        if self.slot_overlaps(slot, *closing_interval) and is_supervisor:
+                            closing_supervisors.append(var)
+                            closing_supervisors_vars_for_penalty.append(var)
+
+                # Au moins 1 superviseur sur chaque plage critique s'il existe des créneaux possibles
+                if opening_supervisors:
+                    self.model.Add(sum(opening_supervisors) >= 1)
+                if midi_supervisors:
+                    self.model.Add(sum(midi_supervisors) >= 1)
+                if closing_supervisors:
+                    self.model.Add(sum(closing_supervisors) >= 1)
+
+                # Pénalité si plusieurs superviseurs sur la plage de fermeture (on préfère les répartir)
+                if len(closing_supervisors_vars_for_penalty) >= 2:
+                    z = self.model.NewBoolVar(f'multi_supervisors_closing_day{day}')
+                    # z = 1 si au moins 2 superviseurs en fermeture ce jour-là
+                    self.model.Add(sum(closing_supervisors_vars_for_penalty) >= 2).OnlyEnforceIf(z)
+                    self.model.Add(sum(closing_supervisors_vars_for_penalty) < 2).OnlyEnforceIf(z.Not())
+                    multi_supervisor_penalties.append(z)
+
+            # 9. NOUVELLE CONTRAINTE: Équilibrage lundi-vendredi pour même affluence
             # Grouper les jours de semaine par affluence
             weekday_affluence_groups = {}
             for day in range(5):  # Lundi à vendredi seulement
@@ -701,7 +790,7 @@ class PlanningBoulangerieSolver:
                                 
                                 logger.info(f"⚖️ Contrainte équilibrage: jour {day1} vs jour {day2} (écart max 1)")
             
-            # 9. CONTRAINTE SUPPLÉMENTAIRE: Minimum/Maximum employés par jour semaine
+            # 10. CONTRAINTE SUPPLÉMENTAIRE: Minimum/Maximum employés par jour semaine
             for day in range(5):  # Lundi à vendredi
                 working_day = []
                 for emp in employees:
@@ -739,6 +828,11 @@ class PlanningBoulangerieSolver:
                 self.model.Add(total_hours_var + gap_neg - gap_pos == target_hours)
                 # Poids plus élevé pour les écarts de volume
                 objectives.append(20 * (gap_pos + gap_neg))
+
+            # Priorité 2: Réduire les cas où plusieurs superviseurs sont en fermeture en même temps
+            if multi_supervisor_penalties:
+                # Poids modéré : on veut éviter les doublons inutiles sans casser la faisabilité
+                objectives.append(5 * sum(multi_supervisor_penalties))
             
             # Objectif global
             self.model.Minimize(sum(objectives))

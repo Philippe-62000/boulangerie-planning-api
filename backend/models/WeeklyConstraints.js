@@ -15,6 +15,11 @@ const constraintSchema = new mongoose.Schema({
     ref: 'Employee',
     required: true
   },
+  // Indique si, pour cette semaine, l'employé peut travailler jusqu'à 6 jours sur 7
+  sixDaysPerWeek: {
+    type: Boolean,
+    default: false
+  },
   constraints: {
     Lundi: {
       type: String,

@@ -138,7 +138,8 @@ const Constraints = () => {
     }));
   };
 
-  const applyGlobalConstraint = (day, constraint) => {
+  const applyGlobalConstraint = async (day, constraint) => {
+    // Mise à jour locale immédiate pour le confort d'utilisation
     setConstraints(prev => {
       const updated = { ...prev };
       employees.forEach(employee => {
@@ -149,6 +150,29 @@ const Constraints = () => {
       });
       return updated;
     });
+
+    // Persistance côté backend pour que la colonne soit bien enregistrée
+    try {
+      if (!weekNumber || !year) {
+        return;
+      }
+
+      await api.post('/constraints/global', {
+        weekNumber: parseInt(weekNumber),
+        year: parseInt(year),
+        day,
+        constraint
+      });
+
+      toast.success(
+        constraint === 'Fermé'
+          ? `Jour "${day}" marqué comme fermé pour tous les salariés`
+          : `Jour "${day}" enregistré comme jour férié pour tous les salariés`
+      );
+    } catch (error) {
+      console.error('Erreur lors de l’application globale de la contrainte :', error);
+      toast.error('Erreur lors de l’enregistrement global de la contrainte');
+    }
   };
 
   const applySickLeave = (employeeId) => {
@@ -167,36 +191,20 @@ const Constraints = () => {
 
   // Fonction améliorée pour appliquer 6/7 jours de travail
   const applySixDaysWork = (employeeId) => {
-    setSixDayWorkers(prev => ({
-      ...prev,
-      [employeeId]: !prev[employeeId]
-    }));
+    setSixDayWorkers(prev => {
+      const isCurrentlySixDays = !!prev[employeeId];
+      const nextValue = !isCurrentlySixDays;
 
-    setConstraints(prev => {
-      const updated = { ...prev };
-      if (!updated[employeeId]) {
-        updated[employeeId] = {};
-      }
-      
-      if (sixDayWorkers[employeeId]) {
-        // Désactiver 6j/7 - remettre toutes les contraintes
-        daysOfWeek.forEach(day => {
-          updated[employeeId][day] = '';
-        });
-        toast.success('6j/7 désactivé pour cet employé');
+      if (nextValue) {
+        toast.success('Mode 6j/7 activé : OR-Tools choisira le jour de repos en fonction des contraintes');
       } else {
-        // Activer 6j/7 - forcer 1 jour de repos
-        daysOfWeek.forEach(day => {
-          updated[employeeId][day] = '';
-        });
-        
-        // Choisir un jour de repos (généralement le dimanche)
-        const restDay = 'Dimanche';
-        updated[employeeId][restDay] = 'Repos';
-        toast.success('6 jours de travail appliqués (1 jour de repos)');
+        toast.success('Mode 6j/7 désactivé pour ce salarié');
       }
-      
-      return updated;
+
+      return {
+        ...prev,
+        [employeeId]: nextValue
+      };
     });
   };
 
@@ -218,7 +226,9 @@ const Constraints = () => {
           weekNumber: parseInt(weekNumber),
           year: parseInt(year),
           employeeId: employee._id,
-          constraints: filteredConstraints
+          constraints: filteredConstraints,
+          // Indique au backend si, pour cette semaine, l'employé peut travailler 6j/7
+          sixDaysPerWeek: !!sixDayWorkers[employee._id]
         });
       });
 

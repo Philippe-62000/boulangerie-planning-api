@@ -1133,10 +1133,10 @@
                 
                 // Afficher les informations de l'employé
                 document.getElementById('employeeName').textContent = currentEmployee.name;
-                document.getElementById('vacationEmployee').value = `${currentEmployee.name} - ${getRoleLabel(currentEmployee.role)}`;
-                document.getElementById('sickLeaveEmployee').value = `${currentEmployee.name} - ${getRoleLabel(currentEmployee.role)}`;
+                document.getElementById('vacationEmployee').value = currentEmployee.name;
+                document.getElementById('sickLeaveEmployee').value = currentEmployee.name;
                 document.getElementById('sickLeaveEmployeeEmail').value = currentEmployee.email;
-                document.getElementById('mutuelleEmployee').value = `${currentEmployee.name} - ${getRoleLabel(currentEmployee.role)}`;
+                document.getElementById('mutuelleEmployee').value = currentEmployee.name;
                 document.getElementById('mutuelleEmployeeEmail').value = currentEmployee.email;
                 document.getElementById('mutuelleEmployeeId').value = currentEmployee.id || currentEmployee._id;
 
@@ -1431,13 +1431,13 @@
 
         function resetVacationForm() {
             document.getElementById('vacationForm').reset();
-            document.getElementById('vacationEmployee').value = `${currentEmployee.name} - ${getRoleLabel(currentEmployee.role)}`;
+            document.getElementById('vacationEmployee').value = currentEmployee.name;
             hideAlert('vacationAlert');
         }
 
         function resetSickLeaveForm() {
             document.getElementById('sickLeaveForm').reset();
-            document.getElementById('sickLeaveEmployee').value = `${currentEmployee.name} - ${getRoleLabel(currentEmployee.role)}`;
+            document.getElementById('sickLeaveEmployee').value = currentEmployee.name;
             document.getElementById('sickLeaveEmployeeEmail').value = currentEmployee.email;
             document.getElementById('fileName').style.display = 'none';
             document.getElementById('fileName').classList.remove('file-selected');
@@ -1446,7 +1446,7 @@
 
         function resetMutuelleForm() {
             document.getElementById('mutuelleForm').reset();
-            document.getElementById('mutuelleEmployee').value = `${currentEmployee.name} - ${getRoleLabel(currentEmployee.role)}`;
+            document.getElementById('mutuelleEmployee').value = currentEmployee.name;
             document.getElementById('mutuelleEmployeeEmail').value = currentEmployee.email;
             document.getElementById('mutuelleEmployeeId').value = currentEmployee.id || currentEmployee._id;
             document.getElementById('mutuelleFileName').style.display = 'none';

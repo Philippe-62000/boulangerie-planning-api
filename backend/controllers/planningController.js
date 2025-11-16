@@ -763,17 +763,46 @@ class PlanningGenerator {
     try {
       console.log('🏗️ Utilisation de l\'architecture distribuée...');
       
+      // Récupérer les contraintes hebdomadaires pour connaître les salariés en 6j/7
+      const weeklyConstraintsDocs = await WeeklyConstraints.find({
+        weekNumber: parseInt(weekNumber),
+        year: parseInt(year)
+      });
+
+      const sixDaysMap = {};
+      weeklyConstraintsDocs.forEach(doc => {
+        if (doc.sixDaysPerWeek) {
+          sixDaysMap[doc.employeeId.toString()] = true;
+        }
+      });
+      
       // Préparer les données pour le constraint calculator
-      const employeesData = employees.map(emp => ({
-        _id: emp._id.toString(),
-        name: emp.name,
-        age: emp.age || 18,
-        weeklyHours: emp.weeklyHours,
-        skills: emp.skills || [],
-        trainingDays: emp.trainingDays || [],
-        sickLeave: emp.sickLeave || { isOnSickLeave: false },
-        sixDaysPerWeek: emp.sixDaysPerWeek || false
-      }));
+      const employeesData = employees.map(emp => {
+        const rawRole = emp.role || '';
+        const normalizedRole = rawRole.toLowerCase();
+        const supervisorRoles = [
+          'manager',
+          'responsable',
+          'responsable magasin',
+          'responsable magasin adjointe'
+        ];
+
+        const isSupervisor = supervisorRoles.some(r => r === normalizedRole);
+
+        return {
+          _id: emp._id.toString(),
+          name: emp.name,
+          age: emp.age || 18,
+          weeklyHours: emp.weeklyHours,
+          skills: emp.skills || [],
+          trainingDays: emp.trainingDays || [],
+          sickLeave: emp.sickLeave || { isOnSickLeave: false },
+          // sixDaysPerWeek est défini semaine par semaine à partir de WeeklyConstraints
+          sixDaysPerWeek: !!sixDaysMap[emp._id.toString()],
+          role: rawRole,
+          is_supervisor: isSupervisor
+        };
+      });
       
       console.log('📊 Données préparées pour constraint calculator:', {
         employeesCount: employeesData.length,

@@ -4,7 +4,7 @@ const Employee = require('../models/Employee');
 // Créer ou mettre à jour les contraintes pour une semaine
 exports.upsertConstraints = async (req, res) => {
   try {
-    const { weekNumber, year, employeeId, constraints } = req.body;
+    const { weekNumber, year, employeeId, constraints, sixDaysPerWeek } = req.body;
 
     // Vérifier que l'employé existe
     const employee = await Employee.findById(employeeId);
@@ -17,6 +17,8 @@ exports.upsertConstraints = async (req, res) => {
       { weekNumber, year, employeeId },
       {
         constraints,
+        // sixDaysPerWeek est optionnel, on ne le met à jour que s'il est fourni
+        ...(typeof sixDaysPerWeek === 'boolean' ? { sixDaysPerWeek } : {}),
         updatedAt: new Date()
       },
       {

@@ -243,14 +243,12 @@ const MutuelleManagement = () => {
               <thead>
                 <tr>
                   <th>Nom</th>
-                  <th>Email</th>
                 </tr>
               </thead>
               <tbody>
                 ${employeesWithMutuelle.map(emp => `
                   <tr>
                     <td>${emp.name}</td>
-                    <td>${emp.email || '-'}</td>
                   </tr>
                 `).join('')}
               </tbody>
