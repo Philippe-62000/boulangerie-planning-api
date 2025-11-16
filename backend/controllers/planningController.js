@@ -689,7 +689,7 @@ class PlanningGenerator {
     console.log('🚀 GÉNÉRATION PLANNING - OR-TOOLS (API principale)');
     
     try {
-      // Récupérer les contraintes hebdomadaires (Repos, Formation, CP, MAL, Indisponible)
+      // Récupérer les contraintes hebdomadaires (Repos, Formation, CP, MAL, Indisponible, sixDaysPerWeek)
       const weeklyConstraintsDocs = await WeeklyConstraints.find({
         weekNumber: parseInt(weekNumber),
         year: parseInt(year),
@@ -698,12 +698,16 @@ class PlanningGenerator {
 
       // Construire la map de contraintes pour OR-Tools : empId -> { dayIndex: constraint }
       const constraintsMap = {};
+      const sixDaysMap = {};
       const daysOrder = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
       const allowedConstraintValues = ['Repos', 'Formation', 'CP', 'MAL', 'Indisponible'];
 
       weeklyConstraintsDocs.forEach(doc => {
         const empId = doc.employeeId.toString();
         constraintsMap[empId] = constraintsMap[empId] || {};
+        if (doc.sixDaysPerWeek) {
+          sixDaysMap[empId] = true;
+        }
 
         daysOrder.forEach((dayName, index) => {
           const value = doc.constraints?.[dayName];
@@ -715,15 +719,19 @@ class PlanningGenerator {
       });
 
       // Préparer les données pour l'API OR-Tools Python
-      const employeesData = employees.map(emp => ({
-        id: emp._id.toString(),
-        name: emp.name,
-        age: emp.age || 18,
-        volume: emp.weeklyHours,
-        skills: emp.skills || [],
-        role: emp.role || '',
-        // On peut enrichir plus tard avec sixDaysPerWeek / historique
-      }));
+      const employeesData = employees.map(emp => {
+        const empId = emp._id.toString();
+        return {
+          id: empId,
+          name: emp.name,
+          age: emp.age || 18,
+          volume: emp.weeklyHours,
+          skills: emp.skills || [],
+          role: emp.role || '',
+          // Flag 6j/7 défini dans WeeklyConstraints pour cette semaine
+          sixDaysPerWeek: !!sixDaysMap[empId]
+        };
+      });
 
       const affluencesArray = [
         affluenceLevels?.Lundi ?? 2,
