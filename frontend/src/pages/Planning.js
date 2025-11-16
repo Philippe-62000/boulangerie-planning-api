@@ -34,7 +34,10 @@ const Planning = () => {
     if (weekNumber && year) {
       fetchPlanning();
     }
-  }, [weekNumber, year, fetchPlanning]);
+    // ⚠️ Ne pas ajouter fetchPlanning dans les dépendances pour éviter les boucles et
+    // l'erreur "Cannot access 'N' before initialization" liée à la création de la fonction.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [weekNumber, year]);
 
   const getWeekNumber = (date) => {
     const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));

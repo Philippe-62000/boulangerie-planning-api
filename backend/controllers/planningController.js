@@ -2169,21 +2169,60 @@ exports.generatePlanning = async (req, res) => {
       console.log(`✅ ${deleteResult.deletedCount} anciens plannings supprimés`);
     }
 
-    // Générer les plannings avec OR-Tools
-    const plannings = await planningGenerator.generateWeeklyPlanning(
+    // Générer le planning avec OR-Tools (architecture distribuée ou service classique)
+    const generationResult = await planningGenerator.generateWeeklyPlanning(
       weekNumber,
       year,
       affluenceLevels,
       employees
     );
 
+    if (!generationResult || !generationResult.success) {
+      console.error('❌ OR-Tools n\'a pas pu générer de planning:', generationResult);
+      return res.status(500).json({
+        error: generationResult?.error || 'Erreur OR-Tools lors de la génération du planning',
+        diagnostic: generationResult?.diagnostic,
+        suggestions: generationResult?.suggestions
+      });
+    }
+
+    // Selon la méthode utilisée, construire les documents Planning à sauvegarder
+    let planningsToSave = [];
+
+    if (generationResult.method === 'OR-Tools Distribué' || generationResult.method === 'distributed') {
+      // Solution venant de l'architecture distribuée (constraint-calculator + planning-generator)
+      planningsToSave = planningGenerator.createPlanningsFromDistributedSolution(
+        generationResult.planning,
+        weekNumber,
+        year,
+        employees
+      );
+    } else if (generationResult.method === 'OR-Tools Classique') {
+      // Solution venant du service OR-Tools classique
+      planningsToSave = planningGenerator.createPlanningsFromORToolsSolution(
+        generationResult.planning,
+        weekNumber,
+        year,
+        employees
+      );
+    } else {
+      // Fallback : si aucune méthode explicite, on tente la création classique
+      planningsToSave = planningGenerator.createPlanningsFromORToolsSolution(
+        generationResult.planning,
+        weekNumber,
+        year,
+        employees
+      );
+    }
+
     // Sauvegarder les plannings
-    const savedPlannings = await Planning.insertMany(plannings);
+    const savedPlannings = await Planning.insertMany(planningsToSave);
 
     res.json({
       message: 'Planning généré avec succès (OR-Tools)',
       plannings: savedPlannings,
-      deletedCount: deleteResult.deletedCount
+      deletedCount: deleteResult.deletedCount,
+      method: generationResult.method
     });
   } catch (error) {
     console.error('Erreur lors de la génération du planning:', error);

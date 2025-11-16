@@ -251,7 +251,8 @@ const Constraints = () => {
       await saveConstraints();
       
       // Ensuite rediriger vers la génération du planning
-      window.location.href = `/planning?week=${weekNumber}&year=${year}`;
+      // L'application est servie sous /plan/ sur OVH, on garde donc ce préfixe
+      window.location.href = `/plan/planning?week=${weekNumber}&year=${year}`;
     } catch (error) {
       toast.error('Erreur lors de la sauvegarde des contraintes');
     }
