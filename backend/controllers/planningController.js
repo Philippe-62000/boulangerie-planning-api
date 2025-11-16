@@ -2168,10 +2168,30 @@ exports.generatePlanning = async (req, res) => {
     const { weekNumber, year, affluenceLevels } = req.body;
 
     // Obtenir tous les employés actifs
-    const employees = await Employee.find({ isActive: true });
+    const allEmployees = await Employee.find({ isActive: true });
+
+    if (allEmployees.length === 0) {
+      return res.status(400).json({ error: 'Aucun employé actif trouvé' });
+    }
+
+    // Ne générer le planning que pour les vendeuses / apprentis vendeuses / responsables / managers
+    const allowedRoles = [
+      'vendeuse',
+      'apprenti',
+      'Apprenti Vendeuse',
+      'responsable',
+      'manager',
+      'responsable magasin',
+      'responsable magasin adjointe'
+    ];
+
+    const employees = allEmployees.filter(emp => {
+      const role = (emp.role || '').toLowerCase();
+      return allowedRoles.some(r => r.toLowerCase() === role);
+    });
 
     if (employees.length === 0) {
-      return res.status(400).json({ error: 'Aucun employé actif trouvé' });
+      return res.status(400).json({ error: 'Aucun employé éligible au planning (vendeuse / apprenti / responsable / manager) trouvé' });
     }
 
     // Supprimer les anciens plannings pour cette semaine s'ils existent
