@@ -689,6 +689,31 @@ class PlanningGenerator {
     console.log('🚀 GÉNÉRATION PLANNING - OR-TOOLS (API principale)');
     
     try {
+      // Récupérer les contraintes hebdomadaires (Repos, Formation, CP, MAL, Indisponible)
+      const weeklyConstraintsDocs = await WeeklyConstraints.find({
+        weekNumber: parseInt(weekNumber),
+        year: parseInt(year),
+        employeeId: { $in: employees.map(e => e._id) }
+      });
+
+      // Construire la map de contraintes pour OR-Tools : empId -> { dayIndex: constraint }
+      const constraintsMap = {};
+      const daysOrder = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
+      const allowedConstraintValues = ['Repos', 'Formation', 'CP', 'MAL', 'Indisponible'];
+
+      weeklyConstraintsDocs.forEach(doc => {
+        const empId = doc.employeeId.toString();
+        constraintsMap[empId] = constraintsMap[empId] || {};
+
+        daysOrder.forEach((dayName, index) => {
+          const value = doc.constraints?.[dayName];
+          if (value && allowedConstraintValues.includes(value)) {
+            // OR-Tools attend un index de jour (0-6) avec une valeur de contrainte
+            constraintsMap[empId][index] = value;
+          }
+        });
+      });
+
       // Préparer les données pour l'API OR-Tools Python
       const employeesData = employees.map(emp => ({
         id: emp._id.toString(),
@@ -712,8 +737,8 @@ class PlanningGenerator {
 
       const payload = {
         employees: employeesData,
-        // Pour l'instant, on laisse les contraintes calculées côté service OR-Tools
-        constraints: {},
+        // Contraintes hebdomadaires explicites (Repos, Formation, CP, MAL, Indisponible)
+        constraints: constraintsMap,
         affluences: affluencesArray,
         week_number: parseInt(weekNumber),
         weekend_history: {}
