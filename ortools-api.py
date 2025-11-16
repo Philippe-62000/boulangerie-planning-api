@@ -847,10 +847,10 @@ class PlanningBoulangerieSolver:
                                 logger.info(f"⚖️ Contrainte équilibrage: jour {day1} vs jour {day2} (écart max 1)")
             
             # 11. CONTRAINTE SUPPLÉMENTAIRE: Minimum/Maximum employés par jour
-            # Règle souhaitée: 5 mini, 6 maxi ; 7 possible mais seulement si nécessaire.
-            # On fixe donc 4 ≤ staff ≤ 7 en contrainte dure, et on pénalise staff < 5 et staff > 6 dans l'objectif.
+            # Règle souhaitée: 5 mini STRICT, 6 objectif, 7 maxi STRICT.
+            # On fixe donc 5 ≤ staff ≤ 7 en contrainte dure, et on pénalise staff < 6 et staff > 6 dans l'objectif.
             staff_above_six_penalties = []
-            staff_below_five_penalties = []
+            staff_below_six_penalties = []
 
             for day in range(7):  # Lundi à dimanche
                 # Pour chaque employé, créer une variable booléenne "travaille ce jour-là"
@@ -879,10 +879,9 @@ class PlanningBoulangerieSolver:
                     staff_count = self.model.NewIntVar(0, len(employees), f'staff_count_day_{day}')
                     self.model.Add(staff_count == sum(emp_working_vars))
 
-                    # 4 personnes minimum (assoupli pour éviter les conflits avec formation/repos)
-                    # On préfère 5-6, mais on accepte 4 si vraiment nécessaire
-                    self.model.Add(staff_count >= 4)
-                    # 7 personnes maximum
+                    # 5 personnes minimum STRICT (on ne peut pas descendre en dessous)
+                    self.model.Add(staff_count >= 5)
+                    # 7 personnes maximum STRICT (on ne peut pas dépasser)
                     self.model.Add(staff_count <= 7)
 
                     # Variable qui vaut (staff_count - 6) si >6, sinon 0, pour pénaliser les jours à 7
@@ -891,13 +890,14 @@ class PlanningBoulangerieSolver:
                     self.model.Add(above_six >= 0)
                     staff_above_six_penalties.append(above_six)
                     
-                    # Variable qui vaut (5 - staff_count) si <5, sinon 0, pour pénaliser les jours à 4
-                    below_five = self.model.NewIntVar(0, len(employees), f'staff_below_five_day_{day}')
-                    self.model.Add(below_five >= 5 - staff_count)
-                    self.model.Add(below_five >= 0)
-                    staff_below_five_penalties.append(below_five)
+                    # Variable qui vaut (6 - staff_count) si <6, sinon 0, pour encourager 6 personnes
+                    # On préfère 6 personnes par jour pour une meilleure répartition
+                    below_six = self.model.NewIntVar(0, len(employees), f'staff_below_six_day_{day}')
+                    self.model.Add(below_six >= 6 - staff_count)
+                    self.model.Add(below_six >= 0)
+                    staff_below_six_penalties.append(below_six)
 
-                    logger.info(f"📊 Jour {day}: contrainte 4-7 employés appliquée (comptage distinct, préférence 5-6)")
+                    logger.info(f"📊 Jour {day}: contrainte STRICTE 5-7 employés appliquée (comptage distinct, objectif 6)")
             
             # 12. VARIABLES DE TOTAL HEBDOMADAIRE PAR JOUR (ÉQUITÉ SUR LE VOLUME)
             # On calcule le total d'heures travaillées par jour (toutes personnes confondues),
@@ -952,13 +952,13 @@ class PlanningBoulangerieSolver:
             if closing_supervisor_penalties:
                 objectives.append(10 * sum(closing_supervisor_penalties))
 
-            # Priorité 4: Pénaliser fortement les jours avec moins de 5 personnes ou plus de 6 personnes
-            if staff_below_five_penalties:
-                # Poids très élevé pour décourager les jours à 4 personnes
-                objectives.append(25 * sum(staff_below_five_penalties))
+            # Priorité 4: Encourager 6 personnes par jour (pénaliser <6 et >6)
+            if staff_below_six_penalties:
+                # Poids élevé pour encourager 6 personnes (pénaliser 5 personnes)
+                objectives.append(20 * sum(staff_below_six_penalties))
             if staff_above_six_penalties:
                 # Poids élevé pour décourager les jours à 7 personnes
-                objectives.append(15 * sum(staff_above_six_penalties))
+                objectives.append(20 * sum(staff_above_six_penalties))
 
             # Priorité 5: Lisser le volume d'heures entre les jours (pour une affluence identique)
             # On pénalise les écarts de volume d'heures entre les jours.
