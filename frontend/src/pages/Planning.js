@@ -194,12 +194,6 @@ const Planning = () => {
             {loading ? 'Génération...' : '🎯 Générer le planning'}
           </button>
 
-          <button
-            className="btn btn-secondary"
-            onClick={() => window.location.href = `/constraints?week=${weekNumber}&year=${year}`}
-          >
-            ✏️ Modifier contraintes
-          </button>
         </div>
       </div>
 

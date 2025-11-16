@@ -751,7 +751,42 @@ class PlanningBoulangerieSolver:
                     self.model.Add(sum(closing_supervisors_vars_for_penalty) < 2).OnlyEnforceIf(z.Not())
                     multi_supervisor_penalties.append(z)
 
-            # 9. NOUVELLE CONTRAINTE: Équilibrage lundi-vendredi pour même affluence
+            # 9. CONTRAINTE D'ÉQUITÉ OUVERTURE/FERMETURE (limiter le nombre par salarié)
+            max_openings_per_employee = 3
+            max_closings_per_employee = 3
+
+            opening_fairness_penalties = []
+            closing_fairness_penalties = []
+
+            for emp in employees:
+                emp_id = str(emp['id'])
+
+                opening_vars_emp = []
+                closing_vars_emp = []
+
+                for day in range(7):
+                    for slot, var in shifts[emp_id][day].items():
+                        if slot in ['Repos', 'MAL', 'Maladie', 'Formation', 'CP']:
+                            continue
+
+                        if self.slot_overlaps(slot, *opening_interval):
+                            opening_vars_emp.append(var)
+                        if self.slot_overlaps(slot, *closing_interval):
+                            closing_vars_emp.append(var)
+
+                if opening_vars_emp:
+                    open_count = self.model.NewIntVar(0, 7, f'open_count_{emp_id}')
+                    self.model.Add(open_count == sum(opening_vars_emp))
+                    # Limite dure sur le nombre d'ouvertures
+                    self.model.Add(open_count <= max_openings_per_employee)
+
+                if closing_vars_emp:
+                    close_count = self.model.NewIntVar(0, 7, f'close_count_{emp_id}')
+                    self.model.Add(close_count == sum(closing_vars_emp))
+                    # Limite dure sur le nombre de fermetures
+                    self.model.Add(close_count <= max_closings_per_employee)
+
+            # 10. NOUVELLE CONTRAINTE: Équilibrage lundi-vendredi pour même affluence
             # Grouper les jours de semaine par affluence
             weekday_affluence_groups = {}
             for day in range(5):  # Lundi à vendredi seulement
@@ -790,7 +825,7 @@ class PlanningBoulangerieSolver:
                                 
                                 logger.info(f"⚖️ Contrainte équilibrage: jour {day1} vs jour {day2} (écart max 1)")
             
-            # 10. CONTRAINTE SUPPLÉMENTAIRE: Minimum/Maximum employés par jour semaine
+            # 11. CONTRAINTE SUPPLÉMENTAIRE: Minimum/Maximum employés par jour semaine
             for day in range(5):  # Lundi à vendredi
                 working_day = []
                 for emp in employees:
