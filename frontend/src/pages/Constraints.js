@@ -119,7 +119,10 @@ const Constraints = () => {
     if (weekNumber && year) {
       fetchConstraints();
     }
-  }, [weekNumber, year, fetchConstraints]);
+    // ⚠️ Important : ne pas ajouter fetchConstraints dans les dépendances,
+    // sinon l'effet est relancé à chaque rendu et reclique les valeurs.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [weekNumber, year]);
 
   const handleConstraintChange = (employeeId, day, value) => {
     setConstraints(prev => ({

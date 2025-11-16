@@ -23,37 +23,37 @@ const constraintSchema = new mongoose.Schema({
   constraints: {
     Lundi: {
       type: String,
-      enum: ['Repos', 'Formation', 'CP', 'MAL', 'Indisponible'],
+      enum: ['Repos', 'Formation', 'CP', 'MAL', 'Indisponible', 'Fermé', 'Matin', 'Après-midi', 'ABS', 'RET', 'Férié', 'Management'],
       default: undefined
     },
     Mardi: {
       type: String,
-      enum: ['Repos', 'Formation', 'CP', 'MAL', 'Indisponible'],
+      enum: ['Repos', 'Formation', 'CP', 'MAL', 'Indisponible', 'Fermé', 'Matin', 'Après-midi', 'ABS', 'RET', 'Férié', 'Management'],
       default: undefined
     },
     Mercredi: {
       type: String,
-      enum: ['Repos', 'Formation', 'CP', 'MAL', 'Indisponible'],
+      enum: ['Repos', 'Formation', 'CP', 'MAL', 'Indisponible', 'Fermé', 'Matin', 'Après-midi', 'ABS', 'RET', 'Férié', 'Management'],
       default: undefined
     },
     Jeudi: {
       type: String,
-      enum: ['Repos', 'Formation', 'CP', 'MAL', 'Indisponible'],
+      enum: ['Repos', 'Formation', 'CP', 'MAL', 'Indisponible', 'Fermé', 'Matin', 'Après-midi', 'ABS', 'RET', 'Férié', 'Management'],
       default: undefined
     },
     Vendredi: {
       type: String,
-      enum: ['Repos', 'Formation', 'CP', 'MAL', 'Indisponible'],
+      enum: ['Repos', 'Formation', 'CP', 'MAL', 'Indisponible', 'Fermé', 'Matin', 'Après-midi', 'ABS', 'RET', 'Férié', 'Management'],
       default: undefined
     },
     Samedi: {
       type: String,
-      enum: ['Repos', 'Formation', 'CP', 'MAL', 'Indisponible'],
+      enum: ['Repos', 'Formation', 'CP', 'MAL', 'Indisponible', 'Fermé', 'Matin', 'Après-midi', 'ABS', 'RET', 'Férié', 'Management'],
       default: undefined
     },
     Dimanche: {
       type: String,
-      enum: ['Repos', 'Formation', 'CP', 'MAL', 'Indisponible'],
+      enum: ['Repos', 'Formation', 'CP', 'MAL', 'Indisponible', 'Fermé', 'Matin', 'Après-midi', 'ABS', 'RET', 'Férié', 'Management'],
       default: undefined
     }
   },
