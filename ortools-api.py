@@ -846,8 +846,12 @@ class PlanningBoulangerieSolver:
                                 
                                 logger.info(f"⚖️ Contrainte équilibrage: jour {day1} vs jour {day2} (écart max 1)")
             
-            # 11. CONTRAINTE SUPPLÉMENTAIRE: Minimum/Maximum employés par jour semaine
-            for day in range(5):  # Lundi à vendredi
+            # 11. CONTRAINTE SUPPLÉMENTAIRE: Minimum/Maximum employés par jour
+            # Règle souhaitée: 5 mini, 6 maxi ; 7 possible mais seulement si nécessaire.
+            # On fixe donc 5 ≤ staff ≤ 7 en contrainte dure, et on pénalise staff > 6 dans l'objectif.
+            staff_above_six_penalties = []
+
+            for day in range(7):  # Lundi à dimanche
                 working_day = []
                 for emp in employees:
                     emp_id = str(emp['id'])
@@ -856,10 +860,21 @@ class PlanningBoulangerieSolver:
                             working_day.append(var)
                 
                 if working_day:
-                    # Au moins 4 employés et maximum 6 employés par jour de semaine (ajusté)
-                    self.model.Add(sum(working_day) >= 4)
-                    self.model.Add(sum(working_day) <= 6)
-                    logger.info(f"📊 Jour {day}: entre 4 et 7 employés requis")
+                    staff_count = self.model.NewIntVar(0, len(working_day), f'staff_count_day_{day}')
+                    self.model.Add(staff_count == sum(working_day))
+
+                    # 5 personnes minimum
+                    self.model.Add(staff_count >= 5)
+                    # 7 personnes maximum
+                    self.model.Add(staff_count <= 7)
+
+                    # Variable qui vaut (staff_count - 6) si >6, sinon 0, pour pénaliser les jours à 7
+                    above_six = self.model.NewIntVar(0, len(working_day), f'staff_above_six_day_{day}')
+                    self.model.Add(above_six >= staff_count - 6)
+                    self.model.Add(above_six >= 0)
+                    staff_above_six_penalties.append(above_six)
+
+                    logger.info(f"📊 Jour {day}: contrainte 5-7 employés appliquée")
             
             # 12. VARIABLES DE TOTAL HEBDOMADAIRE PAR JOUR (ÉQUITÉ SUR LE VOLUME)
             # On calcule le total d'heures travaillées par jour (toutes personnes confondues),
@@ -914,7 +929,11 @@ class PlanningBoulangerieSolver:
             if closing_supervisor_penalties:
                 objectives.append(10 * sum(closing_supervisor_penalties))
 
-            # Priorité 4: Lisser le volume d'heures entre les jours (pour une affluence identique)
+            # Priorité 4: Laisser les jours avec 7 personnes comme exception (pénalité légère)
+            if staff_above_six_penalties:
+                objectives.append(2 * sum(staff_above_six_penalties))
+
+            # Priorité 5: Lisser le volume d'heures entre les jours (pour une affluence identique)
             # On pénalise les écarts de volume d'heures entre les jours.
             for d1 in range(7):
                 for d2 in range(d1 + 1, 7):
