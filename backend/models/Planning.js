@@ -19,7 +19,21 @@ const shiftSchema = new mongoose.Schema({
   },
   role: {
     type: String,
-    enum: ['vendeuse', 'apprenti', 'responsable', 'manager'],
+    // Doit rester aligné avec les rôles possibles du modèle Employee
+    enum: [
+      'vendeuse',
+      'apprenti',
+      'manager',
+      'responsable',
+      'Apprenti Vendeuse',
+      'chef prod',
+      'boulanger',
+      'préparateur',
+      'Apprenti Boulanger',
+      'Apprenti Préparateur',
+      'responsable magasin',
+      'responsable magasin adjointe'
+    ],
     required: true
   }
 });
