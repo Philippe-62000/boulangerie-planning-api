@@ -634,30 +634,36 @@ class PlanningBoulangerieSolver:
             # 5. Contraintes de fermeture STRICTES avec intégration de la stratégie
             for day in range(7):
                 closing_vars_skilled = []  # Avec compétence fermeture
+                closing_vars_all = []      # Tous les employés en fermeture (vendeuses/apprenties/référents)
                 
                 for emp in employees:
                     emp_id = str(emp['id'])
-                    for slot in shifts[emp_id][day]:
+                    for slot, var in shifts[emp_id][day].items():
+                        # On considère les créneaux qui se terminent à 20h30 et ne sont pas des ouvertures
                         if '20h30' in slot and not slot.startswith('06h00'):
+                            closing_vars_all.append(var)
                             if 'Fermeture' in emp.get('skills', []):
-                                closing_vars_skilled.append(shifts[emp_id][day][slot])
+                                closing_vars_skilled.append(var)
                 
                 # Prioriser l'employé assigné par la stratégie si disponible
                 if day in shift_distribution['closing_assignments']:
                     preferred_emp_id = str(shift_distribution['closing_assignments'][day])
                     if preferred_emp_id in shifts and day < len(shifts[preferred_emp_id]):
-                        for slot in shifts[preferred_emp_id][day]:
+                        for slot, var in shifts[preferred_emp_id][day].items():
                             if '20h30' in slot and not slot.startswith('06h00'):
                                 # Trouver l'employé correspondant
                                 target_emp = next((emp for emp in employees if str(emp['id']) == preferred_emp_id), None)
                                 if target_emp and 'Fermeture' in target_emp.get('skills', []):
                                     # Favoriser cet employé pour la fermeture
-                                    self.model.Add(shifts[preferred_emp_id][day][slot] == 1)
+                                    self.model.Add(var == 1)
                                     break
                 
                 # Au moins 1 personne avec compétence fermeture
                 if closing_vars_skilled:
                     self.model.Add(sum(closing_vars_skilled) >= 1)
+                # Au moins 2 personnes en fermeture au total (dont au moins 1 avec la compétence)
+                if closing_vars_all:
+                    self.model.Add(sum(closing_vars_all) >= 2)
             
             # 6. Contraintes mineurs avec repos dimanche obligatoire
             for emp in employees:
