@@ -751,15 +751,22 @@ class PlanningBoulangerieSolver:
                     self.model.Add(sum(closing_supervisors_vars_for_penalty) < 2).OnlyEnforceIf(z.Not())
                     multi_supervisor_penalties.append(z)
 
-            # 9. CONTRAINTE D'ÉQUITÉ OUVERTURE/FERMETURE (limiter le nombre par salarié)
-            max_openings_per_employee = 3
-            max_closings_per_employee = 3
+            # 9. CONTRAINTE / OBJECTIF D'ÉQUITÉ OUVERTURE/FERMETURE
+            # Objectif: éviter que la responsable / le manager fasse toutes les ouvertures/fermetures
+            supervisor_roles_fairness = [
+                'manager',
+                'responsable',
+                'responsable magasin',
+                'responsable magasin adjointe'
+            ]
 
-            opening_fairness_penalties = []
-            closing_fairness_penalties = []
+            opening_supervisor_penalties = []
+            closing_supervisor_penalties = []
 
             for emp in employees:
                 emp_id = str(emp['id'])
+                raw_role = (emp.get('role') or '').lower()
+                is_supervisor_role = raw_role in supervisor_roles_fairness
 
                 opening_vars_emp = []
                 closing_vars_emp = []
@@ -777,14 +784,22 @@ class PlanningBoulangerieSolver:
                 if opening_vars_emp:
                     open_count = self.model.NewIntVar(0, 7, f'open_count_{emp_id}')
                     self.model.Add(open_count == sum(opening_vars_emp))
-                    # Limite dure sur le nombre d'ouvertures
-                    self.model.Add(open_count <= max_openings_per_employee)
+
+                    if is_supervisor_role:
+                        # Pour la responsable / le manager : maximum 1 ouverture
+                        self.model.Add(open_count <= 1)
+                        # Pénaliser chaque ouverture faite par un superviseur
+                        opening_supervisor_penalties.extend(opening_vars_emp)
 
                 if closing_vars_emp:
                     close_count = self.model.NewIntVar(0, 7, f'close_count_{emp_id}')
                     self.model.Add(close_count == sum(closing_vars_emp))
-                    # Limite dure sur le nombre de fermetures
-                    self.model.Add(close_count <= max_closings_per_employee)
+
+                    if is_supervisor_role:
+                        # Pour la responsable / le manager : maximum 1 fermeture
+                        self.model.Add(close_count <= 1)
+                        # Pénaliser chaque fermeture faite par un superviseur
+                        closing_supervisor_penalties.extend(closing_vars_emp)
 
             # 10. NOUVELLE CONTRAINTE: Équilibrage lundi-vendredi pour même affluence
             # Grouper les jours de semaine par affluence
@@ -868,6 +883,12 @@ class PlanningBoulangerieSolver:
             if multi_supervisor_penalties:
                 # Poids modéré : on veut éviter les doublons inutiles sans casser la faisabilité
                 objectives.append(5 * sum(multi_supervisor_penalties))
+
+            # Priorité 3: Éviter que la responsable / le manager fassent trop d'ouvertures/fermetures
+            if opening_supervisor_penalties:
+                objectives.append(10 * sum(opening_supervisor_penalties))
+            if closing_supervisor_penalties:
+                objectives.append(10 * sum(closing_supervisor_penalties))
             
             # Objectif global
             self.model.Minimize(sum(objectives))

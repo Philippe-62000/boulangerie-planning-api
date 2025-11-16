@@ -782,7 +782,9 @@ class PlanningGenerator {
           'Content-Type': 'application/json',
           'Accept': 'application/json'
         },
-        timeout: 60000 // 60 secondes
+        // On laisse jusqu'à 120 secondes à OR-Tools pour répondre,
+        // car le solveur lui-même est déjà limité à 60s en interne.
+        timeout: 120000 // 120 secondes
       });
       
       const result = response.data;
