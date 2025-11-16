@@ -855,6 +855,24 @@ class PlanningBoulangerieSolver:
                     self.model.Add(sum(working_day) <= 6)
                     logger.info(f"📊 Jour {day}: entre 4 et 7 employés requis")
             
+            # 12. VARIABLES DE TOTAL HEBDOMADAIRE PAR JOUR (ÉQUITÉ SUR LE VOLUME)
+            # On calcule le total d'heures travaillées par jour (toutes personnes confondues),
+            # afin de pousser le solveur à lisser les volumes entre les jours d'affluence identique.
+            day_totals = []
+            for day in range(7):
+                day_total = self.model.NewIntVar(0, 300, f'day_total_{day}')  # 0 à 30h (x10)
+                day_terms = []
+                for emp in employees:
+                    emp_id = str(emp['id'])
+                    for slot, var in shifts[emp_id][day].items():
+                        hours_int = int(slot_hours[slot] * 10)
+                        day_terms.append(var * hours_int)
+                if day_terms:
+                    self.model.Add(day_total == sum(day_terms))
+                else:
+                    self.model.Add(day_total == 0)
+                day_totals.append(day_total)
+
             # OBJECTIF MULTI-CRITÈRES
             objectives = []
             
@@ -889,6 +907,16 @@ class PlanningBoulangerieSolver:
                 objectives.append(10 * sum(opening_supervisor_penalties))
             if closing_supervisor_penalties:
                 objectives.append(10 * sum(closing_supervisor_penalties))
+
+            # Priorité 4: Lisser le volume d'heures entre les jours (pour une affluence identique)
+            # On pénalise les écarts de volume d'heures entre les jours.
+            for d1 in range(7):
+                for d2 in range(d1 + 1, 7):
+                    diff_pos = self.model.NewIntVar(0, 300, f'day_vol_diff_pos_{d1}_{d2}')
+                    diff_neg = self.model.NewIntVar(0, 300, f'day_vol_diff_neg_{d1}_{d2}')
+                    self.model.Add(day_totals[d1] - day_totals[d2] == diff_pos - diff_neg)
+                    # Poids faible pour ne pas bloquer la faisabilité mais encourager l'équilibre
+                    objectives.append(diff_pos + diff_neg)
             
             # Objectif global
             self.model.Minimize(sum(objectives))

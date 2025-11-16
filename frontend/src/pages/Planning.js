@@ -145,7 +145,9 @@ const Planning = () => {
   const getStaffCountByDay = (planning, day) => {
     return planning.filter(emp => {
       const daySchedule = emp.schedule.find(s => s.day === day);
-      return daySchedule && (daySchedule.shifts.length > 0 || daySchedule.constraint);
+      // Ne compter que les personnes réellement en vente (au moins un shift),
+      // et ignorer les jours de Repos / Formation / CP / Maladie / autre contrainte.
+      return daySchedule && daySchedule.shifts.length > 0;
     }).length;
   };
 
@@ -157,6 +159,72 @@ const Planning = () => {
       }
       return total;
     }, 0);
+  };
+
+  // Calcul des heures travaillées à partir des horaires (avec pause 30min si >= 5h30)
+  const calculateHoursFromTimes = (startTime, endTime) => {
+    if (!startTime || !endTime) return 0;
+    const [sh, sm] = startTime.split(':').map(Number);
+    const [eh, em] = endTime.split(':').map(Number);
+    const startMinutes = sh * 60 + sm;
+    const endMinutes = eh * 60 + em;
+    let hours = (endMinutes - startMinutes) / 60;
+    if (hours <= 0) return 0;
+    // Même règle que côté backend : pause de 30min si journée >= 5h30
+    if (hours >= 5.5) {
+      hours -= 0.5;
+    }
+    return Math.max(0, hours);
+  };
+
+  // Permet de modifier un shift directement dans le tableau
+  const handleShiftChange = (planningId, day, shiftIndex, field, value) => {
+    setPlanning(prev =>
+      prev.map(empPlanning => {
+        if (empPlanning._id !== planningId) return empPlanning;
+
+        const newSchedule = empPlanning.schedule.map(daySchedule => {
+          if (daySchedule.day !== day) return daySchedule;
+
+          const newShifts = daySchedule.shifts.map((shift, idx) => {
+            if (idx !== shiftIndex) return shift;
+
+            const updatedShift = { ...shift, [field]: value };
+
+            if (field === 'startTime' || field === 'endTime') {
+              updatedShift.hoursWorked = calculateHoursFromTimes(
+                updatedShift.startTime,
+                updatedShift.endTime
+              );
+            }
+
+            return updatedShift;
+          });
+
+          const totalHours = newShifts.reduce(
+            (sum, sh) => sum + (sh.hoursWorked || 0),
+            0
+          );
+
+          return {
+            ...daySchedule,
+            shifts: newShifts,
+            totalHours
+          };
+        });
+
+        const totalWeeklyHours = newSchedule.reduce(
+          (sum, ds) => sum + (ds.totalHours || 0),
+          0
+        );
+
+        return {
+          ...empPlanning,
+          schedule: newSchedule,
+          totalWeeklyHours
+        };
+      })
+    );
   };
 
   return (
@@ -276,7 +344,35 @@ const Planning = () => {
                                   
                                   return (
                                     <div key={index} className="planning-shift" style={{ color: shiftColor }}>
-                                      {formatTime(shift.startTime)} - {formatTime(shift.endTime)}
+                                      <input
+                                        type="time"
+                                        value={formatTime(shift.startTime)}
+                                        onChange={(e) =>
+                                          handleShiftChange(
+                                            employeePlanning._id,
+                                            day,
+                                            index,
+                                            'startTime',
+                                            e.target.value
+                                          )
+                                        }
+                                        style={{ width: '90px', marginRight: '0.25rem' }}
+                                      />
+                                      {' - '}
+                                      <input
+                                        type="time"
+                                        value={formatTime(shift.endTime)}
+                                        onChange={(e) =>
+                                          handleShiftChange(
+                                            employeePlanning._id,
+                                            day,
+                                            index,
+                                            'endTime',
+                                            e.target.value
+                                          )
+                                        }
+                                        style={{ width: '90px', marginLeft: '0.25rem' }}
+                                      />
                                       <br />
                                       <small style={{ color: shiftColor }}>
                                         {shiftType}
@@ -327,6 +423,18 @@ const Planning = () => {
                     </tr>
                   ))}
                 </tbody>
+                <tfoot>
+                  <tr>
+                    <td style={{ fontWeight: 'bold' }}>Total jour</td>
+                    {daysOfWeek.map(day => (
+                      <td key={day}>
+                        {getStaffCountByDay(planning, day)} pers /{' '}
+                        {getTotalHoursByDay(planning, day).toFixed(1)}h
+                      </td>
+                    ))}
+                    <td colSpan={2}></td>
+                  </tr>
+                </tfoot>
               </table>
             </div>
           </div>
