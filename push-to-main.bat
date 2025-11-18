@@ -13,7 +13,7 @@ git add .
 
 echo.
 echo 💾 Commit des modifications...
-git commit -m "🔧 Absences: affichage détaillé maladie (nombre/jours) et retard (nombre/minutes)"
+git commit -m "🔧 Migration EmailJS → SMTP OVH avec variables spécifiques (SMTP_*_OVH)"
 
 echo.
 echo 🚀 Push vers la branche main...

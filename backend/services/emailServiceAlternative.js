@@ -55,15 +55,23 @@ class EmailServiceAlternative {
     }
 
     try {
-      // Option 1: Utiliser EmailJS (service gratuit)
+      // Option 1: Utiliser SMTP OVH (priorité)
+      const smtpResult = await this.sendViaSMTP(to, subject, htmlContent, textContent);
+      
+      if (smtpResult.success) {
+        console.log('✅ Email envoyé via SMTP OVH:', smtpResult.messageId);
+        return smtpResult;
+      }
+
+      // Option 2: Utiliser EmailJS (fallback si SMTP échoue)
       const emailResult = await this.sendViaEmailJS(to, subject, htmlContent, textContent);
       
       if (emailResult.success) {
-        console.log('✅ Email envoyé via service alternatif:', emailResult.messageId);
+        console.log('✅ Email envoyé via EmailJS (fallback):', emailResult.messageId);
         return emailResult;
       }
 
-      // Option 2: Utiliser un webhook ou API simple
+      // Option 3: Utiliser un webhook ou API simple
       const webhookResult = await this.sendViaWebhook(to, subject, htmlContent, textContent);
       
       if (webhookResult.success) {
@@ -71,7 +79,7 @@ class EmailServiceAlternative {
         return webhookResult;
       }
 
-      // Option 3: Log local (fallback)
+      // Option 4: Log local (fallback final)
       return this.logEmailLocally(to, subject, htmlContent, textContent);
 
     } catch (error) {
@@ -83,7 +91,121 @@ class EmailServiceAlternative {
     }
   }
 
-  // Envoyer via EmailJS avec un template spécifique
+  // Envoyer via SMTP OVH
+  async sendViaSMTP(to, subject, htmlContent, textContent) {
+    try {
+      // Vérifier que nodemailer est disponible
+      let nodemailer;
+      try {
+        nodemailer = require('nodemailer');
+      } catch (error) {
+        throw new Error('Nodemailer non disponible');
+      }
+
+      // Configuration SMTP OVH (variables spécifiques pour éviter les conflits)
+      // Utilise SMTP_*_OVH en priorité, sinon fallback vers SMTP_* existantes
+      const smtpHost = process.env.SMTP_HOST_OVH || process.env.SMTP_HOST || 'ssl0.ovh.net';
+      const smtpPort = parseInt(process.env.SMTP_PORT_OVH || process.env.SMTP_PORT || '465');
+      const smtpUser = process.env.SMTP_USER_OVH || process.env.SMTP_USER || process.env.EMAIL_USER;
+      const smtpPass = process.env.SMTP_PASS_OVH || process.env.SMTP_PASSWORD_OVH || process.env.SMTP_PASS || process.env.SMTP_PASSWORD;
+      const smtpSecure = process.env.SMTP_SECURE_OVH !== undefined 
+        ? process.env.SMTP_SECURE_OVH !== 'false' 
+        : (process.env.SMTP_SECURE !== 'false'); // true par défaut (port 465)
+      
+      const smtpConfig = {
+        host: smtpHost,
+        port: smtpPort,
+        secure: smtpSecure,
+        auth: {
+          user: smtpUser,
+          pass: smtpPass
+        },
+        tls: {
+          rejectUnauthorized: false // Pour éviter les problèmes de certificat
+        }
+      };
+
+      // Vérifier que la configuration est complète
+      if (!smtpConfig.auth.user || !smtpConfig.auth.pass) {
+        throw new Error('SMTP OVH non configuré (SMTP_USER_OVH ou SMTP_PASS_OVH manquant)');
+      }
+
+      console.log('📧 Configuration SMTP OVH:', {
+        host: smtpConfig.host,
+        port: smtpConfig.port,
+        secure: smtpConfig.secure,
+        user: smtpConfig.auth.user,
+        usingOVHVariables: !!(process.env.SMTP_HOST_OVH || process.env.SMTP_USER_OVH || process.env.SMTP_PASS_OVH)
+      });
+
+      // Créer le transporteur SMTP
+      const transporter = nodemailer.createTransport(smtpConfig);
+
+      // Vérifier la connexion SMTP
+      await transporter.verify();
+
+      // Options de l'email
+      const mailOptions = {
+        from: `"Boulangerie Ange - Arras" <${smtpConfig.auth.user}>`,
+        to: to,
+        subject: subject,
+        text: textContent || htmlContent.replace(/<[^>]*>/g, ''), // Version texte si pas fournie
+        html: htmlContent
+      };
+
+      // Envoyer l'email
+      const info = await transporter.sendMail(mailOptions);
+
+      console.log('✅ Email envoyé via SMTP OVH:', {
+        messageId: info.messageId,
+        to: to,
+        subject: subject
+      });
+
+      return {
+        success: true,
+        messageId: info.messageId,
+        message: 'Email envoyé via SMTP OVH'
+      };
+
+    } catch (error) {
+      console.log('⚠️ SMTP OVH non disponible:', error.message);
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  }
+
+  // Envoyer via SMTP avec un template de la DB (remplace sendViaEmailJSTemplate)
+  async sendViaSMTPTemplate(templateName, toEmail, templateVariables) {
+    try {
+      // Récupérer le template depuis la base de données
+      const EmailTemplate = require('../models/EmailTemplate');
+      const template = await EmailTemplate.findOne({ name: templateName, isActive: true });
+      
+      if (!template) {
+        throw new Error(`Template ${templateName} non trouvé dans la base de données`);
+      }
+
+      // Remplacer les variables dans le template
+      const htmlContent = this.replaceTemplateVariables(template.htmlContent, templateVariables);
+      const textContent = this.replaceTemplateVariables(template.textContent, templateVariables);
+      const subject = this.replaceTemplateVariables(template.subject, templateVariables);
+
+      // Envoyer via SMTP
+      return await this.sendViaSMTP(toEmail, subject, htmlContent, textContent);
+
+    } catch (error) {
+      console.error(`❌ Erreur envoi template ${templateName} via SMTP:`, error.message);
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  }
+
+  // Envoyer via EmailJS avec un template spécifique (déprécié - utiliser sendViaSMTPTemplate)
   async sendViaEmailJSTemplate(templateId, toEmail, templateParams) {
     try {
       console.log('🔍 sendViaEmailJSTemplate - Paramètres reçus:', {
