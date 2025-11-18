@@ -13,7 +13,7 @@ git add .
 
 echo.
 echo 💾 Commit des modifications...
-git commit -m "🔧 Amélioration SMTP OVH: timeout augmenté + fallback port 587 (STARTTLS)"
+git commit -m "📝 Documentation: limitation SMTP Render (plans gratuits bloquent SMTP)"
 
 echo.
 echo 🚀 Push vers la branche main...

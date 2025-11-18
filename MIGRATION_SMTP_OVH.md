@@ -107,3 +107,39 @@ Une fois les variables d'environnement configurées sur Render :
 - Si SMTP_USER n'est pas défini, le système utilisera EMAIL_USER comme fallback
 - Les templates EmailJS ne sont plus nécessaires (mais peuvent rester comme fallback)
 
+## ❌ Limitation Render (Plans gratuits)
+
+**Problème identifié** : Render bloque les connexions SMTP sortantes (ports 465 et 587) sur les plans gratuits.
+
+### Symptômes
+- Erreur `ETIMEDOUT` sur les ports 465 et 587
+- Le fallback vers EmailJS fonctionne correctement
+
+### Solutions possibles
+
+#### Option 1 : Garder EmailJS (recommandé pour plan gratuit)
+- ✅ EmailJS fonctionne déjà parfaitement
+- ✅ Pas de changement nécessaire
+- ✅ Templates conservés
+- ✅ Aucun coût supplémentaire
+
+#### Option 2 : Passer à un plan Render payant
+- Permet les connexions SMTP sortantes
+- Coût mensuel supplémentaire
+- SMTP OVH fonctionnera alors
+
+#### Option 3 : Utiliser un service SMTP relais (SendGrid, Mailgun, etc.)
+- Utilise des APIs au lieu de SMTP direct
+- Nécessite une modification du code
+- Peut avoir des coûts selon le volume
+
+### Recommandation
+
+**Pour l'instant, garder EmailJS comme solution principale** car :
+- ✅ Fonctionne parfaitement
+- ✅ Pas de limitation de connexion
+- ✅ Templates déjà configurés
+- ✅ Aucun changement nécessaire
+
+Le code SMTP OVH reste en place et sera automatiquement utilisé si vous passez à un plan Render payant à l'avenir.
+
