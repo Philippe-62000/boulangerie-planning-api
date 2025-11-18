@@ -13,7 +13,7 @@ git add .
 
 echo.
 echo 💾 Commit des modifications...
-git commit -m "🔧 Dashboard: afficher uniquement absences/retards du jour en cours (disparaissent le lendemain)"
+git commit -m "🔧 Absences: affichage détaillé maladie (nombre/jours) et retard (nombre/minutes)"
 
 echo.
 echo 🚀 Push vers la branche main...

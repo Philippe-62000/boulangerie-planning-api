@@ -136,6 +136,11 @@ const AbsenceStatus = ({ employees }) => {
         return false;
       }) : [];
 
+      // Calculer le nombre total de minutes de retard
+      const totalDelayMinutes = employeeDelays.reduce((total, delay) => {
+        return total + (delay.duration || 0);
+      }, 0);
+
       // Calculer le nombre de jours d'arrêt maladie dans la période sélectionnée
       const sickLeaveDays = employeeSickLeaves.reduce((total, sl) => {
         const start = new Date(sl.startDate);
@@ -161,6 +166,7 @@ const AbsenceStatus = ({ employees }) => {
         sickLeave: sickLeaveDays, // Nombre de jours pour l'affichage détaillé
         sickLeaveCount: sickLeaveCount, // Nombre d'arrêts distincts pour le total
         delays: employeeDelays.length,
+        totalDelayMinutes: totalDelayMinutes, // Nombre total de minutes de retard
         total: employeeAbsences.length + sickLeaveCount + employeeDelays.length,
         // Stocker les données complètes pour le modal
         employeeData: employee
@@ -401,7 +407,9 @@ const AbsenceStatus = ({ employees }) => {
                     <span className="mini-stat-label">Total</span>
                   </div>
                   <div className="mini-stat maladie">
-                    <span className="mini-stat-value">{employee.sickLeaveCount || (employee.sickLeave > 0 ? 1 : 0)}</span>
+                    <span className="mini-stat-value">
+                      {employee.sickLeaveCount || (employee.sickLeave > 0 ? 1 : 0)}/{employee.sickLeave || 0}
+                    </span>
                     <span className="mini-stat-label">Maladie</span>
                   </div>
                   <div className="mini-stat absence">
@@ -409,7 +417,9 @@ const AbsenceStatus = ({ employees }) => {
                     <span className="mini-stat-label">Absence</span>
                   </div>
                   <div className="mini-stat retard">
-                    <span className="mini-stat-value">{employee.delays}</span>
+                    <span className="mini-stat-value">
+                      {employee.delays}/{employee.totalDelayMinutes || 0}
+                    </span>
                     <span className="mini-stat-label">Retard</span>
                   </div>
                 </div>
