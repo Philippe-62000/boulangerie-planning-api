@@ -98,8 +98,18 @@ class EmailServiceAlternative {
       let nodemailer;
       try {
         nodemailer = require('nodemailer');
+        // Vérifier que nodemailer est bien chargé
+        if (!nodemailer || typeof nodemailer.createTransport !== 'function') {
+          throw new Error('Nodemailer chargé mais invalide');
+        }
       } catch (error) {
-        throw new Error('Nodemailer non disponible');
+        console.error('❌ Erreur chargement nodemailer:', {
+          message: error.message,
+          code: error.code,
+          stack: error.stack,
+          requireCache: Object.keys(require.cache).filter(k => k.includes('nodemailer'))
+        });
+        throw new Error(`Nodemailer non disponible: ${error.message}`);
       }
 
       // Configuration SMTP OVH (variables spécifiques pour éviter les conflits)

@@ -13,7 +13,7 @@ git add .
 
 echo.
 echo 💾 Commit des modifications...
-git commit -m "🔧 Amélioration logging SMTP OVH pour diagnostiquer les erreurs de connexion"
+git commit -m "🔧 Ajout nodemailer au package.json racine + amélioration logging SMTP OVH"
 
 echo.
 echo 🚀 Push vers la branche main...

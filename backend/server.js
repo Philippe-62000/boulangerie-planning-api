@@ -88,6 +88,22 @@ mongoose.connect(config.MONGODB_URI, {
     console.error('❌ Erreur nettoyage documents expirés:', error);
   }
   
+  // Vérifier que nodemailer est disponible
+  try {
+    const nodemailer = require('nodemailer');
+    if (nodemailer && typeof nodemailer.createTransport === 'function') {
+      console.log('✅ Nodemailer chargé avec succès');
+    } else {
+      console.error('❌ Nodemailer chargé mais invalide');
+    }
+  } catch (error) {
+    console.error('❌ Erreur chargement nodemailer au démarrage:', {
+      message: error.message,
+      code: error.code,
+      stack: error.stack
+    });
+  }
+
   // Planifier l'envoi de rappels pour les justificatifs mutuelle expirant bientôt
   try {
     const cron = require('node-cron');
