@@ -150,20 +150,28 @@ const AbsenceStatus = ({ employees }) => {
         return total + days;
       }, 0);
 
+      // Compter le nombre d'arrêts maladie distincts (pas les jours)
+      const sickLeaveCount = employeeSickLeaves.length;
+
       return {
         id: employee._id,
         name: employee.name,
+        role: employee.role,
         absences: employeeAbsences.length,
-        sickLeave: sickLeaveDays,
+        sickLeave: sickLeaveDays, // Nombre de jours pour l'affichage détaillé
+        sickLeaveCount: sickLeaveCount, // Nombre d'arrêts distincts pour le total
         delays: employeeDelays.length,
-        total: employeeAbsences.length + (sickLeaveDays > 0 ? 1 : 0) + employeeDelays.length
+        total: employeeAbsences.length + sickLeaveCount + employeeDelays.length,
+        // Stocker les données complètes pour le modal
+        employeeData: employee
       };
     });
 
     // Calculer les totaux
+    // Pour sickLeave, on compte les arrêts distincts, pas les jours
     const total = byEmployee.reduce((acc, emp) => ({
       absences: acc.absences + emp.absences,
-      sickLeave: acc.sickLeave + emp.sickLeave,
+      sickLeave: acc.sickLeave + (emp.sickLeaveCount || 0), // Compter les arrêts distincts
       delays: acc.delays + emp.delays,
       total: acc.total + emp.total
     }), { absences: 0, sickLeave: 0, delays: 0, total: 0 });
@@ -373,7 +381,8 @@ const AbsenceStatus = ({ employees }) => {
         {absenceStats.byEmployee.length > 0 ? (
           <div className="employee-stats">
             {absenceStats.byEmployee.map((employee) => {
-              const fullEmployee = employees.find(emp => emp._id === employee.id);
+              // Utiliser employeeData si disponible, sinon chercher dans employees
+              const fullEmployee = employee.employeeData || employees.find(emp => emp._id === employee.id || emp._id?.toString() === employee.id?.toString());
               return (
               <div key={employee.id} className="employee-stat-card">
                 <div className="employee-info">
@@ -392,7 +401,7 @@ const AbsenceStatus = ({ employees }) => {
                     <span className="mini-stat-label">Total</span>
                   </div>
                   <div className="mini-stat maladie">
-                    <span className="mini-stat-value">{employee.sickLeave}</span>
+                    <span className="mini-stat-value">{employee.sickLeaveCount || (employee.sickLeave > 0 ? 1 : 0)}</span>
                     <span className="mini-stat-label">Maladie</span>
                   </div>
                   <div className="mini-stat absence">
@@ -432,9 +441,28 @@ const AbsenceStatus = ({ employees }) => {
             </div>
             <div className="modal-body">
               {(() => {
-                const emp = employees.find(e => e._id === selectedEmployeeDetail._id || e._id === selectedEmployeeDetail.id);
-                if (!emp) return <p>Aucune donnée disponible</p>;
+                // Chercher l'employé dans employees en utilisant plusieurs méthodes
+                let emp = null;
+                if (selectedEmployeeDetail._id) {
+                  emp = employees.find(e => e._id?.toString() === selectedEmployeeDetail._id?.toString());
+                }
+                if (!emp && selectedEmployeeDetail.id) {
+                  emp = employees.find(e => e._id?.toString() === selectedEmployeeDetail.id?.toString());
+                }
+                if (!emp && selectedEmployeeDetail.name) {
+                  emp = employees.find(e => e.name === selectedEmployeeDetail.name);
+                }
+                // Si selectedEmployeeDetail contient déjà les données complètes (employeeData)
+                if (!emp && selectedEmployeeDetail.absences) {
+                  emp = selectedEmployeeDetail;
+                }
                 
+                if (!emp) {
+                  console.error('❌ Employé non trouvé dans le modal:', selectedEmployeeDetail);
+                  return <p>Aucune donnée disponible pour {selectedEmployeeDetail.name || 'cet employé'}</p>;
+                }
+                
+                // Utiliser la même logique que calculateAbsenceStats
                 const absencesArray = emp.absences?.all || (Array.isArray(emp.absences) ? emp.absences : []);
                 const sickLeavesArray = emp.sickLeaves?.all || (Array.isArray(emp.sickLeaves) ? emp.sickLeaves : []);
                 const delaysArray = emp.delays?.all || (Array.isArray(emp.delays) ? emp.delays : []);
@@ -462,8 +490,15 @@ const AbsenceStatus = ({ employees }) => {
                     endDate = new Date(selectedYear, selectedMonth, 0);
                 }
                 
+                // Filtrer les absences (type ABS uniquement)
                 const filteredAbsences = absencesArray.filter(a => {
-                  if (a.startDate && a.endDate) {
+                  const absenceType = a.type || '';
+                  if (absenceType === 'MAL' || absenceType === 'Arrêt maladie') return false; // Exclure les arrêts maladie
+                  
+                  if (a.date) {
+                    const absenceDate = new Date(a.date);
+                    return absenceDate >= startDate && absenceDate <= endDate;
+                  } else if (a.startDate && a.endDate) {
                     const aStart = new Date(a.startDate);
                     const aEnd = new Date(a.endDate);
                     return aStart <= endDate && aEnd >= startDate;
@@ -471,15 +506,51 @@ const AbsenceStatus = ({ employees }) => {
                   return false;
                 });
                 
-                const filteredSickLeaves = sickLeavesArray.filter(sl => {
-                  if (sl.startDate && sl.endDate) {
-                    const slStart = new Date(sl.startDate);
-                    const slEnd = new Date(sl.endDate);
-                    return slStart <= endDate && slEnd >= startDate;
+                // Filtrer les arrêts maladie (même logique que calculateAbsenceStats)
+                let filteredSickLeaves = [];
+                
+                // 1. Arrêt maladie actuel (employee.sickLeave)
+                if (emp.sickLeave && emp.sickLeave.isOnSickLeave) {
+                  const start = emp.sickLeave.startDate ? new Date(emp.sickLeave.startDate) : null;
+                  const end = emp.sickLeave.endDate ? new Date(emp.sickLeave.endDate) : null;
+                  if (start && end && start <= endDate && end >= startDate) {
+                    filteredSickLeaves.push({
+                      startDate: emp.sickLeave.startDate,
+                      endDate: emp.sickLeave.endDate,
+                      reason: 'Arrêt maladie'
+                    });
+                  }
+                }
+                
+                // 2. Arrêts maladie depuis les absences (type: 'Arrêt maladie' ou 'MAL')
+                const absencesForSickLeave = absencesArray.filter(absence => {
+                  const absenceType = absence.type || '';
+                  const isSickLeave = absenceType === 'Arrêt maladie' || absenceType === 'MAL';
+                  if (!isSickLeave) return false;
+                  
+                  if (absence.startDate && absence.endDate) {
+                    const absenceStart = new Date(absence.startDate);
+                    const absenceEnd = new Date(absence.endDate);
+                    return absenceStart <= endDate && absenceEnd >= startDate;
                   }
                   return false;
                 });
+                filteredSickLeaves = [...filteredSickLeaves, ...absencesForSickLeave];
                 
+                // 3. Arrêts maladie depuis sickLeaves
+                if (Array.isArray(sickLeavesArray)) {
+                  const filteredFromSickLeaves = sickLeavesArray.filter(sl => {
+                    if (sl.startDate && sl.endDate) {
+                      const slStart = new Date(sl.startDate);
+                      const slEnd = new Date(sl.endDate);
+                      return slStart <= endDate && slEnd >= startDate;
+                    }
+                    return false;
+                  });
+                  filteredSickLeaves = [...filteredSickLeaves, ...filteredFromSickLeaves];
+                }
+                
+                // Filtrer les retards
                 const filteredDelays = delaysArray.filter(d => {
                   if (d.date) {
                     const dDate = new Date(d.date);

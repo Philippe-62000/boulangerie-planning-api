@@ -13,7 +13,7 @@ git add .
 
 echo.
 echo 💾 Commit des modifications...
-git commit -m "🔧 Unification des déclarations d'absences, ajout sélecteur semaine/mois, modal détail employé et récapitulatif Dashboard"
+git commit -m "🔧 Correction calcul arrêts maladie (compter distincts au lieu de jours) et modal détail employé"
 
 echo.
 echo 🚀 Push vers la branche main...
