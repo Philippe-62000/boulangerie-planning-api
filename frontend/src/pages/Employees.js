@@ -166,25 +166,25 @@ const Employees = () => {
     try {
       console.log('Données déclaration:', declarationData);
       
+      // Utiliser le même endpoint que AbsenceStatusPage pour unifier les déclarations
       if (declarationData.type === 'maladie') {
-        // Arrêt maladie
-        await api.put(`/employees/${declarationData.employeeId}`, {
-          sickLeave: {
-            isOnSickLeave: true,
-            startDate: declarationData.startDate,
-            endDate: declarationData.endDate
-          }
+        // Arrêt maladie - utiliser /sick-leaves pour les arrêts maladie
+        await api.post('/sick-leaves', {
+          employeeId: declarationData.employeeId,
+          type: 'maladie',
+          startDate: declarationData.startDate,
+          endDate: declarationData.endDate,
+          reason: declarationData.reason || 'Arrêt maladie'
         });
         toast.success('Arrêt maladie déclaré avec succès');
       } else {
-        // Absence
-        await api.put(`/employees/${declarationData.employeeId}`, {
-          absence: {
-            isAbsent: true,
-            startDate: declarationData.startDate,
-            endDate: declarationData.endDate,
-            reason: declarationData.reason
-          }
+        // Absence - utiliser /absences pour les absences
+        await api.post('/absences', {
+          employeeId: declarationData.employeeId,
+          type: declarationData.type === 'absence' ? 'ABS' : declarationData.type,
+          startDate: declarationData.startDate,
+          endDate: declarationData.endDate,
+          reason: declarationData.reason || 'Absence'
         });
         toast.success('Absence déclarée avec succès');
       }

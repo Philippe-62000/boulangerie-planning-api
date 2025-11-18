@@ -5,6 +5,14 @@ const AbsenceStatus = ({ employees }) => {
   const [selectedPeriod, setSelectedPeriod] = useState('month');
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+  const [selectedWeek, setSelectedWeek] = useState(() => {
+    // Calculer la semaine en cours
+    const now = new Date();
+    const start = new Date(now);
+    start.setDate(now.getDate() - now.getDay() + 1);
+    return start;
+  });
+  const [selectedEmployeeDetail, setSelectedEmployeeDetail] = useState(null);
   const [absenceStats, setAbsenceStats] = useState({
     total: { absences: 0, sickLeave: 0, delays: 0, total: 0 },
     byEmployee: []
@@ -34,11 +42,12 @@ const AbsenceStatus = ({ employees }) => {
           endDate = new Date(selectedYear, selectedMonth, 0);
           break;
         case 'week':
-          const now = new Date();
-          const weekStart = new Date(now);
-          weekStart.setDate(now.getDate() - now.getDay() + 1);
+          // Utiliser la semaine sélectionnée
+          const weekStart = new Date(selectedWeek);
+          weekStart.setHours(0, 0, 0, 0);
           const weekEnd = new Date(weekStart);
           weekEnd.setDate(weekStart.getDate() + 6);
+          weekEnd.setHours(23, 59, 59, 999);
           startDate = weekStart;
           endDate = weekEnd;
           break;
@@ -169,27 +178,48 @@ const AbsenceStatus = ({ employees }) => {
         byEmployee: []
       });
     }
-  }, [employees, selectedPeriod, selectedMonth, selectedYear]);
+  }, [employees, selectedPeriod, selectedMonth, selectedYear, selectedWeek]);
 
   useEffect(() => {
     calculateAbsenceStats();
   }, [calculateAbsenceStats]);
 
+  // Fonctions utilitaires pour les semaines
+  const getWeekNumber = (date) => {
+    const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+    const dayNum = d.getUTCDay() || 7;
+    d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+    const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+    return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+  };
+
+  const getDateFromWeek = (year, week) => {
+    const simple = new Date(year, 0, 1 + (week - 1) * 7);
+    const dow = simple.getDay();
+    const ISOweekStart = simple;
+    if (dow <= 4) {
+      ISOweekStart.setDate(simple.getDate() - simple.getDay() + 1);
+    } else {
+      ISOweekStart.setDate(simple.getDate() + 8 - simple.getDay());
+    }
+    return ISOweekStart;
+  };
+
   const getPeriodLabel = () => {
-    const now = new Date();
     switch (selectedPeriod) {
       case 'year':
-        return `${now.getFullYear()}`;
+        return `${selectedYear}`;
       case 'month':
-        return `${now.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })}`;
+        const monthDate = new Date(selectedYear, selectedMonth - 1, 1);
+        return monthDate.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
       case 'week':
-        const weekStart = new Date(now);
-        weekStart.setDate(now.getDate() - now.getDay() + 1);
+        const weekStart = new Date(selectedWeek);
         const weekEnd = new Date(weekStart);
         weekEnd.setDate(weekStart.getDate() + 6);
         return `Semaine du ${weekStart.toLocaleDateString('fr-FR')} au ${weekEnd.toLocaleDateString('fr-FR')}`;
       default:
-        return `${now.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })}`;
+        const defaultDate = new Date(selectedYear, selectedMonth - 1, 1);
+        return defaultDate.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
     }
   };
 
@@ -218,41 +248,67 @@ const AbsenceStatus = ({ employees }) => {
           </button>
         </div>
         
-        {/* Sélecteurs de mois/année */}
+        {/* Sélecteurs de période */}
         <div className="date-selectors">
-          <div className="date-selector">
-            <label>Mois</label>
-            <select
-              value={selectedMonth}
-              onChange={(e) => setSelectedMonth(parseInt(e.target.value))}
-              className="form-control"
-            >
-              <option value={1}>Janvier</option>
-              <option value={2}>Février</option>
-              <option value={3}>Mars</option>
-              <option value={4}>Avril</option>
-              <option value={5}>Mai</option>
-              <option value={6}>Juin</option>
-              <option value={7}>Juillet</option>
-              <option value={8}>Août</option>
-              <option value={9}>Septembre</option>
-              <option value={10}>Octobre</option>
-              <option value={11}>Novembre</option>
-              <option value={12}>Décembre</option>
-            </select>
-          </div>
-          <div className="date-selector">
-            <label>Année</label>
-            <select
-              value={selectedYear}
-              onChange={(e) => setSelectedYear(parseInt(e.target.value))}
-              className="form-control"
-            >
-              <option value={2024}>2024</option>
-              <option value={2025}>2025</option>
-              <option value={2026}>2026</option>
-            </select>
-          </div>
+          {selectedPeriod === 'week' && (
+            <div className="date-selector">
+              <label>Semaine</label>
+              <input
+                type="week"
+                value={(() => {
+                  // Convertir selectedWeek en format ISO week (YYYY-Www)
+                  const year = selectedWeek.getFullYear();
+                  const week = getWeekNumber(selectedWeek);
+                  return `${year}-W${String(week).padStart(2, '0')}`;
+                })()}
+                onChange={(e) => {
+                  // Convertir le format ISO week en date
+                  const [year, week] = e.target.value.split('-W');
+                  const date = getDateFromWeek(parseInt(year), parseInt(week));
+                  setSelectedWeek(date);
+                }}
+                className="form-control"
+              />
+            </div>
+          )}
+          {(selectedPeriod === 'month' || selectedPeriod === 'year') && (
+            <>
+              <div className="date-selector">
+                <label>Mois</label>
+                <select
+                  value={selectedMonth}
+                  onChange={(e) => setSelectedMonth(parseInt(e.target.value))}
+                  className="form-control"
+                  disabled={selectedPeriod === 'year'}
+                >
+                  <option value={1}>Janvier</option>
+                  <option value={2}>Février</option>
+                  <option value={3}>Mars</option>
+                  <option value={4}>Avril</option>
+                  <option value={5}>Mai</option>
+                  <option value={6}>Juin</option>
+                  <option value={7}>Juillet</option>
+                  <option value={8}>Août</option>
+                  <option value={9}>Septembre</option>
+                  <option value={10}>Octobre</option>
+                  <option value={11}>Novembre</option>
+                  <option value={12}>Décembre</option>
+                </select>
+              </div>
+              <div className="date-selector">
+                <label>Année</label>
+                <select
+                  value={selectedYear}
+                  onChange={(e) => setSelectedYear(parseInt(e.target.value))}
+                  className="form-control"
+                >
+                  <option value={2024}>2024</option>
+                  <option value={2025}>2025</option>
+                  <option value={2026}>2026</option>
+                </select>
+              </div>
+            </>
+          )}
         </div>
       </div>
 
@@ -316,11 +372,19 @@ const AbsenceStatus = ({ employees }) => {
         <h3>Détail par employé</h3>
         {absenceStats.byEmployee.length > 0 ? (
           <div className="employee-stats">
-            {absenceStats.byEmployee.map((employee) => (
+            {absenceStats.byEmployee.map((employee) => {
+              const fullEmployee = employees.find(emp => emp._id === employee.id);
+              return (
               <div key={employee.id} className="employee-stat-card">
                 <div className="employee-info">
-                  <h4 className="employee-name">{employee.name}</h4>
-                  <span className="employee-role">{employee.role}</span>
+                  <h4 
+                    className="employee-name" 
+                    style={{ cursor: 'pointer', textDecoration: 'underline' }}
+                    onClick={() => setSelectedEmployeeDetail(fullEmployee || employee)}
+                  >
+                    {employee.name}
+                  </h4>
+                  <span className="employee-role">{fullEmployee?.role || employee.role}</span>
                 </div>
                 <div className="employee-stats-grid">
                   <div className="mini-stat">
@@ -341,7 +405,8 @@ const AbsenceStatus = ({ employees }) => {
                   </div>
                 </div>
               </div>
-            ))}
+            );
+            })}
           </div>
         ) : (
           <div className="no-data">
@@ -352,6 +417,126 @@ const AbsenceStatus = ({ employees }) => {
           </div>
         )}
       </div>
+
+      {/* Modal de détail employé */}
+      {selectedEmployeeDetail && (
+        <div className="modal show" onClick={() => setSelectedEmployeeDetail(null)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2 className="modal-title">Détail des absences - {selectedEmployeeDetail.name}</h2>
+              <button className="modal-close" onClick={() => setSelectedEmployeeDetail(null)}>
+                <svg viewBox="0 0 24 24" fill="currentColor" className="close-icon">
+                  <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+                </svg>
+              </button>
+            </div>
+            <div className="modal-body">
+              {(() => {
+                const emp = employees.find(e => e._id === selectedEmployeeDetail._id || e._id === selectedEmployeeDetail.id);
+                if (!emp) return <p>Aucune donnée disponible</p>;
+                
+                const absencesArray = emp.absences?.all || (Array.isArray(emp.absences) ? emp.absences : []);
+                const sickLeavesArray = emp.sickLeaves?.all || (Array.isArray(emp.sickLeaves) ? emp.sickLeaves : []);
+                const delaysArray = emp.delays?.all || (Array.isArray(emp.delays) ? emp.delays : []);
+                
+                // Filtrer par période
+                let startDate, endDate;
+                switch (selectedPeriod) {
+                  case 'year':
+                    startDate = new Date(selectedYear, 0, 1);
+                    endDate = new Date(selectedYear, 11, 31);
+                    break;
+                  case 'month':
+                    startDate = new Date(selectedYear, selectedMonth - 1, 1);
+                    endDate = new Date(selectedYear, selectedMonth, 0);
+                    break;
+                  case 'week':
+                    startDate = new Date(selectedWeek);
+                    startDate.setHours(0, 0, 0, 0);
+                    endDate = new Date(selectedWeek);
+                    endDate.setDate(startDate.getDate() + 6);
+                    endDate.setHours(23, 59, 59, 999);
+                    break;
+                  default:
+                    startDate = new Date(selectedYear, selectedMonth - 1, 1);
+                    endDate = new Date(selectedYear, selectedMonth, 0);
+                }
+                
+                const filteredAbsences = absencesArray.filter(a => {
+                  if (a.startDate && a.endDate) {
+                    const aStart = new Date(a.startDate);
+                    const aEnd = new Date(a.endDate);
+                    return aStart <= endDate && aEnd >= startDate;
+                  }
+                  return false;
+                });
+                
+                const filteredSickLeaves = sickLeavesArray.filter(sl => {
+                  if (sl.startDate && sl.endDate) {
+                    const slStart = new Date(sl.startDate);
+                    const slEnd = new Date(sl.endDate);
+                    return slStart <= endDate && slEnd >= startDate;
+                  }
+                  return false;
+                });
+                
+                const filteredDelays = delaysArray.filter(d => {
+                  if (d.date) {
+                    const dDate = new Date(d.date);
+                    return dDate >= startDate && dDate <= endDate;
+                  }
+                  return false;
+                });
+                
+                return (
+                  <div>
+                    <h3>Absences ({filteredAbsences.length})</h3>
+                    {filteredAbsences.length > 0 ? (
+                      <ul>
+                        {filteredAbsences.map((a, idx) => (
+                          <li key={idx}>
+                            {new Date(a.startDate).toLocaleDateString('fr-FR')} - {new Date(a.endDate).toLocaleDateString('fr-FR')}
+                            {a.reason && ` (${a.reason})`}
+                          </li>
+                        ))}
+                      </ul>
+                    ) : <p>Aucune absence</p>}
+                    
+                    <h3>Arrêts maladie ({filteredSickLeaves.length})</h3>
+                    {filteredSickLeaves.length > 0 ? (
+                      <ul>
+                        {filteredSickLeaves.map((sl, idx) => (
+                          <li key={idx}>
+                            {new Date(sl.startDate).toLocaleDateString('fr-FR')} - {new Date(sl.endDate).toLocaleDateString('fr-FR')}
+                            {sl.reason && ` (${sl.reason})`}
+                          </li>
+                        ))}
+                      </ul>
+                    ) : <p>Aucun arrêt maladie</p>}
+                    
+                    <h3>Retards ({filteredDelays.length})</h3>
+                    {filteredDelays.length > 0 ? (
+                      <ul>
+                        {filteredDelays.map((d, idx) => (
+                          <li key={idx}>
+                            {new Date(d.date).toLocaleDateString('fr-FR')} - {d.duration} minutes
+                            {d.reason && ` (${d.reason})`}
+                          </li>
+                        ))}
+                      </ul>
+                    ) : <p>Aucun retard</p>}
+                  </div>
+                );
+              })()}
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-secondary" onClick={() => setSelectedEmployeeDetail(null)}>
+                Fermer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

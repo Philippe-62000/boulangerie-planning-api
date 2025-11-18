@@ -720,6 +720,9 @@
             <button class="tab" onclick="switchTab('password')">
                 🔐 Mot de Passe
             </button>
+            <button class="tab" onclick="switchTab('mutuelle')" id="mutuelle-tab" style="display: none;">
+                🏥 Mutuelle Personnelle
+            </button>
             <button class="tab" onclick="openAdvanceModal()" id="advance-tab" style="display: none;">
                 💰 Demande d'Acompte
             </button>
@@ -865,6 +868,80 @@
                     </form>
 
                     <div class="loading" id="sickLeaveLoading">
+                        <div class="spinner"></div>
+                        <p>Traitement en cours...</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Onglet Mutuelle Personnelle -->
+            <div class="tab-panel" id="mutuelle-panel">
+                <div class="form-container">
+                    <h2 class="form-title">🏥 Justificatif de Mutuelle Personnelle</h2>
+                    <p class="form-subtitle">Déposez votre justificatif de mutuelle personnelle</p>
+
+                    <div id="mutuelleAlert"></div>
+
+                    <div class="info-box">
+                        <h4>ℹ️ Informations importantes</h4>
+                        <p><strong>J'ai renoncé au bénéfice des garanties de frais de santé prévues par le contrat collectif et obligatoire de l'entreprise.</strong></p>
+                        <p>En effet, étant donné que j'ai un motif qui me permet de refuser la couverture complémentaire obligatoire, la réglementation m'autorise à refuser d'adhérer à cette mutuelle santé.</p>
+                        <p>Je joins les pièces justificatives.</p>
+                        <h5>Cas de dispense :</h5>
+                        <ul>
+                            <li>Vous avez déjà une mutuelle santé souscrite à titre individuel (la dispense d'adhésion joue alors jusqu'à la date d'échéance de votre contrat existant)</li>
+                            <li>Vous faites partie des ayants droit de la mutuelle santé collective de votre époux ou partenaire de PACS (dans le cas d'une mutuelle santé familiale ou encore d'un contrat de groupe dit Madelin)</li>
+                            <li>Vous êtes bénéficiaire de la complémentaire santé solidaire (CSS, ex-CMU-C)</li>
+                        </ul>
+                    </div>
+
+                    <div class="sick-leave-document">
+                        <h4>📄 Exigences pour le document</h4>
+                        <ul>
+                            <li>Fichier JPG ou PDF uniquement</li>
+                            <li>Taille maximum : 10MB</li>
+                            <li>Document lisible et de bonne qualité</li>
+                            <li>Doit être un justificatif valide (attestation de mutuelle, contrat, etc.)</li>
+                        </ul>
+                    </div>
+
+                    <form id="mutuelleForm" enctype="multipart/form-data">
+                        <div class="form-group">
+                            <label class="form-label" for="mutuelleEmployee">Employé *</label>
+                            <input type="text" id="mutuelleEmployee" name="employeeName" class="form-control" readonly>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label" for="mutuelleEmployeeEmail">Email *</label>
+                            <input type="email" id="mutuelleEmployeeEmail" name="employeeEmail" class="form-control" readonly>
+                        </div>
+
+                        <input type="hidden" id="mutuelleEmployeeId" name="employeeId">
+
+                        <div class="form-group">
+                            <label class="form-label" for="mutuelleDocument">Justificatif de mutuelle personnelle *</label>
+                            <div class="file-upload" onclick="document.getElementById('mutuelleDocument').click()">
+                                <input type="file" id="mutuelleDocument" name="document" accept=".jpg,.jpeg,.pdf" required>
+                                <div class="file-upload-label">
+                                    <div style="font-size: 24px;">📤</div>
+                                    <div>Cliquez pour sélectionner un fichier</div>
+                                    <div class="file-info">JPG, PDF (max 10MB)</div>
+                                    <div class="file-info" id="mutuelleFileName" style="display: none;"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <button type="submit" class="btn btn-primary" id="mutuelleBtn">
+                                📤 Envoyer le justificatif
+                            </button>
+                            <button type="button" class="btn btn-secondary" onclick="resetMutuelleForm()" style="margin-left: 10px;">
+                                🔄 Réinitialiser
+                            </button>
+                        </div>
+                    </form>
+
+                    <div class="loading" id="mutuelleLoading">
                         <div class="spinner"></div>
                         <p>Traitement en cours...</p>
                     </div>
@@ -1056,9 +1133,17 @@
                 
                 // Afficher les informations de l'employé
                 document.getElementById('employeeName').textContent = currentEmployee.name;
-                document.getElementById('vacationEmployee').value = `${currentEmployee.name} - ${getRoleLabel(currentEmployee.role)}`;
-                document.getElementById('sickLeaveEmployee').value = `${currentEmployee.name} - ${getRoleLabel(currentEmployee.role)}`;
+                document.getElementById('vacationEmployee').value = currentEmployee.name;
+                document.getElementById('sickLeaveEmployee').value = currentEmployee.name;
                 document.getElementById('sickLeaveEmployeeEmail').value = currentEmployee.email;
+                document.getElementById('mutuelleEmployee').value = currentEmployee.name;
+                document.getElementById('mutuelleEmployeeEmail').value = currentEmployee.email;
+                document.getElementById('mutuelleEmployeeId').value = currentEmployee.id || currentEmployee._id;
+
+                // Afficher l'onglet Mutuelle si l'employé a choisi "Non Perso"
+                if (currentEmployee.mutuelle === 'Non Perso') {
+                    document.getElementById('mutuelle-tab').style.display = 'block';
+                }
 
                 // Masquer le loading et afficher le contenu
                 document.getElementById('initialLoading').style.display = 'none';
@@ -1156,8 +1241,14 @@
             });
 
             // Activer l'onglet et le panel sélectionnés
-            document.getElementById(`${tabName}-panel`).classList.add('active');
-            event.target.classList.add('active');
+            const tabButton = document.querySelector(`[onclick="switchTab('${tabName}')"]`);
+            if (tabButton) {
+                tabButton.classList.add('active');
+            }
+            const panel = document.getElementById(`${tabName}-panel`);
+            if (panel) {
+                panel.classList.add('active');
+            }
 
             // Si c'est l'onglet documents, charger les documents personnels par défaut
             if (tabName === 'documents') {
@@ -1240,6 +1331,37 @@
             }
         });
 
+        // Gestion du formulaire de mutuelle
+        document.getElementById('mutuelleForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const formData = new FormData(e.target);
+
+            hideAlert('mutuelleAlert');
+            setFormEnabled('mutuelleForm', false);
+
+            try {
+                const response = await fetch(`${API_URL}/mutuelle/upload`, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    showAlert('mutuelleAlert', 'Justificatif mutuelle envoyé avec succès ! Vous recevrez une confirmation par email.', 'success');
+                    resetMutuelleForm();
+                } else {
+                    showAlert('mutuelleAlert', result.error || 'Erreur lors de l\'envoi');
+                }
+            } catch (error) {
+                console.error('Erreur envoi justificatif mutuelle:', error);
+                showAlert('mutuelleAlert', 'Erreur de connexion. Vérifiez votre connexion internet.');
+            } finally {
+                setFormEnabled('mutuelleForm', true);
+            }
+        });
+
         // Gestion du formulaire d'arrêt maladie avec document
         document.getElementById('sickLeaveForm').addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -1309,18 +1431,42 @@
 
         function resetVacationForm() {
             document.getElementById('vacationForm').reset();
-            document.getElementById('vacationEmployee').value = `${currentEmployee.name} - ${getRoleLabel(currentEmployee.role)}`;
+            document.getElementById('vacationEmployee').value = currentEmployee.name;
             hideAlert('vacationAlert');
         }
 
         function resetSickLeaveForm() {
             document.getElementById('sickLeaveForm').reset();
-            document.getElementById('sickLeaveEmployee').value = `${currentEmployee.name} - ${getRoleLabel(currentEmployee.role)}`;
+            document.getElementById('sickLeaveEmployee').value = currentEmployee.name;
             document.getElementById('sickLeaveEmployeeEmail').value = currentEmployee.email;
             document.getElementById('fileName').style.display = 'none';
             document.getElementById('fileName').classList.remove('file-selected');
             hideAlert('sickLeaveAlert');
         }
+
+        function resetMutuelleForm() {
+            document.getElementById('mutuelleForm').reset();
+            document.getElementById('mutuelleEmployee').value = currentEmployee.name;
+            document.getElementById('mutuelleEmployeeEmail').value = currentEmployee.email;
+            document.getElementById('mutuelleEmployeeId').value = currentEmployee.id || currentEmployee._id;
+            document.getElementById('mutuelleFileName').style.display = 'none';
+            document.getElementById('mutuelleFileName').classList.remove('file-selected');
+            hideAlert('mutuelleAlert');
+        }
+
+        // Gestion de l'affichage du nom de fichier pour mutuelle
+        document.getElementById('mutuelleDocument').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            const fileNameDiv = document.getElementById('mutuelleFileName');
+            if (file) {
+                fileNameDiv.textContent = `📄 ${file.name}`;
+                fileNameDiv.style.display = 'block';
+                fileNameDiv.classList.add('file-selected');
+            } else {
+                fileNameDiv.style.display = 'none';
+                fileNameDiv.classList.remove('file-selected');
+            }
+        });
 
         // Fonctions pour la gestion des documents
         function switchDocumentTab(tabType) {

@@ -191,6 +191,105 @@ const Dashboard = () => {
         )}
       </div>
 
+      {/* Récapitulatif : Absences et Retards */}
+      <div className="card" style={{ marginBottom: '2rem' }}>
+        <h3>📋 Récapitulatif : Absences et Retards</h3>
+        {(() => {
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+          const thisMonthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+          const thisMonthEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+          
+          // Filtrer les employés avec absences/retards ce mois
+          const employeesWithAbsences = employees.filter(emp => {
+            const absencesArray = emp.absences?.all || (Array.isArray(emp.absences) ? emp.absences : []);
+            const delaysArray = emp.delays?.all || (Array.isArray(emp.delays) ? emp.delays : []);
+            
+            const monthAbsences = absencesArray.filter(a => {
+              if (a.startDate && a.endDate) {
+                const aStart = new Date(a.startDate);
+                const aEnd = new Date(a.endDate);
+                return aStart <= thisMonthEnd && aEnd >= thisMonthStart;
+              }
+              return false;
+            });
+            
+            const monthDelays = delaysArray.filter(d => {
+              if (d.date) {
+                const dDate = new Date(d.date);
+                return dDate >= thisMonthStart && dDate <= thisMonthEnd;
+              }
+              return false;
+            });
+            
+            return monthAbsences.length > 0 || monthDelays.length > 0;
+          });
+          
+          if (employeesWithAbsences.length === 0) {
+            return <p>Aucune absence ou retard ce mois</p>;
+          }
+          
+          return (
+            <div style={{ overflowX: 'auto' }}>
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>Nom</th>
+                    <th>Absences</th>
+                    <th>Retards</th>
+                    <th>Total</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {employeesWithAbsences.map((employee) => {
+                    const absencesArray = employee.absences?.all || (Array.isArray(employee.absences) ? employee.absences : []);
+                    const delaysArray = employee.delays?.all || (Array.isArray(employee.delays) ? employee.delays : []);
+                    
+                    const monthAbsences = absencesArray.filter(a => {
+                      if (a.startDate && a.endDate) {
+                        const aStart = new Date(a.startDate);
+                        const aEnd = new Date(a.endDate);
+                        return aStart <= thisMonthEnd && aEnd >= thisMonthStart;
+                      }
+                      return false;
+                    });
+                    
+                    const monthDelays = delaysArray.filter(d => {
+                      if (d.date) {
+                        const dDate = new Date(d.date);
+                        return dDate >= thisMonthStart && dDate <= thisMonthEnd;
+                      }
+                      return false;
+                    });
+                    
+                    return (
+                      <tr key={employee._id}>
+                        <td>{employee.name}</td>
+                        <td>
+                          <span style={{ color: '#dc3545', fontWeight: 'bold' }}>
+                            {monthAbsences.length}
+                          </span>
+                        </td>
+                        <td>
+                          <span style={{ color: '#ffc107', fontWeight: 'bold' }}>
+                            {monthDelays.length}
+                          </span>
+                        </td>
+                        <td>
+                          <span style={{ fontWeight: 'bold' }}>
+                            {monthAbsences.length + monthDelays.length}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          );
+        })()}
+      </div>
+
       {/* Récapitulatif : Congés */}
       <div className="card" style={{ marginBottom: '2rem' }}>
         <h3>🏖️ Récapitulatif : Congés</h3>

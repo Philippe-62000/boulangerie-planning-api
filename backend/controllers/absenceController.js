@@ -12,17 +12,49 @@ exports.declareAbsence = async (req, res) => {
       return res.status(404).json({ error: 'Employé non trouvé' });
     }
 
-    // Créer l'absence
+    // Normaliser le type d'absence
+    let normalizedType = type;
+    if (type === 'maladie' || type === 'Arrêt maladie') {
+      normalizedType = 'MAL';
+    } else if (type === 'absence' || type === 'ABS') {
+      normalizedType = 'ABS';
+    } else if (type === 'retard' || type === 'RET') {
+      normalizedType = 'RET';
+    }
+
+    // Créer l'absence dans le modèle Absence
     const absence = new Absence({
       employeeId,
       employeeName: employee.name,
-      type,
+      type: normalizedType,
       startDate: new Date(startDate),
       endDate: new Date(endDate),
       reason
     });
 
     await absence.save();
+
+    // Synchroniser avec le tableau absences de l'Employee
+    // Le champ absences n'est pas défini dans le schéma mais est utilisé dynamiquement
+    const absenceToAdd = {
+      startDate: new Date(startDate),
+      endDate: new Date(endDate),
+      type: normalizedType,
+      reason: reason || '',
+      createdAt: new Date(),
+      absenceId: absence._id // Référence vers le document Absence
+    };
+
+    // Initialiser le tableau absences s'il n'existe pas
+    if (!employee.absences) {
+      employee.absences = [];
+    }
+
+    // Ajouter l'absence au tableau
+    employee.absences.push(absenceToAdd);
+    await employee.save();
+
+    console.log(`✅ Absence ${normalizedType} déclarée et synchronisée pour ${employee.name}`);
 
     res.status(201).json({
       message: 'Absence déclarée avec succès',

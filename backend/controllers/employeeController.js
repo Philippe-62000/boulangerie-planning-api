@@ -8,21 +8,49 @@ const getAllEmployees = async (req, res) => {
     const employees = await Employee.find({ isActive: true })
       .sort({ name: 1 });
     
+    // Récupérer toutes les absences depuis le modèle Absence
+    const allAbsences = await Absence.find({});
+    
     // Récupérer les absences pour chaque employé
     const employeesWithAbsences = await Promise.all(
       employees.map(async (employee) => {
-        // Récupérer les absences depuis le modèle Employee
-        const absences = employee.absences || [];
+        // Récupérer les absences depuis le modèle Employee (ancien système)
+        const employeeAbsences = employee.absences || [];
+        
+        // Récupérer les absences depuis le modèle Absence (nouveau système)
+        const absenceModelAbsences = allAbsences.filter(a => 
+          a.employeeId && a.employeeId.toString() === employee._id.toString()
+        );
+        
+        // Fusionner les deux sources d'absences
+        const mergedAbsences = [...employeeAbsences];
+        
+        // Ajouter les absences du modèle Absence qui ne sont pas déjà dans employee.absences
+        absenceModelAbsences.forEach(absenceModel => {
+          const exists = mergedAbsences.some(a => 
+            a.absenceId && a.absenceId.toString() === absenceModel._id.toString()
+          );
+          if (!exists) {
+            mergedAbsences.push({
+              startDate: absenceModel.startDate,
+              endDate: absenceModel.endDate,
+              type: absenceModel.type,
+              reason: absenceModel.reason || '',
+              createdAt: absenceModel.createdAt,
+              absenceId: absenceModel._id
+            });
+          }
+        });
         
         // Filtrer les absences actuelles et futures
-        const currentAbsences = absences.filter(a => {
+        const currentAbsences = mergedAbsences.filter(a => {
           const startDate = new Date(a.startDate);
           const endDate = new Date(a.endDate);
           const now = new Date();
           return startDate <= now && endDate >= now;
         });
         
-        const futureAbsences = absences.filter(a => {
+        const futureAbsences = mergedAbsences.filter(a => {
           const startDate = new Date(a.startDate);
           return startDate > new Date();
         });
@@ -32,19 +60,19 @@ const getAllEmployees = async (req, res) => {
           absences: {
             current: currentAbsences.filter(a => a.type === 'ABS'),
             future: futureAbsences.filter(a => a.type === 'ABS'),
-            all: absences.filter(a => a.type === 'ABS')
+            all: mergedAbsences.filter(a => a.type === 'ABS')
           },
           sickLeaves: {
             current: currentAbsences.filter(a => a.type === 'MAL' || a.type === 'Arrêt maladie'),
             future: futureAbsences.filter(a => a.type === 'MAL' || a.type === 'Arrêt maladie'),
-            all: absences.filter(a => a.type === 'MAL' || a.type === 'Arrêt maladie')
+            all: mergedAbsences.filter(a => a.type === 'MAL' || a.type === 'Arrêt maladie')
           },
           delays: {
             current: currentAbsences.filter(a => a.type === 'RET'),
             future: futureAbsences.filter(a => a.type === 'RET'),
-            all: absences.filter(a => a.type === 'RET')
+            all: mergedAbsences.filter(a => a.type === 'RET')
           },
-          totalAbsences: absences.length
+          totalAbsences: mergedAbsences.length
         };
       })
     );
