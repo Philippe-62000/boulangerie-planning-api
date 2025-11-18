@@ -130,6 +130,9 @@ class EmailServiceAlternative {
           user: smtpUser,
           pass: smtpPass
         },
+        connectionTimeout: 30000, // 30 secondes pour la connexion initiale
+        greetingTimeout: 30000, // 30 secondes pour le greeting
+        socketTimeout: 30000, // 30 secondes pour les opérations socket
         tls: {
           rejectUnauthorized: false // Pour éviter les problèmes de certificat
         }
@@ -164,20 +167,48 @@ class EmailServiceAlternative {
       // Créer le transporteur SMTP
       const transporter = nodemailer.createTransport(smtpConfig);
 
-      // Vérifier la connexion SMTP
+      // Vérifier la connexion SMTP (avec retry sur port 587 si 465 échoue)
       console.log('🔍 Vérification de la connexion SMTP OVH...');
       try {
         await transporter.verify();
         console.log('✅ Connexion SMTP OVH vérifiée avec succès');
       } catch (verifyError) {
-        console.error('❌ Erreur vérification SMTP OVH:', {
+        console.error('❌ Erreur vérification SMTP OVH (port ' + smtpPort + '):', {
           message: verifyError.message,
           code: verifyError.code,
           command: verifyError.command,
           response: verifyError.response,
           responseCode: verifyError.responseCode
         });
-        throw verifyError;
+        
+        // Si timeout sur port 465, essayer port 587 avec STARTTLS
+        if (smtpPort === 465 && (verifyError.code === 'ETIMEDOUT' || verifyError.code === 'ECONNREFUSED')) {
+          console.log('🔄 Tentative avec port 587 (STARTTLS) comme alternative...');
+          const smtpConfig587 = {
+            ...smtpConfig,
+            port: 587,
+            secure: false, // STARTTLS au lieu de SSL direct
+            requireTLS: true
+          };
+          
+          const transporter587 = nodemailer.createTransport(smtpConfig587);
+          try {
+            await transporter587.verify();
+            console.log('✅ Connexion SMTP OVH vérifiée avec succès (port 587)');
+            // Utiliser le transporter qui fonctionne
+            transporter = transporter587;
+            smtpConfig.port = 587;
+            smtpConfig.secure = false;
+          } catch (verifyError587) {
+            console.error('❌ Erreur vérification SMTP OVH (port 587):', {
+              message: verifyError587.message,
+              code: verifyError587.code
+            });
+            throw verifyError; // Lancer l'erreur originale
+          }
+        } else {
+          throw verifyError;
+        }
       }
 
       // Options de l'email
