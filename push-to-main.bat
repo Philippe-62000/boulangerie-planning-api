@@ -13,7 +13,7 @@ git add .
 
 echo.
 echo 💾 Commit des modifications...
-git commit -m "📝 Documentation: limitation SMTP Render (plans gratuits bloquent SMTP)"
+git commit -m "🔧 Nettoyage SMTP: suppression variables Gmail + ajout smtp.mail.ovh.net"
 
 echo.
 echo 🚀 Push vers la branche main...

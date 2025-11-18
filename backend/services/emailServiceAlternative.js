@@ -112,40 +112,42 @@ class EmailServiceAlternative {
         throw new Error(`Nodemailer non disponible: ${error.message}`);
       }
 
-      // Configuration SMTP OVH (variables spécifiques pour éviter les conflits)
-      // Utilise SMTP_*_OVH en priorité, sinon fallback vers SMTP_* existantes
-      const smtpHost = process.env.SMTP_HOST_OVH || process.env.SMTP_HOST || 'ssl0.ovh.net';
-      const smtpPort = parseInt(process.env.SMTP_PORT_OVH || process.env.SMTP_PORT || '465');
-      const smtpUser = process.env.SMTP_USER_OVH || process.env.SMTP_USER || process.env.EMAIL_USER;
-      const smtpPass = process.env.SMTP_PASS_OVH || process.env.SMTP_PASSWORD_OVH || process.env.SMTP_PASS || process.env.SMTP_PASSWORD;
+      // Configuration SMTP OVH (uniquement variables OVH, pas de fallback Gmail)
+      // Serveurs OVH possibles : ssl0.ovh.net ou smtp.mail.ovh.net
+      const smtpHostPrimary = process.env.SMTP_HOST_OVH || 'ssl0.ovh.net';
+      const smtpHostAlternative = smtpHostPrimary === 'ssl0.ovh.net' ? 'smtp.mail.ovh.net' : 'ssl0.ovh.net';
+      const smtpPort = parseInt(process.env.SMTP_PORT_OVH || '465');
+      const smtpUser = process.env.SMTP_USER_OVH || process.env.EMAIL_USER;
+      const smtpPass = process.env.SMTP_PASS_OVH || process.env.SMTP_PASSWORD_OVH;
       const smtpSecure = process.env.SMTP_SECURE_OVH !== undefined 
         ? process.env.SMTP_SECURE_OVH !== 'false' 
-        : (process.env.SMTP_SECURE !== 'false'); // true par défaut (port 465)
-      
-      const smtpConfig = {
-        host: smtpHost,
+        : true; // true par défaut (port 465 avec SSL)
+
+      // Vérifier que la configuration est complète
+      if (!smtpUser || !smtpPass) {
+        const missingVars = [];
+        if (!smtpUser) missingVars.push('SMTP_USER_OVH');
+        if (!smtpPass) missingVars.push('SMTP_PASS_OVH');
+        console.error('❌ SMTP OVH non configuré - Variables manquantes:', missingVars);
+        throw new Error(`SMTP OVH non configuré (${missingVars.join(', ')} manquant)`);
+      }
+
+      // Créer la configuration avec le serveur principal
+      let smtpConfig = {
+        host: smtpHostPrimary,
         port: smtpPort,
         secure: smtpSecure,
         auth: {
           user: smtpUser,
           pass: smtpPass
         },
-        connectionTimeout: 30000, // 30 secondes pour la connexion initiale
-        greetingTimeout: 30000, // 30 secondes pour le greeting
-        socketTimeout: 30000, // 30 secondes pour les opérations socket
+        connectionTimeout: 30000,
+        greetingTimeout: 30000,
+        socketTimeout: 30000,
         tls: {
-          rejectUnauthorized: false // Pour éviter les problèmes de certificat
+          rejectUnauthorized: false
         }
       };
-
-      // Vérifier que la configuration est complète
-      if (!smtpConfig.auth.user || !smtpConfig.auth.pass) {
-        const missingVars = [];
-        if (!smtpConfig.auth.user) missingVars.push('SMTP_USER_OVH/SMTP_USER');
-        if (!smtpConfig.auth.pass) missingVars.push('SMTP_PASS_OVH/SMTP_PASS');
-        console.error('❌ SMTP OVH non configuré - Variables manquantes:', missingVars);
-        throw new Error(`SMTP OVH non configuré (${missingVars.join(', ')} manquant)`);
-      }
 
       console.log('📧 Configuration SMTP OVH:', {
         host: smtpConfig.host,
@@ -153,63 +155,87 @@ class EmailServiceAlternative {
         secure: smtpConfig.secure,
         user: smtpConfig.auth.user,
         hasPassword: !!smtpConfig.auth.pass,
-        usingOVHVariables: !!(process.env.SMTP_HOST_OVH || process.env.SMTP_USER_OVH || process.env.SMTP_PASS_OVH),
-        envVars: {
-          SMTP_HOST_OVH: process.env.SMTP_HOST_OVH ? 'défini' : 'non défini',
-          SMTP_USER_OVH: process.env.SMTP_USER_OVH ? 'défini' : 'non défini',
-          SMTP_PASS_OVH: process.env.SMTP_PASS_OVH ? 'défini' : 'non défini',
-          SMTP_HOST: process.env.SMTP_HOST ? 'défini' : 'non défini',
-          SMTP_USER: process.env.SMTP_USER ? 'défini' : 'non défini',
-          SMTP_PASS: process.env.SMTP_PASS ? 'défini' : 'non défini'
-        }
+        alternativeHost: smtpHostAlternative
       });
 
-      // Créer le transporteur SMTP
-      const transporter = nodemailer.createTransport(smtpConfig);
-
-      // Vérifier la connexion SMTP (avec retry sur port 587 si 465 échoue)
-      console.log('🔍 Vérification de la connexion SMTP OVH...');
-      try {
-        await transporter.verify();
-        console.log('✅ Connexion SMTP OVH vérifiée avec succès');
-      } catch (verifyError) {
-        console.error('❌ Erreur vérification SMTP OVH (port ' + smtpPort + '):', {
-          message: verifyError.message,
-          code: verifyError.code,
-          command: verifyError.command,
-          response: verifyError.response,
-          responseCode: verifyError.responseCode
-        });
-        
-        // Si timeout sur port 465, essayer port 587 avec STARTTLS
-        if (smtpPort === 465 && (verifyError.code === 'ETIMEDOUT' || verifyError.code === 'ECONNREFUSED')) {
-          console.log('🔄 Tentative avec port 587 (STARTTLS) comme alternative...');
-          const smtpConfig587 = {
-            ...smtpConfig,
-            port: 587,
-            secure: false, // STARTTLS au lieu de SSL direct
-            requireTLS: true
-          };
-          
-          const transporter587 = nodemailer.createTransport(smtpConfig587);
-          try {
-            await transporter587.verify();
-            console.log('✅ Connexion SMTP OVH vérifiée avec succès (port 587)');
-            // Utiliser le transporter qui fonctionne
-            transporter = transporter587;
-            smtpConfig.port = 587;
-            smtpConfig.secure = false;
-          } catch (verifyError587) {
-            console.error('❌ Erreur vérification SMTP OVH (port 587):', {
-              message: verifyError587.message,
-              code: verifyError587.code
-            });
-            throw verifyError; // Lancer l'erreur originale
+      // Fonction pour essayer une connexion SMTP
+      const trySMTPConnection = async (host, port, secure) => {
+        const config = {
+          host: host,
+          port: port,
+          secure: secure,
+          auth: {
+            user: smtpUser,
+            pass: smtpPass
+          },
+          connectionTimeout: 30000,
+          greetingTimeout: 30000,
+          socketTimeout: 30000,
+          tls: {
+            rejectUnauthorized: false
           }
-        } else {
-          throw verifyError;
+        };
+        
+        const transporter = nodemailer.createTransport(config);
+        await transporter.verify();
+        return { transporter, config };
+      };
+
+      // Essayer différentes configurations dans l'ordre
+      let transporter = null;
+      let finalConfig = null;
+      let lastError = null;
+
+      // 1. Essayer serveur principal (ssl0.ovh.net) port 465
+      console.log(`🔍 Tentative connexion SMTP OVH: ${smtpHostPrimary}:465 (SSL)...`);
+      try {
+        const result = await trySMTPConnection(smtpHostPrimary, 465, true);
+        transporter = result.transporter;
+        finalConfig = result.config;
+        console.log(`✅ Connexion SMTP OVH réussie: ${smtpHostPrimary}:465`);
+      } catch (error1) {
+        console.error(`❌ Échec ${smtpHostPrimary}:465:`, error1.code || error1.message);
+        lastError = error1;
+        
+        // 2. Essayer serveur alternatif (smtp.mail.ovh.net) port 465
+        console.log(`🔄 Tentative serveur alternatif: ${smtpHostAlternative}:465 (SSL)...`);
+        try {
+          const result = await trySMTPConnection(smtpHostAlternative, 465, true);
+          transporter = result.transporter;
+          finalConfig = result.config;
+          console.log(`✅ Connexion SMTP OVH réussie: ${smtpHostAlternative}:465`);
+        } catch (error2) {
+          console.error(`❌ Échec ${smtpHostAlternative}:465:`, error2.code || error2.message);
+          lastError = error2;
+          
+          // 3. Essayer port 587 avec STARTTLS (serveur principal)
+          console.log(`🔄 Tentative port 587 (STARTTLS): ${smtpHostPrimary}:587...`);
+          try {
+            const result = await trySMTPConnection(smtpHostPrimary, 587, false);
+            transporter = result.transporter;
+            finalConfig = result.config;
+            console.log(`✅ Connexion SMTP OVH réussie: ${smtpHostPrimary}:587 (STARTTLS)`);
+          } catch (error3) {
+            console.error(`❌ Échec ${smtpHostPrimary}:587:`, error3.code || error3.message);
+            lastError = error3;
+            
+            // 4. Dernière tentative : serveur alternatif port 587
+            console.log(`🔄 Dernière tentative: ${smtpHostAlternative}:587 (STARTTLS)...`);
+            try {
+              const result = await trySMTPConnection(smtpHostAlternative, 587, false);
+              transporter = result.transporter;
+              finalConfig = result.config;
+              console.log(`✅ Connexion SMTP OVH réussie: ${smtpHostAlternative}:587 (STARTTLS)`);
+            } catch (error4) {
+              console.error(`❌ Échec ${smtpHostAlternative}:587:`, error4.code || error4.message);
+              throw new Error(`Toutes les tentatives SMTP OVH ont échoué. Dernière erreur: ${error4.message}`);
+            }
+          }
         }
       }
+
+      // Utiliser la configuration qui a fonctionné
+      smtpConfig = finalConfig;
 
       // Options de l'email
       const mailOptions = {
