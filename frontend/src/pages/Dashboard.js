@@ -193,40 +193,47 @@ const Dashboard = () => {
 
       {/* Récapitulatif : Absences et Retards */}
       <div className="card" style={{ marginBottom: '2rem' }}>
-        <h3>📋 Récapitulatif : Absences et Retards</h3>
+        <h3>📋 Récapitulatif : Absences et Retards (Aujourd'hui)</h3>
         {(() => {
           const today = new Date();
           today.setHours(0, 0, 0, 0);
-          const thisMonthStart = new Date(today.getFullYear(), today.getMonth(), 1);
-          const thisMonthEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+          const todayEnd = new Date(today);
+          todayEnd.setHours(23, 59, 59, 999);
           
-          // Filtrer les employés avec absences/retards ce mois
+          // Filtrer les employés avec absences/retards aujourd'hui uniquement
           const employeesWithAbsences = employees.filter(emp => {
             const absencesArray = emp.absences?.all || (Array.isArray(emp.absences) ? emp.absences : []);
             const delaysArray = emp.delays?.all || (Array.isArray(emp.delays) ? emp.delays : []);
             
-            const monthAbsences = absencesArray.filter(a => {
+            // Filtrer les absences qui incluent aujourd'hui (today est entre startDate et endDate)
+            const todayAbsences = absencesArray.filter(a => {
               if (a.startDate && a.endDate) {
                 const aStart = new Date(a.startDate);
+                aStart.setHours(0, 0, 0, 0);
                 const aEnd = new Date(a.endDate);
-                return aStart <= thisMonthEnd && aEnd >= thisMonthStart;
+                aEnd.setHours(23, 59, 59, 999);
+                // Vérifier si today est dans la période [aStart, aEnd]
+                return today >= aStart && today <= aEnd;
               }
               return false;
             });
             
-            const monthDelays = delaysArray.filter(d => {
+            // Filtrer les retards d'aujourd'hui uniquement
+            const todayDelays = delaysArray.filter(d => {
               if (d.date) {
                 const dDate = new Date(d.date);
-                return dDate >= thisMonthStart && dDate <= thisMonthEnd;
+                dDate.setHours(0, 0, 0, 0);
+                // Vérifier si la date du retard est exactement aujourd'hui
+                return dDate.getTime() === today.getTime();
               }
               return false;
             });
             
-            return monthAbsences.length > 0 || monthDelays.length > 0;
+            return todayAbsences.length > 0 || todayDelays.length > 0;
           });
           
           if (employeesWithAbsences.length === 0) {
-            return <p>Aucune absence ou retard ce mois</p>;
+            return <p>Aucune absence ou retard aujourd'hui</p>;
           }
           
           return (
@@ -245,19 +252,24 @@ const Dashboard = () => {
                     const absencesArray = employee.absences?.all || (Array.isArray(employee.absences) ? employee.absences : []);
                     const delaysArray = employee.delays?.all || (Array.isArray(employee.delays) ? employee.delays : []);
                     
-                    const monthAbsences = absencesArray.filter(a => {
+                    // Filtrer les absences qui incluent aujourd'hui
+                    const todayAbsences = absencesArray.filter(a => {
                       if (a.startDate && a.endDate) {
                         const aStart = new Date(a.startDate);
+                        aStart.setHours(0, 0, 0, 0);
                         const aEnd = new Date(a.endDate);
-                        return aStart <= thisMonthEnd && aEnd >= thisMonthStart;
+                        aEnd.setHours(23, 59, 59, 999);
+                        return today >= aStart && today <= aEnd;
                       }
                       return false;
                     });
                     
-                    const monthDelays = delaysArray.filter(d => {
+                    // Filtrer les retards d'aujourd'hui uniquement
+                    const todayDelays = delaysArray.filter(d => {
                       if (d.date) {
                         const dDate = new Date(d.date);
-                        return dDate >= thisMonthStart && dDate <= thisMonthEnd;
+                        dDate.setHours(0, 0, 0, 0);
+                        return dDate.getTime() === today.getTime();
                       }
                       return false;
                     });
@@ -267,17 +279,17 @@ const Dashboard = () => {
                         <td>{employee.name}</td>
                         <td>
                           <span style={{ color: '#dc3545', fontWeight: 'bold' }}>
-                            {monthAbsences.length}
+                            {todayAbsences.length}
                           </span>
                         </td>
                         <td>
                           <span style={{ color: '#ffc107', fontWeight: 'bold' }}>
-                            {monthDelays.length}
+                            {todayDelays.length}
                           </span>
                         </td>
                         <td>
                           <span style={{ fontWeight: 'bold' }}>
-                            {monthAbsences.length + monthDelays.length}
+                            {todayAbsences.length + todayDelays.length}
                           </span>
                         </td>
                       </tr>

@@ -13,7 +13,7 @@ git add .
 
 echo.
 echo 💾 Commit des modifications...
-git commit -m "🔧 Correction calcul arrêts maladie (compter distincts au lieu de jours) et modal détail employé"
+git commit -m "🔧 Dashboard: afficher uniquement absences/retards du jour en cours (disparaissent le lendemain)"
 
 echo.
 echo 🚀 Push vers la branche main...
