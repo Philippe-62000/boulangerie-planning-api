@@ -33,12 +33,18 @@ SMTP_USER_OVH=votre-email@boulangerie-ange.fr
 SMTP_PASS_OVH=votre-mot-de-passe-email
 ```
 
-### Fallback vers variables existantes
+### Variables requises
 
-Si les variables `SMTP_*_OVH` ne sont pas définies, le système utilisera les variables existantes :
-- `SMTP_HOST` (si `SMTP_HOST_OVH` n'existe pas)
-- `SMTP_USER` (si `SMTP_USER_OVH` n'existe pas)
-- `SMTP_PASS` (si `SMTP_PASS_OVH` n'existe pas)
+**Important** : Les variables `SMTP_*_OVH` sont maintenant les seules utilisées. Les anciennes variables Gmail (`SMTP_HOST`, `SMTP_USER`, `SMTP_PASS`) ont été supprimées du code.
+
+Variables obligatoires :
+- `SMTP_USER_OVH` : Adresse email OVH complète
+- `SMTP_PASS_OVH` : Mot de passe de l'email OVH
+
+Variables optionnelles :
+- `SMTP_HOST_OVH` : Serveur SMTP (défaut: `ssl0.ovh.net`)
+- `SMTP_PORT_OVH` : Port SMTP (défaut: `465`)
+- `SMTP_SECURE_OVH` : SSL/TLS (défaut: `true`)
 
 ### Valeurs par défaut
 
@@ -73,20 +79,23 @@ Sur Render, dans l'onglet "Environment", ajoutez/modifiez ces variables :
 
 ### ⚠️ Important
 
-- Les variables `SMTP_HOST`, `SMTP_USER`, `SMTP_PASS` existantes ne seront **pas modifiées**
-- Le système utilisera d'abord `SMTP_*_OVH`, puis fera un fallback vers `SMTP_*` si elles n'existent pas
-- Vous pouvez garder les deux configurations (Gmail et OVH) en utilisant les variables `_OVH`
+- **Les variables Gmail (`SMTP_HOST`, `SMTP_USER`, `SMTP_PASS`) ne sont plus utilisées** - elles ont été supprimées du code
+- Seules les variables `SMTP_*_OVH` sont utilisées
+- Vous pouvez supprimer les anciennes variables Gmail de Render si vous le souhaitez
 
 ## 🎯 Comportement
 
-### Envoi d'emails
-1. Le système essaie d'abord SMTP OVH
-2. Si SMTP échoue, fallback vers EmailJS (si disponible)
+### Envoi d'emails (plan gratuit Render)
+1. Le système essaie d'abord SMTP OVH (échouera sur plan gratuit - ports bloqués)
+2. **Fallback automatique vers EmailJS** (fonctionne parfaitement)
 3. Si EmailJS échoue, fallback vers webhook
 4. Si tout échoue, log local
 
+**Note** : Sur plan gratuit Render, l'étape 1 échouera toujours, donc EmailJS sera utilisé systématiquement.
+
 ### Adresse expéditeur
-- L'adresse affichée dans les emails sera celle configurée dans `SMTP_USER`
+- **Avec EmailJS (plan gratuit)** : L'adresse est configurée dans les templates EmailJS
+- **Avec SMTP OVH (plan payant)** : L'adresse sera celle configurée dans `SMTP_USER_OVH`
 - Format : `"Boulangerie Ange - Arras" <votre-email@boulangerie-ange.fr>`
 
 ### Templates
@@ -103,17 +112,22 @@ Une fois les variables d'environnement configurées sur Render :
 
 ## ⚠️ Notes importantes
 
+- **Plan gratuit Render** : SMTP OVH ne fonctionnera pas (ports bloqués), EmailJS sera utilisé automatiquement
+- **Plan payant Render** : SMTP OVH fonctionnera automatiquement si les variables sont configurées
 - Le mot de passe email doit être configuré dans les variables d'environnement Render (sécurisé)
-- Si SMTP_USER n'est pas défini, le système utilisera EMAIL_USER comme fallback
-- Les templates EmailJS ne sont plus nécessaires (mais peuvent rester comme fallback)
+- Les templates EmailJS sont nécessaires pour le plan gratuit et fonctionnent parfaitement
 
 ## ❌ Limitation Render (Plans gratuits)
 
-**Problème identifié** : Render bloque les connexions SMTP sortantes (ports 465 et 587) sur les plans gratuits.
+**Problème identifié** : Depuis le 26 septembre 2025, Render bloque officiellement le trafic sortant vers les ports SMTP classiques (25, 465 et 587) sur les services gratuits.
 
 ### Symptômes
 - Erreur `ETIMEDOUT` sur les ports 465 et 587
+- Toutes les tentatives de connexion SMTP directe échouent
 - Le fallback vers EmailJS fonctionne correctement
+
+### Source
+Cette limitation est une politique officielle de Render pour les plans gratuits, mise en place pour prévenir l'abus et le spam.
 
 ### Solutions possibles
 
@@ -124,9 +138,10 @@ Une fois les variables d'environnement configurées sur Render :
 - ✅ Aucun coût supplémentaire
 
 #### Option 2 : Passer à un plan Render payant
-- Permet les connexions SMTP sortantes
-- Coût mensuel supplémentaire
-- SMTP OVH fonctionnera alors
+- Permet les connexions SMTP sortantes (ports 25, 465, 587)
+- Coût mensuel supplémentaire (à partir de ~$7/mois)
+- SMTP OVH fonctionnera alors automatiquement
+- **Note** : Vérifiez la documentation Render pour confirmer que votre plan inclut les connexions SMTP sortantes
 
 #### Option 3 : Utiliser un service SMTP relais (SendGrid, Mailgun, etc.)
 - Utilise des APIs au lieu de SMTP direct
