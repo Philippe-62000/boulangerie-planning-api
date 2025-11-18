@@ -127,7 +127,11 @@ class EmailServiceAlternative {
 
       // Vérifier que la configuration est complète
       if (!smtpConfig.auth.user || !smtpConfig.auth.pass) {
-        throw new Error('SMTP OVH non configuré (SMTP_USER_OVH ou SMTP_PASS_OVH manquant)');
+        const missingVars = [];
+        if (!smtpConfig.auth.user) missingVars.push('SMTP_USER_OVH/SMTP_USER');
+        if (!smtpConfig.auth.pass) missingVars.push('SMTP_PASS_OVH/SMTP_PASS');
+        console.error('❌ SMTP OVH non configuré - Variables manquantes:', missingVars);
+        throw new Error(`SMTP OVH non configuré (${missingVars.join(', ')} manquant)`);
       }
 
       console.log('📧 Configuration SMTP OVH:', {
@@ -135,14 +139,36 @@ class EmailServiceAlternative {
         port: smtpConfig.port,
         secure: smtpConfig.secure,
         user: smtpConfig.auth.user,
-        usingOVHVariables: !!(process.env.SMTP_HOST_OVH || process.env.SMTP_USER_OVH || process.env.SMTP_PASS_OVH)
+        hasPassword: !!smtpConfig.auth.pass,
+        usingOVHVariables: !!(process.env.SMTP_HOST_OVH || process.env.SMTP_USER_OVH || process.env.SMTP_PASS_OVH),
+        envVars: {
+          SMTP_HOST_OVH: process.env.SMTP_HOST_OVH ? 'défini' : 'non défini',
+          SMTP_USER_OVH: process.env.SMTP_USER_OVH ? 'défini' : 'non défini',
+          SMTP_PASS_OVH: process.env.SMTP_PASS_OVH ? 'défini' : 'non défini',
+          SMTP_HOST: process.env.SMTP_HOST ? 'défini' : 'non défini',
+          SMTP_USER: process.env.SMTP_USER ? 'défini' : 'non défini',
+          SMTP_PASS: process.env.SMTP_PASS ? 'défini' : 'non défini'
+        }
       });
 
       // Créer le transporteur SMTP
       const transporter = nodemailer.createTransport(smtpConfig);
 
       // Vérifier la connexion SMTP
-      await transporter.verify();
+      console.log('🔍 Vérification de la connexion SMTP OVH...');
+      try {
+        await transporter.verify();
+        console.log('✅ Connexion SMTP OVH vérifiée avec succès');
+      } catch (verifyError) {
+        console.error('❌ Erreur vérification SMTP OVH:', {
+          message: verifyError.message,
+          code: verifyError.code,
+          command: verifyError.command,
+          response: verifyError.response,
+          responseCode: verifyError.responseCode
+        });
+        throw verifyError;
+      }
 
       // Options de l'email
       const mailOptions = {
@@ -169,7 +195,14 @@ class EmailServiceAlternative {
       };
 
     } catch (error) {
-      console.log('⚠️ SMTP OVH non disponible:', error.message);
+      console.error('❌ Erreur SMTP OVH:', {
+        message: error.message,
+        code: error.code,
+        command: error.command,
+        response: error.response,
+        responseCode: error.responseCode,
+        stack: error.stack
+      });
       return {
         success: false,
         error: error.message

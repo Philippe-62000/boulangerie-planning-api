@@ -13,7 +13,7 @@ git add .
 
 echo.
 echo 💾 Commit des modifications...
-git commit -m "🔧 Migration EmailJS → SMTP OVH avec variables spécifiques (SMTP_*_OVH)"
+git commit -m "🔧 Amélioration logging SMTP OVH pour diagnostiquer les erreurs de connexion"
 
 echo.
 echo 🚀 Push vers la branche main...
