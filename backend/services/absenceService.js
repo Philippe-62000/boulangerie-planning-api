@@ -67,11 +67,19 @@ class AbsenceService {
       
       // Vérifier si une absence existe déjà pour ce même arrêt maladie (même sickLeaveId)
       // On permet plusieurs arrêts maladie même s'ils se chevauchent, car ce sont des arrêts distincts
+      // S'assurer que sickLeave._id est défini et valide
+      if (!sickLeave || !sickLeave._id) {
+        console.error('❌ Erreur: sickLeave ou sickLeave._id est manquant');
+        throw new Error('sickLeave._id est requis pour créer l\'absence');
+      }
+      
+      const sickLeaveId = sickLeave._id.toString ? sickLeave._id.toString() : sickLeave._id;
+      
       const existingAbsence = await Employee.findOne({
         _id: employee._id,
         'absences': {
           $elemMatch: {
-            sickLeaveId: sickLeave._id,
+            sickLeaveId: sickLeaveId,
             type: 'Arrêt maladie'
           }
         }
@@ -94,7 +102,7 @@ class AbsenceService {
         reason: 'Arrêt maladie validé automatiquement',
         status: 'validated',
         createdAt: new Date(),
-        sickLeaveId: sickLeave._id // Référence vers l'arrêt maladie
+        sickLeaveId: sickLeaveId // Référence vers l'arrêt maladie (utiliser la variable déjà définie)
       };
       
       // Ajouter l'absence à l'employé (ancien système)

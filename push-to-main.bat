@@ -13,7 +13,7 @@ git add .
 
 echo.
 echo 💾 Commit des modifications...
-git commit -m "🔧 Correction création absences: permettre plusieurs arrêts maladie distincts même s'ils se chevauchent"
+git commit -m "🔧 Protection absenceService: validation sickLeave._id pour éviter erreurs et crashes serveur"
 
 echo.
 echo 🚀 Push vers la branche main...
