@@ -13,7 +13,7 @@ git add .
 
 echo.
 echo 💾 Commit des modifications...
-git commit -m "🔧 Corrections statuts emails et création absences: récupération sickLeave après modifications, création dans modèle Absence"
+git commit -m "🔧 Corrections affichage statuts emails: afficher validationEmail pour arrêts validés/déclarés au lieu de confirmationEmail"
 
 echo.
 echo 🚀 Push vers la branche main...

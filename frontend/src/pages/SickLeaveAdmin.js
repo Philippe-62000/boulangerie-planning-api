@@ -546,14 +546,27 @@ const SickLeaveAdmin = () => {
                       <div className="overdue-warning">⚠️ En retard</div>
                     )}
                     <div className="email-status" style={{ marginTop: '8px', fontSize: '0.75em' }}>
-                      {sickLeave.confirmationEmail?.sent ? (
-                        <div style={{ color: '#155724', marginBottom: '2px' }} title={`Email de confirmation envoyé le ${new Date(sickLeave.confirmationEmail.sentAt).toLocaleString('fr-FR')}`}>
-                          ✅ Confirmation: Envoyé
-                        </div>
+                      {/* Afficher validationEmail pour les arrêts validés/déclarés, confirmationEmail pour les autres */}
+                      {(sickLeave.status === 'validated' || sickLeave.status === 'declared') ? (
+                        sickLeave.validationEmail?.sent ? (
+                          <div style={{ color: '#155724', marginBottom: '2px' }} title={`Email de validation envoyé le ${new Date(sickLeave.validationEmail.sentAt).toLocaleString('fr-FR')}`}>
+                            ✅ Validation: Envoyé
+                          </div>
+                        ) : (
+                          <div style={{ color: '#721c24', marginBottom: '2px' }} title="Email de validation non envoyé">
+                            ❌ Validation: Non envoyé
+                          </div>
+                        )
                       ) : (
-                        <div style={{ color: '#721c24', marginBottom: '2px' }} title="Email de confirmation non envoyé">
-                          ❌ Confirmation: Non envoyé
-                        </div>
+                        sickLeave.confirmationEmail?.sent ? (
+                          <div style={{ color: '#155724', marginBottom: '2px' }} title={`Email de confirmation envoyé le ${new Date(sickLeave.confirmationEmail.sentAt).toLocaleString('fr-FR')}`}>
+                            ✅ Confirmation: Envoyé
+                          </div>
+                        ) : (
+                          <div style={{ color: '#721c24', marginBottom: '2px' }} title="Email de confirmation non envoyé">
+                            ❌ Confirmation: Non envoyé
+                          </div>
+                        )
                       )}
                       {sickLeave.accountantNotification?.sent ? (
                         <div style={{ color: '#155724' }} title={`Email comptable envoyé le ${new Date(sickLeave.accountantNotification.sentAt).toLocaleString('fr-FR')} à ${sickLeave.accountantNotification.sentTo}`}>
