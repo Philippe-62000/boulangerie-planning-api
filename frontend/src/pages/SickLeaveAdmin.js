@@ -231,18 +231,22 @@ const SickLeaveAdmin = () => {
   const handleDeclare = async (id) => {
     const notes = prompt('Notes de déclaration (optionnel):') || '';
     
-    // Confirmer la déclaration
-    const confirmDeclare = window.confirm(`Êtes-vous sûr de vouloir marquer cet arrêt maladie comme déclaré ?\n\nUn email sera envoyé au comptable pour l'informer de la validation.`);
-    if (!confirmDeclare) return;
+    // Demander si on veut envoyer l'email au comptable
+    const sendToAccountant = window.confirm('Souhaitez-vous envoyer l\'arrêt maladie au comptable ?\n\nCliquez sur OK pour envoyer l\'email au comptable.\nCliquez sur Annuler pour marquer comme déclaré sans envoyer d\'email.');
 
     try {
       const response = await axios.put(`${API_URL}/sick-leaves/${id}/declare`, {
         declaredBy: 'Admin',
-        notes: notes
+        notes: notes,
+        sendToAccountant: sendToAccountant
       });
 
       if (response.data.success) {
-        setMessage('Arrêt maladie déclaré - Email envoyé au comptable');
+        if (sendToAccountant) {
+          setMessage('Arrêt maladie marqué comme déclaré et email envoyé au comptable');
+        } else {
+          setMessage('Arrêt maladie marqué comme déclaré (email non envoyé)');
+        }
         setMessageType('success');
         fetchSickLeaves();
         fetchStats();
@@ -250,6 +254,46 @@ const SickLeaveAdmin = () => {
     } catch (error) {
       console.error('Erreur déclaration:', error);
       setMessage('Erreur lors de la déclaration');
+      setMessageType('error');
+    }
+  };
+
+  const handleDelete = async (id) => {
+    if (!window.confirm('Êtes-vous sûr de vouloir supprimer cet arrêt maladie ? Cette action est irréversible et aucun email ne sera envoyé.')) {
+      return;
+    }
+
+    try {
+      const response = await axios.delete(`${API_URL}/sick-leaves/${id}`);
+
+      if (response.data.success) {
+        setMessage('Arrêt maladie supprimé avec succès');
+        setMessageType('success');
+        fetchSickLeaves();
+        fetchStats();
+      }
+    } catch (error) {
+      console.error('Erreur suppression:', error);
+      setMessage('Erreur lors de la suppression');
+      setMessageType('error');
+    }
+  };
+
+  const handleResendAccountantEmail = async (id) => {
+    try {
+      const response = await axios.post(`${API_URL}/sick-leaves/${id}/resend-accountant-email`);
+
+      if (response.data.success) {
+        setMessage('Email au comptable renvoyé avec succès');
+        setMessageType('success');
+        fetchSickLeaves();
+      } else {
+        setMessage('Erreur lors du renvoi de l\'email');
+        setMessageType('error');
+      }
+    } catch (error) {
+      console.error('Erreur renvoi email:', error);
+      setMessage(error.response?.data?.error || 'Erreur lors du renvoi de l\'email au comptable');
       setMessageType('error');
     }
   };
@@ -503,12 +547,42 @@ const SickLeaveAdmin = () => {
                   </div>
                   
                   <div className="validation-info">
-                    <div className={`quality-score ${sickLeave.autoValidation.qualityScore >= 60 ? 'good' : 'poor'}`}>
-                      Score: {sickLeave.autoValidation.qualityScore}/100
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                      <div className={`quality-score ${sickLeave.autoValidation.qualityScore >= 60 ? 'good' : 'poor'}`}>
+                        Score: {sickLeave.autoValidation.qualityScore}/100
+                      </div>
+                      <button 
+                        onClick={() => handleDelete(sickLeave._id)}
+                        className="btn btn-danger"
+                        style={{ padding: '4px 8px', fontSize: '0.9em' }}
+                        title="Supprimer (sans envoyer d'email)"
+                      >
+                        🗑️
+                      </button>
                     </div>
                     {sickLeave.isOverdue && (
                       <div className="overdue-warning">⚠️ En retard</div>
                     )}
+                    <div className="email-status" style={{ marginTop: '8px', fontSize: '0.75em' }}>
+                      {sickLeave.confirmationEmail?.sent ? (
+                        <div style={{ color: '#155724', marginBottom: '2px' }} title={`Email de confirmation envoyé le ${new Date(sickLeave.confirmationEmail.sentAt).toLocaleString('fr-FR')}`}>
+                          ✅ Confirmation: Envoyé
+                        </div>
+                      ) : (
+                        <div style={{ color: '#721c24', marginBottom: '2px' }} title="Email de confirmation non envoyé">
+                          ❌ Confirmation: Non envoyé
+                        </div>
+                      )}
+                      {sickLeave.accountantNotification?.sent ? (
+                        <div style={{ color: '#155724' }} title={`Email comptable envoyé le ${new Date(sickLeave.accountantNotification.sentAt).toLocaleString('fr-FR')} à ${sickLeave.accountantNotification.sentTo}`}>
+                          ✅ Comptable: Envoyé
+                        </div>
+                      ) : (
+                        <div style={{ color: '#721c24' }} title="Email comptable non envoyé">
+                          ❌ Comptable: Non envoyé
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
                 
@@ -562,6 +636,16 @@ const SickLeaveAdmin = () => {
                       title="Marquer comme déclaré"
                     >
                       📋
+                    </button>
+                  )}
+                  
+                  {(sickLeave.status === 'validated' || sickLeave.status === 'declared') && (
+                    <button 
+                      onClick={() => handleResendAccountantEmail(sickLeave._id)}
+                      className="btn btn-warning"
+                      title="Renvoyer l'email au comptable"
+                    >
+                      📧
                     </button>
                   )}
                 </div>
