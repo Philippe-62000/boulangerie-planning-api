@@ -13,7 +13,7 @@ git add .
 
 echo.
 echo 💾 Commit des modifications...
-git commit -m "🔧 Corrections affichage statuts emails: afficher validationEmail pour arrêts validés/déclarés au lieu de confirmationEmail"
+git commit -m "🔧 Correction création absences: permettre plusieurs arrêts maladie distincts même s'ils se chevauchent"
 
 echo.
 echo 🚀 Push vers la branche main...

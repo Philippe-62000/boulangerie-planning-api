@@ -65,23 +65,23 @@ class AbsenceService {
       
       console.log('✅ Employé trouvé:', employee.name);
       
-      // Vérifier si une absence existe déjà pour cette période
+      // Vérifier si une absence existe déjà pour ce même arrêt maladie (même sickLeaveId)
+      // On permet plusieurs arrêts maladie même s'ils se chevauchent, car ce sont des arrêts distincts
       const existingAbsence = await Employee.findOne({
         _id: employee._id,
         'absences': {
           $elemMatch: {
-            startDate: { $lte: sickLeave.endDate },
-            endDate: { $gte: sickLeave.startDate },
+            sickLeaveId: sickLeave._id,
             type: 'Arrêt maladie'
           }
         }
       });
       
       if (existingAbsence) {
-        console.log('⚠️ Absence déjà existante pour cette période');
+        console.log('⚠️ Absence déjà existante pour cet arrêt maladie (même sickLeaveId)');
         return {
           success: false,
-          message: 'Une absence existe déjà pour cette période',
+          message: 'Une absence existe déjà pour cet arrêt maladie',
           existingAbsence: true
         };
       }
