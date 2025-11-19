@@ -13,7 +13,7 @@ git add .
 
 echo.
 echo 💾 Commit des modifications...
-git commit -m "✨ SickLeaveAdmin: bouton supprimer à côté du score, statut emails, renvoi email comptable"
+git commit -m "🔧 Corrections: suppression sync frontend (déjà backend), meilleure gestion erreurs validation et logs SMTP"
 
 echo.
 echo 🚀 Push vers la branche main...

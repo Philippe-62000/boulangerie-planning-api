@@ -56,11 +56,16 @@ class EmailServiceAlternative {
 
     try {
       // Option 1: Utiliser SMTP OVH (priorité)
-      const smtpResult = await this.sendViaSMTP(to, subject, htmlContent, textContent);
-      
-      if (smtpResult.success) {
-        console.log('✅ Email envoyé via SMTP OVH:', smtpResult.messageId);
-        return smtpResult;
+      let smtpResult;
+      try {
+        smtpResult = await this.sendViaSMTP(to, subject, htmlContent, textContent);
+        if (smtpResult.success) {
+          console.log('✅ Email envoyé via SMTP OVH:', smtpResult.messageId);
+          return smtpResult;
+        }
+      } catch (smtpError) {
+        // SMTP a échoué (normal sur Render qui bloque les ports SMTP), on continue avec EmailJS
+        console.log('ℹ️ SMTP non disponible (normal sur Render), utilisation d\'EmailJS en fallback');
       }
 
       // Option 2: Utiliser EmailJS (fallback si SMTP échoue)
@@ -194,7 +199,8 @@ class EmailServiceAlternative {
         finalConfig = result.config;
         console.log(`✅ Connexion SMTP OVH réussie: ${smtpHostPrimary}:465`);
       } catch (error1) {
-        console.error(`❌ Échec ${smtpHostPrimary}:465:`, error1.code || error1.message);
+        // Ne pas logger comme erreur, c'est normal sur Render qui bloque les ports SMTP
+        console.log(`ℹ️ ${smtpHostPrimary}:465 non disponible (normal sur Render):`, error1.code || error1.message);
         lastError = error1;
         
         // 2. Essayer serveur alternatif (smtp.mail.ovh.net) port 465
@@ -205,7 +211,7 @@ class EmailServiceAlternative {
           finalConfig = result.config;
           console.log(`✅ Connexion SMTP OVH réussie: ${smtpHostAlternative}:465`);
         } catch (error2) {
-          console.error(`❌ Échec ${smtpHostAlternative}:465:`, error2.code || error2.message);
+          console.log(`ℹ️ ${smtpHostAlternative}:465 non disponible:`, error2.code || error2.message);
           lastError = error2;
           
           // 3. Essayer port 587 avec STARTTLS (serveur principal)
@@ -216,7 +222,7 @@ class EmailServiceAlternative {
             finalConfig = result.config;
             console.log(`✅ Connexion SMTP OVH réussie: ${smtpHostPrimary}:587 (STARTTLS)`);
           } catch (error3) {
-            console.error(`❌ Échec ${smtpHostPrimary}:587:`, error3.code || error3.message);
+            console.log(`ℹ️ ${smtpHostPrimary}:587 non disponible:`, error3.code || error3.message);
             lastError = error3;
             
             // 4. Dernière tentative : serveur alternatif port 587
@@ -227,8 +233,9 @@ class EmailServiceAlternative {
               finalConfig = result.config;
               console.log(`✅ Connexion SMTP OVH réussie: ${smtpHostAlternative}:587 (STARTTLS)`);
             } catch (error4) {
-              console.error(`❌ Échec ${smtpHostAlternative}:587:`, error4.code || error4.message);
-              throw new Error(`Toutes les tentatives SMTP OVH ont échoué. Dernière erreur: ${error4.message}`);
+              // Ne pas logger comme erreur critique, EmailJS sera utilisé en fallback
+              console.log(`ℹ️ Toutes les tentatives SMTP OVH ont échoué (normal sur Render), EmailJS sera utilisé: ${error4.message}`);
+              throw new Error(`SMTP OVH non disponible (normal sur Render): ${error4.message}`);
             }
           }
         }

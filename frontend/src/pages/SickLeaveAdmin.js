@@ -154,45 +154,27 @@ const SickLeaveAdmin = () => {
       });
 
       if (response.data.success) {
-        // Synchronisation automatique avec la déclaration manuelle
-        try {
-          const sickLeave = sickLeaves.find(sl => sl._id === id);
-          if (sickLeave) {
-            // Trouver l'employé par son nom
-            const employeesResponse = await axios.get(`${API_URL}/employees`);
-            console.log('🔍 Recherche employé:', sickLeave.employeeName);
-            console.log('🔍 Employés disponibles:', employeesResponse.data.map(emp => ({ name: emp.name, id: emp._id })));
-            const employee = employeesResponse.data.find(emp => emp.name === sickLeave.employeeName);
-            
-            if (employee) {
-              console.log('✅ Employé trouvé:', employee.name, 'ID:', employee._id);
-              // Mettre à jour l'employé avec l'arrêt maladie
-              await axios.put(`${API_URL}/employees/${employee._id}`, {
-                sickLeave: {
-                  isOnSickLeave: true,
-                  startDate: sickLeave.startDate,
-                  endDate: sickLeave.endDate
-                }
-              });
-              console.log('✅ Arrêt maladie synchronisé avec la déclaration manuelle');
-            } else {
-              console.warn('⚠️ Employé non trouvé pour la synchronisation:', sickLeave.employeeName);
-            }
-          }
-        } catch (syncError) {
-          console.error('⚠️ Erreur lors de la synchronisation:', syncError);
-          // Ne pas bloquer la validation si la synchronisation échoue
-        }
+        // Note: La synchronisation avec l'employé est déjà gérée automatiquement par le backend
+        // lors de la validation (dans validateSickLeave), donc on n'a pas besoin de la refaire ici
 
-        setMessage('Arrêt maladie validé et synchronisé avec succès');
+        setMessage('Arrêt maladie validé avec succès');
         setMessageType('success');
         fetchSickLeaves();
         fetchStats();
       }
     } catch (error) {
       console.error('Erreur validation:', error);
-      setMessage('Erreur lors de la validation');
-      setMessageType('error');
+      // Si l'erreur est 400, c'est probablement que l'arrêt a déjà été traité
+      if (error.response?.status === 400) {
+        setMessage(error.response?.data?.error || 'Cet arrêt maladie a déjà été traité');
+        setMessageType('warning');
+        // Recharger quand même pour voir le nouveau statut
+        fetchSickLeaves();
+        fetchStats();
+      } else {
+        setMessage('Erreur lors de la validation');
+        setMessageType('error');
+      }
     }
   };
 
