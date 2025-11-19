@@ -104,15 +104,23 @@ const SickLeaveManagement = () => {
 
   const handleDeclare = async (id) => {
     const notes = prompt('Notes de déclaration (optionnel):') || '';
+    
+    // Demander si on veut envoyer l'email au comptable
+    const sendToAccountant = window.confirm('Souhaitez-vous envoyer l\'arrêt maladie au comptable ?\n\nCliquez sur OK pour envoyer l\'email au comptable.\nCliquez sur Annuler pour marquer comme déclaré sans envoyer d\'email.');
 
     try {
       const response = await axios.put(`${API_URL}/sick-leaves/${id}/declare`, {
         declaredBy: 'Admin',
-        notes: notes
+        notes: notes,
+        sendToAccountant: sendToAccountant
       });
 
       if (response.data.success) {
-        setMessage('Arrêt maladie marqué comme déclaré');
+        if (sendToAccountant) {
+          setMessage('Arrêt maladie marqué comme déclaré et email envoyé au comptable');
+        } else {
+          setMessage('Arrêt maladie marqué comme déclaré (email non envoyé)');
+        }
         setMessageType('success');
         fetchSickLeaves();
         fetchStats();

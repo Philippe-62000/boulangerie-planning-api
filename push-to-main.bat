@@ -13,7 +13,7 @@ git add .
 
 echo.
 echo 💾 Commit des modifications...
-git commit -m "✨ Amélioration gestion arrêts maladie: suivi emails, prévention doublons, bouton supprimer et renvoi email comptable"
+git commit -m "✨ Gestion arrêts maladie: email comptable uniquement à la déclaration avec confirmation, possibilité de renvoyer"
 
 echo.
 echo 🚀 Push vers la branche main...

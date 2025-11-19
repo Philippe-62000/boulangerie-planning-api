@@ -628,62 +628,8 @@ const validateSickLeave = async (req, res) => {
       // Continuer même si l'email échoue
     }
 
-    // Envoyer un email au comptable
-    try {
-      // Récupérer l'email du comptable depuis les paramètres
-      const Parameter = require('../models/Parameters');
-      const accountantParam = await Parameter.findOne({ name: 'accountantEmail' });
-      let accountantEmail = accountantParam?.stringValue || process.env.ACCOUNTANT_EMAIL;
-      
-      console.log('🔍 Recherche email comptable:', {
-        paramFound: !!accountantParam,
-        paramValue: accountantParam?.stringValue,
-        envValue: process.env.ACCOUNTANT_EMAIL,
-        finalValue: accountantEmail
-      });
-      
-      // Si le paramètre n'existe pas, le créer
-      if (!accountantParam) {
-        console.log('📝 Création du paramètre accountantEmail...');
-        await Parameter.create({
-          name: 'accountantEmail',
-          displayName: 'Email du Comptable',
-          stringValue: process.env.ACCOUNTANT_EMAIL || 'phimjc@gmail.com',
-          kmValue: -1
-        });
-        console.log('✅ Paramètre accountantEmail créé');
-        // Utiliser la valeur par défaut
-        accountantEmail = process.env.ACCOUNTANT_EMAIL || 'phimjc@gmail.com';
-      }
-      
-      // Envoyer l'email au comptable
-      if (accountantEmail) {
-        console.log('📧 Envoi email comptable à:', accountantEmail);
-        const accountantResult = await emailService.sendToAccountant(sickLeave, accountantEmail);
-        if (accountantResult.success) {
-          console.log('✅ Email comptable envoyé:', accountantResult.messageId);
-          // Enregistrer le statut d'envoi
-          sickLeave.accountantNotification = {
-            sent: true,
-            sentAt: new Date(),
-            sentTo: accountantEmail
-          };
-          await sickLeave.save();
-        } else {
-          console.log('⚠️ Email comptable non envoyé:', accountantResult.error);
-          sickLeave.accountantNotification = {
-            sent: false,
-            sentAt: null,
-            sentTo: accountantEmail
-          };
-          await sickLeave.save();
-        }
-      } else {
-        console.log('⚠️ Email comptable non configuré');
-      }
-    } catch (accountantError) {
-      console.error('❌ Erreur envoi email comptable:', accountantError.message);
-    }
+    // Note: L'email au comptable est envoyé uniquement lors de la déclaration (markAsDeclared)
+    // et non lors de la validation pour éviter les doublons
 
     res.json({
       success: true,
@@ -768,7 +714,7 @@ const rejectSickLeave = async (req, res) => {
 const markAsDeclared = async (req, res) => {
   try {
     const { id } = req.params;
-    const { declaredBy, notes } = req.body;
+    const { declaredBy, notes, sendToAccountant = true } = req.body;
 
     const sickLeave = await SickLeave.findById(id);
     
@@ -799,38 +745,42 @@ const markAsDeclared = async (req, res) => {
       // Continuer même si le déplacement échoue
     }
 
-    // Envoyer un email au comptable
-    try {
-      // Récupérer l'email du comptable depuis les paramètres
-      const Parameter = require('../models/Parameters');
-      const accountantEmailParam = await Parameter.findOne({ name: 'accountantEmail' });
-      
-      if (accountantEmailParam && accountantEmailParam.stringValue) {
-        const emailResult = await emailService.sendToAccountant(sickLeave, accountantEmailParam.stringValue);
-        if (emailResult.success) {
-          console.log('✅ Email au comptable envoyé:', emailResult.messageId);
-          // Enregistrer le statut d'envoi
-          sickLeave.accountantNotification = {
-            sent: true,
-            sentAt: new Date(),
-            sentTo: accountantEmailParam.stringValue
-          };
-          await sickLeave.save();
+    // Envoyer un email au comptable uniquement si demandé
+    if (sendToAccountant) {
+      try {
+        // Récupérer l'email du comptable depuis les paramètres
+        const Parameter = require('../models/Parameters');
+        const accountantEmailParam = await Parameter.findOne({ name: 'accountantEmail' });
+        
+        if (accountantEmailParam && accountantEmailParam.stringValue) {
+          const emailResult = await emailService.sendToAccountant(sickLeave, accountantEmailParam.stringValue);
+          if (emailResult.success) {
+            console.log('✅ Email au comptable envoyé:', emailResult.messageId);
+            // Enregistrer le statut d'envoi
+            sickLeave.accountantNotification = {
+              sent: true,
+              sentAt: new Date(),
+              sentTo: accountantEmailParam.stringValue
+            };
+            await sickLeave.save();
+          } else {
+            console.log('⚠️ Email au comptable non envoyé:', emailResult.error);
+            sickLeave.accountantNotification = {
+              sent: false,
+              sentAt: null,
+              sentTo: accountantEmailParam.stringValue
+            };
+            await sickLeave.save();
+          }
         } else {
-          console.log('⚠️ Email au comptable non envoyé:', emailResult.error);
-          sickLeave.accountantNotification = {
-            sent: false,
-            sentAt: null,
-            sentTo: accountantEmailParam.stringValue
-          };
-          await sickLeave.save();
+          console.log('⚠️ Email du comptable non configuré');
         }
-      } else {
-        console.log('⚠️ Email du comptable non configuré');
+      } catch (emailError) {
+        console.error('❌ Erreur envoi email comptable:', emailError.message);
+        // Continuer même si l'email échoue
       }
-    } catch (emailError) {
-      console.error('❌ Erreur envoi email comptable:', emailError.message);
-      // Continuer même si l'email échoue
+    } else {
+      console.log('ℹ️ Email au comptable non demandé lors de la déclaration');
     }
 
     res.json({
