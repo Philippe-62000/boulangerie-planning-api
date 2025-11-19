@@ -43,6 +43,9 @@ router.put('/:id/reject', sickLeaveController.rejectSickLeave);
 // Marquer comme déclaré
 router.put('/:id/declare', sickLeaveController.markAsDeclared);
 
+// Renvoyer l'email au comptable
+router.post('/:id/resend-accountant-email', sickLeaveController.resendAccountantEmail);
+
 // Modifier les dates d'un arrêt maladie
 router.put('/:id', sickLeaveController.updateSickLeave);
 

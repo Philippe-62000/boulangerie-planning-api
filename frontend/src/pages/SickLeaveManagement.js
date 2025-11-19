@@ -124,6 +124,46 @@ const SickLeaveManagement = () => {
     }
   };
 
+  const handleDelete = async (id) => {
+    if (!window.confirm('Êtes-vous sûr de vouloir supprimer cet arrêt maladie ? Cette action est irréversible et aucun email ne sera envoyé.')) {
+      return;
+    }
+
+    try {
+      const response = await axios.delete(`${API_URL}/sick-leaves/${id}`);
+
+      if (response.data.success) {
+        setMessage('Arrêt maladie supprimé avec succès');
+        setMessageType('success');
+        fetchSickLeaves();
+        fetchStats();
+      }
+    } catch (error) {
+      console.error('Erreur suppression:', error);
+      setMessage('Erreur lors de la suppression');
+      setMessageType('error');
+    }
+  };
+
+  const handleResendAccountantEmail = async (id) => {
+    try {
+      const response = await axios.post(`${API_URL}/sick-leaves/${id}/resend-accountant-email`);
+
+      if (response.data.success) {
+        setMessage('Email au comptable renvoyé avec succès');
+        setMessageType('success');
+        fetchSickLeaves();
+      } else {
+        setMessage('Erreur lors du renvoi de l\'email');
+        setMessageType('error');
+      }
+    } catch (error) {
+      console.error('Erreur renvoi email:', error);
+      setMessage(error.response?.data?.error || 'Erreur lors du renvoi de l\'email au comptable');
+      setMessageType('error');
+    }
+  };
+
   const normalizeMimeType = (mimeType = '') => mimeType.split(';')[0].trim().toLowerCase();
 
   const getMimeExtension = (mimeType = '') => {
@@ -313,6 +353,26 @@ const SickLeaveManagement = () => {
                   {sickLeave.isOverdue && (
                     <div className="overdue-warning">⚠️ En retard</div>
                   )}
+                  <div className="email-status">
+                    {sickLeave.confirmationEmail?.sent ? (
+                      <div className="email-status-item" title={`Email de confirmation envoyé le ${new Date(sickLeave.confirmationEmail.sentAt).toLocaleString('fr-FR')}`}>
+                        ✅ Confirmation: Envoyé
+                      </div>
+                    ) : (
+                      <div className="email-status-item error" title="Email de confirmation non envoyé">
+                        ❌ Confirmation: Non envoyé
+                      </div>
+                    )}
+                    {sickLeave.accountantNotification?.sent ? (
+                      <div className="email-status-item" title={`Email comptable envoyé le ${new Date(sickLeave.accountantNotification.sentAt).toLocaleString('fr-FR')} à ${sickLeave.accountantNotification.sentTo}`}>
+                        ✅ Comptable: Envoyé
+                      </div>
+                    ) : (
+                      <div className="email-status-item error" title="Email comptable non envoyé">
+                        ❌ Comptable: Non envoyé
+                      </div>
+                    )}
+                  </div>
                 </div>
                 
                 <div className="validation-info">
@@ -363,6 +423,24 @@ const SickLeaveManagement = () => {
                       📋
                     </button>
                   )}
+                  
+                  {(sickLeave.status === 'validated' || sickLeave.status === 'declared') && (
+                    <button 
+                      onClick={() => handleResendAccountantEmail(sickLeave._id)}
+                      className="action-btn resend-email"
+                      title="Renvoyer l'email au comptable"
+                    >
+                      📧
+                    </button>
+                  )}
+                  
+                  <button 
+                    onClick={() => handleDelete(sickLeave._id)}
+                    className="action-btn delete"
+                    title="Supprimer (sans envoyer d'email)"
+                  >
+                    🗑️
+                  </button>
                 </div>
               </div>
             ))}

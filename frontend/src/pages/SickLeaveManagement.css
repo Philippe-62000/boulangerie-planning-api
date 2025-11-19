@@ -247,6 +247,27 @@
   font-weight: 500;
 }
 
+.email-status {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin-top: 8px;
+  font-size: 0.75em;
+}
+
+.email-status-item {
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: #d4edda;
+  color: #155724;
+  font-weight: 500;
+}
+
+.email-status-item.error {
+  background: #f8d7da;
+  color: #721c24;
+}
+
 .validation-info {
   display: flex;
   flex-direction: column;
@@ -344,6 +365,26 @@
 
 .action-btn.declare:hover {
   background: #17a2b8;
+  color: white;
+}
+
+.action-btn.resend-email {
+  border-color: #ffc107;
+  color: #ffc107;
+}
+
+.action-btn.resend-email:hover {
+  background: #ffc107;
+  color: white;
+}
+
+.action-btn.delete {
+  border-color: #dc3545;
+  color: #dc3545;
+}
+
+.action-btn.delete:hover {
+  background: #dc3545;
   color: white;
 }
 

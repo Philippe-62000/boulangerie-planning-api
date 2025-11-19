@@ -30,7 +30,7 @@ const uploadMiddleware = (req, res, next) => {
   console.log('🔧 Content-Type:', req.headers['content-type']);
   console.log('🔧 Body (avant multer):', req.body);
   
-  upload.single('document')(req, res, (err) => {
+  upload.single('sickLeaveFile')(req, res, (err) => {
     if (err) {
       console.error('❌ Erreur Multer:', err);
       return res.status(400).json({
@@ -332,11 +332,31 @@ const uploadSickLeave = async (req, res) => {
       const acknowledgementResult = await emailService.sendSickLeaveAcknowledgement(sickLeave);
       if (acknowledgementResult.success) {
         console.log('✅ Accusé de réception envoyé au salarié:', acknowledgementResult.messageId);
+        // Enregistrer le statut d'envoi
+        sickLeave.confirmationEmail = {
+          sent: true,
+          sentAt: new Date(),
+          messageId: acknowledgementResult.messageId || ''
+        };
+        await sickLeave.save();
       } else {
         console.log('⚠️ Accusé de réception non envoyé:', acknowledgementResult.error);
+        sickLeave.confirmationEmail = {
+          sent: false,
+          sentAt: null,
+          messageId: ''
+        };
+        await sickLeave.save();
       }
     } catch (ackError) {
       console.error('❌ Erreur envoi accusé de réception:', ackError.message);
+      // Enregistrer l'échec
+      sickLeave.confirmationEmail = {
+        sent: false,
+        sentAt: null,
+        messageId: ''
+      };
+      await sickLeave.save();
       // Continuer même si l'email d'accusé échoue
     }
 
@@ -580,11 +600,31 @@ const validateSickLeave = async (req, res) => {
       const emailResult = await emailService.sendSickLeaveValidation(sickLeave, validatedBy);
       if (emailResult.success) {
         console.log('✅ Email de validation envoyé:', emailResult.messageId);
+        // Enregistrer le statut d'envoi
+        sickLeave.validationEmail = {
+          sent: true,
+          sentAt: new Date(),
+          messageId: emailResult.messageId || ''
+        };
+        await sickLeave.save();
       } else {
         console.log('⚠️ Email de validation non envoyé:', emailResult.error);
+        sickLeave.validationEmail = {
+          sent: false,
+          sentAt: null,
+          messageId: ''
+        };
+        await sickLeave.save();
       }
     } catch (emailError) {
       console.error('❌ Erreur envoi email validation:', emailError.message);
+      // Enregistrer l'échec
+      sickLeave.validationEmail = {
+        sent: false,
+        sentAt: null,
+        messageId: ''
+      };
+      await sickLeave.save();
       // Continuer même si l'email échoue
     }
 
@@ -622,8 +662,21 @@ const validateSickLeave = async (req, res) => {
         const accountantResult = await emailService.sendToAccountant(sickLeave, accountantEmail);
         if (accountantResult.success) {
           console.log('✅ Email comptable envoyé:', accountantResult.messageId);
+          // Enregistrer le statut d'envoi
+          sickLeave.accountantNotification = {
+            sent: true,
+            sentAt: new Date(),
+            sentTo: accountantEmail
+          };
+          await sickLeave.save();
         } else {
           console.log('⚠️ Email comptable non envoyé:', accountantResult.error);
+          sickLeave.accountantNotification = {
+            sent: false,
+            sentAt: null,
+            sentTo: accountantEmail
+          };
+          await sickLeave.save();
         }
       } else {
         console.log('⚠️ Email comptable non configuré');
@@ -756,8 +809,21 @@ const markAsDeclared = async (req, res) => {
         const emailResult = await emailService.sendToAccountant(sickLeave, accountantEmailParam.stringValue);
         if (emailResult.success) {
           console.log('✅ Email au comptable envoyé:', emailResult.messageId);
+          // Enregistrer le statut d'envoi
+          sickLeave.accountantNotification = {
+            sent: true,
+            sentAt: new Date(),
+            sentTo: accountantEmailParam.stringValue
+          };
+          await sickLeave.save();
         } else {
           console.log('⚠️ Email au comptable non envoyé:', emailResult.error);
+          sickLeave.accountantNotification = {
+            sent: false,
+            sentAt: null,
+            sentTo: accountantEmailParam.stringValue
+          };
+          await sickLeave.save();
         }
       } else {
         console.log('⚠️ Email du comptable non configuré');
@@ -1069,6 +1135,81 @@ const updateSickLeave = async (req, res) => {
   }
 };
 
+// Renvoyer l'email au comptable
+const resendAccountantEmail = async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const sickLeave = await SickLeave.findById(id);
+    
+    if (!sickLeave) {
+      return res.status(404).json({
+        success: false,
+        error: 'Arrêt maladie non trouvé'
+      });
+    }
+
+    // Récupérer l'email du comptable depuis les paramètres
+    const Parameter = require('../models/Parameters');
+    const accountantParam = await Parameter.findOne({ name: 'accountantEmail' });
+    let accountantEmail = accountantParam?.stringValue || process.env.ACCOUNTANT_EMAIL;
+    
+    if (!accountantEmail) {
+      return res.status(400).json({
+        success: false,
+        error: 'Email du comptable non configuré'
+      });
+    }
+
+    // Envoyer l'email au comptable
+    console.log('📧 Renvoi email comptable à:', accountantEmail);
+    const accountantResult = await emailService.sendToAccountant(sickLeave, accountantEmail);
+    
+    if (accountantResult.success) {
+      console.log('✅ Email comptable renvoyé:', accountantResult.messageId);
+      // Enregistrer le statut d'envoi
+      sickLeave.accountantNotification = {
+        sent: true,
+        sentAt: new Date(),
+        sentTo: accountantEmail
+      };
+      await sickLeave.save();
+      
+      res.json({
+        success: true,
+        message: 'Email au comptable renvoyé avec succès',
+        data: {
+          sent: true,
+          sentAt: sickLeave.accountantNotification.sentAt,
+          sentTo: accountantEmail
+        }
+      });
+    } else {
+      console.log('⚠️ Email comptable non renvoyé:', accountantResult.error);
+      // Enregistrer l'échec
+      sickLeave.accountantNotification = {
+        sent: false,
+        sentAt: null,
+        sentTo: accountantEmail
+      };
+      await sickLeave.save();
+      
+      res.status(500).json({
+        success: false,
+        error: 'Erreur lors du renvoi de l\'email au comptable',
+        details: accountantResult.error
+      });
+    }
+
+  } catch (error) {
+    console.error('❌ Erreur renvoi email comptable:', error.message);
+    res.status(500).json({
+      success: false,
+      error: 'Erreur lors du renvoi de l\'email au comptable'
+    });
+  }
+};
+
 module.exports = {
   uploadMiddleware,
   testSftpConnection,
@@ -1084,5 +1225,6 @@ module.exports = {
   downloadFile,
   getStats,
   deleteSickLeave,
-  deleteAllSickLeaves
+  deleteAllSickLeaves,
+  resendAccountantEmail
 };

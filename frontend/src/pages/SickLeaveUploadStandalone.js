@@ -17,6 +17,7 @@ const SickLeaveUploadStandalone = () => {
   const [messageType, setMessageType] = useState('');
   const [employees, setEmployees] = useState([]);
   const [loadingEmployees, setLoadingEmployees] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const API_URL = import.meta.env.VITE_API_URL || 'https://boulangerie-planning-api-4-pbfy.onrender.com/api';
 
@@ -114,12 +115,18 @@ const SickLeaveUploadStandalone = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     
+    // Empêcher les doubles soumissions
+    if (isSubmitting || uploading) {
+      return;
+    }
+    
     if (!file) {
       setMessage('Veuillez sélectionner un fichier');
       setMessageType('error');
       return;
     }
 
+    setIsSubmitting(true);
     setUploading(true);
     setMessage('');
 
@@ -162,6 +169,7 @@ const SickLeaveUploadStandalone = () => {
       setMessageType('error');
     } finally {
       setUploading(false);
+      setIsSubmitting(false);
     }
   };
 
@@ -287,9 +295,9 @@ const SickLeaveUploadStandalone = () => {
           <button 
             type="submit" 
             className="submit-button"
-            disabled={uploading}
+            disabled={uploading || isSubmitting}
           >
-            {uploading ? (
+            {uploading || isSubmitting ? (
               <>
                 <span className="spinner"></span>
                 Envoi en cours...

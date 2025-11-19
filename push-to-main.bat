@@ -13,7 +13,7 @@ git add .
 
 echo.
 echo 💾 Commit des modifications...
-git commit -m "📝 Documentation: limitation officielle Render (ports SMTP bloqués depuis 26/09/2025)"
+git commit -m "✨ Amélioration gestion arrêts maladie: suivi emails, prévention doublons, bouton supprimer et renvoi email comptable"
 
 echo.
 echo 🚀 Push vers la branche main...

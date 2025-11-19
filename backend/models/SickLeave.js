@@ -129,6 +129,36 @@ const sickLeaveSchema = new mongoose.Schema({
     }
   },
   
+  // Envoi de confirmation au salarié
+  confirmationEmail: {
+    sent: {
+      type: Boolean,
+      default: false
+    },
+    sentAt: {
+      type: Date
+    },
+    messageId: {
+      type: String,
+      default: ''
+    }
+  },
+  
+  // Envoi de validation au salarié
+  validationEmail: {
+    sent: {
+      type: Boolean,
+      default: false
+    },
+    sentAt: {
+      type: Date
+    },
+    messageId: {
+      type: String,
+      default: ''
+    }
+  },
+  
   // Métadonnées
   createdAt: {
     type: Date,
