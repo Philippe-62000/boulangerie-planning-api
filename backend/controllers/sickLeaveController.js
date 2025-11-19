@@ -528,6 +528,9 @@ const validateSickLeave = async (req, res) => {
       // Continuer même si le déplacement échoue
     }
 
+    // Récupérer sickLeave à nouveau pour avoir la dernière version
+    sickLeave = await SickLeave.findById(id);
+
     // Créer automatiquement une absence dans "Gestion des salariés"
     try {
       const absenceResult = await absenceService.createAbsenceFromSickLeave(sickLeave);
@@ -598,6 +601,8 @@ const validateSickLeave = async (req, res) => {
     // Envoyer un email de validation au salarié
     try {
       const emailResult = await emailService.sendSickLeaveValidation(sickLeave, validatedBy);
+      // Récupérer sickLeave à nouveau avant d'enregistrer le statut d'email
+      sickLeave = await SickLeave.findById(id);
       if (emailResult.success) {
         console.log('✅ Email de validation envoyé:', emailResult.messageId);
         // Enregistrer le statut d'envoi
@@ -618,6 +623,8 @@ const validateSickLeave = async (req, res) => {
       }
     } catch (emailError) {
       console.error('❌ Erreur envoi email validation:', emailError.message);
+      // Récupérer sickLeave à nouveau avant d'enregistrer l'échec
+      sickLeave = await SickLeave.findById(id);
       // Enregistrer l'échec
       sickLeave.validationEmail = {
         sent: false,
@@ -630,6 +637,9 @@ const validateSickLeave = async (req, res) => {
 
     // Note: L'email au comptable est envoyé uniquement lors de la déclaration (markAsDeclared)
     // et non lors de la validation pour éviter les doublons
+
+    // Récupérer sickLeave à nouveau pour avoir toutes les mises à jour
+    sickLeave = await SickLeave.findById(id);
 
     res.json({
       success: true,
@@ -745,6 +755,9 @@ const markAsDeclared = async (req, res) => {
       // Continuer même si le déplacement échoue
     }
 
+    // Récupérer sickLeave à nouveau pour avoir la dernière version
+    sickLeave = await SickLeave.findById(id);
+
     // Envoyer un email au comptable uniquement si demandé
     if (sendToAccountant) {
       try {
@@ -754,6 +767,8 @@ const markAsDeclared = async (req, res) => {
         
         if (accountantEmailParam && accountantEmailParam.stringValue) {
           const emailResult = await emailService.sendToAccountant(sickLeave, accountantEmailParam.stringValue);
+          // Récupérer sickLeave à nouveau avant d'enregistrer le statut d'email
+          sickLeave = await SickLeave.findById(id);
           if (emailResult.success) {
             console.log('✅ Email au comptable envoyé:', emailResult.messageId);
             // Enregistrer le statut d'envoi
@@ -777,11 +792,28 @@ const markAsDeclared = async (req, res) => {
         }
       } catch (emailError) {
         console.error('❌ Erreur envoi email comptable:', emailError.message);
+        // Récupérer sickLeave à nouveau avant d'enregistrer l'échec
+        try {
+          const Parameter = require('../models/Parameters');
+          const accountantEmailParam = await Parameter.findOne({ name: 'accountantEmail' });
+          sickLeave = await SickLeave.findById(id);
+          sickLeave.accountantNotification = {
+            sent: false,
+            sentAt: null,
+            sentTo: accountantEmailParam?.stringValue || ''
+          };
+          await sickLeave.save();
+        } catch (saveError) {
+          console.error('❌ Erreur enregistrement statut email comptable:', saveError.message);
+        }
         // Continuer même si l'email échoue
       }
     } else {
       console.log('ℹ️ Email au comptable non demandé lors de la déclaration');
     }
+
+    // Récupérer sickLeave à nouveau pour avoir toutes les mises à jour
+    sickLeave = await SickLeave.findById(id);
 
     res.json({
       success: true,
@@ -1115,6 +1147,9 @@ const resendAccountantEmail = async (req, res) => {
     console.log('📧 Renvoi email comptable à:', accountantEmail);
     const accountantResult = await emailService.sendToAccountant(sickLeave, accountantEmail);
     
+    // Récupérer sickLeave à nouveau avant d'enregistrer le statut
+    sickLeave = await SickLeave.findById(id);
+    
     if (accountantResult.success) {
       console.log('✅ Email comptable renvoyé:', accountantResult.messageId);
       // Enregistrer le statut d'envoi
@@ -1125,14 +1160,13 @@ const resendAccountantEmail = async (req, res) => {
       };
       await sickLeave.save();
       
+      // Récupérer à nouveau pour retourner la version mise à jour
+      sickLeave = await SickLeave.findById(id);
+      
       res.json({
         success: true,
         message: 'Email au comptable renvoyé avec succès',
-        data: {
-          sent: true,
-          sentAt: sickLeave.accountantNotification.sentAt,
-          sentTo: accountantEmail
-        }
+        data: sickLeave
       });
     } else {
       console.log('⚠️ Email comptable non renvoyé:', accountantResult.error);
@@ -1143,6 +1177,9 @@ const resendAccountantEmail = async (req, res) => {
         sentTo: accountantEmail
       };
       await sickLeave.save();
+      
+      // Récupérer à nouveau pour retourner la version mise à jour
+      sickLeave = await SickLeave.findById(id);
       
       res.status(500).json({
         success: false,

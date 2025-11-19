@@ -1,4 +1,5 @@
 const Employee = require('../models/Employee');
+const Absence = require('../models/Absence');
 
 class AbsenceService {
   constructor() {
@@ -85,7 +86,7 @@ class AbsenceService {
         };
       }
       
-      // Créer la nouvelle absence
+      // Créer la nouvelle absence dans employee.absences (ancien système)
       const newAbsence = {
         startDate: sickLeave.startDate,
         endDate: sickLeave.endDate,
@@ -96,12 +97,29 @@ class AbsenceService {
         sickLeaveId: sickLeave._id // Référence vers l'arrêt maladie
       };
       
-      // Ajouter l'absence à l'employé
+      // Ajouter l'absence à l'employé (ancien système)
       await Employee.findByIdAndUpdate(
         employee._id,
         { $push: { absences: newAbsence } },
         { new: true }
       );
+      
+      // Créer aussi l'absence dans le modèle Absence (nouveau système) pour qu'elle soit récupérée par getAllEmployees
+      try {
+        const absenceModel = new Absence({
+          employeeId: employee._id,
+          employeeName: employee.name,
+          type: 'MAL', // 'MAL' pour arrêt maladie dans le modèle Absence
+          startDate: sickLeave.startDate,
+          endDate: sickLeave.endDate,
+          reason: 'Arrêt maladie validé automatiquement'
+        });
+        await absenceModel.save();
+        console.log('✅ Absence créée dans le modèle Absence:', absenceModel._id);
+      } catch (absenceModelError) {
+        console.error('⚠️ Erreur création absence dans modèle Absence (non bloquant):', absenceModelError.message);
+        // Ne pas bloquer si la création dans le modèle Absence échoue
+      }
       
       console.log('✅ Absence créée automatiquement:', newAbsence);
       

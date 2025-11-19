@@ -13,7 +13,7 @@ git add .
 
 echo.
 echo 💾 Commit des modifications...
-git commit -m "🔧 Corrections: suppression sync frontend (déjà backend), meilleure gestion erreurs validation et logs SMTP"
+git commit -m "🔧 Corrections statuts emails et création absences: récupération sickLeave après modifications, création dans modèle Absence"
 
 echo.
 echo 🚀 Push vers la branche main...
