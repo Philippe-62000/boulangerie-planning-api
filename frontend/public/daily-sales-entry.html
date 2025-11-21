@@ -146,6 +146,8 @@
             text-align: center;
             font-weight: 600;
             display: none;
+            white-space: pre-line;
+            line-height: 1.6;
         }
 
         .message.success {
@@ -801,7 +803,8 @@ const loadEmployeeMessages = async (saleCode) => {
 
                 if (response.ok && data.success) {
                     const successLabel = helperText.textContent ? ` (${helperText.textContent.replace('✅ ', '')})` : '';
-                    showMessage(`✅ Saisie enregistrée avec succès${successLabel ? ' ' + successLabel : ' !'}`, 'success');
+                    const successMessage = `✅ Saisie enregistrée avec succès${successLabel ? ' ' + successLabel : ' !'}\n\n📊 Vos chiffres ont bien été pris en compte :\n🎯 ${nbCartesFid} carte${nbCartesFid > 1 ? 's' : ''} fidélité\n🔥 ${nbPromo} promo quinzaine`;
+                    showMessage(successMessage, 'success');
                     form.reset();
                     lastLookupCode = '';
                     hideEmployeeInfo();
@@ -812,13 +815,13 @@ const loadEmployeeMessages = async (saleCode) => {
                         resetSummaryValues();
                     }
                     
-                    // Réactiver le bouton après 2 secondes
+                    // Réactiver le bouton après 5 secondes (plus de temps pour lire le message)
                     setTimeout(() => {
                         submitBtn.disabled = false;
                         submitBtn.textContent = '📤 Envoyer';
                         messageDiv.classList.remove('success');
                         messageDiv.style.display = 'none';
-                    }, 3000);
+                    }, 5000);
                 } else {
                     showMessage(`❌ Erreur : ${data.message || 'Une erreur est survenue'}`, 'error');
                     submitBtn.disabled = false;

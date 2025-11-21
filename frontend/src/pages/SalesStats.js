@@ -121,6 +121,8 @@ const SalesStats = () => {
     recipientsType: 'all',
     selectedEmployeeIds: []
   });
+  const [showEmployeeDetailModal, setShowEmployeeDetailModal] = useState(false);
+  const [selectedEmployeeForDetail, setSelectedEmployeeForDetail] = useState(null);
 
   const vendeuses = useMemo(() => {
     return employees.filter(emp => VENDEUSE_ROLES.includes(emp.role));
@@ -987,7 +989,17 @@ const SalesStats = () => {
                   return (
                     <tr key={vendeuse._id}>
                       <td className="presence-name-cell">
-                        <div className="presence-employee-name">{vendeuse.name}</div>
+                        <div 
+                          className="presence-employee-name" 
+                          style={{ cursor: 'pointer', textDecoration: 'underline' }}
+                          onClick={() => {
+                            setSelectedEmployeeForDetail(vendeuse);
+                            setShowEmployeeDetailModal(true);
+                          }}
+                          title="Cliquer pour voir les détails jour par jour"
+                        >
+                          {vendeuse.name}
+                        </div>
                         <div className="employee-weekly-targets">
                           <span className="target-badge target-fid">🎯 Carte : {objectifFidEmployee}</span>
                           <span className="target-badge target-promo">🔥 Promo : {objectifPromoEmployee}</span>
@@ -1559,6 +1571,144 @@ const SalesStats = () => {
           </div>
         )}
       </div>
+
+      {/* Modal de détails jour par jour */}
+      {showEmployeeDetailModal && selectedEmployeeForDetail && (
+        <div 
+          className="modal-overlay" 
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            zIndex: 1000
+          }}
+          onClick={() => setShowEmployeeDetailModal(false)}
+        >
+          <div 
+            className="modal-content" 
+            style={{
+              backgroundColor: 'white',
+              padding: '2rem',
+              borderRadius: '8px',
+              maxWidth: '600px',
+              width: '90%',
+              maxHeight: '80vh',
+              overflow: 'auto'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+              <h2>📊 Détails jour par jour - {selectedEmployeeForDetail.name}</h2>
+              <button 
+                onClick={() => setShowEmployeeDetailModal(false)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  fontSize: '2rem',
+                  cursor: 'pointer',
+                  color: '#666'
+                }}
+              >
+                ×
+              </button>
+            </div>
+            
+            <div style={{ marginBottom: '1rem' }}>
+              <p><strong>Semaine :</strong> {weekInfo.startLabel} au {weekInfo.endLabel}</p>
+              <p><strong>Objectif par présence :</strong> 🎯 {objectifParPresenceCartesFid} cartes fidélité / 🔥 {objectifParPresencePromo} promo quinzaine</p>
+            </div>
+
+            <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '1rem' }}>
+              <thead>
+                <tr style={{ backgroundColor: '#f8f9fa' }}>
+                  <th style={{ padding: '0.75rem', textAlign: 'left', border: '1px solid #dee2e6' }}>Jour</th>
+                  <th style={{ padding: '0.75rem', textAlign: 'center', border: '1px solid #dee2e6' }}>Présent</th>
+                  <th style={{ padding: '0.75rem', textAlign: 'center', border: '1px solid #dee2e6' }}>🎯 Cartes Fidélité</th>
+                  <th style={{ padding: '0.75rem', textAlign: 'center', border: '1px solid #dee2e6' }}>🔥 Promo Quinzaine</th>
+                  <th style={{ padding: '0.75rem', textAlign: 'center', border: '1px solid #dee2e6' }}>Statut</th>
+                </tr>
+              </thead>
+              <tbody>
+                {WEEK_DAYS.map(jour => {
+                  const presence = presences[selectedEmployeeForDetail._id]?.[jour] || false;
+                  const employeeMetrics = weeklyEmployeeMetrics[selectedEmployeeForDetail._id] || { totalCartes: 0, totalPromo: 0, perDay: {} };
+                  const dayMetrics = employeeMetrics.perDay?.[jour] || { cartes: 0, promo: 0 };
+                  const expectedCartes = presence ? objectifParPresenceCartesFid : 0;
+                  const expectedPromo = presence ? objectifParPresencePromo : 0;
+                  const cartesReached = expectedCartes > 0 ? dayMetrics.cartes >= expectedCartes : false;
+                  const promoReached = expectedPromo > 0 ? dayMetrics.promo >= expectedPromo : false;
+                  const statusClass = presence 
+                    ? (cartesReached && promoReached ? 'success' : 'danger')
+                    : (dayMetrics.cartes > 0 || dayMetrics.promo > 0 ? 'info' : 'neutral');
+                  
+                  return (
+                    <tr key={jour}>
+                      <td style={{ padding: '0.75rem', border: '1px solid #dee2e6', fontWeight: 'bold' }}>{jour}</td>
+                      <td style={{ padding: '0.75rem', textAlign: 'center', border: '1px solid #dee2e6' }}>
+                        {presence ? '✅' : '❌'}
+                      </td>
+                      <td style={{ padding: '0.75rem', textAlign: 'center', border: '1px solid #dee2e6' }}>
+                        <strong>{dayMetrics.cartes}</strong> / {expectedCartes}
+                      </td>
+                      <td style={{ padding: '0.75rem', textAlign: 'center', border: '1px solid #dee2e6' }}>
+                        <strong>{dayMetrics.promo}</strong> / {expectedPromo}
+                      </td>
+                      <td style={{ 
+                        padding: '0.75rem', 
+                        textAlign: 'center', 
+                        border: '1px solid #dee2e6',
+                        color: statusClass === 'success' ? '#28a745' : statusClass === 'danger' ? '#dc3545' : statusClass === 'info' ? '#17a2b8' : '#6c757d',
+                        fontWeight: 'bold'
+                      }}>
+                        {statusClass === 'success' ? '✅ Atteint' : 
+                         statusClass === 'danger' ? '❌ Non atteint' : 
+                         statusClass === 'info' ? 'ℹ️ Données sans présence' : '—'}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+              <tfoot>
+                <tr style={{ backgroundColor: '#f8f9fa', fontWeight: 'bold' }}>
+                  <td style={{ padding: '0.75rem', border: '1px solid #dee2e6' }}>Total</td>
+                  <td style={{ padding: '0.75rem', textAlign: 'center', border: '1px solid #dee2e6' }}>
+                    {Object.values(presences[selectedEmployeeForDetail._id] || {}).filter(Boolean).length} jour(s)
+                  </td>
+                  <td style={{ padding: '0.75rem', textAlign: 'center', border: '1px solid #dee2e6' }}>
+                    {employeeMetrics.totalCartes || 0}
+                  </td>
+                  <td style={{ padding: '0.75rem', textAlign: 'center', border: '1px solid #dee2e6' }}>
+                    {employeeMetrics.totalPromo || 0}
+                  </td>
+                  <td style={{ padding: '0.75rem', textAlign: 'center', border: '1px solid #dee2e6' }}>—</td>
+                </tr>
+              </tfoot>
+            </table>
+
+            <div style={{ marginTop: '1.5rem', textAlign: 'right' }}>
+              <button
+                onClick={() => setShowEmployeeDetailModal(false)}
+                style={{
+                  padding: '0.5rem 1.5rem',
+                  backgroundColor: '#6c757d',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: 'pointer'
+                }}
+              >
+                Fermer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

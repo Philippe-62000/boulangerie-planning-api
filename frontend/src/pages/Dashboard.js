@@ -240,11 +240,19 @@ const Dashboard = () => {
               <tbody>
                 {sickEmployees.map((employee) => {
                   // Calculer la date de reprise (lendemain du dernier jour de maladie)
+                  const startDate = employee.sickLeave?.startDate ? new Date(employee.sickLeave.startDate) : null;
                   const endDate = employee.sickLeave?.endDate ? new Date(employee.sickLeave.endDate) : null;
                   const returnDate = endDate ? new Date(endDate) : null;
                   if (returnDate) {
                     returnDate.setDate(returnDate.getDate() + 1); // Ajouter 1 jour
                   }
+                  
+                  // Vérifier si l'arrêt est EN COURS (aujourd'hui entre startDate et endDate)
+                  const today = new Date();
+                  today.setHours(0, 0, 0, 0);
+                  const isCurrentlyOnSickLeave = startDate && endDate && 
+                    today >= new Date(startDate).setHours(0, 0, 0, 0) && 
+                    today <= new Date(endDate).setHours(23, 59, 59, 999);
                   
                   return (
                     <tr key={employee._id}>
@@ -252,6 +260,18 @@ const Dashboard = () => {
                       <td>{returnDate ? formatDate(returnDate.toISOString()) : '-'}</td>
                       <td>
                         {(() => {
+                          // Si l'arrêt est en cours, afficher "En arrêt"
+                          if (isCurrentlyOnSickLeave) {
+                            return (
+                              <span style={{ 
+                                color: '#ffc107',
+                                fontWeight: 'bold'
+                              }}>
+                                En arrêt
+                              </span>
+                            );
+                          }
+                          
                           const daysUntilReturn = returnDate ? calculateDaysUntil(returnDate.toISOString()) : 0;
                           return (
                             <span style={{ 
