@@ -41,42 +41,76 @@ const getAllEmployees = async (req, res) => {
         
         // Ajouter les absences du modèle Absence qui ne sont pas déjà dans employee.absences
         absenceModelAbsences.forEach(absenceModel => {
-          const exists = mergedAbsences.some(a => 
+          // Vérifier si l'absence existe déjà par absenceId
+          const existsById = mergedAbsences.some(a => 
             a.absenceId && a.absenceId.toString() === absenceModel._id.toString()
           );
-          if (!exists) {
+          
+          // Si c'est un arrêt maladie (type MAL), vérifier aussi par sickLeaveId pour éviter les doublons
+          if (!existsById && (absenceModel.type === 'MAL' || absenceModel.type === 'Arrêt maladie')) {
+            if (absenceModel.sickLeaveId) {
+              const existsBySickLeaveId = mergedAbsences.some(a => 
+                a.sickLeaveId && a.sickLeaveId.toString() === absenceModel.sickLeaveId.toString()
+              );
+              if (existsBySickLeaveId) {
+                return; // Ne pas ajouter si déjà présent via sickLeaveId
+              }
+            }
+          }
+          
+          if (!existsById) {
             mergedAbsences.push({
               startDate: absenceModel.startDate,
               endDate: absenceModel.endDate,
               type: absenceModel.type,
               reason: absenceModel.reason || '',
               createdAt: absenceModel.createdAt,
-              absenceId: absenceModel._id
+              absenceId: absenceModel._id,
+              sickLeaveId: absenceModel.sickLeaveId // Inclure le sickLeaveId si disponible
             });
           }
         });
         
         // Ajouter les arrêts maladie du modèle SickLeave qui ne sont pas déjà dans mergedAbsences
         sickLeaveModelAbsences.forEach(sickLeaveModel => {
-          // Vérifier si un arrêt maladie avec les mêmes dates existe déjà
-          const exists = mergedAbsences.some(a => {
+          const sickLeaveIdStr = sickLeaveModel._id.toString();
+          
+          // Vérifier si un arrêt maladie avec le même sickLeaveId existe déjà dans mergedAbsences
+          // (vérifier dans employee.absences, Absence model, ou déjà ajouté)
+          const existsById = mergedAbsences.some(a => {
             if (a.type !== 'MAL' && a.type !== 'Arrêt maladie') return false;
-            const aStart = new Date(a.startDate).toISOString().split('T')[0];
-            const aEnd = new Date(a.endDate).toISOString().split('T')[0];
-            const slStart = new Date(sickLeaveModel.startDate).toISOString().split('T')[0];
-            const slEnd = new Date(sickLeaveModel.endDate).toISOString().split('T')[0];
-            return aStart === slStart && aEnd === slEnd;
+            // Vérifier par sickLeaveId si disponible (le plus fiable)
+            if (a.sickLeaveId) {
+              return a.sickLeaveId.toString() === sickLeaveIdStr;
+            }
+            return false;
           });
           
-          if (!exists) {
-            mergedAbsences.push({
-              startDate: sickLeaveModel.startDate,
-              endDate: sickLeaveModel.endDate,
-              type: 'MAL', // Normaliser en 'MAL'
-              reason: 'Arrêt maladie',
-              createdAt: sickLeaveModel.uploadDate || sickLeaveModel.createdAt,
-              sickLeaveId: sickLeaveModel._id // Référence vers le document SickLeave
+          // Si pas trouvé par ID, vérifier par dates (pour les anciens arrêts maladie sans sickLeaveId)
+          // Mais seulement si l'absence n'a pas déjà un sickLeaveId différent
+          if (!existsById) {
+            const existsByDate = mergedAbsences.some(a => {
+              if (a.type !== 'MAL' && a.type !== 'Arrêt maladie') return false;
+              // Si l'absence a déjà un sickLeaveId, c'est un autre arrêt, ne pas comparer par dates
+              if (a.sickLeaveId) return false;
+              
+              const aStart = new Date(a.startDate).toISOString().split('T')[0];
+              const aEnd = new Date(a.endDate).toISOString().split('T')[0];
+              const slStart = new Date(sickLeaveModel.startDate).toISOString().split('T')[0];
+              const slEnd = new Date(sickLeaveModel.endDate).toISOString().split('T')[0];
+              return aStart === slStart && aEnd === slEnd;
             });
+            
+            if (!existsByDate) {
+              mergedAbsences.push({
+                startDate: sickLeaveModel.startDate,
+                endDate: sickLeaveModel.endDate,
+                type: 'MAL', // Normaliser en 'MAL'
+                reason: 'Arrêt maladie',
+                createdAt: sickLeaveModel.uploadDate || sickLeaveModel.createdAt,
+                sickLeaveId: sickLeaveModel._id // Référence vers le document SickLeave
+              });
+            }
           }
         });
         

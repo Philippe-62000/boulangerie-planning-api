@@ -27,6 +27,11 @@ const absenceSchema = new mongoose.Schema({
     type: String,
     trim: true
   },
+  sickLeaveId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'SickLeave',
+    required: false // Optionnel, seulement pour les absences créées depuis un arrêt maladie
+  },
   createdAt: {
     type: Date,
     default: Date.now

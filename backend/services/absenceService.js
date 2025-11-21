@@ -113,17 +113,28 @@ class AbsenceService {
       );
       
       // Créer aussi l'absence dans le modèle Absence (nouveau système) pour qu'elle soit récupérée par getAllEmployees
+      // Vérifier d'abord si une absence avec le même sickLeaveId existe déjà
       try {
-        const absenceModel = new Absence({
+        const existingAbsenceModel = await Absence.findOne({
           employeeId: employee._id,
-          employeeName: employee.name,
-          type: 'MAL', // 'MAL' pour arrêt maladie dans le modèle Absence
-          startDate: sickLeave.startDate,
-          endDate: sickLeave.endDate,
-          reason: 'Arrêt maladie validé automatiquement'
+          sickLeaveId: sickLeaveId
         });
-        await absenceModel.save();
-        console.log('✅ Absence créée dans le modèle Absence:', absenceModel._id);
+        
+        if (!existingAbsenceModel) {
+          const absenceModel = new Absence({
+            employeeId: employee._id,
+            employeeName: employee.name,
+            type: 'MAL', // 'MAL' pour arrêt maladie dans le modèle Absence
+            startDate: sickLeave.startDate,
+            endDate: sickLeave.endDate,
+            reason: 'Arrêt maladie validé automatiquement',
+            sickLeaveId: sickLeaveId // Stocker la référence vers le SickLeave
+          });
+          await absenceModel.save();
+          console.log('✅ Absence créée dans le modèle Absence:', absenceModel._id);
+        } else {
+          console.log('⚠️ Absence déjà existante dans le modèle Absence pour ce sickLeaveId:', sickLeaveId);
+        }
       } catch (absenceModelError) {
         console.error('⚠️ Erreur création absence dans modèle Absence (non bloquant):', absenceModelError.message);
         // Ne pas bloquer si la création dans le modèle Absence échoue
