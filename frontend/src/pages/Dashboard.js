@@ -3,12 +3,14 @@ import api from '../services/api';
 
 const Dashboard = () => {
   const [employees, setEmployees] = useState([]);
+  const [sickLeaves, setSickLeaves] = useState([]);
   const [loading, setLoading] = useState(true);
   const [pendingObligations, setPendingObligations] = useState([]);
 
   useEffect(() => {
     fetchDashboardData();
     fetchPendingObligations();
+    fetchSickLeaves();
   }, []);
 
   const fetchDashboardData = async () => {
@@ -38,6 +40,25 @@ const Dashboard = () => {
     }
   };
 
+  const fetchSickLeaves = async () => {
+    try {
+      const response = await api.get('/sick-leaves', {
+        params: {
+          status: 'all', // Récupérer tous les statuts
+          limit: 1000 // Limite élevée pour récupérer tous les arrêts maladie
+        }
+      });
+      
+      if (response.data.success && response.data.data) {
+        const allSickLeaves = response.data.data.sickLeaves || response.data.data;
+        setSickLeaves(Array.isArray(allSickLeaves) ? allSickLeaves : []);
+      }
+    } catch (error) {
+      console.error('Erreur lors du chargement des arrêts maladie:', error);
+      setSickLeaves([]);
+    }
+  };
+
   const fetchPendingObligations = async () => {
     try {
       const response = await api.get('/onboarding-offboarding/pending-obligations');
@@ -51,20 +72,77 @@ const Dashboard = () => {
   };
 
   // Filtrer les employés en arrêt maladie (exclure ceux repris depuis plus de 8 jours)
+  // Combiner les arrêts maladie depuis employee.sickLeave et depuis l'API /sick-leaves
   const sickEmployees = employees.filter(emp => {
-    if (!emp.sickLeave?.isOnSickLeave) return false;
+    // Vérifier l'ancien système (employee.sickLeave.isOnSickLeave)
+    if (emp.sickLeave?.isOnSickLeave) {
+      if (emp.sickLeave?.endDate) {
+        const endDate = new Date(emp.sickLeave.endDate);
+        const today = new Date();
+        const daysSinceReturn = Math.floor((today - endDate) / (1000 * 60 * 60 * 24));
+        if (daysSinceReturn > 8) return false;
+      }
+      return true;
+    }
     
-    // Si l'employé a une date de fin d'arrêt maladie
-    if (emp.sickLeave?.endDate) {
-      const endDate = new Date(emp.sickLeave.endDate);
+    // Vérifier les arrêts maladie depuis l'API /sick-leaves
+    const employeeSickLeaves = sickLeaves.filter(sl => {
+      // Comparer par nom (insensible à la casse) ou email
+      const nameMatch = sl.employeeName && emp.name && 
+        sl.employeeName.toLowerCase().trim() === emp.name.toLowerCase().trim();
+      const emailMatch = sl.employeeEmail && emp.email && 
+        sl.employeeEmail.toLowerCase().trim() === emp.email.toLowerCase().trim();
+      
+      return nameMatch || emailMatch;
+    });
+    
+    // Vérifier si l'employé a un arrêt maladie actif (non rejeté, non terminé depuis plus de 8 jours)
+    const activeSickLeave = employeeSickLeaves.find(sl => {
+      if (sl.status === 'rejected') return false;
+      
+      const endDate = new Date(sl.endDate);
       const today = new Date();
       const daysSinceReturn = Math.floor((today - endDate) / (1000 * 60 * 60 * 24));
       
-      // Exclure si repris depuis plus de 8 jours
-      if (daysSinceReturn > 8) return false;
+      // Inclure si l'arrêt est en cours ou terminé depuis moins de 8 jours
+      return daysSinceReturn <= 8;
+    });
+    
+    return !!activeSickLeave;
+  }).map(emp => {
+    // Enrichir avec les données de l'arrêt maladie depuis l'API si disponible
+    const employeeSickLeaves = sickLeaves.filter(sl => {
+      const nameMatch = sl.employeeName && emp.name && 
+        sl.employeeName.toLowerCase().trim() === emp.name.toLowerCase().trim();
+      const emailMatch = sl.employeeEmail && emp.email && 
+        sl.employeeEmail.toLowerCase().trim() === emp.email.toLowerCase().trim();
+      return nameMatch || emailMatch;
+    });
+    
+    // Trouver l'arrêt maladie le plus récent et actif
+    const activeSickLeave = employeeSickLeaves
+      .filter(sl => {
+        if (sl.status === 'rejected') return false;
+        const endDate = new Date(sl.endDate);
+        const today = new Date();
+        const daysSinceReturn = Math.floor((today - endDate) / (1000 * 60 * 60 * 24));
+        return daysSinceReturn <= 8;
+      })
+      .sort((a, b) => new Date(b.uploadDate || b.createdAt) - new Date(a.uploadDate || a.createdAt))[0];
+    
+    // Si on a un arrêt maladie depuis l'API et pas d'ancien système, utiliser les données de l'API
+    if (activeSickLeave && !emp.sickLeave?.isOnSickLeave) {
+      return {
+        ...emp,
+        sickLeave: {
+          isOnSickLeave: true,
+          startDate: activeSickLeave.startDate,
+          endDate: activeSickLeave.endDate
+        }
+      };
     }
     
-    return true;
+    return emp;
   });
 
   // Filtrer les employés en congés (8 jours avant le début, exclure ceux qui ont déjà fini)

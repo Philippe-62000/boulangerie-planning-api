@@ -1,5 +1,6 @@
 const Employee = require('../models/Employee');
 const Absence = require('../models/Absence');
+const SickLeave = require('../models/SickLeave');
 
 // Obtenir tous les employés avec leurs absences
 const getAllEmployees = async (req, res) => {
@@ -11,6 +12,9 @@ const getAllEmployees = async (req, res) => {
     // Récupérer toutes les absences depuis le modèle Absence
     const allAbsences = await Absence.find({});
     
+    // Récupérer tous les arrêts maladie depuis le modèle SickLeave
+    const allSickLeaves = await SickLeave.find({});
+    
     // Récupérer les absences pour chaque employé
     const employeesWithAbsences = await Promise.all(
       employees.map(async (employee) => {
@@ -21,6 +25,16 @@ const getAllEmployees = async (req, res) => {
         const absenceModelAbsences = allAbsences.filter(a => 
           a.employeeId && a.employeeId.toString() === employee._id.toString()
         );
+        
+        // Récupérer les arrêts maladie depuis le modèle SickLeave (par nom ou email)
+        const sickLeaveModelAbsences = allSickLeaves.filter(sl => {
+          // Comparer par nom (insensible à la casse) ou email
+          const nameMatch = sl.employeeName && employee.name && 
+            sl.employeeName.toLowerCase().trim() === employee.name.toLowerCase().trim();
+          const emailMatch = sl.employeeEmail && employee.email && 
+            sl.employeeEmail.toLowerCase().trim() === employee.email.toLowerCase().trim();
+          return nameMatch || emailMatch;
+        });
         
         // Fusionner les deux sources d'absences
         const mergedAbsences = [...employeeAbsences];
@@ -38,6 +52,30 @@ const getAllEmployees = async (req, res) => {
               reason: absenceModel.reason || '',
               createdAt: absenceModel.createdAt,
               absenceId: absenceModel._id
+            });
+          }
+        });
+        
+        // Ajouter les arrêts maladie du modèle SickLeave qui ne sont pas déjà dans mergedAbsences
+        sickLeaveModelAbsences.forEach(sickLeaveModel => {
+          // Vérifier si un arrêt maladie avec les mêmes dates existe déjà
+          const exists = mergedAbsences.some(a => {
+            if (a.type !== 'MAL' && a.type !== 'Arrêt maladie') return false;
+            const aStart = new Date(a.startDate).toISOString().split('T')[0];
+            const aEnd = new Date(a.endDate).toISOString().split('T')[0];
+            const slStart = new Date(sickLeaveModel.startDate).toISOString().split('T')[0];
+            const slEnd = new Date(sickLeaveModel.endDate).toISOString().split('T')[0];
+            return aStart === slStart && aEnd === slEnd;
+          });
+          
+          if (!exists) {
+            mergedAbsences.push({
+              startDate: sickLeaveModel.startDate,
+              endDate: sickLeaveModel.endDate,
+              type: 'MAL', // Normaliser en 'MAL'
+              reason: 'Arrêt maladie',
+              createdAt: sickLeaveModel.uploadDate || sickLeaveModel.createdAt,
+              sickLeaveId: sickLeaveModel._id // Référence vers le document SickLeave
             });
           }
         });

@@ -419,6 +419,210 @@ const uploadSickLeave = async (req, res) => {
   }
 };
 
+// Créer un arrêt maladie (déclaration manuelle, fichier optionnel)
+const createSickLeave = async (req, res) => {
+  try {
+    console.log('📝 Création arrêt maladie (déclaration manuelle)');
+    console.log('📝 Body:', req.body);
+    console.log('📝 File:', req.file ? {
+      fieldname: req.file.fieldname,
+      originalname: req.file.originalname,
+      mimetype: req.file.mimetype,
+      size: req.file.size
+    } : 'Aucun fichier');
+    
+    // Vérification des données requises
+    const { employeeId, employeeName, employeeEmail, startDate, endDate, reason } = req.body;
+    
+    // Récupérer l'employé si employeeId est fourni
+    let employee = null;
+    if (employeeId) {
+      const Employee = require('../models/Employee');
+      employee = await Employee.findById(employeeId);
+      if (!employee) {
+        return res.status(404).json({
+          success: false,
+          error: 'Employé non trouvé'
+        });
+      }
+    }
+    
+    // Utiliser les données de l'employé si disponibles, sinon celles du body
+    const finalEmployeeName = employeeName || (employee ? employee.name : '');
+    const finalEmployeeEmail = employeeEmail || (employee ? employee.email : '');
+    
+    if (!finalEmployeeName || !finalEmployeeEmail || !startDate || !endDate) {
+      return res.status(400).json({
+        success: false,
+        error: 'Tous les champs sont requis (nom, email, date début, date fin)'
+      });
+    }
+
+    // Validation des dates
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    
+    if (start > end) {
+      return res.status(400).json({
+        success: false,
+        error: 'La date de fin doit être postérieure ou égale à la date de début'
+      });
+    }
+
+    // Traitement du fichier si fourni
+    let uploadResult = null;
+    let validation = null;
+    
+    if (req.file) {
+      console.log('📤 Fichier fourni, traitement en cours...');
+      
+      // Validation automatique du fichier
+      try {
+        validation = await imageValidationService.validateFile(
+          req.file.buffer,
+          req.file.originalname,
+          req.file.mimetype
+        );
+        console.log(`📊 Score de validation: ${validation.qualityScore}/100`);
+      } catch (validationError) {
+        console.error('❌ Erreur validation fichier:', validationError);
+        return res.status(500).json({
+          success: false,
+          error: 'Erreur lors de la validation du fichier',
+          details: validationError.message
+        });
+      }
+
+      // Upload vers le NAS (ou sauvegarde locale si SFTP non configuré)
+      if (!process.env.SFTP_PASSWORD) {
+        console.log('⚠️ Mot de passe SFTP non configuré, sauvegarde locale...');
+        const fileName = `${Date.now()}_${finalEmployeeName.replace(/\s+/g, '_')}_${req.file.originalname}`;
+        uploadResult = {
+          fileName: fileName,
+          remotePath: `/temp/${fileName}`,
+          localPath: `/uploads/${fileName}`
+        };
+        console.log('✅ Fichier sauvegardé localement:', uploadResult);
+      } else {
+        try {
+          uploadResult = await sftpService.uploadFile(
+            req.file.buffer,
+            req.file.originalname,
+            finalEmployeeName
+          );
+          console.log('✅ Upload réussi:', uploadResult);
+        } catch (uploadError) {
+          console.error('❌ Erreur upload SFTP:', uploadError);
+          return res.status(500).json({
+            success: false,
+            error: 'Erreur lors de l\'upload du fichier vers le NAS',
+            details: uploadError.message
+          });
+        }
+      }
+    } else {
+      console.log('ℹ️ Aucun fichier fourni, arrêt maladie créé sans certificat médical');
+    }
+
+    // Création de l'enregistrement en base
+    console.log('💾 Création de l\'enregistrement en base...');
+    
+    const sickLeaveData = {
+      employeeName: finalEmployeeName.trim(),
+      employeeEmail: finalEmployeeEmail.trim().toLowerCase(),
+      startDate: start,
+      endDate: end,
+      status: 'pending'
+    };
+    
+    // Ajouter les données de fichier si disponibles
+    if (uploadResult && req.file) {
+      sickLeaveData.fileName = uploadResult.fileName;
+      sickLeaveData.originalFileName = req.file.originalname;
+      sickLeaveData.fileSize = req.file.size;
+      sickLeaveData.fileType = req.file.mimetype;
+      sickLeaveData.filePath = uploadResult.remotePath;
+      
+      if (validation) {
+        sickLeaveData.autoValidation = {
+          isReadable: validation.isReadable,
+          qualityScore: validation.qualityScore,
+          validationMessage: validation.message
+        };
+      }
+    }
+    
+    let sickLeave;
+    try {
+      sickLeave = new SickLeave(sickLeaveData);
+      await sickLeave.save();
+      console.log('✅ Arrêt maladie créé:', sickLeave._id);
+    } catch (createError) {
+      console.error('❌ Erreur création arrêt maladie:', createError);
+      return res.status(500).json({
+        success: false,
+        error: 'Erreur lors de la création de l\'arrêt maladie',
+        details: createError.message
+      });
+    }
+
+    // Envoyer un accusé de réception au salarié si email disponible
+    if (finalEmployeeEmail) {
+      try {
+        const acknowledgementResult = await emailService.sendSickLeaveAcknowledgement(sickLeave);
+        if (acknowledgementResult.success) {
+          console.log('✅ Accusé de réception envoyé au salarié:', acknowledgementResult.messageId);
+          sickLeave.confirmationEmail = {
+            sent: true,
+            sentAt: new Date(),
+            messageId: acknowledgementResult.messageId || ''
+          };
+          await sickLeave.save();
+        } else {
+          console.log('⚠️ Accusé de réception non envoyé:', acknowledgementResult.error);
+          sickLeave.confirmationEmail = {
+            sent: false,
+            sentAt: null,
+            messageId: ''
+          };
+          await sickLeave.save();
+        }
+      } catch (ackError) {
+        console.error('❌ Erreur envoi accusé de réception:', ackError.message);
+        sickLeave.confirmationEmail = {
+          sent: false,
+          sentAt: null,
+          messageId: ''
+        };
+        await sickLeave.save();
+      }
+    }
+
+    res.json({
+      success: true,
+      message: 'Arrêt maladie créé avec succès',
+      data: {
+        id: sickLeave._id,
+        status: sickLeave.status,
+        hasFile: !!req.file,
+        validation: validation ? {
+          score: validation.qualityScore,
+          message: validation.message,
+          isReadable: validation.isReadable
+        } : null
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ Erreur création arrêt maladie:', error.message);
+    res.status(500).json({
+      success: false,
+      error: 'Erreur lors de la création de l\'arrêt maladie',
+      details: error.message
+    });
+  }
+};
+
 // Récupérer tous les arrêts maladie (admin)
 const getAllSickLeaves = async (req, res) => {
   try {
@@ -1203,6 +1407,7 @@ module.exports = {
   testUpload,
   testEmailConfiguration,
   uploadSickLeave,
+  createSickLeave,
   getAllSickLeaves,
   getSickLeaveById,
   validateSickLeave,

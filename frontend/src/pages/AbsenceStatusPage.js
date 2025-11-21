@@ -77,7 +77,24 @@ const AbsenceStatusPage = () => {
       console.log('📋 Sauvegarde déclaration:', declarationData);
       
       if (declarationData.type === 'maladie') {
-        await api.post('/sick-leaves', declarationData);
+        // Arrêt maladie - utiliser FormData si fichier fourni
+        const formData = new FormData();
+        formData.append('employeeId', declarationData.employeeId);
+        formData.append('startDate', declarationData.startDate);
+        formData.append('endDate', declarationData.endDate);
+        if (declarationData.reason) {
+          formData.append('reason', declarationData.reason);
+        }
+        // Ajouter le fichier si fourni
+        if (declarationData.file) {
+          formData.append('sickLeaveFile', declarationData.file);
+        }
+        
+        await api.post('/sick-leaves', formData, {
+          headers: {
+            'Content-Type': 'multipart/form-data'
+          }
+        });
         toast.success('Arrêt maladie déclaré avec succès');
       } else {
         await api.post('/absences', declarationData);

@@ -22,6 +22,12 @@ router.post('/upload',
   sickLeaveController.uploadSickLeave
 );
 
+// Route pour créer un arrêt maladie (déclaration manuelle, fichier optionnel)
+router.post('/',
+  sickLeaveController.uploadMiddleware, // Middleware pour gérer le fichier optionnel
+  sickLeaveController.createSickLeave
+);
+
 // Supprimer tous les arrêts maladie (admin uniquement) - DOIT être avant /:id
 router.delete('/all', sickLeaveController.deleteAllSickLeaves);
 

@@ -7,6 +7,7 @@ const DeclarationModal = ({ show, onClose, onSave, employees }) => {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [reason, setReason] = useState('');
+  const [file, setFile] = useState(null);
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e) => {
@@ -23,7 +24,8 @@ const DeclarationModal = ({ show, onClose, onSave, employees }) => {
         employeeId: selectedEmployee,
         startDate,
         endDate,
-        reason: reason || (declarationType === 'maladie' ? 'Arrêt maladie' : 'Absence')
+        reason: reason || (declarationType === 'maladie' ? 'Arrêt maladie' : 'Absence'),
+        file: file // Ajouter le fichier si fourni
       });
       
       // Reset form
@@ -31,11 +33,32 @@ const DeclarationModal = ({ show, onClose, onSave, employees }) => {
       setStartDate('');
       setEndDate('');
       setReason('');
+      setFile(null);
       onClose();
     } catch (error) {
       console.error('Erreur lors de la sauvegarde:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleFileChange = (e) => {
+    const selectedFile = e.target.files[0];
+    if (selectedFile) {
+      // Vérifier le type de fichier
+      const allowedTypes = ['image/jpeg', 'image/jpg', 'application/pdf'];
+      if (!allowedTypes.includes(selectedFile.type)) {
+        alert('Type de fichier non supporté. Seuls JPG et PDF sont acceptés.');
+        e.target.value = '';
+        return;
+      }
+      // Vérifier la taille (10MB max)
+      if (selectedFile.size > 10 * 1024 * 1024) {
+        alert('Le fichier est trop volumineux. Taille maximale : 10MB');
+        e.target.value = '';
+        return;
+      }
+      setFile(selectedFile);
     }
   };
 
@@ -138,6 +161,29 @@ const DeclarationModal = ({ show, onClose, onSave, employees }) => {
                 rows="3"
               />
             </div>
+
+            {/* Upload fichier (optionnel, uniquement pour arrêt maladie) */}
+            {declarationType === 'maladie' && (
+              <div className="form-group">
+                <label className="form-label">
+                  Certificat médical (optionnel)
+                  <span style={{ fontSize: '0.85em', color: '#666', marginLeft: '8px' }}>
+                    JPG ou PDF, max 10MB
+                  </span>
+                </label>
+                <input
+                  type="file"
+                  className="form-control"
+                  accept=".jpg,.jpeg,.pdf,image/jpeg,image/jpg,application/pdf"
+                  onChange={handleFileChange}
+                />
+                {file && (
+                  <div style={{ marginTop: '8px', fontSize: '0.9em', color: '#28a745' }}>
+                    ✓ Fichier sélectionné : {file.name} ({(file.size / 1024 / 1024).toFixed(2)} MB)
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Informations supplémentaires */}
             <div className="info-box">

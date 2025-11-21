@@ -28,27 +28,27 @@ const sickLeaveSchema = new mongoose.Schema({
     default: Date.now
   },
   
-  // Fichier
+  // Fichier (optionnel pour les déclarations manuelles)
   fileName: {
     type: String,
-    required: true
+    required: false
   },
   originalFileName: {
     type: String,
-    required: true
+    required: false
   },
   fileSize: {
     type: Number,
-    required: true
+    required: false
   },
   fileType: {
     type: String,
-    required: true,
+    required: false,
     enum: ['image/jpeg', 'image/jpg', 'application/pdf']
   },
   filePath: {
     type: String,
-    required: true // Chemin sur le NAS
+    required: false // Chemin sur le NAS
   },
   
   // Statut et validation
