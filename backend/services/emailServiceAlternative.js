@@ -55,20 +55,11 @@ class EmailServiceAlternative {
     }
 
     try {
-      // Option 1: Utiliser SMTP OVH (priorité)
-      let smtpResult;
-      try {
-        smtpResult = await this.sendViaSMTP(to, subject, htmlContent, textContent);
-        if (smtpResult.success) {
-          console.log('✅ Email envoyé via SMTP OVH:', smtpResult.messageId);
-          return smtpResult;
-        }
-      } catch (smtpError) {
-        // SMTP a échoué (normal sur Render qui bloque les ports SMTP), on continue avec EmailJS
-        console.log('ℹ️ SMTP non disponible (normal sur Render), utilisation d\'EmailJS en fallback');
-      }
+      // SMTP OVH désactivé sur Render (version gratuite bloque les ports SMTP)
+      // On utilise directement EmailJS pour éviter les timeouts inutiles
+      console.log('ℹ️ Utilisation directe d\'EmailJS (SMTP OVH désactivé sur Render)');
 
-      // Option 2: Utiliser EmailJS (fallback si SMTP échoue)
+      // Utiliser EmailJS directement
       const emailResult = await this.sendViaEmailJS(to, subject, htmlContent, textContent);
       
       if (emailResult.success) {

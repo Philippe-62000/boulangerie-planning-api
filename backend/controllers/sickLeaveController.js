@@ -930,7 +930,7 @@ const markAsDeclared = async (req, res) => {
     const { id } = req.params;
     const { declaredBy, notes, sendToAccountant = true } = req.body;
 
-    const sickLeave = await SickLeave.findById(id);
+    let sickLeave = await SickLeave.findById(id);
     
     if (!sickLeave) {
       return res.status(404).json({
