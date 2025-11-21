@@ -703,7 +703,7 @@ const validateSickLeave = async (req, res) => {
     const { id } = req.params;
     const { validatedBy, notes } = req.body;
 
-    const sickLeave = await SickLeave.findById(id);
+    let sickLeave = await SickLeave.findById(id);
     
     if (!sickLeave) {
       return res.status(404).json({
