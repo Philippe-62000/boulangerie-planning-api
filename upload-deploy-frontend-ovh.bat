@@ -15,10 +15,10 @@ if not exist "deploy-frontend" (
 echo.
 echo 🚀 Upload vers OVH...
 echo    Source: deploy-frontend\
-echo    Destination: \\ftp.cluster023.hosting.ovh.net\www\plan
+echo    Destination: \\ftp.cluster029.hosting.ovh.net\www\plan
 echo.
 
-robocopy "deploy-frontend" "\\ftp.cluster023.hosting.ovh.net\www\plan" /MIR /R:3 /W:10 /NP /NDL /NFL
+robocopy "deploy-frontend" "\\ftp.cluster029.hosting.ovh.net\www\plan" /MIR /R:3 /W:10 /NP /NDL /NFL
 
 if %errorlevel% leq 3 (
     echo.

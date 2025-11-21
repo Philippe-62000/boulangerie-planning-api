@@ -97,6 +97,7 @@ const Dashboard = () => {
     });
     
     // Vérifier si l'employé a un arrêt maladie actif (non rejeté, non terminé depuis plus de 8 jours)
+    // Inclure les arrêts maladie pending, validated et declared (pas seulement validated)
     const activeSickLeave = employeeSickLeaves.find(sl => {
       if (sl.status === 'rejected') return false;
       
@@ -105,6 +106,7 @@ const Dashboard = () => {
       const daysSinceReturn = Math.floor((today - endDate) / (1000 * 60 * 60 * 24));
       
       // Inclure si l'arrêt est en cours ou terminé depuis moins de 8 jours
+      // Inclure tous les statuts sauf rejected (pending, validated, declared)
       return daysSinceReturn <= 8;
     });
     
@@ -120,6 +122,7 @@ const Dashboard = () => {
     });
     
     // Trouver l'arrêt maladie le plus récent et actif
+    // Inclure tous les statuts sauf rejected (pending, validated, declared)
     const activeSickLeave = employeeSickLeaves
       .filter(sl => {
         if (sl.status === 'rejected') return false;
@@ -128,7 +131,7 @@ const Dashboard = () => {
         const daysSinceReturn = Math.floor((today - endDate) / (1000 * 60 * 60 * 24));
         return daysSinceReturn <= 8;
       })
-      .sort((a, b) => new Date(b.uploadDate || b.createdAt) - new Date(a.uploadDate || a.createdAt))[0];
+      .sort((a, b) => new Date(b.uploadDate || b.createdAt || b.startDate) - new Date(a.uploadDate || a.createdAt || a.startDate))[0];
     
     // Si on a un arrêt maladie depuis l'API et pas d'ancien système, utiliser les données de l'API
     if (activeSickLeave && !emp.sickLeave?.isOnSickLeave) {

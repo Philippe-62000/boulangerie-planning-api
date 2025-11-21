@@ -1326,7 +1326,7 @@ const resendAccountantEmail = async (req, res) => {
   try {
     const { id } = req.params;
     
-    const sickLeave = await SickLeave.findById(id);
+    let sickLeave = await SickLeave.findById(id);
     
     if (!sickLeave) {
       return res.status(404).json({

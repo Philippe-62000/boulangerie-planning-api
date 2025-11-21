@@ -79,28 +79,34 @@ const AbsenceStatus = ({ employees }) => {
         return false;
       }) : [];
 
-      // Calculer les arrêts maladie
+      // Calculer les arrêts maladie (avec déduplication pour éviter les doublons)
       let employeeSickLeaves = [];
+      const seenSickLeaveIds = new Set(); // Pour dédupliquer par sickLeaveId
+      const seenSickLeaveDates = new Set(); // Pour dédupliquer par dates (pour les anciens sans ID)
       
-      // Vérifier si l'employé a un arrêt maladie actuel (déclaré via declareSickLeave)
-      // C'est un arrêt maladie déclaré manuellement, stocké dans employee.sickLeave
-      if (employee.sickLeave && employee.sickLeave.isOnSickLeave) {
-        const start = employee.sickLeave.startDate ? new Date(employee.sickLeave.startDate) : null;
-        const end = employee.sickLeave.endDate ? new Date(employee.sickLeave.endDate) : null;
-        
-        if (start && end) {
-          // Vérifier si l'arrêt maladie chevauche la période sélectionnée
-          if (start <= endDate && end >= startDate) {
-            employeeSickLeaves.push({
-              startDate: employee.sickLeave.startDate,
-              endDate: employee.sickLeave.endDate
-            });
-          }
+      // Fonction helper pour vérifier si un arrêt maladie a déjà été ajouté
+      const isDuplicate = (sl) => {
+        // Vérifier par sickLeaveId si disponible (le plus fiable)
+        if (sl.sickLeaveId) {
+          const idStr = sl.sickLeaveId.toString ? sl.sickLeaveId.toString() : String(sl.sickLeaveId);
+          if (seenSickLeaveIds.has(idStr)) return true;
+          seenSickLeaveIds.add(idStr);
+          return false;
         }
-      }
+        
+        // Sinon, vérifier par dates (pour les anciens arrêts sans sickLeaveId)
+        if (sl.startDate && sl.endDate) {
+          const dateKey = `${new Date(sl.startDate).toISOString().split('T')[0]}_${new Date(sl.endDate).toISOString().split('T')[0]}`;
+          if (seenSickLeaveDates.has(dateKey)) return true;
+          seenSickLeaveDates.add(dateKey);
+          return false;
+        }
+        
+        return false;
+      };
       
       // Ajouter les arrêts maladie depuis les absences (type: 'Arrêt maladie' ou 'MAL')
-      // Le backend filtre déjà les absences par type, donc on doit chercher dans absencesArray aussi
+      // C'est la source principale car elle inclut tous les arrêts maladie (manuels et workflow)
       const allAbsencesForSickLeave = absencesArray.filter(absence => {
         const absenceType = absence.type || '';
         const isSickLeave = absenceType === 'Arrêt maladie' || absenceType === 'MAL';
@@ -110,22 +116,62 @@ const AbsenceStatus = ({ employees }) => {
           const absenceStart = new Date(absence.startDate);
           const absenceEnd = new Date(absence.endDate);
           // Vérifier si l'absence chevauche la période sélectionnée
-          return absenceStart <= endDate && absenceEnd >= startDate;
+          if (absenceStart <= endDate && absenceEnd >= startDate) {
+            const sl = {
+              startDate: absence.startDate,
+              endDate: absence.endDate,
+              sickLeaveId: absence.sickLeaveId // Inclure le sickLeaveId si disponible
+            };
+            if (!isDuplicate(sl)) {
+              employeeSickLeaves.push(sl);
+            }
+          }
         }
-        return false;
+        return false; // Ne pas inclure dans le résultat du filter
       });
       
-      employeeSickLeaves = employeeSickLeaves.concat(allAbsencesForSickLeave);
-      
       // Ajouter les arrêts maladie stockés dans sickLeaves (déjà filtrés par le backend)
+      // Cette source peut contenir des arrêts maladie qui ne sont pas encore dans les absences
       if (Array.isArray(sickLeavesArray)) {
-        const filteredSickLeaves = sickLeavesArray.filter(sickLeave => {
-          if (!sickLeave.startDate || !sickLeave.endDate) return false;
+        sickLeavesArray.forEach(sickLeave => {
+          if (!sickLeave.startDate || !sickLeave.endDate) return;
           const start = new Date(sickLeave.startDate);
           const end = new Date(sickLeave.endDate);
-          return (start <= endDate && end >= startDate);
+          
+          // Vérifier si l'arrêt chevauche la période sélectionnée
+          if (start <= endDate && end >= startDate) {
+            const sl = {
+              startDate: sickLeave.startDate,
+              endDate: sickLeave.endDate,
+              sickLeaveId: sickLeave._id || sickLeave.sickLeaveId // Inclure l'ID si disponible
+            };
+            if (!isDuplicate(sl)) {
+              employeeSickLeaves.push(sl);
+            }
+          }
         });
-        employeeSickLeaves = [...employeeSickLeaves, ...filteredSickLeaves];
+      }
+      
+      // Vérifier si l'employé a un arrêt maladie actuel (déclaré via declareSickLeave)
+      // C'est un arrêt maladie déclaré manuellement, stocké dans employee.sickLeave
+      // On l'ajoute seulement s'il n'est pas déjà dans les autres sources
+      if (employee.sickLeave && employee.sickLeave.isOnSickLeave) {
+        const start = employee.sickLeave.startDate ? new Date(employee.sickLeave.startDate) : null;
+        const end = employee.sickLeave.endDate ? new Date(employee.sickLeave.endDate) : null;
+        
+        if (start && end) {
+          // Vérifier si l'arrêt maladie chevauche la période sélectionnée
+          if (start <= endDate && end >= startDate) {
+            const sl = {
+              startDate: employee.sickLeave.startDate,
+              endDate: employee.sickLeave.endDate,
+              sickLeaveId: employee.sickLeave.sickLeaveId // Inclure l'ID si disponible
+            };
+            if (!isDuplicate(sl)) {
+              employeeSickLeaves.push(sl);
+            }
+          }
+        }
       }
 
       const employeeDelays = Array.isArray(delaysArray) ? delaysArray.filter(delay => {
@@ -516,48 +562,93 @@ const AbsenceStatus = ({ employees }) => {
                   return false;
                 });
                 
-                // Filtrer les arrêts maladie (même logique que calculateAbsenceStats)
+                // Filtrer les arrêts maladie (même logique que calculateAbsenceStats avec déduplication)
                 let filteredSickLeaves = [];
+                const seenSickLeaveIdsModal = new Set(); // Pour dédupliquer par sickLeaveId
+                const seenSickLeaveDatesModal = new Set(); // Pour dédupliquer par dates
                 
-                // 1. Arrêt maladie actuel (employee.sickLeave)
-                if (emp.sickLeave && emp.sickLeave.isOnSickLeave) {
-                  const start = emp.sickLeave.startDate ? new Date(emp.sickLeave.startDate) : null;
-                  const end = emp.sickLeave.endDate ? new Date(emp.sickLeave.endDate) : null;
-                  if (start && end && start <= endDate && end >= startDate) {
-                    filteredSickLeaves.push({
-                      startDate: emp.sickLeave.startDate,
-                      endDate: emp.sickLeave.endDate,
-                      reason: 'Arrêt maladie'
-                    });
+                // Fonction helper pour vérifier si un arrêt maladie a déjà été ajouté
+                const isDuplicateModal = (sl) => {
+                  // Vérifier par sickLeaveId si disponible (le plus fiable)
+                  if (sl.sickLeaveId) {
+                    const idStr = sl.sickLeaveId.toString ? sl.sickLeaveId.toString() : String(sl.sickLeaveId);
+                    if (seenSickLeaveIdsModal.has(idStr)) return true;
+                    seenSickLeaveIdsModal.add(idStr);
+                    return false;
                   }
-                }
+                  
+                  // Sinon, vérifier par dates
+                  if (sl.startDate && sl.endDate) {
+                    const dateKey = `${new Date(sl.startDate).toISOString().split('T')[0]}_${new Date(sl.endDate).toISOString().split('T')[0]}`;
+                    if (seenSickLeaveDatesModal.has(dateKey)) return true;
+                    seenSickLeaveDatesModal.add(dateKey);
+                    return false;
+                  }
+                  
+                  return false;
+                };
                 
-                // 2. Arrêts maladie depuis les absences (type: 'Arrêt maladie' ou 'MAL')
-                const absencesForSickLeave = absencesArray.filter(absence => {
+                // 1. Arrêts maladie depuis les absences (type: 'Arrêt maladie' ou 'MAL')
+                // C'est la source principale car elle inclut tous les arrêts maladie (manuels et workflow)
+                absencesArray.forEach(absence => {
                   const absenceType = absence.type || '';
                   const isSickLeave = absenceType === 'Arrêt maladie' || absenceType === 'MAL';
-                  if (!isSickLeave) return false;
+                  if (!isSickLeave) return;
                   
                   if (absence.startDate && absence.endDate) {
                     const absenceStart = new Date(absence.startDate);
                     const absenceEnd = new Date(absence.endDate);
-                    return absenceStart <= endDate && absenceEnd >= startDate;
+                    if (absenceStart <= endDate && absenceEnd >= startDate) {
+                      const sl = {
+                        startDate: absence.startDate,
+                        endDate: absence.endDate,
+                        reason: absence.reason || 'Arrêt maladie',
+                        sickLeaveId: absence.sickLeaveId
+                      };
+                      if (!isDuplicateModal(sl)) {
+                        filteredSickLeaves.push(sl);
+                      }
+                    }
                   }
-                  return false;
                 });
-                filteredSickLeaves = [...filteredSickLeaves, ...absencesForSickLeave];
                 
-                // 3. Arrêts maladie depuis sickLeaves
+                // 2. Arrêts maladie depuis sickLeaves
                 if (Array.isArray(sickLeavesArray)) {
-                  const filteredFromSickLeaves = sickLeavesArray.filter(sl => {
+                  sickLeavesArray.forEach(sl => {
                     if (sl.startDate && sl.endDate) {
                       const slStart = new Date(sl.startDate);
                       const slEnd = new Date(sl.endDate);
-                      return slStart <= endDate && slEnd >= startDate;
+                      if (slStart <= endDate && slEnd >= startDate) {
+                        const slObj = {
+                          startDate: sl.startDate,
+                          endDate: sl.endDate,
+                          reason: sl.reason || 'Arrêt maladie',
+                          sickLeaveId: sl._id || sl.sickLeaveId
+                        };
+                        if (!isDuplicateModal(slObj)) {
+                          filteredSickLeaves.push(slObj);
+                        }
+                      }
                     }
-                    return false;
                   });
-                  filteredSickLeaves = [...filteredSickLeaves, ...filteredFromSickLeaves];
+                }
+                
+                // 3. Arrêt maladie actuel (employee.sickLeave)
+                // On l'ajoute seulement s'il n'est pas déjà dans les autres sources
+                if (emp.sickLeave && emp.sickLeave.isOnSickLeave) {
+                  const start = emp.sickLeave.startDate ? new Date(emp.sickLeave.startDate) : null;
+                  const end = emp.sickLeave.endDate ? new Date(emp.sickLeave.endDate) : null;
+                  if (start && end && start <= endDate && end >= startDate) {
+                    const sl = {
+                      startDate: emp.sickLeave.startDate,
+                      endDate: emp.sickLeave.endDate,
+                      reason: 'Arrêt maladie',
+                      sickLeaveId: emp.sickLeave.sickLeaveId
+                    };
+                    if (!isDuplicateModal(sl)) {
+                      filteredSickLeaves.push(sl);
+                    }
+                  }
                 }
                 
                 // Filtrer les retards
