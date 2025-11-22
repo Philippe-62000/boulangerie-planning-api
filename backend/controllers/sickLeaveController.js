@@ -566,6 +566,44 @@ const createSickLeave = async (req, res) => {
       });
     }
 
+    // Synchroniser l'employé avec l'arrêt maladie créé manuellement
+    // Cela permet au dashboard de prendre en compte l'arrêt maladie même s'il est en statut 'pending'
+    if (employee && employee._id) {
+      try {
+        await Employee.findByIdAndUpdate(employee._id, {
+          $set: {
+            'sickLeave.isOnSickLeave': true,
+            'sickLeave.startDate': sickLeave.startDate,
+            'sickLeave.endDate': sickLeave.endDate
+          }
+        });
+        console.log('✅ Employé synchronisé avec l\'arrêt maladie créé manuellement:', employee.name);
+      } catch (syncError) {
+        console.error('❌ Erreur synchronisation employé lors de la création:', syncError.message);
+        // Ne pas bloquer si la synchronisation échoue
+      }
+    } else {
+      // Si employeeId est fourni mais employee n'a pas été trouvé, essayer de synchroniser quand même
+      if (employeeId) {
+        try {
+          const Employee = require('../models/Employee');
+          const employeeToSync = await Employee.findById(employeeId);
+          if (employeeToSync) {
+            await Employee.findByIdAndUpdate(employeeId, {
+              $set: {
+                'sickLeave.isOnSickLeave': true,
+                'sickLeave.startDate': sickLeave.startDate,
+                'sickLeave.endDate': sickLeave.endDate
+              }
+            });
+            console.log('✅ Employé synchronisé avec l\'arrêt maladie (par ID):', employeeToSync.name);
+          }
+        } catch (syncError) {
+          console.error('❌ Erreur synchronisation employé par ID:', syncError.message);
+        }
+      }
+    }
+
     // Envoyer un accusé de réception au salarié si email disponible
     if (finalEmployeeEmail) {
       try {
@@ -961,6 +999,60 @@ const markAsDeclared = async (req, res) => {
 
     // Récupérer sickLeave à nouveau pour avoir la dernière version
     sickLeave = await SickLeave.findById(id);
+
+    // Synchroniser l'employé avec l'arrêt maladie déclaré
+    try {
+      const Employee = require('../models/Employee');
+      
+      // Nettoyer le nom (enlever les suffixes comme "- Manager", "- Salarié", etc.)
+      const cleanName = sickLeave.employeeName.split(' - ')[0].trim();
+      
+      // Recherche d'employé : d'abord par email (plus fiable), puis par nom
+      let employee = null;
+      
+      // 1. Recherche par email si disponible
+      if (sickLeave.employeeEmail) {
+        employee = await Employee.findOne({
+          email: { $regex: new RegExp(`^${sickLeave.employeeEmail.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') }
+        });
+      }
+      
+      // 2. Recherche par nom exact
+      if (!employee) {
+        employee = await Employee.findOne({
+          name: { $regex: new RegExp(`^${cleanName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') }
+        });
+      }
+      
+      // 3. Recherche par nom partiel (contient le nom nettoyé)
+      if (!employee) {
+        employee = await Employee.findOne({
+          name: { $regex: new RegExp(cleanName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i') }
+        });
+      }
+      
+      // 4. Recherche par nom original (avec tous les suffixes)
+      if (!employee) {
+        employee = await Employee.findOne({
+          name: { $regex: new RegExp(sickLeave.employeeName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i') }
+        });
+      }
+      
+      if (employee) {
+        await Employee.findByIdAndUpdate(employee._id, {
+          $set: {
+            'sickLeave.isOnSickLeave': true,
+            'sickLeave.startDate': sickLeave.startDate,
+            'sickLeave.endDate': sickLeave.endDate
+          }
+        });
+        console.log('✅ Employé synchronisé avec l\'arrêt maladie déclaré:', employee.name);
+      } else {
+        console.log('⚠️ Employé non trouvé pour la synchronisation lors de la déclaration:', sickLeave.employeeName, 'email:', sickLeave.employeeEmail);
+      }
+    } catch (syncError) {
+      console.error('❌ Erreur synchronisation employé lors de la déclaration:', syncError.message);
+    }
 
     // Envoyer un email au comptable uniquement si demandé
     if (sendToAccountant) {

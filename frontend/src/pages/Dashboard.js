@@ -123,28 +123,61 @@ const Dashboard = () => {
     
     // Trouver l'arrêt maladie le plus récent et actif
     // Inclure tous les statuts sauf rejected (pending, validated, declared)
+    // Vérifier aussi si l'arrêt est EN COURS (aujourd'hui entre startDate et endDate)
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
     const activeSickLeave = employeeSickLeaves
       .filter(sl => {
         if (sl.status === 'rejected') return false;
-        const endDate = new Date(sl.endDate);
-        const today = new Date();
-        const daysSinceReturn = Math.floor((today - endDate) / (1000 * 60 * 60 * 24));
+        
+        // Vérifier si l'arrêt est EN COURS (aujourd'hui entre startDate et endDate)
+        const start = new Date(sl.startDate);
+        start.setHours(0, 0, 0, 0);
+        const end = new Date(sl.endDate);
+        end.setHours(23, 59, 59, 999);
+        const isCurrentlyOnSickLeave = today >= start && today <= end;
+        
+        // Si l'arrêt est en cours, l'inclure
+        if (isCurrentlyOnSickLeave) return true;
+        
+        // Sinon, vérifier si l'arrêt est terminé depuis moins de 8 jours
+        const daysSinceReturn = Math.floor((today - end) / (1000 * 60 * 60 * 24));
         return daysSinceReturn <= 8;
       })
-      .sort((a, b) => new Date(b.uploadDate || b.createdAt || b.startDate) - new Date(a.uploadDate || a.createdAt || a.startDate))[0];
-    
-    // Si on a un arrêt maladie depuis l'API et pas d'ancien système, utiliser les données de l'API
-    if (activeSickLeave && !emp.sickLeave?.isOnSickLeave) {
-      return {
-        ...emp,
-        sickLeave: {
-          isOnSickLeave: true,
-          startDate: activeSickLeave.startDate,
-          endDate: activeSickLeave.endDate
+      .sort((a, b) => {
+        // Trier par date de fin (plus récente en premier), puis par date de création
+        const aEnd = new Date(a.endDate);
+        const bEnd = new Date(b.endDate);
+        if (aEnd.getTime() !== bEnd.getTime()) {
+          return bEnd - aEnd;
         }
-      };
+        return new Date(b.uploadDate || b.createdAt || b.startDate) - new Date(a.uploadDate || a.createdAt || a.startDate);
+      })[0];
+    
+    // Toujours utiliser l'arrêt maladie le plus récent de l'API si disponible
+    // Cela permet de prendre en compte les arrêts maladie manuels créés via /plan/employees
+    if (activeSickLeave) {
+      // Comparer les dates pour voir si l'arrêt API est plus récent que celui de l'employé
+      const apiEndDate = new Date(activeSickLeave.endDate);
+      const existingEndDate = emp.sickLeave?.endDate ? new Date(emp.sickLeave.endDate) : null;
+      
+      // Utiliser l'arrêt API si :
+      // 1. L'employé n'a pas d'arrêt existant
+      // 2. L'arrêt API est plus récent (date de fin plus récente)
+      if (!existingEndDate || apiEndDate >= existingEndDate) {
+        return {
+          ...emp,
+          sickLeave: {
+            isOnSickLeave: true,
+            startDate: activeSickLeave.startDate,
+            endDate: activeSickLeave.endDate
+          }
+        };
+      }
     }
     
+    // Si l'employé a déjà un arrêt maladie et qu'on n'a pas trouvé d'arrêt API plus récent, utiliser celui de l'employé
     return emp;
   });
 
@@ -250,9 +283,16 @@ const Dashboard = () => {
                   // Vérifier si l'arrêt est EN COURS (aujourd'hui entre startDate et endDate)
                   const today = new Date();
                   today.setHours(0, 0, 0, 0);
-                  const isCurrentlyOnSickLeave = startDate && endDate && 
-                    today >= new Date(startDate).setHours(0, 0, 0, 0) && 
-                    today <= new Date(endDate).setHours(23, 59, 59, 999);
+                  
+                  let isCurrentlyOnSickLeave = false;
+                  if (startDate && endDate) {
+                    const start = new Date(startDate);
+                    start.setHours(0, 0, 0, 0);
+                    const end = new Date(endDate);
+                    end.setHours(23, 59, 59, 999);
+                    // Vérifier si today est entre start et end (inclus)
+                    isCurrentlyOnSickLeave = today >= start && today <= end;
+                  }
                   
                   return (
                     <tr key={employee._id}>
@@ -260,25 +300,49 @@ const Dashboard = () => {
                       <td>{returnDate ? formatDate(returnDate.toISOString()) : '-'}</td>
                       <td>
                         {(() => {
-                          // Si l'arrêt est en cours, afficher "En arrêt"
-                          if (isCurrentlyOnSickLeave) {
+                          // Si l'arrêt est en cours, calculer les jours jusqu'à la reprise
+                          if (isCurrentlyOnSickLeave && returnDate) {
+                            const daysUntilReturn = calculateDaysUntil(returnDate.toISOString());
                             return (
                               <span style={{ 
                                 color: '#ffc107',
                                 fontWeight: 'bold'
                               }}>
-                                En arrêt
+                                En arrêt ({daysUntilReturn} jour{daysUntilReturn > 1 ? 's' : ''} avant reprise)
                               </span>
                             );
                           }
                           
-                          const daysUntilReturn = returnDate ? calculateDaysUntil(returnDate.toISOString()) : 0;
+                          // Si l'arrêt est terminé, vérifier s'il est récent (moins de 8 jours)
+                          if (returnDate) {
+                            const daysUntilReturn = calculateDaysUntil(returnDate.toISOString());
+                            if (daysUntilReturn <= 0 && daysUntilReturn >= -8) {
+                              return (
+                                <span style={{ 
+                                  color: '#28a745',
+                                  fontWeight: 'bold'
+                                }}>
+                                  Repris ({Math.abs(daysUntilReturn)} jour{Math.abs(daysUntilReturn) > 1 ? 's' : ''} depuis)
+                                </span>
+                              );
+                            } else if (daysUntilReturn > 0) {
+                              return (
+                                <span style={{ 
+                                  color: '#28a745',
+                                  fontWeight: 'bold'
+                                }}>
+                                  {daysUntilReturn} jour{daysUntilReturn > 1 ? 's' : ''} avant reprise
+                                </span>
+                              );
+                            }
+                          }
+                          
                           return (
                             <span style={{ 
-                              color: daysUntilReturn > 0 ? '#28a745' : '#dc3545',
+                              color: '#dc3545',
                               fontWeight: 'bold'
                             }}>
-                              {daysUntilReturn > 0 ? `${daysUntilReturn} jours` : 'Repris'}
+                              Repris
                             </span>
                           );
                         })()}
