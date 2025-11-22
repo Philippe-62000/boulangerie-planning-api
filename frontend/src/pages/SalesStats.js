@@ -1624,6 +1624,11 @@ const SalesStats = () => {
               <p><strong>Objectif par présence :</strong> 🎯 {objectifParPresenceCartesFid} cartes fidélité / 🔥 {objectifParPresencePromo} promo quinzaine</p>
             </div>
 
+            {(() => {
+              // Calculer les métriques de l'employé pour la semaine (accessible dans tout le modal)
+              const employeeMetricsForModal = weeklyEmployeeMetrics[selectedEmployeeForDetail._id] || { totalCartes: 0, totalPromo: 0, perDay: {} };
+              
+              return (
             <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '1rem' }}>
               <thead>
                 <tr style={{ backgroundColor: '#f8f9fa' }}>
@@ -1637,8 +1642,7 @@ const SalesStats = () => {
               <tbody>
                 {WEEK_DAYS.map(jour => {
                   const presence = presences[selectedEmployeeForDetail._id]?.[jour] || false;
-                  const employeeMetrics = weeklyEmployeeMetrics[selectedEmployeeForDetail._id] || { totalCartes: 0, totalPromo: 0, perDay: {} };
-                  const dayMetrics = employeeMetrics.perDay?.[jour] || { cartes: 0, promo: 0 };
+                  const dayMetrics = employeeMetricsForModal.perDay?.[jour] || { cartes: 0, promo: 0 };
                   const expectedCartes = presence ? objectifParPresenceCartesFid : 0;
                   const expectedPromo = presence ? objectifParPresencePromo : 0;
                   const cartesReached = expectedCartes > 0 ? dayMetrics.cartes >= expectedCartes : false;
@@ -1681,15 +1685,17 @@ const SalesStats = () => {
                     {Object.values(presences[selectedEmployeeForDetail._id] || {}).filter(Boolean).length} jour(s)
                   </td>
                   <td style={{ padding: '0.75rem', textAlign: 'center', border: '1px solid #dee2e6' }}>
-                    {employeeMetrics.totalCartes || 0}
+                    {employeeMetricsForModal.totalCartes || 0}
                   </td>
                   <td style={{ padding: '0.75rem', textAlign: 'center', border: '1px solid #dee2e6' }}>
-                    {employeeMetrics.totalPromo || 0}
+                    {employeeMetricsForModal.totalPromo || 0}
                   </td>
                   <td style={{ padding: '0.75rem', textAlign: 'center', border: '1px solid #dee2e6' }}>—</td>
                 </tr>
               </tfoot>
             </table>
+              );
+            })()}
 
             <div style={{ marginTop: '1.5rem', textAlign: 'right' }}>
               <button

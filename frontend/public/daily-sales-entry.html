@@ -326,6 +326,135 @@
             transform: translateY(-2px);
             box-shadow: 0 8px 18px rgba(56, 161, 105, 0.35);
         }
+
+        .view-detail-btn {
+            width: 100%;
+            margin-top: 15px;
+            padding: 12px;
+            background: linear-gradient(135deg, #48bb78 0%, #38a169 100%);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(56, 161, 105, 0.3);
+        }
+
+        .view-detail-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(56, 161, 105, 0.4);
+        }
+
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .modal-overlay.show {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            max-width: 800px;
+            width: 100%;
+            max-height: 90vh;
+            overflow: auto;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            position: relative;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #e1e5e9;
+            padding-bottom: 15px;
+        }
+
+        .modal-header h2 {
+            margin: 0;
+            color: #333;
+            font-size: 1.5rem;
+        }
+
+        .close-modal-btn {
+            background: none;
+            border: none;
+            font-size: 2rem;
+            cursor: pointer;
+            color: #666;
+            padding: 0;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            transition: all 0.3s ease;
+        }
+
+        .close-modal-btn:hover {
+            background: #f0f0f0;
+            color: #333;
+        }
+
+        .daily-detail-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        .daily-detail-table th,
+        .daily-detail-table td {
+            padding: 12px;
+            text-align: center;
+            border: 1px solid #dee2e6;
+        }
+
+        .daily-detail-table th {
+            background: #f8f9fa;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .daily-detail-table tbody tr:nth-child(even) {
+            background: #f8f9fa;
+        }
+
+        .daily-detail-table tfoot {
+            background: #e9ecef;
+            font-weight: bold;
+        }
+
+        .status-success {
+            color: #28a745;
+            font-weight: bold;
+        }
+
+        .status-danger {
+            color: #dc3545;
+            font-weight: bold;
+        }
+
+        .status-info {
+            color: #17a2b8;
+            font-weight: bold;
+        }
     </style>
 </head>
 <body>
@@ -383,6 +512,9 @@
                     <span class="objective-value" id="employeePresence">--</span>
                 </div>
             </div>
+            <button type="button" id="viewDailyDetailBtn" class="view-detail-btn hidden">
+                📊 Voir détail par jour
+            </button>
         </div>
 
         <form id="salesForm">
@@ -433,6 +565,19 @@
         <div id="message" class="message"></div>
     </div>
 
+    <!-- Modal détail jour par jour -->
+    <div id="dailyDetailModal" class="modal-overlay">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>📊 Détail jour par jour</h2>
+                <button type="button" class="close-modal-btn" id="closeModalBtn">&times;</button>
+            </div>
+            <div id="dailyDetailContent">
+                <p>Chargement des données...</p>
+            </div>
+        </div>
+    </div>
+
     <script>
         const API_BASE_URL = 'https://boulangerie-planning-api-4-pbfy.onrender.com/api';
         const DAILY_SALES_API = `${API_BASE_URL}/daily-sales`;
@@ -455,8 +600,14 @@
         const employeeCartesObjectiveValue = document.getElementById('employeeCartesObjectiveValue');
         const employeePromoObjectiveValue = document.getElementById('employeePromoObjectiveValue');
         const employeePresenceSpan = document.getElementById('employeePresence');
-const employeeMessagesSection = document.getElementById('employeeMessagesSection');
-const employeeMessagesList = document.getElementById('employeeMessagesList');
+        const employeeMessagesSection = document.getElementById('employeeMessagesSection');
+        const employeeMessagesList = document.getElementById('employeeMessagesList');
+        const viewDailyDetailBtn = document.getElementById('viewDailyDetailBtn');
+        const dailyDetailModal = document.getElementById('dailyDetailModal');
+        const closeModalBtn = document.getElementById('closeModalBtn');
+        const dailyDetailContent = document.getElementById('dailyDetailContent');
+
+        let currentEmployeeData = null;
 
         let currentWeekData = null;
         let lastLookupCode = '';
@@ -706,8 +857,19 @@ const loadEmployeeMessages = async (saleCode) => {
                     showHelper(`✅ ${employee.name} identifié(e) - ${capitalize(employee.role)}`, 'success');
                     loadEmployeeMessages(saleCode);
                     await loadGlobalSummary(toISODateString(week.key || week.start));
+                    
+                    // Stocker les données de l'employé pour le détail
+                    currentEmployeeData = {
+                        saleCode,
+                        employee,
+                        objectives,
+                        week
+                    };
+                    viewDailyDetailBtn.classList.remove('hidden');
                 } else {
                     employeeInfoCard.classList.add('hidden');
+                    viewDailyDetailBtn.classList.add('hidden');
+                    currentEmployeeData = null;
                     showHelper(result.message || 'Code vendeuse introuvable', 'error');
                     hideEmployeeMessages();
                     if (currentWeekData?.weekKey || currentWeekData?.weekStart) {
@@ -719,6 +881,8 @@ const loadEmployeeMessages = async (saleCode) => {
             } catch (error) {
                 console.error('Erreur récupération vendeuse:', error);
                 employeeInfoCard.classList.add('hidden');
+                viewDailyDetailBtn.classList.add('hidden');
+                currentEmployeeData = null;
                 showHelper('Erreur lors de la recherche. Vérifiez votre connexion.', 'error');
                 hideEmployeeMessages();
                 if (currentWeekData?.weekKey || currentWeekData?.weekStart) {
@@ -762,6 +926,8 @@ const loadEmployeeMessages = async (saleCode) => {
             } else {
                 lastLookupCode = '';
                 hideEmployeeInfo();
+                viewDailyDetailBtn.classList.add('hidden');
+                currentEmployeeData = null;
                 hideEmployeeMessages();
                 if (currentWeekData?.weekKey || currentWeekData?.weekStart) {
                     loadGlobalSummary(toISODateString(currentWeekData.weekKey || currentWeekData.weekStart));
@@ -808,6 +974,8 @@ const loadEmployeeMessages = async (saleCode) => {
                     form.reset();
                     lastLookupCode = '';
                     hideEmployeeInfo();
+                    viewDailyDetailBtn.classList.add('hidden');
+                    currentEmployeeData = null;
                     hideEmployeeMessages();
                     if (currentWeekData?.weekKey || currentWeekData?.weekStart) {
                         await loadGlobalSummary(toISODateString(currentWeekData.weekKey || currentWeekData.weekStart));
@@ -840,6 +1008,166 @@ const loadEmployeeMessages = async (saleCode) => {
             messageDiv.className = `message ${type}`;
             messageDiv.style.display = 'block';
         }
+
+        // Charger et afficher le détail jour par jour
+        const loadDailyDetails = async () => {
+            if (!currentEmployeeData) {
+                dailyDetailContent.innerHTML = '<p style="color: #dc3545;">Erreur : Aucune donnée employé disponible</p>';
+                return;
+            }
+
+            dailyDetailContent.innerHTML = '<p>Chargement des données...</p>';
+            dailyDetailModal.classList.add('show');
+
+            try {
+                const weekStart = toISODateString(currentEmployeeData.week.key || currentEmployeeData.week.start);
+                const url = new URL(`${DAILY_SALES_API}/weekly`);
+                url.searchParams.set('weekStart', weekStart);
+                
+                const response = await fetch(url.toString());
+                if (!response.ok) {
+                    throw new Error('Erreur lors du chargement des données');
+                }
+
+                const result = await response.json();
+                if (!result.success || !result.data) {
+                    throw new Error('Données invalides');
+                }
+
+                const weeklyData = result.data;
+                const employeeId = currentEmployeeData.employee._id || currentEmployeeData.employee.id;
+                
+                // Récupérer les présences
+                const presencesUrl = new URL(`${OBJECTIVES_ENDPOINT}`);
+                presencesUrl.searchParams.set('weekStart', weekStart);
+                const presencesResponse = await fetch(presencesUrl.toString());
+                let presences = {};
+                if (presencesResponse.ok) {
+                    const presencesResult = await presencesResponse.json();
+                    if (presencesResult.success && presencesResult.data) {
+                        presences = presencesResult.data.presences?.[employeeId] || {};
+                    }
+                }
+
+                // Calculer les métriques de l'employé pour chaque jour
+                const perDayMetrics = {};
+                const WEEK_DAYS = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
+                
+                let totalCartes = 0;
+                let totalPromo = 0;
+                
+                if (weeklyData.dailySales && Array.isArray(weeklyData.dailySales)) {
+                    weeklyData.dailySales.forEach(sale => {
+                        const saleEmployeeId = sale.employeeId?._id || sale.employeeId || sale.employeeId?.toString();
+                        if (saleEmployeeId?.toString() === employeeId?.toString()) {
+                            const saleDate = new Date(sale.date);
+                            const dayOfWeek = saleDate.getDay();
+                            const dayIndex = dayOfWeek === 0 ? 6 : dayOfWeek - 1; // Convertir dimanche (0) à 6
+                            const dayName = WEEK_DAYS[dayIndex];
+                            
+                            const cartes = parseInt(sale.nbCartesFid, 10) || 0;
+                            const promo = parseInt(sale.nbPromo, 10) || 0;
+                            
+                            if (!perDayMetrics[dayName]) {
+                                perDayMetrics[dayName] = { cartes: 0, promo: 0 };
+                            }
+                            
+                            perDayMetrics[dayName].cartes += cartes;
+                            perDayMetrics[dayName].promo += promo;
+                            totalCartes += cartes;
+                            totalPromo += promo;
+                        }
+                    });
+                }
+
+                // Calculer les objectifs par présence
+                const presenceCount = Object.values(presences).filter(Boolean).length;
+                const objectifParPresenceCartes = presenceCount > 0 
+                    ? Math.ceil((currentEmployeeData.objectives.employee.cartesFid || 0) / presenceCount) 
+                    : 0;
+                const objectifParPresencePromo = presenceCount > 0 
+                    ? Math.ceil((currentEmployeeData.objectives.employee.promo || 0) / presenceCount) 
+                    : 0;
+
+                // Construire le tableau
+                let tableHTML = `
+                    <div style="margin-bottom: 20px;">
+                        <p><strong>Semaine :</strong> ${formatWeekLabel(new Date(currentEmployeeData.week.start))}</p>
+                        <p><strong>Objectif par présence :</strong> 🎯 ${objectifParPresenceCartes} cartes fidélité / 🔥 ${objectifParPresencePromo} promo quinzaine</p>
+                    </div>
+                    <table class="daily-detail-table">
+                        <thead>
+                            <tr>
+                                <th>Jour</th>
+                                <th>Présent</th>
+                                <th>🎯 Cartes Fidélité</th>
+                                <th>🔥 Promo Quinzaine</th>
+                                <th>Statut</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                `;
+
+                WEEK_DAYS.forEach(jour => {
+                    const presence = presences[jour] || false;
+                    const dayMetrics = perDayMetrics[jour] || { cartes: 0, promo: 0 };
+                    const expectedCartes = presence ? objectifParPresenceCartes : 0;
+                    const expectedPromo = presence ? objectifParPresencePromo : 0;
+                    const cartesReached = expectedCartes > 0 ? dayMetrics.cartes >= expectedCartes : false;
+                    const promoReached = expectedPromo > 0 ? dayMetrics.promo >= expectedPromo : false;
+                    const statusClass = presence 
+                        ? (cartesReached && promoReached ? 'status-success' : 'status-danger')
+                        : (dayMetrics.cartes > 0 || dayMetrics.promo > 0 ? 'status-info' : '');
+                    const statusText = presence 
+                        ? (cartesReached && promoReached ? '✅ Atteint' : '❌ Non atteint')
+                        : (dayMetrics.cartes > 0 || dayMetrics.promo > 0 ? 'ℹ️ Données sans présence' : '—');
+
+                    tableHTML += `
+                        <tr>
+                            <td><strong>${jour}</strong></td>
+                            <td>${presence ? '✅' : '❌'}</td>
+                            <td><strong>${dayMetrics.cartes}</strong> / ${expectedCartes}</td>
+                            <td><strong>${dayMetrics.promo}</strong> / ${expectedPromo}</td>
+                            <td class="${statusClass}">${statusText}</td>
+                        </tr>
+                    `;
+                });
+
+                tableHTML += `
+                        </tbody>
+                        <tfoot>
+                            <tr>
+                                <td><strong>Total</strong></td>
+                                <td>${presenceCount} jour(s)</td>
+                                <td><strong>${totalCartes}</strong></td>
+                                <td><strong>${totalPromo}</strong></td>
+                                <td>—</td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                `;
+
+                dailyDetailContent.innerHTML = tableHTML;
+            } catch (error) {
+                console.error('Erreur chargement détails quotidiens:', error);
+                dailyDetailContent.innerHTML = `<p style="color: #dc3545;">Erreur lors du chargement des données : ${error.message}</p>`;
+            }
+        };
+
+        // Ouvrir le modal
+        viewDailyDetailBtn.addEventListener('click', loadDailyDetails);
+
+        // Fermer le modal
+        closeModalBtn.addEventListener('click', () => {
+            dailyDetailModal.classList.remove('show');
+        });
+
+        // Fermer le modal en cliquant en dehors
+        dailyDetailModal.addEventListener('click', (e) => {
+            if (e.target === dailyDetailModal) {
+                dailyDetailModal.classList.remove('show');
+            }
+        });
 
         // Focus sur le code vendeuse au chargement
         window.addEventListener('load', () => {
