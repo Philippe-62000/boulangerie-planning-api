@@ -158,14 +158,41 @@ const Dashboard = () => {
     // Toujours utiliser l'arrêt maladie le plus récent de l'API si disponible
     // Cela permet de prendre en compte les arrêts maladie manuels créés via /plan/employees
     if (activeSickLeave) {
+      // Vérifier si l'arrêt API est EN COURS (plus fiable que les données de l'employé)
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const apiStart = new Date(activeSickLeave.startDate);
+      apiStart.setHours(0, 0, 0, 0);
+      const apiEnd = new Date(activeSickLeave.endDate);
+      apiEnd.setHours(23, 59, 59, 999);
+      const isApiSickLeaveActive = today >= apiStart && today <= apiEnd;
+      
       // Comparer les dates pour voir si l'arrêt API est plus récent que celui de l'employé
       const apiEndDate = new Date(activeSickLeave.endDate);
       const existingEndDate = emp.sickLeave?.endDate ? new Date(emp.sickLeave.endDate) : null;
       
+      // Debug: Log pour Camille CASTEL
+      if (emp.name && emp.name.toLowerCase().includes('camille')) {
+        console.log('🔍 Debug Camille:', {
+          name: emp.name,
+          activeSickLeave: {
+            startDate: activeSickLeave.startDate,
+            endDate: activeSickLeave.endDate,
+            status: activeSickLeave.status
+          },
+          existingSickLeave: emp.sickLeave,
+          isApiSickLeaveActive,
+          today: today.toISOString(),
+          apiStart: apiStart.toISOString(),
+          apiEnd: apiEnd.toISOString()
+        });
+      }
+      
       // Utiliser l'arrêt API si :
-      // 1. L'employé n'a pas d'arrêt existant
-      // 2. L'arrêt API est plus récent (date de fin plus récente)
-      if (!existingEndDate || apiEndDate >= existingEndDate) {
+      // 1. L'arrêt API est EN COURS (priorité absolue)
+      // 2. L'employé n'a pas d'arrêt existant
+      // 3. L'arrêt API est plus récent (date de fin plus récente)
+      if (isApiSickLeaveActive || !existingEndDate || apiEndDate >= existingEndDate) {
         return {
           ...emp,
           sickLeave: {

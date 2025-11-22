@@ -667,7 +667,8 @@ const getAllSickLeaves = async (req, res) => {
     const { status, page = 1, limit = 20, sortBy = 'uploadDate', sortOrder = 'desc' } = req.query;
     
     const query = {};
-    if (status) {
+    // Si status est 'all', ne pas filtrer par statut (retourner tous les arrêts maladie)
+    if (status && status !== 'all') {
       query.status = status;
     }
 
