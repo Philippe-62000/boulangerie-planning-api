@@ -48,6 +48,7 @@ const createAdvanceRequest = async (req, res) => {
     await advanceRequest.save();
     
     console.log(`✅ Demande d'acompte créée: ${advanceRequest._id}`);
+    console.log(`📋 Détails demande: ${employee.name} - ${amount}€ - ${deductionMonth} - Status: ${advanceRequest.status} - isActive: ${advanceRequest.isActive}`);
     
     // Envoyer email de confirmation au salarié
     try {
@@ -67,13 +68,19 @@ const createAdvanceRequest = async (req, res) => {
       console.error('❌ Erreur envoi email confirmation:', emailError);
     }
     
-    // Envoyer notification au manager
+    // Envoyer notification au manager et aux admins
     try {
       const managers = await Employee.find({ 
-        role: 'manager', 
+        role: { $in: ['manager', 'admin'] }, 
         isActive: true,
         email: { $exists: true, $ne: null, $ne: '' }
       });
+      
+      console.log(`📧 Recherche managers/admins pour notification: ${managers.length} trouvé(s)`);
+      
+      if (managers.length === 0) {
+        console.log('⚠️ Aucun manager/admin trouvé pour envoyer la notification');
+      }
       
       for (const manager of managers) {
         const emailResult = await emailService.sendAdvanceRequestNotification(
@@ -86,9 +93,9 @@ const createAdvanceRequest = async (req, res) => {
         );
         
         if (emailResult.success) {
-          console.log(`📧 Email notification envoyé à ${manager.name}`);
+          console.log(`📧 Email notification envoyé à ${manager.name} (${manager.email})`);
         } else {
-          console.log(`⚠️ Échec envoi email à ${manager.name}: ${emailResult.message}`);
+          console.log(`⚠️ Échec envoi email à ${manager.name} (${manager.email}): ${emailResult.message || emailResult.error}`);
         }
       }
     } catch (emailError) {

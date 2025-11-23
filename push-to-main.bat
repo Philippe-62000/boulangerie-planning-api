@@ -13,7 +13,7 @@ git add .
 
 echo.
 echo 💾 Commit des modifications...
-git commit -m "🔧 Protection absenceService: validation sickLeave._id pour éviter erreurs et crashes serveur"
+git commit -m "🔧 Fix demandes d'acompte: inclusion des admins dans les notifications email"
 
 echo.
 echo 🚀 Push vers la branche main...
