@@ -97,10 +97,12 @@ router.get('/stats', advanceRequestController.getAdvanceStats);
 // Route de diagnostic temporaire pour vérifier qui aurait reçu les emails
 // IMPORTANT: Cette route doit être définie AVANT les routes avec paramètres dynamiques (/:id)
 router.get('/diagnostic/email-recipients', async (req, res) => {
+  console.log('🔍 Route diagnostic email-recipients appelée');
   try {
     const Employee = require('../models/Employee');
     const Parameter = require('../models/Parameters');
     
+    console.log('📋 Recherche des employés avec rôle manager/admin...');
     // Vérifier les employés avec rôle manager ou admin (ancienne méthode)
     const managersOldMethod = await Employee.find({ 
       role: { $in: ['manager', 'admin'] }, 
@@ -108,13 +110,23 @@ router.get('/diagnostic/email-recipients', async (req, res) => {
       email: { $exists: true, $ne: null, $ne: '' }
     }).select('name email role');
     
+    console.log(`📋 ${managersOldMethod.length} employé(s) trouvé(s) avec rôle manager/admin`);
+    
+    console.log('📋 Recherche des paramètres email...');
     // Vérifier les paramètres configurés (nouvelle méthode)
     const storeEmailParam = await Parameter.findOne({ name: 'storeEmail' });
     const adminEmailParam = await Parameter.findOne({ name: 'adminEmail' });
     const alertStoreParam = await Parameter.findOne({ name: 'alertStore' });
     const alertAdminParam = await Parameter.findOne({ name: 'alertAdmin' });
     
-    res.json({
+    console.log('📋 Paramètres récupérés:', {
+      storeEmail: storeEmailParam?.stringValue || 'Non configuré',
+      adminEmail: adminEmailParam?.stringValue || 'Non configuré',
+      alertStore: alertStoreParam?.booleanValue || false,
+      alertAdmin: alertAdminParam?.booleanValue || false
+    });
+    
+    const response = {
       success: true,
       data: {
         oldMethod: {
@@ -143,12 +155,17 @@ router.get('/diagnostic/email-recipients', async (req, res) => {
           ]
         }
       }
-    });
+    };
+    
+    console.log('✅ Réponse diagnostic préparée, envoi...');
+    res.json(response);
   } catch (error) {
     console.error('❌ Erreur diagnostic:', error);
+    console.error('❌ Stack:', error.stack);
     res.status(500).json({
       success: false,
-      error: error.message
+      error: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
   }
 });

@@ -13,7 +13,7 @@ git add .
 
 echo.
 echo 💾 Commit des modifications...
-git commit -m "🔧 Fix route diagnostic: ordre des routes corrigé pour éviter conflit avec /:id"
+git commit -m "🔧 Fix route diagnostic: ajout de logs pour déboguer la route email-recipients"
 
 echo.
 echo 🚀 Push vers la branche main...
