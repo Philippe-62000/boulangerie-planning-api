@@ -13,7 +13,7 @@ git add .
 
 echo.
 echo 💾 Commit des modifications...
-git commit -m "🔧 Fix demandes d'acompte: utilisation des paramètres adminEmail au lieu de rechercher tous les managers/admins"
+git commit -m "🔧 Fix route diagnostic: ordre des routes corrigé pour éviter conflit avec /:id"
 
 echo.
 echo 🚀 Push vers la branche main...

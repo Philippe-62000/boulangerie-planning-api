@@ -93,10 +93,9 @@ router.get('/employee', authenticateEmployee, advanceRequestController.getEmploy
 router.get('/', advanceRequestController.getAllAdvanceRequests);
 router.get('/pending', advanceRequestController.getPendingRequests);
 router.get('/stats', advanceRequestController.getAdvanceStats);
-router.put('/:id', advanceRequestController.updateAdvanceRequest);
-router.delete('/:id', advanceRequestController.deleteAdvanceRequest);
 
 // Route de diagnostic temporaire pour vérifier qui aurait reçu les emails
+// IMPORTANT: Cette route doit être définie AVANT les routes avec paramètres dynamiques (/:id)
 router.get('/diagnostic/email-recipients', async (req, res) => {
   try {
     const Employee = require('../models/Employee');
@@ -153,5 +152,9 @@ router.get('/diagnostic/email-recipients', async (req, res) => {
     });
   }
 });
+
+// Routes avec paramètres dynamiques (doivent être définies APRÈS les routes spécifiques)
+router.put('/:id', advanceRequestController.updateAdvanceRequest);
+router.delete('/:id', advanceRequestController.deleteAdvanceRequest);
 
 module.exports = router;
