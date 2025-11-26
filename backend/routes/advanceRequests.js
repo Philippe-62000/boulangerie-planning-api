@@ -101,6 +101,7 @@ router.get('/diagnostic/email-recipients', async (req, res) => {
   try {
     const Employee = require('../models/Employee');
     const Parameter = require('../models/Parameters');
+    const AdvanceRequest = require('../models/AdvanceRequest');
     
     console.log('📋 Recherche des employés avec rôle manager/admin...');
     // Vérifier les employés avec rôle manager ou admin (ancienne méthode)
@@ -108,9 +109,20 @@ router.get('/diagnostic/email-recipients', async (req, res) => {
       role: { $in: ['manager', 'admin'] }, 
       isActive: true,
       email: { $exists: true, $ne: null, $ne: '' }
-    }).select('name email role');
+    }).select('name email role').sort({ name: 1 });
     
     console.log(`📋 ${managersOldMethod.length} employé(s) trouvé(s) avec rôle manager/admin`);
+    
+    // Vérifier toutes les demandes d'acompte créées (pour estimer combien d'emails ont été envoyés)
+    const allAdvanceRequests = await AdvanceRequest.find({ isActive: true })
+      .sort({ createdAt: -1 })
+      .select('employeeName employeeEmail amount deductionMonth createdAt status')
+      .limit(50); // Limiter aux 50 dernières pour ne pas surcharger
+    
+    console.log(`📋 ${allAdvanceRequests.length} demande(s) d'acompte trouvée(s)`);
+    
+    // Calculer combien d'emails auraient été envoyés avec l'ancienne méthode
+    const estimatedEmailsSent = allAdvanceRequests.length * managersOldMethod.length;
     
     console.log('📋 Recherche des paramètres email...');
     // Vérifier les paramètres configurés (nouvelle méthode)
@@ -129,12 +141,19 @@ router.get('/diagnostic/email-recipients', async (req, res) => {
     const response = {
       success: true,
       data: {
+        summary: {
+          totalManagersAdmins: managersOldMethod.length,
+          totalAdvanceRequests: allAdvanceRequests.length,
+          estimatedEmailsSentWithOldMethod: estimatedEmailsSent,
+          message: `Avec l'ancienne méthode, ${managersOldMethod.length} personne(s) auraient reçu ${estimatedEmailsSent} email(s) pour ${allAdvanceRequests.length} demande(s) d'acompte`
+        },
         oldMethod: {
           description: 'Ancienne méthode (qui causait le problème)',
           recipients: managersOldMethod.map(m => ({
             name: m.name,
             email: m.email,
-            role: m.role
+            role: m.role,
+            wouldHaveReceivedEmails: allAdvanceRequests.length
           }))
         },
         newMethod: {
@@ -153,7 +172,15 @@ router.get('/diagnostic/email-recipients', async (req, res) => {
               type: 'Administrateur'
             }] : [])
           ]
-        }
+        },
+        recentAdvanceRequests: allAdvanceRequests.slice(0, 10).map(req => ({
+          employeeName: req.employeeName,
+          employeeEmail: req.employeeEmail,
+          amount: req.amount,
+          deductionMonth: req.deductionMonth,
+          createdAt: req.createdAt,
+          status: req.status
+        }))
       }
     };
     
