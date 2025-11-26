@@ -13,7 +13,7 @@ git add .
 
 echo.
 echo 💾 Commit des modifications...
-git commit -m "🔧 Fix demandes d'acompte: inclusion des admins dans les notifications email"
+git commit -m "🔧 Fix demandes d'acompte: utilisation des paramètres adminEmail au lieu de rechercher tous les managers/admins"
 
 echo.
 echo 🚀 Push vers la branche main...

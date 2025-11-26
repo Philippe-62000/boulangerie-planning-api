@@ -68,34 +68,51 @@ const createAdvanceRequest = async (req, res) => {
       console.error('❌ Erreur envoi email confirmation:', emailError);
     }
     
-    // Envoyer notification au manager et aux admins
+    // Envoyer notification aux administrateurs configurés dans les paramètres
     try {
-      const managers = await Employee.find({ 
-        role: { $in: ['manager', 'admin'] }, 
-        isActive: true,
-        email: { $exists: true, $ne: null, $ne: '' }
-      });
+      // Récupérer les paramètres d'alerte (même logique que pour les arrêts maladie et congés)
+      const Parameter = require('../models/Parameters');
+      const storeEmailParam = await Parameter.findOne({ name: 'storeEmail' });
+      const adminEmailParam = await Parameter.findOne({ name: 'adminEmail' });
+      const alertStoreParam = await Parameter.findOne({ name: 'alertStore' });
+      const alertAdminParam = await Parameter.findOne({ name: 'alertAdmin' });
       
-      console.log(`📧 Recherche managers/admins pour notification: ${managers.length} trouvé(s)`);
+      const recipientEmails = [];
       
-      if (managers.length === 0) {
-        console.log('⚠️ Aucun manager/admin trouvé pour envoyer la notification');
+      // Ajouter l'email du magasin si activé
+      if (alertStoreParam?.booleanValue && storeEmailParam?.stringValue) {
+        recipientEmails.push(storeEmailParam.stringValue);
       }
       
-      for (const manager of managers) {
-        const emailResult = await emailService.sendAdvanceRequestNotification(
-          manager.email,
-          manager.name,
-          employee.name,
-          amount,
-          deductionMonth,
-          comment
-        );
-        
-        if (emailResult.success) {
-          console.log(`📧 Email notification envoyé à ${manager.name} (${manager.email})`);
-        } else {
-          console.log(`⚠️ Échec envoi email à ${manager.name} (${manager.email}): ${emailResult.message || emailResult.error}`);
+      // Ajouter l'email de l'admin si activé
+      if (alertAdminParam?.booleanValue && adminEmailParam?.stringValue) {
+        recipientEmails.push(adminEmailParam.stringValue);
+      }
+      
+      console.log(`📧 Destinataires configurés pour notification: ${recipientEmails.length} trouvé(s)`);
+      
+      if (recipientEmails.length === 0) {
+        console.log('⚠️ Aucun destinataire configuré pour les notifications d\'acompte');
+      } else {
+        // Envoyer l'email à chaque destinataire
+        for (const recipientEmail of recipientEmails) {
+          // Récupérer le nom du destinataire (admin ou magasin)
+          const recipientName = recipientEmail === adminEmailParam?.stringValue ? 'Administrateur' : 'Magasin';
+          
+          const emailResult = await emailService.sendAdvanceRequestNotification(
+            recipientEmail,
+            recipientName,
+            employee.name,
+            amount,
+            deductionMonth,
+            comment
+          );
+          
+          if (emailResult.success) {
+            console.log(`📧 Email notification envoyé à ${recipientName} (${recipientEmail})`);
+          } else {
+            console.log(`⚠️ Échec envoi email à ${recipientName} (${recipientEmail}): ${emailResult.message || emailResult.error}`);
+          }
         }
       }
     } catch (emailError) {

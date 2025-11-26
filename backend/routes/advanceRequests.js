@@ -96,4 +96,62 @@ router.get('/stats', advanceRequestController.getAdvanceStats);
 router.put('/:id', advanceRequestController.updateAdvanceRequest);
 router.delete('/:id', advanceRequestController.deleteAdvanceRequest);
 
+// Route de diagnostic temporaire pour vérifier qui aurait reçu les emails
+router.get('/diagnostic/email-recipients', async (req, res) => {
+  try {
+    const Employee = require('../models/Employee');
+    const Parameter = require('../models/Parameters');
+    
+    // Vérifier les employés avec rôle manager ou admin (ancienne méthode)
+    const managersOldMethod = await Employee.find({ 
+      role: { $in: ['manager', 'admin'] }, 
+      isActive: true,
+      email: { $exists: true, $ne: null, $ne: '' }
+    }).select('name email role');
+    
+    // Vérifier les paramètres configurés (nouvelle méthode)
+    const storeEmailParam = await Parameter.findOne({ name: 'storeEmail' });
+    const adminEmailParam = await Parameter.findOne({ name: 'adminEmail' });
+    const alertStoreParam = await Parameter.findOne({ name: 'alertStore' });
+    const alertAdminParam = await Parameter.findOne({ name: 'alertAdmin' });
+    
+    res.json({
+      success: true,
+      data: {
+        oldMethod: {
+          description: 'Ancienne méthode (qui causait le problème)',
+          recipients: managersOldMethod.map(m => ({
+            name: m.name,
+            email: m.email,
+            role: m.role
+          }))
+        },
+        newMethod: {
+          description: 'Nouvelle méthode (utilise les paramètres)',
+          storeEmail: storeEmailParam?.stringValue || 'Non configuré',
+          adminEmail: adminEmailParam?.stringValue || 'Non configuré',
+          alertStoreEnabled: alertStoreParam?.booleanValue || false,
+          alertAdminEnabled: alertAdminParam?.booleanValue || false,
+          recipients: [
+            ...(alertStoreParam?.booleanValue && storeEmailParam?.stringValue ? [{
+              email: storeEmailParam.stringValue,
+              type: 'Magasin'
+            }] : []),
+            ...(alertAdminParam?.booleanValue && adminEmailParam?.stringValue ? [{
+              email: adminEmailParam.stringValue,
+              type: 'Administrateur'
+            }] : [])
+          ]
+        }
+      }
+    });
+  } catch (error) {
+    console.error('❌ Erreur diagnostic:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
 module.exports = router;
