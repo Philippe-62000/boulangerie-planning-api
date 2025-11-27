@@ -426,7 +426,7 @@ class EmailServiceAlternative {
         headers: {
           'Content-Type': 'application/json',
           'User-Agent': 'Boulangerie-Planning-API/1.0',
-          'Origin': 'https://boulangerie-planning-api-3.onrender.com'
+          'Origin': 'https://boulangerie-planning-api-4-pbfy.onrender.com'
         },
         body: JSON.stringify({
           service_id: emailjsConfig.serviceId,
