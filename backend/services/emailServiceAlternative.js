@@ -406,7 +406,7 @@ class EmailServiceAlternative {
         subject: subject,
         message: textContent,
         html_message: htmlContent,
-        from_name: 'Boulangerie Ange - Arras',
+        from_name: process.env.STORE_NAME || 'Boulangerie Ange - Arras',
         from_email: process.env.SMTP_USER || process.env.EMAIL_USER
       };
 

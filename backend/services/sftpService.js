@@ -16,7 +16,10 @@ class SFTPService {
       retry_minTimeout: 2000
     };
     
-    this.basePath = '/n8n/sick-leaves';
+    // Base path configurable via variable d'environnement
+    // Par défaut: /n8n/uploads/documents (pour Arras)
+    // Pour Longuenesse: /n8n/uploads/documents-longuenesse
+    this.basePath = process.env.SFTP_BASE_PATH || '/n8n/uploads/documents';
     this.isConnected = false;
   }
 
