@@ -56,4 +56,11 @@ deploy-ovh-*/
 test-ovh/ 
 test-htaccess/ 
 *.env 
-.env.* 
+.env.*
+*.env.CORRIGE
+*.env.*.CORRIGE
+
+# Fichiers de documentation avec secrets exposés
+*VARIABLES-ENV*.md
+*CORRECTIONS-ENV*.md
+*CORRECTIONS-FINALES-ENV*.md 
