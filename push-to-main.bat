@@ -13,7 +13,7 @@ git add .
 
 echo.
 echo 💾 Commit des modifications...
-git commit -m "🔍 Amélioration route diagnostic: ajout statistiques sur demandes d'acompte et emails envoyés"
+git commit -m "🔧 Correction calcul frais KM: synchronisation kmValue pour tous les paramètres (Promocash, Miel Saint Eloi, etc.)"
 
 echo.
 echo 🚀 Push vers la branche main...

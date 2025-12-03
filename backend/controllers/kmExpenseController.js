@@ -48,16 +48,57 @@ const getKmExpenses = async (req, res) => {
       expensesMap[expense.employeeId.toString()] = expense;
     });
 
+    // Créer un map des paramètres par ID pour faciliter la synchronisation
+    const parametersMap = {};
+    parameters.forEach(param => {
+      parametersMap[param._id.toString()] = param;
+    });
+
     // Construire la réponse avec tous les employés
     const result = employees.map(employee => {
       const existingExpense = expensesMap[employee._id.toString()];
       
       if (existingExpense) {
+        // Créer un map des valeurs existantes par parameterId
+        const existingValuesMap = {};
+        existingExpense.parameterValues.forEach(paramValue => {
+          existingValuesMap[paramValue.parameterId.toString()] = paramValue;
+        });
+
+        // Synchroniser les parameterValues avec les paramètres actuels
+        // Cela garantit que les kmValue sont toujours à jour
+        const parameterValues = parameters.map(param => {
+          const existingValue = existingValuesMap[param._id.toString()];
+          
+          if (existingValue) {
+            // Utiliser les données existantes mais mettre à jour le kmValue
+            return {
+              parameterId: param._id,
+              parameterName: param.displayName,
+              count: existingValue.count || 0,
+              kmValue: param.kmValue, // Toujours utiliser la valeur actuelle du paramètre
+              totalKm: (existingValue.count || 0) * param.kmValue // Recalculer avec le kmValue actuel
+            };
+          } else {
+            // Nouveau paramètre qui n'existait pas avant
+            return {
+              parameterId: param._id,
+              parameterName: param.displayName,
+              count: 0,
+              kmValue: param.kmValue,
+              totalKm: 0
+            };
+          }
+        });
+
+        // Recalculer le total avec les kmValue mis à jour
+        const totalKm = parameterValues.reduce((total, param) => total + param.totalKm, 0);
+
         return {
           employeeId: employee._id,
           employeeName: employee.name,
-          parameterValues: existingExpense.parameterValues,
-          totalKm: existingExpense.totalKm,
+          parameterValues,
+          totalKm,
           _id: existingExpense._id
         };
       } else {

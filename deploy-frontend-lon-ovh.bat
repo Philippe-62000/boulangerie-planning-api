@@ -29,6 +29,14 @@ echo RewriteCond %%{REQUEST_FILENAME} !-f >> deploy-frontend-lon\.htaccess
 echo RewriteCond %%{REQUEST_FILENAME} !-d >> deploy-frontend-lon\.htaccess
 echo RewriteRule . /lon/index.html [L] >> deploy-frontend-lon\.htaccess
 
+echo    - Remplacement des URLs API dans les fichiers HTML...
+powershell -Command "$files = Get-ChildItem 'deploy-frontend-lon' -Filter '*.html' -Recurse; foreach($file in $files) { $content = Get-Content $file.FullName -Raw; $content = $content -replace 'boulangerie-planning-api-4-pbfy', 'boulangerie-planning-api-3'; Set-Content $file.FullName -Value $content -NoNewline }"
+if %errorlevel% equ 0 (
+    echo ✅ URLs API remplacées dans les fichiers HTML
+) else (
+    echo ⚠️ Remplacement PowerShell échoué, vérifiez manuellement les fichiers HTML
+)
+
 echo.
 echo ✅ Fichiers prêts pour le déploiement OVH
 echo 📁 Dossier: deploy-frontend-lon\

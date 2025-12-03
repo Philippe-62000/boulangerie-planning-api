@@ -73,8 +73,13 @@ const KmExpenses = () => {
     const employee = newExpenses[employeeIndex];
     const parameter = employee.parameterValues[parameterIndex];
     
+    // Trouver le paramètre correspondant dans la liste des paramètres pour obtenir le kmValue actuel
+    const currentParam = parameters.find(p => p._id.toString() === parameter.parameterId.toString());
+    const kmValue = currentParam ? currentParam.kmValue : parameter.kmValue;
+    
     parameter.count = parseInt(value) || 0;
-    parameter.totalKm = parameter.count * parameter.kmValue;
+    parameter.kmValue = kmValue; // Mettre à jour le kmValue avec la valeur actuelle
+    parameter.totalKm = parameter.count * kmValue;
     
     // Recalculer le total pour cet employé
     employee.totalKm = employee.parameterValues.reduce((total, param) => total + param.totalKm, 0);
