@@ -53,7 +53,7 @@ Variables d'environnement à ajouter dans Render :
 
 ```bash
 # MongoDB - NOUVELLE BASE
-MONGODB_URI=mongodb+srv://phimjc:ZDOPZA2Kd8ylewoR@cluster0.4huietv.mongodb.net/boulangerie-planning-longuenesse?retryWrites=true&w=majority
+MONGODB_URI=mongodb+srv://username:VOTRE_MOT_DE_PASSE_MONGODB@cluster0.4huietv.mongodb.net/boulangerie-planning-longuenesse?retryWrites=true&w=majority
 
 # JWT - GÉNÉRER UNE NOUVELLE CLÉ
 JWT_SECRET=<générer_une_nouvelle_clé>

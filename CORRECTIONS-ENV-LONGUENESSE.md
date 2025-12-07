@@ -40,10 +40,10 @@ J'ai créé un fichier `boulangerie-planning-api-3.env.CORRIGE` avec toutes les 
 
 ```bash
 # MongoDB
-MONGODB_URI=mongodb+srv://phimjc:ZDOPZA2Kd8ylewoR@cluster0.4huietv.mongodb.net/boulangerie-planning-longuenesse?retryWrites=true&w=majority
+MONGODB_URI=mongodb+srv://username:VOTRE_MOT_DE_PASSE_MONGODB@cluster0.4huietv.mongodb.net/boulangerie-planning-longuenesse?retryWrites=true&w=majority
 
 # JWT (SANS guillemets)
-JWT_SECRET=a22/JbwO0C/zuixj0eNBq1rWKb+KBEvckPlw+T+dWbEDXH2S2FvxM2L5KoIg5WeNLWiDPgj5rlvNldE3kSN41A==
+JWT_SECRET=VOTRE_JWT_SECRET_GENERE
 
 # CORS (avec toutes les origines)
 CORS_ORIGIN=https://www.filmara.fr,https://www.filmara.fr/plan,https://www.filmara.fr/lon,http://localhost:3000
@@ -57,7 +57,7 @@ EMAILJS_PRIVATE_KEY=tKYqrTUpzRQiq_7r0ZjCJ
 # SFTP (CORRIGER le nom)
 SFTP_BASE_PATH=/n8n/uploads/documents-longuenesse
 NAS_BASE_PATH=/n8n/uploads/documents-longuenesse
-SFTP_PASSWORD=#heulph:N8N5
+SFTP_PASSWORD=VOTRE_MOT_DE_PASSE_SFTP
 
 # Store Name (AJOUTER)
 STORE_NAME=Boulangerie Ange - Longuenesse
@@ -158,24 +158,24 @@ CORS_ORIGIN=https://www.filmara.fr,https://www.filmara.fr/plan,https://www.filma
 
 **❌ Incorrect :**
 ```
-JWT_SECRET="a22/JbwO0C/..."
+JWT_SECRET="VOTRE_JWT_SECRET"
 ```
 
 **✅ Correct :**
 ```
-JWT_SECRET=a22/JbwO0C/...
+JWT_SECRET=VOTRE_JWT_SECRET
 ```
 
 ### 4. **MONGODB_URI - Sans Guillemets**
 
 **❌ Incorrect :**
 ```
-MONGODB_URI="mongodb+srv://..."
+MONGODB_URI="mongodb+srv://username:VOTRE_MOT_DE_PASSE@cluster.mongodb.net/..."
 ```
 
 **✅ Correct :**
 ```
-MONGODB_URI=mongodb+srv://...
+MONGODB_URI=mongodb+srv://username:VOTRE_MOT_DE_PASSE@cluster.mongodb.net/...
 ```
 
 ---

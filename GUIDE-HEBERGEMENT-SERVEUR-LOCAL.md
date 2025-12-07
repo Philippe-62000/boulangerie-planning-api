@@ -124,10 +124,10 @@ Copiez toutes les variables depuis `boulangerie-planning-api-3-FINAL.env` :
 
 ```bash
 # MongoDB
-MONGODB_URI=mongodb+srv://phimjc:ZDOPZA2Kd8ylewoR@cluster0.4huietv.mongodb.net/boulangerie-planning-longuenesse?retryWrites=true&w=majority
+MONGODB_URI=mongodb+srv://username:VOTRE_MOT_DE_PASSE_MONGODB@cluster0.4huietv.mongodb.net/boulangerie-planning-longuenesse?retryWrites=true&w=majority
 
 # JWT
-JWT_SECRET=a22/JbwO0C/zuixj0eNBq1rWKb+KBEvckPlw+T+dWbEDXH2S2FvxM2L5KoIg5WeNLWiDPgj5rlvNldE3kSN41A==
+JWT_SECRET=VOTRE_JWT_SECRET_GENERE
 
 # CORS
 CORS_ORIGIN=https://www.filmara.fr,https://www.filmara.fr/plan,https://www.filmara.fr/lon,http://localhost:3000
@@ -137,11 +137,11 @@ SMTP_HOST_OVH=ssl0.ovh.net
 SMTP_PORT_OVH=465
 SMTP_SECURE_OVH=true
 SMTP_USER_OVH=longuenesse@filmara.fr
-SMTP_PASS_OVH=#heulph:LON5
+SMTP_PASS_OVH=VOTRE_MOT_DE_PASSE_SMTP_OVH
 
 # SFTP
 SFTP_BASE_PATH=/n8n/uploads/documents-longuenesse
-SFTP_PASSWORD=#heulph:N8N5
+SFTP_PASSWORD=VOTRE_MOT_DE_PASSE_SFTP
 
 # Application
 NODE_ENV=production

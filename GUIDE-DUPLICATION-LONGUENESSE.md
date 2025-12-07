@@ -51,7 +51,7 @@ Les deux instances sont **totalement indépendantes**.
 **Option A : Même cluster MongoDB Atlas (recommandé)**
 - Utilisez le même compte MongoDB Atlas
 - Créez une **nouvelle base de données** : `boulangerie-planning-longuenesse`
-- URI : `mongodb+srv://phimjc:ZDOPZA2Kd8ylewoR@cluster0.4huietv.mongodb.net/boulangerie-planning-longuenesse?retryWrites=true&w=majority`
+- URI : `mongodb+srv://username:VOTRE_MOT_DE_PASSE_MONGODB@cluster0.4huietv.mongodb.net/boulangerie-planning-longuenesse?retryWrites=true&w=majority`
 
 **Option B : Nouveau cluster (si vous voulez séparation totale)**
 - Créez un nouveau cluster MongoDB Atlas
@@ -118,7 +118,7 @@ NAS_BASE_PATH=/n8n/uploads/documents-longuenesse
 
 ```bash
 # MongoDB - NOUVELLE BASE DE DONNÉES
-MONGODB_URI=mongodb+srv://phimjc:ZDOPZA2Kd8ylewoR@cluster0.4huietv.mongodb.net/boulangerie-planning-longuenesse?retryWrites=true&w=majority
+MONGODB_URI=mongodb+srv://username:VOTRE_MOT_DE_PASSE_MONGODB@cluster0.4huietv.mongodb.net/boulangerie-planning-longuenesse?retryWrites=true&w=majority
 
 # JWT Secret - GÉNÉRER UN NOUVEAU
 JWT_SECRET=<générer_une_nouvelle_clé_secrète>

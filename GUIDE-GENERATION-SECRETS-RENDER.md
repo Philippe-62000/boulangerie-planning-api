@@ -4,9 +4,9 @@
 
 Les secrets suivants ont été exposés sur GitHub et doivent être changés :
 
-1. **MongoDB** : Utilisateur `phimjc` / Mot de passe `ZDOPZA2Kd8ylewoR`
-2. **JWT_SECRET** : `a22/JbwO0C/zuixj0eNBq1rWKb+KBEvckPlw+T+dWbEDXH2S2FvxM2L5KoIg5WeNLWiDPgj5rlvNldE3kSN41A==`
-3. **SMTP Passwords** : `#heulph:N8N5`, `#heulph:LON5`, `iazithmolbunifyv`
+1. **MongoDB** : Utilisateur `username` / Mot de passe `ANCIEN_MOT_DE_PASSE` (exemple)
+2. **JWT_SECRET** : `ANCIEN_JWT_SECRET_EXPOSE` (exemple)
+3. **SMTP Passwords** : `ANCIEN_MOT_DE_PASSE_SFTP`, `ANCIEN_MOT_DE_PASSE_SMTP`, `ANCIEN_APP_PASSWORD_GMAIL` (exemples)
 
 ---
 
@@ -83,7 +83,7 @@ MyNewSecureP@ssw0rd2025!
 
 **Ancienne valeur (EXPOSÉE) :**
 ```
-mongodb+srv://phimjc:ZDOPZA2Kd8ylewoR@cluster0.4huietv.mongodb.net/boulangerie-planning?retryWrites=true&w=majority
+mongodb+srv://username:ANCIEN_MOT_DE_PASSE@cluster0.4huietv.mongodb.net/boulangerie-planning?retryWrites=true&w=majority
 ```
 
 **Nouvelle valeur (à créer) :**
@@ -94,7 +94,7 @@ mongodb+srv://phimjc:VOTRE_NOUVEAU_MOT_DE_PASSE@cluster0.4huietv.mongodb.net/bou
 **Action :**
 1. Trouvez la variable `MONGODB_URI`
 2. Cliquez sur **Edit** (icône crayon)
-3. Remplacez `ZDOPZA2Kd8ylewoR` par votre nouveau mot de passe MongoDB
+3. Remplacez `ANCIEN_MOT_DE_PASSE` par votre nouveau mot de passe MongoDB
 4. **IMPORTANT** : Si le mot de passe contient des caractères spéciaux, encodez-les :
    - `@` → `%40`
    - `#` → `%23`
@@ -109,7 +109,7 @@ mongodb+srv://phimjc:VOTRE_NOUVEAU_MOT_DE_PASSE@cluster0.4huietv.mongodb.net/bou
 
 **Ancienne valeur (EXPOSÉE) :**
 ```
-a22/JbwO0C/zuixj0eNBq1rWKb+KBEvckPlw+T+dWbEDXH2S2FvxM2L5KoIg5WeNLWiDPgj5rlvNldE3kSN41A==
+ANCIEN_JWT_SECRET_EXPOSE
 ```
 
 **Nouvelle valeur (à générer) :**
@@ -127,7 +127,7 @@ VOTRE_NOUVEAU_JWT_SECRET_GENERE
 
 **Ancienne valeur (EXPOSÉE) :**
 ```
-#heulph:N8N5
+ANCIEN_MOT_DE_PASSE_SFTP
 ```
 
 **Nouvelle valeur :**
@@ -145,7 +145,7 @@ VOTRE_NOUVEAU_MOT_DE_PASSE_SFTP
 
 **Ancienne valeur (EXPOSÉE) :**
 ```
-#heulph:LON5
+ANCIEN_MOT_DE_PASSE_SMTP_OVH
 ```
 
 **Nouvelle valeur :**
@@ -163,7 +163,7 @@ VOTRE_NOUVEAU_MOT_DE_PASSE_SMTP_OVH
 
 **Ancienne valeur (EXPOSÉE) :**
 ```
-iazithmolbunifyv
+ANCIEN_APP_PASSWORD_GMAIL
 ```
 
 **Nouvelle valeur :**

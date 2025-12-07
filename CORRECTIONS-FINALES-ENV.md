@@ -11,12 +11,12 @@ Votre fichier est **beaucoup mieux** ! Il reste quelques corrections à faire :
 ### 1. **Ligne 7 : `JWT_SECRET` avec guillemets** ❌
 **Actuel :**
 ```
-JWT_SECRET="a22/JbwO0C/..."
+JWT_SECRET="VOTRE_JWT_SECRET"
 ```
 
 **Correction :**
 ```
-JWT_SECRET=a22/JbwO0C/...
+JWT_SECRET=VOTRE_JWT_SECRET
 ```
 **⚠️ Enlever les guillemets `"`**
 
@@ -31,12 +31,12 @@ JWT_SECRET=a22/JbwO0C/...
 ### 3. **Ligne 9 : `MONGODB_URI` avec guillemets** ❌
 **Actuel :**
 ```
-MONGODB_URI="mongodb+srv://..."
+MONGODB_URI="mongodb+srv://username:VOTRE_MOT_DE_PASSE@cluster.mongodb.net/..."
 ```
 
 **Correction :**
 ```
-MONGODB_URI=mongodb+srv://...
+MONGODB_URI=mongodb+srv://username:VOTRE_MOT_DE_PASSE@cluster.mongodb.net/...
 ```
 **⚠️ Enlever les guillemets `"`**
 
@@ -45,12 +45,12 @@ MONGODB_URI=mongodb+srv://...
 ### 4. **Ligne 13 : `SFTP_PASSWORD` avec guillemets** ⚠️
 **Actuel :**
 ```
-SFTP_PASSWORD="#heulph:N8N5"
+SFTP_PASSWORD="VOTRE_MOT_DE_PASSE_SFTP"
 ```
 
 **Correction :**
 ```
-SFTP_PASSWORD=#heulph:N8N5
+SFTP_PASSWORD=VOTRE_MOT_DE_PASSE_SFTP
 ```
 **⚠️ Enlever les guillemets `"`**
 
@@ -59,12 +59,12 @@ SFTP_PASSWORD=#heulph:N8N5
 ### 5. **Ligne 17 : `SMTP_PASS_OVH` avec guillemets** ⚠️
 **Actuel :**
 ```
-SMTP_PASS_OVH="#heulph:LON5"
+SMTP_PASS_OVH="VOTRE_MOT_DE_PASSE_SMTP_OVH"
 ```
 
 **Correction :**
 ```
-SMTP_PASS_OVH=#heulph:LON5
+SMTP_PASS_OVH=VOTRE_MOT_DE_PASSE_SMTP_OVH
 ```
 **⚠️ Enlever les guillemets `"`**
 
@@ -122,10 +122,10 @@ Voici toutes les variables **SANS guillemets** :
 
 ```bash
 # MongoDB (SANS guillemets)
-MONGODB_URI=mongodb+srv://phimjc:ZDOPZA2Kd8ylewoR@cluster0.4huietv.mongodb.net/boulangerie-planning-longuenesse?retryWrites=true&w=majority
+MONGODB_URI=mongodb+srv://username:VOTRE_MOT_DE_PASSE_MONGODB@cluster0.4huietv.mongodb.net/boulangerie-planning-longuenesse?retryWrites=true&w=majority
 
 # JWT (SANS guillemets)
-JWT_SECRET=a22/JbwO0C/zuixj0eNBq1rWKb+KBEvckPlw+T+dWbEDXH2S2FvxM2L5KoIg5WeNLWiDPgj5rlvNldE3kSN41A==
+JWT_SECRET=VOTRE_JWT_SECRET_GENERE
 
 # CORS (✅ Déjà correct)
 CORS_ORIGIN=https://www.filmara.fr,https://www.filmara.fr/plan,https://www.filmara.fr/lon,http://localhost:3000
@@ -139,7 +139,7 @@ EMAILJS_PRIVATE_KEY=tKYqrTUpzRQiq_7r0ZjCJ
 # SFTP (SANS guillemets)
 SFTP_BASE_PATH=/n8n/uploads/documents-longuenesse
 NAS_BASE_PATH=/n8n/uploads/documents-longuenesse
-SFTP_PASSWORD=#heulph:N8N5
+SFTP_PASSWORD=VOTRE_MOT_DE_PASSE_SFTP
 
 # Store Name (SANS guillemets)
 STORE_NAME=Boulangerie Ange - Longuenesse
@@ -149,13 +149,13 @@ SMTP_HOST_OVH=ssl0.ovh.net
 SMTP_PORT_OVH=465
 SMTP_SECURE_OVH=true
 SMTP_USER_OVH=longuenesse@filmara.fr
-SMTP_PASS_OVH=#heulph:LON5
+SMTP_PASS_OVH=VOTRE_MOT_DE_PASSE_SMTP_OVH
 
 # SMTP Gmail (✅ Déjà correct)
 SMTP_HOST=smtp.gmail.com
 SMTP_PORT=587
 SMTP_USER=longuenesse.boulangerie.ange@gmail.com
-SMTP_PASS=iazithmolbunifyv
+SMTP_PASS=VOTRE_APP_PASSWORD_GMAIL
 
 # Node (✅ Déjà correct)
 NODE_ENV=production

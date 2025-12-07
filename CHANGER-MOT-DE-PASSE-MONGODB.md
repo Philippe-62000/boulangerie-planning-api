@@ -77,10 +77,10 @@ Si votre nouveau mot de passe contient des caractères spéciaux, vous devez les
 2. Cliquez sur l'icône **Edit** (crayon) à droite
 3. Vous verrez quelque chose comme :
    ```
-   mongodb+srv://phimjc:ZDOPZA2Kd8ylewoR@cluster0.4huietv.mongodb.net/boulangerie-planning?retryWrites=true&w=majority
+   mongodb+srv://username:ANCIEN_MOT_DE_PASSE@cluster0.4huietv.mongodb.net/boulangerie-planning?retryWrites=true&w=majority
    ```
 
-4. Remplacez `ZDOPZA2Kd8ylewoR` par votre nouveau mot de passe (encodé si nécessaire)
+4. Remplacez `ANCIEN_MOT_DE_PASSE` par votre nouveau mot de passe (encodé si nécessaire)
 
    **Exemple avec nouveau mot de passe `MySecure2025!` :**
    ```
@@ -110,10 +110,10 @@ Si votre nouveau mot de passe contient des caractères spéciaux, vous devez les
 2. Cliquez sur l'icône **Edit** (crayon) à droite
 3. Vous verrez quelque chose comme :
    ```
-   mongodb+srv://phimjc:ZDOPZA2Kd8ylewoR@cluster0.4huietv.mongodb.net/boulangerie-planning-longuenesse?retryWrites=true&w=majority
+   mongodb+srv://username:ANCIEN_MOT_DE_PASSE@cluster0.4huietv.mongodb.net/boulangerie-planning-longuenesse?retryWrites=true&w=majority
    ```
 
-4. Remplacez `ZDOPZA2Kd8ylewoR` par le **même nouveau mot de passe** que pour Arras (encodé si nécessaire)
+4. Remplacez `ANCIEN_MOT_DE_PASSE` par le **même nouveau mot de passe** que pour Arras (encodé si nécessaire)
 
    **Exemple :**
    ```

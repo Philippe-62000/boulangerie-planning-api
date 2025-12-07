@@ -50,7 +50,7 @@ Allez dans **Environment** → **Environment Variables** et ajoutez :
 
 ```bash
 # MongoDB - NOUVELLE BASE (sera créée automatiquement)
-MONGODB_URI=mongodb+srv://phimjc:ZDOPZA2Kd8ylewoR@cluster0.4huietv.mongodb.net/boulangerie-planning-longuenesse?retryWrites=true&w=majority
+MONGODB_URI=mongodb+srv://username:VOTRE_MOT_DE_PASSE_MONGODB@cluster0.4huietv.mongodb.net/boulangerie-planning-longuenesse?retryWrites=true&w=majority
 
 # JWT - GÉNÉRER UNE NOUVELLE CLÉ (différente de celle d'Arras)
 # Utilisez un générateur en ligne ou : openssl rand -hex 32

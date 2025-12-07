@@ -13,7 +13,7 @@ git add .
 
 echo.
 echo 💾 Commit des modifications...
-git commit -m "🔧 Correction upload documents: gestion des accents dans les noms d'employés (Océane, Adélaïde, etc.)"
+git commit -m "🔒 SECURITY: Nettoyage des secrets dans la documentation + correction planning-generator autoDeploy"
 
 echo.
 echo 🚀 Push vers la branche main...
