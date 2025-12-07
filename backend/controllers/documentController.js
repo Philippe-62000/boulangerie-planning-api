@@ -132,9 +132,11 @@ exports.downloadDocument = async (req, res) => {
       fullPath: filePath
     });
     
+    let sftpConnected = false;
     try {
       // Connexion au NAS
       await sftpService.connect();
+      sftpConnected = true;
       
       // Vérifier si le fichier existe sur le NAS
       const fileExists = await sftpService.fileExists(filePath);
@@ -173,14 +175,25 @@ exports.downloadDocument = async (req, res) => {
       
     } catch (error) {
       console.error('❌ Erreur SFTP lors du téléchargement:', error);
-      return res.status(500).json({
-        success: false,
-        message: 'Erreur lors du téléchargement depuis le NAS',
-        error: error.message
-      });
+      
+      // Ne pas envoyer de réponse si elle a déjà été envoyée
+      if (!res.headersSent) {
+        return res.status(500).json({
+          success: false,
+          message: 'Erreur lors du téléchargement depuis le NAS',
+          error: error.message
+        });
+      }
     } finally {
-      // Déconnexion du NAS
-      await sftpService.disconnect();
+      // Déconnexion du NAS seulement si connecté
+      if (sftpConnected) {
+        try {
+          await sftpService.disconnect();
+        } catch (disconnectError) {
+          // Ignorer les erreurs de déconnexion pour éviter de masquer l'erreur principale
+          console.error('⚠️ Erreur lors de la déconnexion SFTP:', disconnectError.message);
+        }
+      }
     }
     
   } catch (error) {
@@ -356,9 +369,16 @@ exports.uploadDocument = async (req, res) => {
     let fullPath = normalizePath(NAS_CONFIG.basePath, filePath);
     
     // Utiliser le service SFTP pour uploader sur le NAS
+    let sftpConnected = false;
     try {
       // Connexion au NAS
       await sftpService.connect();
+      sftpConnected = true;
+      
+      // Vérifier que le client est disponible
+      if (!sftpService.client) {
+        throw new Error('Client SFTP non initialisé');
+      }
       
       // Créer le dossier sur le NAS s'il n'existe pas
       const dir = normalizePath(NAS_CONFIG.basePath, targetDir);
@@ -422,7 +442,7 @@ exports.uploadDocument = async (req, res) => {
       
       // Uploader le fichier sur le NAS
       console.log('📤 Upload du fichier vers le NAS:', fullPath);
-      await sftpService.client.put(req.file.path, fullPath);
+      await sftpService.put(req.file.path, fullPath);
       console.log('✅ Fichier uploadé avec succès sur le NAS');
       
       // Supprimer le fichier temporaire local
@@ -430,14 +450,31 @@ exports.uploadDocument = async (req, res) => {
       
     } catch (error) {
       console.error('❌ Erreur SFTP:', error);
+      
+      // Supprimer le fichier temporaire en cas d'erreur
+      try {
+        if (req.file && req.file.path && fs.existsSync(req.file.path)) {
+          fs.unlinkSync(req.file.path);
+        }
+      } catch (cleanupError) {
+        console.error('⚠️ Erreur lors du nettoyage du fichier temporaire:', cleanupError.message);
+      }
+      
       return res.status(500).json({
         success: false,
         message: 'Erreur lors de l\'upload sur le NAS',
         error: error.message
       });
     } finally {
-      // Déconnexion du NAS
-      await sftpService.disconnect();
+      // Déconnexion du NAS seulement si connecté
+      if (sftpConnected) {
+        try {
+          await sftpService.disconnect();
+        } catch (disconnectError) {
+          // Ignorer les erreurs de déconnexion pour éviter de masquer l'erreur principale
+          console.error('⚠️ Erreur lors de la déconnexion SFTP:', disconnectError.message);
+        }
+      }
     }
     
     // Créer l'enregistrement en base

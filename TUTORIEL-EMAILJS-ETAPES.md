@@ -247,3 +247,5 @@ Une fois configuré, votre template est prêt à recevoir les emails de l'applic
 
 
 
+
+

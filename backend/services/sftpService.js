@@ -5,7 +5,7 @@ const crypto = require('crypto');
 
 class SFTPService {
   constructor() {
-    this.client = new SftpClient();
+    this._client = null;
     this.config = {
       host: 'philange.synology.me',
       username: 'nHEIGHTn',
@@ -21,23 +21,112 @@ class SFTPService {
     // Pour Longuenesse: /n8n/uploads/documents-longuenesse
     this.basePath = process.env.SFTP_BASE_PATH || '/n8n/uploads/documents';
     this.isConnected = false;
+    this.isConnecting = false; // Verrou pour éviter les connexions concurrentes
+    this.connectionPromise = null; // Promise partagée pour les connexions concurrentes
   }
 
-  // Connexion au NAS
-  async connect() {
+  // Réinitialiser le client en cas d'erreur
+  _resetClient() {
     try {
-      if (this.isConnected) {
+      if (this._client) {
+        // Supprimer tous les listeners pour éviter les fuites mémoire
+        this._client.removeAllListeners();
+        // Tenter de fermer proprement
+        if (this._client.sftp) {
+          this._client.sftp.end();
+        }
+      }
+    } catch (error) {
+      // Ignorer les erreurs lors de la réinitialisation
+    }
+    this._client = new SftpClient();
+    // Augmenter la limite de listeners pour éviter les warnings
+    if (this._client.client) {
+      this._client.client.setMaxListeners(20);
+    }
+    this.isConnected = false;
+  }
+
+  // Vérifier si la connexion est vraiment active
+  async _checkConnection() {
+    try {
+      if (!this._client || !this.isConnected) {
+        return false;
+      }
+      // Tenter une opération simple pour vérifier la connexion
+      await this._client.list('/');
+      return true;
+    } catch (error) {
+      return false;
+    }
+  }
+
+  // Connexion au NAS avec verrouillage pour éviter les connexions concurrentes
+  async connect() {
+    // Si une connexion est en cours, attendre qu'elle se termine
+    if (this.isConnecting && this.connectionPromise) {
+      try {
+        await this.connectionPromise;
+        // Vérifier si la connexion a réussi
+        if (this.isConnected && await this._checkConnection()) {
+          return true;
+        }
+      } catch (error) {
+        // La connexion précédente a échoué, continuer pour créer une nouvelle
+      }
+    }
+
+    // Si déjà connecté et la connexion est valide, retourner
+    if (this.isConnected) {
+      const isValid = await this._checkConnection();
+      if (isValid) {
         return true;
+      } else {
+        // La connexion n'est plus valide, réinitialiser
+        this._resetClient();
+      }
+    }
+
+    // Créer une nouvelle connexion avec verrouillage
+    this.isConnecting = true;
+    this.connectionPromise = this._doConnect();
+
+    try {
+      const result = await this.connectionPromise;
+      return result;
+    } finally {
+      this.isConnecting = false;
+      this.connectionPromise = null;
+    }
+  }
+
+  // Effectuer la connexion réelle
+  async _doConnect() {
+    try {
+      // Réinitialiser le client si nécessaire
+      if (!this._client) {
+        this._resetClient();
       }
 
       console.log('🔌 Connexion au NAS Synology...');
-      await this.client.connect(this.config);
+      
+      // Augmenter le timeout pour les connexions lentes
+      const connectConfig = {
+        ...this.config,
+        readyTimeout: 30000, // 30 secondes
+        keepaliveInterval: 10000, // Keepalive toutes les 10 secondes
+        keepaliveCountMax: 3
+      };
+
+      await this._client.connect(connectConfig);
       this.isConnected = true;
       console.log('✅ Connecté au NAS Synology');
       return true;
     } catch (error) {
       console.error('❌ Erreur de connexion SFTP:', error.message);
       this.isConnected = false;
+      // Réinitialiser le client en cas d'erreur
+      this._resetClient();
       throw error;
     }
   }
@@ -45,14 +134,49 @@ class SFTPService {
   // Déconnexion
   async disconnect() {
     try {
-      if (this.isConnected) {
-        await this.client.end();
+      if (this.isConnected && this._client) {
+        await this._client.end();
         this.isConnected = false;
         console.log('🔌 Déconnecté du NAS Synology');
       }
     } catch (error) {
       console.error('❌ Erreur de déconnexion SFTP:', error.message);
+      // Réinitialiser même en cas d'erreur
+      this._resetClient();
+    } finally {
+      this.isConnecting = false;
+      this.connectionPromise = null;
     }
+  }
+
+  // Méthodes wrapper pour les opérations nécessitant l'accès au client
+  async stat(path) {
+    await this.connect();
+    if (!this._client) {
+      throw new Error('Client SFTP non initialisé');
+    }
+    return await this._client.stat(path);
+  }
+
+  async mkdir(path, recursive = false) {
+    await this.connect();
+    if (!this._client) {
+      throw new Error('Client SFTP non initialisé');
+    }
+    return await this._client.mkdir(path, recursive);
+  }
+
+  async put(localPath, remotePath) {
+    await this.connect();
+    if (!this._client) {
+      throw new Error('Client SFTP non initialisé');
+    }
+    return await this._client.put(localPath, remotePath);
+  }
+
+  // Getter pour le client (pour compatibilité avec le code existant)
+  get client() {
+    return this._client;
   }
 
   // Créer la structure de dossiers (simplifiée)
@@ -73,13 +197,13 @@ class SFTPService {
       for (const dirPath of paths) {
         try {
           // Vérifier si le dossier existe
-          await this.client.stat(dirPath);
+          await this._client.stat(dirPath);
           console.log(`✅ Dossier existe: ${dirPath}`);
         } catch (statError) {
           console.log(`⚠️ Dossier n'existe pas: ${dirPath}`);
           try {
             // Créer le dossier automatiquement
-            await this.client.mkdir(dirPath, true);
+            await this._client.mkdir(dirPath, true);
             console.log(`✅ Dossier créé: ${dirPath}`);
           } catch (mkdirError) {
             console.log(`❌ Impossible de créer le dossier: ${dirPath}`);
@@ -121,12 +245,12 @@ class SFTPService {
       
       // Créer le dossier racine si nécessaire
       try {
-        await this.client.stat(baseDir);
+        await this._client.stat(baseDir);
         console.log(`✅ Dossier racine existe: ${baseDir}`);
       } catch (error) {
         console.log(`⚠️ Dossier racine n'existe pas: ${baseDir}`);
         try {
-          await this.client.mkdir(baseDir, true);
+          await this._client.mkdir(baseDir, true);
           console.log(`✅ Dossier racine créé: ${baseDir}`);
         } catch (mkdirError) {
           console.log(`❌ Impossible de créer le dossier racine: ${baseDir}`);
@@ -136,12 +260,12 @@ class SFTPService {
       
       // Créer le dossier année si nécessaire
       try {
-        await this.client.stat(yearDir);
+        await this._client.stat(yearDir);
         console.log(`✅ Dossier année existe: ${yearDir}`);
       } catch (error) {
         console.log(`⚠️ Dossier année n'existe pas: ${yearDir}`);
         try {
-          await this.client.mkdir(yearDir, true);
+          await this._client.mkdir(yearDir, true);
           console.log(`✅ Dossier année créé: ${yearDir}`);
         } catch (mkdirError) {
           console.log(`❌ Impossible de créer le dossier année: ${yearDir}`);
@@ -151,12 +275,12 @@ class SFTPService {
       
       // Créer le dossier pending si nécessaire
       try {
-        await this.client.stat(pendingDir);
+        await this._client.stat(pendingDir);
         console.log(`✅ Dossier pending existe: ${pendingDir}`);
       } catch (error) {
         console.log(`⚠️ Dossier pending n'existe pas: ${pendingDir}`);
         try {
-          await this.client.mkdir(pendingDir, true);
+          await this._client.mkdir(pendingDir, true);
           console.log(`✅ Dossier pending créé: ${pendingDir}`);
         } catch (mkdirError) {
           console.log(`❌ Impossible de créer le dossier pending: ${pendingDir}`);
@@ -165,7 +289,7 @@ class SFTPService {
       }
       
       // Upload du fichier
-      await this.client.put(fileBuffer, remotePath);
+      await this._client.put(fileBuffer, remotePath);
       
       console.log(`✅ Fichier uploadé: ${fileName}`);
       
@@ -239,7 +363,7 @@ class SFTPService {
   async deleteFile(filePath) {
     try {
       await this.connect();
-      await this.client.delete(filePath);
+      await this._client.delete(filePath);
       console.log(`🗑️ Fichier supprimé: ${filePath}`);
       return true;
     } catch (error) {
@@ -252,7 +376,7 @@ class SFTPService {
   async listFiles(folderPath) {
     try {
       await this.connect();
-      const files = await this.client.list(folderPath);
+      const files = await this._client.list(folderPath);
       return files.filter(file => file.type === '-'); // Fichiers seulement
     } catch (error) {
       console.error('❌ Erreur listage fichiers:', error.message);
@@ -264,9 +388,19 @@ class SFTPService {
   async fileExists(filePath) {
     try {
       await this.connect();
-      const stats = await this.client.stat(filePath);
+      
+      // Vérifier que la connexion est vraiment active
+      if (!this.isConnected || !this._client) {
+        return false;
+      }
+
+      const stats = await this._client.stat(filePath);
       return stats !== null;
     } catch (error) {
+      // Si c'est une erreur de connexion, réinitialiser
+      if (error.message.includes('Not connected') || error.message.includes('Timed out')) {
+        this._resetClient();
+      }
       return false;
     }
   }
@@ -275,7 +409,7 @@ class SFTPService {
   async getFileStats(filePath) {
     try {
       await this.connect();
-      const stats = await this.client.stat(filePath);
+      const stats = await this._client.stat(filePath);
       return stats;
     } catch (error) {
       console.error('❌ Erreur stats fichier:', error.message);
@@ -285,13 +419,39 @@ class SFTPService {
 
   // Télécharger un fichier (pour prévisualisation)
   async downloadFile(filePath) {
-    try {
-      await this.connect();
-      const buffer = await this.client.get(filePath);
-      return buffer;
-    } catch (error) {
-      console.error('❌ Erreur téléchargement fichier:', error.message);
-      throw error;
+    let retryCount = 0;
+    const maxRetries = 2;
+
+    while (retryCount <= maxRetries) {
+      try {
+        await this.connect();
+        
+        // Vérifier que la connexion est vraiment active
+        if (!this.isConnected || !this._client) {
+          throw new Error('Client SFTP non initialisé');
+        }
+
+        const buffer = await this._client.get(filePath);
+        return buffer;
+      } catch (error) {
+        retryCount++;
+        
+        // Si c'est une erreur de connexion et qu'on peut réessayer
+        if (retryCount <= maxRetries && (
+          error.message.includes('Not connected') ||
+          error.message.includes('Timed out') ||
+          error.message.includes('handshake')
+        )) {
+          console.log(`⚠️ Tentative ${retryCount}/${maxRetries} de téléchargement échouée, réessai...`);
+          // Réinitialiser le client et attendre un peu avant de réessayer
+          this._resetClient();
+          await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
+          continue;
+        }
+        
+        console.error('❌ Erreur téléchargement fichier:', error.message);
+        throw error;
+      }
     }
   }
 

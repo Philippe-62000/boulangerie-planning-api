@@ -13,7 +13,7 @@ git add .
 
 echo.
 echo 💾 Commit des modifications...
-git commit -m "🔒 SECURITY: Nettoyage des secrets dans la documentation + correction planning-generator autoDeploy"
+git commit -m "🔧 FIX SFTP: Gestion connexions concurrentes + MaxListeners + Retry automatique + Réinitialisation client"
 
 echo.
 echo 🚀 Push vers la branche main...
