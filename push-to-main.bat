@@ -13,7 +13,7 @@ git add .
 
 echo.
 echo 💾 Commit des modifications...
-git commit -m "🔧 Correction calcul frais KM: synchronisation kmValue pour tous les paramètres (Promocash, Miel Saint Eloi, etc.)"
+git commit -m "🔧 Correction upload documents: gestion des accents dans les noms d'employés (Océane, Adélaïde, etc.)"
 
 echo.
 echo 🚀 Push vers la branche main...
