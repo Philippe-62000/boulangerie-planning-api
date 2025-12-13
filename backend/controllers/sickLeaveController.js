@@ -878,15 +878,86 @@ const validateSickLeave = async (req, res) => {
       // Continuer même si l'email échoue
     }
 
-    // Note: L'email au comptable est envoyé uniquement lors de la déclaration (markAsDeclared)
-    // et non lors de la validation pour éviter les doublons
+    // Passer automatiquement en "declared" après validation et envoyer l'email au comptable
+    try {
+      // Récupérer sickLeave à nouveau avant de déclarer
+      sickLeave = await SickLeave.findById(id);
+      
+      // Marquer comme déclaré automatiquement
+      await sickLeave.markAsDeclared(validatedBy || 'Système', 'Déclaré automatiquement après validation');
+      
+      // Déplacer le fichier vers le dossier déclaré
+      try {
+        const newPath = await sftpService.moveFile(sickLeave.filePath, 'declared');
+        sickLeave.filePath = newPath;
+        await sickLeave.save();
+      } catch (error) {
+        console.error('❌ Erreur déplacement fichier vers declared:', error.message);
+        // Continuer même si le déplacement échoue
+      }
+      
+      // Récupérer sickLeave à nouveau
+      sickLeave = await SickLeave.findById(id);
+      
+      // Envoyer l'email au comptable
+      try {
+        const Parameter = require('../models/Parameters');
+        const accountantEmailParam = await Parameter.findOne({ name: 'accountantEmail' });
+        
+        if (accountantEmailParam && accountantEmailParam.stringValue) {
+          const emailResult = await emailService.sendToAccountant(sickLeave, accountantEmailParam.stringValue);
+          // Récupérer sickLeave à nouveau avant d'enregistrer le statut d'email
+          sickLeave = await SickLeave.findById(id);
+          if (emailResult.success) {
+            console.log('✅ Email au comptable envoyé:', emailResult.messageId);
+            // Enregistrer le statut d'envoi
+            sickLeave.accountantNotification = {
+              sent: true,
+              sentAt: new Date(),
+              sentTo: accountantEmailParam.stringValue
+            };
+            await sickLeave.save();
+          } else {
+            console.log('⚠️ Email au comptable non envoyé:', emailResult.error);
+            sickLeave.accountantNotification = {
+              sent: false,
+              sentAt: null,
+              sentTo: accountantEmailParam.stringValue
+            };
+            await sickLeave.save();
+          }
+        } else {
+          console.log('⚠️ Email du comptable non configuré');
+        }
+      } catch (emailError) {
+        console.error('❌ Erreur envoi email comptable:', emailError.message);
+        // Récupérer sickLeave à nouveau avant d'enregistrer l'échec
+        try {
+          const Parameter = require('../models/Parameters');
+          const accountantEmailParam = await Parameter.findOne({ name: 'accountantEmail' });
+          sickLeave = await SickLeave.findById(id);
+          sickLeave.accountantNotification = {
+            sent: false,
+            sentAt: null,
+            sentTo: accountantEmailParam?.stringValue || ''
+          };
+          await sickLeave.save();
+        } catch (saveError) {
+          console.error('❌ Erreur enregistrement statut email comptable:', saveError.message);
+        }
+        // Continuer même si l'email échoue
+      }
+    } catch (declareError) {
+      console.error('❌ Erreur lors du passage en déclaré:', declareError.message);
+      // Continuer même si la déclaration échoue
+    }
 
     // Récupérer sickLeave à nouveau pour avoir toutes les mises à jour
     sickLeave = await SickLeave.findById(id);
 
     res.json({
       success: true,
-      message: 'Arrêt maladie validé avec succès',
+      message: 'Arrêt maladie validé et déclaré avec succès',
       data: sickLeave
     });
 
