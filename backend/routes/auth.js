@@ -87,6 +87,9 @@ router.post('/login', authController.employeeLogin);
 // Route de connexion pour les admins (interface React)
 router.post('/admin-login', authController.adminLogin);
 
+// Route de connexion pour les salariés (interface React)
+router.post('/employee-login', authController.employeeLoginReact);
+
 // Route pour récupérer le profil de l'employé connecté
 router.get('/employee-profile', authenticateEmployee, authController.getEmployeeProfile);
 

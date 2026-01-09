@@ -51,17 +51,38 @@ const Login = () => {
     }
   };
 
-  const handleEmployeeLogin = () => {
-    if (password === 'salarie2024') {
-      const userRole = {
-        role: 'employee',
-        name: 'Salarié',
-        permissions: ['view_planning', 'view_absences', 'view_sales_stats', 'view_meal_expenses', 'view_km_expenses']
-      };
-      login(userRole);
-      navigate('/');
-    } else {
-      setError('Mot de passe salarié incorrect');
+  const handleEmployeeLogin = async () => {
+    try {
+      // Appel API pour obtenir un token JWT
+      const response = await fetch(`${API_URL}/auth/employee-login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ password })
+      });
+
+      const data = await response.json();
+
+      if (data.success && data.token) {
+        // Stocker le token JWT
+        localStorage.setItem('token', data.token);
+        localStorage.setItem('employeeToken', data.token);
+        
+        // Stocker aussi les infos utilisateur pour le contexte React
+        const userRole = {
+          role: data.user.role,
+          name: data.user.name,
+          permissions: data.user.permissions || ['view_planning', 'view_absences', 'view_sales_stats', 'view_meal_expenses', 'view_km_expenses']
+        };
+        login(userRole);
+        navigate('/');
+      } else {
+        setError(data.error || 'Erreur lors de la connexion');
+      }
+    } catch (error) {
+      console.error('Erreur lors de la connexion:', error);
+      setError('Erreur de connexion au serveur');
     }
   };
 

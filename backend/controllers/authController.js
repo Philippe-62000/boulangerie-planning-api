@@ -170,8 +170,23 @@ const adminLogin = async (req, res) => {
     
     console.log('🔐 Tentative de connexion admin');
     
-    // Vérifier le mot de passe admin
-    if (password !== 'admin2024') {
+    // Récupérer l'utilisateur admin depuis la base de données
+    const User = require('../models/User');
+    const adminUser = await User.findOne({ 
+      username: 'admin',
+      role: 'admin',
+      isActive: true 
+    });
+    
+    if (!adminUser) {
+      return res.status(404).json({
+        success: false,
+        error: 'Utilisateur administrateur non trouvé'
+      });
+    }
+    
+    // Vérifier le mot de passe (comparaison directe car pas hashé dans User)
+    if (adminUser.password !== password) {
       return res.status(401).json({
         success: false,
         error: 'Mot de passe administrateur incorrect'
@@ -181,9 +196,9 @@ const adminLogin = async (req, res) => {
     // Générer un token JWT pour admin
     const token = jwt.sign(
       { 
-        userId: 'admin',
+        userId: adminUser._id.toString(),
         email: 'admin@boulangerie.fr',
-        name: 'Administrateur',
+        name: adminUser.name,
         role: 'admin'
       },
       process.env.JWT_SECRET || 'votre-cle-secrete-ici',
@@ -197,16 +212,88 @@ const adminLogin = async (req, res) => {
       message: 'Connexion réussie',
       token,
       user: {
-        id: 'admin',
-        name: 'Administrateur',
+        id: adminUser._id.toString(),
+        name: adminUser.name,
         email: 'admin@boulangerie.fr',
         role: 'admin',
-        permissions: ['all']
+        permissions: adminUser.permissions || ['all']
       }
     });
     
   } catch (error) {
     console.error('❌ Erreur adminLogin:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Erreur serveur lors de la connexion'
+    });
+  }
+};
+
+// Connexion salarié (pour l'interface React)
+const employeeLoginReact = async (req, res) => {
+  try {
+    const { password } = req.body;
+    
+    console.log('🔐 Tentative de connexion salarié (React)');
+    
+    // Récupérer l'utilisateur salarié depuis la base de données
+    const User = require('../models/User');
+    const employeeUser = await User.findOne({ 
+      username: 'salarie',
+      role: 'employee',
+      isActive: true 
+    });
+    
+    if (!employeeUser) {
+      return res.status(404).json({
+        success: false,
+        error: 'Utilisateur salarié non trouvé'
+      });
+    }
+    
+    // Vérifier le mot de passe (comparaison directe car pas hashé dans User)
+    if (employeeUser.password !== password) {
+      return res.status(401).json({
+        success: false,
+        error: 'Mot de passe salarié incorrect'
+      });
+    }
+    
+    // Générer un token JWT pour salarié
+    const token = jwt.sign(
+      { 
+        userId: employeeUser._id.toString(),
+        email: 'salarie@boulangerie.fr',
+        name: employeeUser.name,
+        role: 'employee'
+      },
+      process.env.JWT_SECRET || 'votre-cle-secrete-ici',
+      { expiresIn: '24h' }
+    );
+    
+    console.log('✅ Connexion salarié réussie');
+    
+    res.json({
+      success: true,
+      message: 'Connexion réussie',
+      token,
+      user: {
+        id: employeeUser._id.toString(),
+        name: employeeUser.name,
+        email: 'salarie@boulangerie.fr',
+        role: 'employee',
+        permissions: employeeUser.permissions || [
+          'view_planning',
+          'view_absences',
+          'view_sales_stats',
+          'view_meal_expenses',
+          'view_km_expenses'
+        ]
+      }
+    });
+    
+  } catch (error) {
+    console.error('❌ Erreur employeeLoginReact:', error);
     res.status(500).json({
       success: false,
       error: 'Erreur serveur lors de la connexion'
