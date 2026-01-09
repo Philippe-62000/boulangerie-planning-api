@@ -1831,26 +1831,26 @@ Ce message a été généré automatiquement.
       
       const subject = `VOS IDENTIFIANTS DE CONNEXION - ${employeeName}`;
       
-      const emailData = {
-        serviceId: 'gmail',
-        templateId: 'template_employee_password',
-        userId: 'EHw0fFSAwQ_4SfY6Z',
-        to: employeeEmail,
-        subject: subject,
-        hasHtml: true,
-        hasText: true,
-        templateParams: {
-          employee_name: employeeName,
-          password: password,
-          login_url: loginUrl,
-          html_content: htmlContent,
-          text_content: textContent
-        }
+      // Utiliser la configuration EmailJS depuis les variables d'environnement
+      const emailjsConfig = {
+        serviceId: process.env.EMAILJS_SERVICE_ID || 'service_default',
+        templateId: process.env.EMAILJS_TEMPLATE_ID || 'template_default',
+        userId: process.env.EMAILJS_USER_ID || 'user_default',
+        privateKey: process.env.EMAILJS_PRIVATE_KEY || ''
       };
+
+      // Vérifier que EmailJS est configuré
+      if (emailjsConfig.serviceId === 'service_default' || !emailjsConfig.userId || emailjsConfig.userId === 'user_default') {
+        throw new Error('EmailJS non configuré. Vérifiez les variables d\'environnement EMAILJS_*');
+      }
       
-      console.log('📧 Données EmailJS:', emailData);
+      console.log('📧 Configuration EmailJS utilisée:', {
+        serviceId: emailjsConfig.serviceId,
+        templateId: emailjsConfig.templateId,
+        userId: emailjsConfig.userId ? emailjsConfig.userId.substring(0, 5) + '...' : 'non défini'
+      });
       
-      const result = await this.sendViaEmailJS(emailData.to, emailData.subject, emailData.templateParams.html_content, emailData.templateParams.text_content);
+      const result = await this.sendViaEmailJS(employeeEmail, subject, htmlContent, textContent);
       console.log('✅ Email mot de passe envoyé:', result);
       
       return {

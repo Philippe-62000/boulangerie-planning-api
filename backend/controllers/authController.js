@@ -56,7 +56,9 @@ const sendPasswordToEmployee = async (req, res) => {
         employeeName: employee.name,
         employeeEmail: employee.email,
         password: newPassword,
-        loginUrl: 'https://www.filmara.fr/plan/salarie-connexion.html'
+        loginUrl: process.env.CORS_ORIGIN && process.env.CORS_ORIGIN.includes('/lon') 
+          ? 'https://www.filmara.fr/lon/salarie-connexion.html'
+          : 'https://www.filmara.fr/plan/salarie-connexion.html'
       });
       
       console.log('✅ Email envoyé à:', employee.email);
