@@ -3,7 +3,7 @@ const Site = require('../models/Site');
 // Récupérer les informations du site
 const getSite = async (req, res) => {
   try {
-    const site = await Site.findOne({ isActive: true });
+    let site = await Site.findOne({ isActive: true });
     
     if (!site) {
       // Créer un site par défaut s'il n'existe pas

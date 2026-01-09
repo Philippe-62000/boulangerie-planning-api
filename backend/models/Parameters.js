@@ -15,7 +15,7 @@ const parameterSchema = new mongoose.Schema({
     type: Number,
     required: false,
     default: 0,
-    min: 0
+    min: -1  // Permettre -1 pour les paramètres non-KM
   },
   stringValue: {
     type: String,
