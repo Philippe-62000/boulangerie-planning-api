@@ -1831,12 +1831,14 @@ Ce message a été généré automatiquement.
         console.log('⚠️ Template non trouvé, utilisation du template par défaut');
         htmlContent = this.generateEmployeePasswordHTML({
           employeeName,
+          employeeEmail,
           password,
           loginUrl
         });
         
         textContent = this.generateEmployeePasswordText({
           employeeName,
+          employeeEmail,
           password,
           loginUrl
         });
