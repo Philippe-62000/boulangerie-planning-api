@@ -419,6 +419,7 @@ module.exports = {
   sendPasswordToEmployee,
   employeeLogin,
   adminLogin,
+  employeeLoginReact,
   getEmployeeProfile,
   generateRandomPassword,
   changePassword
