@@ -421,6 +421,19 @@ class EmailServiceAlternative {
       });
 
       // Appel à l'API EmailJS avec headers pour applications non-browser
+      // IMPORTANT: Le destinataire doit être dans template_params avec la clé utilisée dans le template
+      // EmailJS utilise généralement 'to_email', 'user_email', ou 'reply_to' selon la config du template
+      const templateParams = {
+        to_email: to,  // Destinataire principal
+        user_email: to,  // Alternative (selon config template)
+        reply_to: to,  // Pour la réponse
+        subject: subject,
+        message: textContent,
+        html_message: htmlContent,
+        from_name: process.env.STORE_NAME || 'Boulangerie Ange - Arras',
+        from_email: process.env.SMTP_USER || process.env.EMAIL_USER || 'noreply@boulangerie.fr'
+      };
+
       const response = await fetch('https://api.emailjs.com/api/v1.0/email/send', {
         method: 'POST',
         headers: {
@@ -433,7 +446,7 @@ class EmailServiceAlternative {
           template_id: emailjsConfig.templateId,
           user_id: emailjsConfig.userId,
           accessToken: emailjsConfig.privateKey,
-          template_params: emailData
+          template_params: templateParams
         })
       });
 
