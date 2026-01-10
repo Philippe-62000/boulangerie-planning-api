@@ -552,6 +552,29 @@ class EmailServiceAlternative {
         hasText: !!textContent
       });
 
+      // Vérifier et corriger les URLs /plan/ dans le contenu HTML avant l'envoi à EmailJS
+      // Le template EmailJS pourrait avoir des URLs hardcodées, mais on s'assure que notre contenu est correct
+      if (htmlContent && (htmlContent.includes('/plan/employee-dashboard.html') || htmlContent.includes('/plan/advance-requests'))) {
+        console.log('⚠️ sendViaEmailJS: Contenu HTML contient /plan/ - Remplacement forcé vers /lon/');
+        htmlContent = htmlContent.replace(/https:\/\/www\.filmara\.fr\/plan\//g, 'https://www.filmara.fr/lon/');
+        htmlContent = htmlContent.replace(/\/plan\/employee-dashboard\.html/g, '/lon/employee-dashboard.html');
+        htmlContent = htmlContent.replace(/\/plan\/advance-requests/g, '/lon/advance-requests');
+      }
+      
+      if (textContent && (textContent.includes('/plan/employee-dashboard.html') || textContent.includes('/plan/advance-requests'))) {
+        console.log('⚠️ sendViaEmailJS: Contenu texte contient /plan/ - Remplacement forcé vers /lon/');
+        textContent = textContent.replace(/https:\/\/www\.filmara\.fr\/plan\//g, 'https://www.filmara.fr/lon/');
+        textContent = textContent.replace(/\/plan\/employee-dashboard\.html/g, '/lon/employee-dashboard.html');
+        textContent = textContent.replace(/\/plan\/advance-requests/g, '/lon/advance-requests');
+      }
+      
+      console.log('🔍 sendViaEmailJS - Contenu final avant envoi:', {
+        htmlContainsPlan: htmlContent ? htmlContent.includes('/plan/') : false,
+        htmlContainsLon: htmlContent ? htmlContent.includes('/lon/') : false,
+        textContainsPlan: textContent ? textContent.includes('/plan/') : false,
+        textContainsLon: textContent ? textContent.includes('/lon/') : false
+      });
+      
       // Appel à l'API EmailJS avec headers pour applications non-browser
       // IMPORTANT: Le destinataire doit être dans template_params avec la clé utilisée dans le template
       // EmailJS utilise généralement 'to_email', 'user_email', ou 'reply_to' selon la config du template
@@ -562,7 +585,7 @@ class EmailServiceAlternative {
         reply_to: to,  // Pour la réponse
         subject: subject,
         message: textContent,  // Version texte
-        html_message: htmlContent,  // Version HTML - le template doit utiliser {{html_message}}
+        html_message: htmlContent,  // Version HTML - le template doit utiliser {{{html_message}}} (triple accolades)
         html_content: htmlContent,  // Alternative
         content: htmlContent,  // Alternative
         from_name: process.env.STORE_NAME || 'Boulangerie Ange - Arras',
@@ -2763,8 +2786,17 @@ Date : ${new Date().toLocaleDateString('fr-FR')}
       // Obtenir l'URL du dashboard selon l'environnement (Longuenesse ou Arras)
       const dashboardUrl = this.getEmployeeDashboardUrl();
       
+      console.log('📧 sendAdvanceApproved - URLs:', {
+        corsOrigin: process.env.CORS_ORIGIN,
+        dashboardUrl: dashboardUrl,
+        templateName: template.name,
+        templateHtmlContainsDashboardUrl: template.htmlContent.includes('{{dashboard_url}}'),
+        templateHtmlContainsPlan: template.htmlContent.includes('/plan/'),
+        templateHtmlContainsLon: template.htmlContent.includes('/lon/')
+      });
+      
       // Remplacer les variables dans le template
-      const htmlContent = this.replaceTemplateVariables(template.htmlContent, {
+      let htmlContent = this.replaceTemplateVariables(template.htmlContent, {
         to_name: employeeName,
         amount: amount,
         deduction_month: deductionMonth,
@@ -2773,13 +2805,37 @@ Date : ${new Date().toLocaleDateString('fr-FR')}
         dashboard_url: dashboardUrl
       });
 
-      const textContent = this.replaceTemplateVariables(template.textContent, {
+      // Vérifier si le template contient encore des URLs hardcodées /plan/ et les remplacer
+      if (htmlContent.includes('/plan/employee-dashboard.html') || htmlContent.includes('/plan/advance-requests')) {
+        console.log('⚠️ ATTENTION: Le template contient encore des URLs /plan/ - Remplacement forcé');
+        htmlContent = htmlContent.replace(/https:\/\/www\.filmara\.fr\/plan\//g, 'https://www.filmara.fr/lon/');
+        htmlContent = htmlContent.replace(/\/plan\/employee-dashboard\.html/g, '/lon/employee-dashboard.html');
+        htmlContent = htmlContent.replace(/\/plan\/advance-requests/g, '/lon/advance-requests');
+      }
+
+      let textContent = this.replaceTemplateVariables(template.textContent, {
         to_name: employeeName,
         amount: amount,
         deduction_month: deductionMonth,
         manager_comment: managerComment || 'Aucun commentaire',
         approval_date: new Date().toLocaleDateString('fr-FR'),
         dashboard_url: dashboardUrl
+      });
+      
+      // Vérifier si le textContent contient encore des URLs hardcodées /plan/ et les remplacer
+      if (textContent.includes('/plan/employee-dashboard.html') || textContent.includes('/plan/advance-requests')) {
+        console.log('⚠️ ATTENTION: Le textContent contient encore des URLs /plan/ - Remplacement forcé');
+        textContent = textContent.replace(/https:\/\/www\.filmara\.fr\/plan\//g, 'https://www.filmara.fr/lon/');
+        textContent = textContent.replace(/\/plan\/employee-dashboard\.html/g, '/lon/employee-dashboard.html');
+        textContent = textContent.replace(/\/plan\/advance-requests/g, '/lon/advance-requests');
+      }
+      
+      console.log('✅ sendAdvanceApproved - Contenu final:', {
+        htmlContainsPlan: htmlContent.includes('/plan/'),
+        htmlContainsLon: htmlContent.includes('/lon/'),
+        textContainsPlan: textContent.includes('/plan/'),
+        textContainsLon: textContent.includes('/lon/'),
+        dashboardUrlInHtml: htmlContent.includes(dashboardUrl)
       });
       
       return await this.sendEmail(
