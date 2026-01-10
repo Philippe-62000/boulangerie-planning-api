@@ -29,10 +29,11 @@ echo RewriteCond %%{REQUEST_FILENAME} !-f >> deploy-frontend-lon\.htaccess
 echo RewriteCond %%{REQUEST_FILENAME} !-d >> deploy-frontend-lon\.htaccess
 echo RewriteRule . /lon/index.html [L] >> deploy-frontend-lon\.htaccess
 
-echo    - Remplacement des URLs API dans les fichiers HTML...
-powershell -Command "$files = Get-ChildItem 'deploy-frontend-lon' -Filter '*.html' -Recurse; foreach($file in $files) { $content = Get-Content $file.FullName -Raw; $content = $content -replace 'boulangerie-planning-api-4-pbfy', 'boulangerie-planning-api-3'; Set-Content $file.FullName -Value $content -NoNewline }"
+echo    - Remplacement des URLs API et chemins /plan/ vers /lon/ dans les fichiers HTML...
+echo    (Remplacement de api-4-pbfy vers api-3 et /plan/ vers /lon/)
+powershell -Command "$files = Get-ChildItem 'deploy-frontend-lon' -Filter '*.html' -Recurse; foreach($file in $files) { $content = Get-Content $file.FullName -Raw -Encoding UTF8; $content = $content -replace 'boulangerie-planning-api-4-pbfy', 'boulangerie-planning-api-3'; $content = $content -replace '/plan/salarie-connexion.html', '/lon/salarie-connexion.html'; $content = $content -replace '/plan/employee-dashboard.html', '/lon/employee-dashboard.html'; $content = $content -replace '/plan/sick-leave', '/lon/sick-leave'; $content = $content -replace '/plan/vacation-request', '/lon/vacation-request'; $content = $content -replace '/plan/manifest.json', '/lon/manifest.json'; $content = $content -replace 'https://www.filmara.fr/plan/', 'https://www.filmara.fr/lon/'; $content = $content -replace 'href=\"/plan/', 'href=\"/lon/'; $content = $content -replace 'location.href = ''/plan/', 'location.href = ''/lon/'; Set-Content $file.FullName -Value $content -NoNewline -Encoding UTF8 }"
 if %errorlevel% equ 0 (
-    echo ✅ URLs API remplacées dans les fichiers HTML
+    echo ✅ URLs API et chemins remplacés dans les fichiers HTML
 ) else (
     echo ⚠️ Remplacement PowerShell échoué, vérifiez manuellement les fichiers HTML
 )
