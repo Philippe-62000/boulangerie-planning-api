@@ -1990,18 +1990,7 @@ Ce message a été généré automatiquement.
         userId: emailjsConfig.userId ? emailjsConfig.userId.substring(0, 5) + '...' : 'non défini'
       });
       
-      // Vérifier une dernière fois que employeeEmail est bien défini avant l'envoi
-      const finalEmployeeEmail = employeeEmail;
-      if (!finalEmployeeEmail) {
-        console.error('❌ employeeEmail est undefined juste avant l\'envoi !', {
-          employeeName,
-          employeeEmail,
-          password: password ? '***' : 'undefined',
-          loginUrl
-        });
-        throw new Error('employeeEmail est undefined - impossible d\'envoyer l\'email');
-      }
-      
+      // finalEmployeeEmail a déjà été vérifié et nettoyé plus haut (ligne 1933)
       // Vérifier le contenu HTML avant l'envoi
       const htmlContainsUndefined = htmlContent?.includes('undefined') || false;
       const htmlContainsEmployeeEmail = htmlContent?.includes(finalEmployeeEmail) || false;
