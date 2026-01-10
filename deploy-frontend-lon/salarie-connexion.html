@@ -457,7 +457,7 @@
                     
                     // Rediriger vers le dashboard après 1.5 secondes
                     setTimeout(() => {
-                        window.location.href = '/plan/employee-dashboard.html';
+                        window.location.href = '/lon/employee-dashboard.html';
                     }, 1500);
                     
                     return true; // Succès
@@ -618,7 +618,7 @@
                 // Seulement rediriger si le token est explicitement valide
                 if (data.success && data.employee) {
                     // Token valide, rediriger vers le dashboard
-                    window.location.href = '/plan/employee-dashboard.html';
+                    window.location.href = '/lon/employee-dashboard.html';
                 } else {
                     // Token invalide, nettoyer et rester sur la page de connexion
                     localStorage.removeItem('employeeToken');
