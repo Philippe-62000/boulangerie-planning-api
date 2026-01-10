@@ -32,10 +32,20 @@ class EmailServiceAlternative {
   // Fonction utilitaire pour obtenir l'URL du dashboard selon l'environnement
   getEmployeeDashboardUrl() {
     // Détecter si on est sur Longuenesse (/lon) ou Arras (/plan)
-    const isLonguenesse = process.env.CORS_ORIGIN && process.env.CORS_ORIGIN.includes('/lon');
-    return isLonguenesse 
+    const corsOrigin = process.env.CORS_ORIGIN || '';
+    const isLonguenesse = corsOrigin.includes('/lon');
+    
+    const dashboardUrl = isLonguenesse 
       ? 'https://www.filmara.fr/lon/employee-dashboard.html'
       : 'https://www.filmara.fr/plan/employee-dashboard.html';
+    
+    console.log('🔍 getEmployeeDashboardUrl:', {
+      corsOrigin: corsOrigin,
+      isLonguenesse: isLonguenesse,
+      dashboardUrl: dashboardUrl
+    });
+    
+    return dashboardUrl;
   }
 
   // Fonction utilitaire pour obtenir l'URL de connexion selon l'environnement
@@ -50,9 +60,19 @@ class EmailServiceAlternative {
   // Fonction utilitaire pour obtenir l'URL admin selon l'environnement
   getAdminUrl(path = '') {
     // Détecter si on est sur Longuenesse (/lon) ou Arras (/plan)
-    const isLonguenesse = process.env.CORS_ORIGIN && process.env.CORS_ORIGIN.includes('/lon');
+    const corsOrigin = process.env.CORS_ORIGIN || '';
+    const isLonguenesse = corsOrigin.includes('/lon');
     const basePath = isLonguenesse ? '/lon' : '/plan';
-    return path ? `https://www.filmara.fr${basePath}${path}` : `https://www.filmara.fr${basePath}`;
+    const adminUrl = path ? `https://www.filmara.fr${basePath}${path}` : `https://www.filmara.fr${basePath}`;
+    
+    console.log('🔍 getAdminUrl:', {
+      corsOrigin: corsOrigin,
+      isLonguenesse: isLonguenesse,
+      path: path,
+      adminUrl: adminUrl
+    });
+    
+    return adminUrl;
   }
 
   // Vérifier la connexion (simulation)
@@ -2577,21 +2597,53 @@ Date : ${new Date().toLocaleDateString('fr-FR')}
       // Obtenir l'URL du dashboard selon l'environnement (Longuenesse ou Arras)
       const dashboardUrl = this.getEmployeeDashboardUrl();
       
+      console.log('📧 sendAdvanceRequestConfirmation - URLs:', {
+        corsOrigin: process.env.CORS_ORIGIN,
+        dashboardUrl: dashboardUrl,
+        templateName: template.name,
+        templateHtmlContainsDashboardUrl: template.htmlContent.includes('{{dashboard_url}}'),
+        templateHtmlContainsPlan: template.htmlContent.includes('/plan/'),
+        templateHtmlContainsLon: template.htmlContent.includes('/lon/')
+      });
+      
       // Remplacer les variables dans le template
-      const htmlContent = this.replaceTemplateVariables(template.htmlContent, {
+      let htmlContent = this.replaceTemplateVariables(template.htmlContent, {
         to_name: employeeName,
         amount: amount,
         deduction_month: deductionMonth,
         request_date: new Date().toLocaleDateString('fr-FR'),
         dashboard_url: dashboardUrl
       });
+      
+      // Vérifier si le template contient encore des URLs hardcodées /plan/ et les remplacer
+      if (htmlContent.includes('/plan/employee-dashboard.html') || htmlContent.includes('/plan/advance-requests')) {
+        console.log('⚠️ ATTENTION: Le template contient encore des URLs /plan/ - Remplacement forcé');
+        htmlContent = htmlContent.replace(/https:\/\/www\.filmara\.fr\/plan\//g, 'https://www.filmara.fr/lon/');
+        htmlContent = htmlContent.replace(/\/plan\/employee-dashboard\.html/g, '/lon/employee-dashboard.html');
+        htmlContent = htmlContent.replace(/\/plan\/advance-requests/g, '/lon/advance-requests');
+      }
 
-      const textContent = this.replaceTemplateVariables(template.textContent, {
+      let textContent = this.replaceTemplateVariables(template.textContent, {
         to_name: employeeName,
         amount: amount,
         deduction_month: deductionMonth,
         request_date: new Date().toLocaleDateString('fr-FR'),
         dashboard_url: dashboardUrl
+      });
+      
+      // Vérifier si le textContent contient encore des URLs hardcodées /plan/ et les remplacer
+      if (textContent.includes('/plan/employee-dashboard.html') || textContent.includes('/plan/advance-requests')) {
+        console.log('⚠️ ATTENTION: Le textContent contient encore des URLs /plan/ - Remplacement forcé');
+        textContent = textContent.replace(/https:\/\/www\.filmara\.fr\/plan\//g, 'https://www.filmara.fr/lon/');
+        textContent = textContent.replace(/\/plan\/employee-dashboard\.html/g, '/lon/employee-dashboard.html');
+        textContent = textContent.replace(/\/plan\/advance-requests/g, '/lon/advance-requests');
+      }
+      
+      console.log('✅ sendAdvanceRequestConfirmation - Contenu final:', {
+        htmlContainsPlan: htmlContent.includes('/plan/'),
+        htmlContainsLon: htmlContent.includes('/lon/'),
+        textContainsPlan: textContent.includes('/plan/'),
+        textContainsLon: textContent.includes('/lon/')
       });
       
       return await this.sendEmail(
@@ -2626,8 +2678,17 @@ Date : ${new Date().toLocaleDateString('fr-FR')}
       // Obtenir l'URL admin selon l'environnement (Longuenesse ou Arras)
       const adminUrl = this.getAdminUrl('/advance-requests');
       
+      console.log('📧 sendAdvanceRequestNotification - URLs:', {
+        corsOrigin: process.env.CORS_ORIGIN,
+        adminUrl: adminUrl,
+        templateName: template.name,
+        templateHtmlContainsAdminUrl: template.htmlContent.includes('{{admin_url}}'),
+        templateHtmlContainsPlan: template.htmlContent.includes('/plan/'),
+        templateHtmlContainsLon: template.htmlContent.includes('/lon/')
+      });
+      
       // Remplacer les variables dans le template
-      const htmlContent = this.replaceTemplateVariables(template.htmlContent, {
+      let htmlContent = this.replaceTemplateVariables(template.htmlContent, {
         to_name: managerName,
         employee_name: employeeName,
         amount: amount,
@@ -2636,8 +2697,16 @@ Date : ${new Date().toLocaleDateString('fr-FR')}
         request_date: new Date().toLocaleDateString('fr-FR'),
         admin_url: adminUrl
       });
+      
+      // Vérifier si le template contient encore des URLs hardcodées /plan/ et les remplacer
+      if (htmlContent.includes('/plan/employee-dashboard.html') || htmlContent.includes('/plan/advance-requests')) {
+        console.log('⚠️ ATTENTION: Le template contient encore des URLs /plan/ - Remplacement forcé');
+        htmlContent = htmlContent.replace(/https:\/\/www\.filmara\.fr\/plan\//g, 'https://www.filmara.fr/lon/');
+        htmlContent = htmlContent.replace(/\/plan\/employee-dashboard\.html/g, '/lon/employee-dashboard.html');
+        htmlContent = htmlContent.replace(/\/plan\/advance-requests/g, '/lon/advance-requests');
+      }
 
-      const textContent = this.replaceTemplateVariables(template.textContent, {
+      let textContent = this.replaceTemplateVariables(template.textContent, {
         to_name: managerName,
         employee_name: employeeName,
         amount: amount,
@@ -2645,6 +2714,21 @@ Date : ${new Date().toLocaleDateString('fr-FR')}
         comment: comment || 'Aucun commentaire',
         request_date: new Date().toLocaleDateString('fr-FR'),
         admin_url: adminUrl
+      });
+      
+      // Vérifier si le textContent contient encore des URLs hardcodées /plan/ et les remplacer
+      if (textContent.includes('/plan/employee-dashboard.html') || textContent.includes('/plan/advance-requests')) {
+        console.log('⚠️ ATTENTION: Le textContent contient encore des URLs /plan/ - Remplacement forcé');
+        textContent = textContent.replace(/https:\/\/www\.filmara\.fr\/plan\//g, 'https://www.filmara.fr/lon/');
+        textContent = textContent.replace(/\/plan\/employee-dashboard\.html/g, '/lon/employee-dashboard.html');
+        textContent = textContent.replace(/\/plan\/advance-requests/g, '/lon/advance-requests');
+      }
+      
+      console.log('✅ sendAdvanceRequestNotification - Contenu final:', {
+        htmlContainsPlan: htmlContent.includes('/plan/'),
+        htmlContainsLon: htmlContent.includes('/lon/'),
+        textContainsPlan: textContent.includes('/plan/'),
+        textContainsLon: textContent.includes('/lon/')
       });
       
       return await this.sendEmail(
