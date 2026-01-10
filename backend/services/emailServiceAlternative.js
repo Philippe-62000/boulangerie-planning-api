@@ -29,6 +29,32 @@ class EmailServiceAlternative {
     }
   }
 
+  // Fonction utilitaire pour obtenir l'URL du dashboard selon l'environnement
+  getEmployeeDashboardUrl() {
+    // Détecter si on est sur Longuenesse (/lon) ou Arras (/plan)
+    const isLonguenesse = process.env.CORS_ORIGIN && process.env.CORS_ORIGIN.includes('/lon');
+    return isLonguenesse 
+      ? 'https://www.filmara.fr/lon/employee-dashboard.html'
+      : 'https://www.filmara.fr/plan/employee-dashboard.html';
+  }
+
+  // Fonction utilitaire pour obtenir l'URL de connexion selon l'environnement
+  getSalarieConnexionUrl() {
+    // Détecter si on est sur Longuenesse (/lon) ou Arras (/plan)
+    const isLonguenesse = process.env.CORS_ORIGIN && process.env.CORS_ORIGIN.includes('/lon');
+    return isLonguenesse 
+      ? 'https://www.filmara.fr/lon/salarie-connexion.html'
+      : 'https://www.filmara.fr/plan/salarie-connexion.html';
+  }
+
+  // Fonction utilitaire pour obtenir l'URL admin selon l'environnement
+  getAdminUrl(path = '') {
+    // Détecter si on est sur Longuenesse (/lon) ou Arras (/plan)
+    const isLonguenesse = process.env.CORS_ORIGIN && process.env.CORS_ORIGIN.includes('/lon');
+    const basePath = isLonguenesse ? '/lon' : '/plan';
+    return path ? `https://www.filmara.fr${basePath}${path}` : `https://www.filmara.fr${basePath}`;
+  }
+
   // Vérifier la connexion (simulation)
   async verifyConnection() {
     if (!this.isConfigured) {
@@ -2371,6 +2397,9 @@ Date : ${new Date().toLocaleDateString('fr-FR')}
 
     const categoryLabel = categoryLabels[documentCategory] || documentCategory;
     
+    // Obtenir l'URL du dashboard selon l'environnement (Longuenesse ou Arras)
+    const dashboardUrl = this.getEmployeeDashboardUrl();
+    
     const htmlContent = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
         <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; text-align: center; border-radius: 10px 10px 0 0;">
@@ -2392,7 +2421,7 @@ Date : ${new Date().toLocaleDateString('fr-FR')}
           </div>
           
           <div style="text-align: center; margin: 30px 0;">
-            <a href="https://www.filmara.fr/plan/employee-dashboard.html" 
+            <a href="${dashboardUrl}" 
                style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 12px 30px; text-decoration: none; border-radius: 25px; font-weight: bold; display: inline-block;">
               🔗 Accéder à mon espace personnel
             </a>
@@ -2424,7 +2453,7 @@ Date : ${new Date().toLocaleDateString('fr-FR')}
       
       Vous pouvez télécharger ce document depuis votre tableau de bord personnel.
       
-      Lien: https://www.filmara.fr/plan/employee-dashboard.html
+      Lien: ${dashboardUrl}
       
       ---
       Boulangerie Ange - Arras
@@ -2450,6 +2479,9 @@ Date : ${new Date().toLocaleDateString('fr-FR')}
 
     const categoryLabel = categoryLabels[documentCategory] || documentCategory;
     
+    // Obtenir l'URL du dashboard selon l'environnement (Longuenesse ou Arras)
+    const dashboardUrl = this.getEmployeeDashboardUrl();
+    
     const htmlContent = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
         <div style="background: linear-gradient(135deg, #28a745 0%, #20c997 100%); color: white; padding: 20px; text-align: center; border-radius: 10px 10px 0 0;">
@@ -2472,7 +2504,7 @@ Date : ${new Date().toLocaleDateString('fr-FR')}
           </div>
           
           <div style="text-align: center; margin: 30px 0;">
-            <a href="https://www.filmara.fr/plan/employee-dashboard.html" 
+            <a href="${dashboardUrl}" 
                style="background: linear-gradient(135deg, #28a745 0%, #20c997 100%); color: white; padding: 12px 30px; text-decoration: none; border-radius: 25px; font-weight: bold; display: inline-block;">
               🔗 Accéder à mon espace personnel
             </a>
@@ -2505,7 +2537,7 @@ Date : ${new Date().toLocaleDateString('fr-FR')}
       
       Vous pouvez télécharger ce document depuis votre tableau de bord personnel.
       
-      Lien: https://www.filmara.fr/plan/employee-dashboard.html
+      Lien: ${dashboardUrl}
       
       ---
       Boulangerie Ange - Arras
@@ -2542,13 +2574,16 @@ Date : ${new Date().toLocaleDateString('fr-FR')}
         );
       }
 
+      // Obtenir l'URL du dashboard selon l'environnement (Longuenesse ou Arras)
+      const dashboardUrl = this.getEmployeeDashboardUrl();
+      
       // Remplacer les variables dans le template
       const htmlContent = this.replaceTemplateVariables(template.htmlContent, {
         to_name: employeeName,
         amount: amount,
         deduction_month: deductionMonth,
         request_date: new Date().toLocaleDateString('fr-FR'),
-        dashboard_url: 'https://www.filmara.fr/plan/employee-dashboard.html'
+        dashboard_url: dashboardUrl
       });
 
       const textContent = this.replaceTemplateVariables(template.textContent, {
@@ -2556,7 +2591,7 @@ Date : ${new Date().toLocaleDateString('fr-FR')}
         amount: amount,
         deduction_month: deductionMonth,
         request_date: new Date().toLocaleDateString('fr-FR'),
-        dashboard_url: 'https://www.filmara.fr/plan/employee-dashboard.html'
+        dashboard_url: dashboardUrl
       });
       
       return await this.sendEmail(
@@ -2588,6 +2623,9 @@ Date : ${new Date().toLocaleDateString('fr-FR')}
         );
       }
 
+      // Obtenir l'URL admin selon l'environnement (Longuenesse ou Arras)
+      const adminUrl = this.getAdminUrl('/advance-requests');
+      
       // Remplacer les variables dans le template
       const htmlContent = this.replaceTemplateVariables(template.htmlContent, {
         to_name: managerName,
@@ -2596,7 +2634,7 @@ Date : ${new Date().toLocaleDateString('fr-FR')}
         deduction_month: deductionMonth,
         comment: comment || 'Aucun commentaire',
         request_date: new Date().toLocaleDateString('fr-FR'),
-        admin_url: 'https://www.filmara.fr/plan/advance-requests'
+        admin_url: adminUrl
       });
 
       const textContent = this.replaceTemplateVariables(template.textContent, {
@@ -2606,7 +2644,7 @@ Date : ${new Date().toLocaleDateString('fr-FR')}
         deduction_month: deductionMonth,
         comment: comment || 'Aucun commentaire',
         request_date: new Date().toLocaleDateString('fr-FR'),
-        admin_url: 'https://www.filmara.fr/plan/advance-requests'
+        admin_url: adminUrl
       });
       
       return await this.sendEmail(
@@ -2638,6 +2676,9 @@ Date : ${new Date().toLocaleDateString('fr-FR')}
         );
       }
 
+      // Obtenir l'URL du dashboard selon l'environnement (Longuenesse ou Arras)
+      const dashboardUrl = this.getEmployeeDashboardUrl();
+      
       // Remplacer les variables dans le template
       const htmlContent = this.replaceTemplateVariables(template.htmlContent, {
         to_name: employeeName,
@@ -2645,7 +2686,7 @@ Date : ${new Date().toLocaleDateString('fr-FR')}
         deduction_month: deductionMonth,
         manager_comment: managerComment || 'Aucun commentaire',
         approval_date: new Date().toLocaleDateString('fr-FR'),
-        dashboard_url: 'https://www.filmara.fr/plan/employee-dashboard.html'
+        dashboard_url: dashboardUrl
       });
 
       const textContent = this.replaceTemplateVariables(template.textContent, {
@@ -2654,7 +2695,7 @@ Date : ${new Date().toLocaleDateString('fr-FR')}
         deduction_month: deductionMonth,
         manager_comment: managerComment || 'Aucun commentaire',
         approval_date: new Date().toLocaleDateString('fr-FR'),
-        dashboard_url: 'https://www.filmara.fr/plan/employee-dashboard.html'
+        dashboard_url: dashboardUrl
       });
       
       return await this.sendEmail(
@@ -2686,6 +2727,9 @@ Date : ${new Date().toLocaleDateString('fr-FR')}
         );
       }
 
+      // Obtenir l'URL du dashboard selon l'environnement (Longuenesse ou Arras)
+      const dashboardUrl = this.getEmployeeDashboardUrl();
+      
       // Remplacer les variables dans le template
       const htmlContent = this.replaceTemplateVariables(template.htmlContent, {
         to_name: employeeName,
@@ -2693,7 +2737,7 @@ Date : ${new Date().toLocaleDateString('fr-FR')}
         deduction_month: deductionMonth,
         manager_comment: managerComment || 'Aucun commentaire',
         rejection_date: new Date().toLocaleDateString('fr-FR'),
-        dashboard_url: 'https://www.filmara.fr/plan/employee-dashboard.html'
+        dashboard_url: dashboardUrl
       });
 
       const textContent = this.replaceTemplateVariables(template.textContent, {
@@ -2702,7 +2746,7 @@ Date : ${new Date().toLocaleDateString('fr-FR')}
         deduction_month: deductionMonth,
         manager_comment: managerComment || 'Aucun commentaire',
         rejection_date: new Date().toLocaleDateString('fr-FR'),
-        dashboard_url: 'https://www.filmara.fr/plan/employee-dashboard.html'
+        dashboard_url: dashboardUrl
       });
       
       return await this.sendEmail(
@@ -2889,13 +2933,16 @@ Date : ${new Date().toLocaleDateString('fr-FR')}
       const EmailTemplate = require('../models/EmailTemplate');
       const template = await EmailTemplate.findOne({ name: 'mutuelle_reminder' });
       
+      // Obtenir l'URL du dashboard selon l'environnement (Longuenesse ou Arras)
+      const dashboardUrl = this.getEmployeeDashboardUrl();
+      
       if (!template) {
         const expirationDate = mutuelle.expirationDate ? new Date(mutuelle.expirationDate).toLocaleDateString('fr-FR') : 'bientôt';
         return await this.sendEmail(
           mutuelle.employeeEmail,
           `Rappel - Mise à jour de votre justificatif mutuelle`,
-          `<p>Bonjour ${mutuelle.employeeName},<br><br>Votre justificatif de mutuelle personnelle expire le ${expirationDate}.<br>Merci de déposer un nouveau justificatif à jour sur <a href="https://www.filmara.fr/plan/employee-dashboard.html">votre espace salarié</a>.<br><br>Cordialement</p>`,
-          `Bonjour ${mutuelle.employeeName},\n\nVotre justificatif de mutuelle personnelle expire le ${expirationDate}.\nMerci de déposer un nouveau justificatif à jour sur https://www.filmara.fr/plan/employee-dashboard.html\n\nCordialement`
+          `<p>Bonjour ${mutuelle.employeeName},<br><br>Votre justificatif de mutuelle personnelle expire le ${expirationDate}.<br>Merci de déposer un nouveau justificatif à jour sur <a href="${dashboardUrl}">votre espace salarié</a>.<br><br>Cordialement</p>`,
+          `Bonjour ${mutuelle.employeeName},\n\nVotre justificatif de mutuelle personnelle expire le ${expirationDate}.\nMerci de déposer un nouveau justificatif à jour sur ${dashboardUrl}\n\nCordialement`
         );
       }
 
@@ -2903,13 +2950,13 @@ Date : ${new Date().toLocaleDateString('fr-FR')}
       const htmlContent = this.replaceTemplateVariables(template.htmlContent, {
         employeeName: mutuelle.employeeName,
         expirationDate: expirationDate,
-        dashboardUrl: 'https://www.filmara.fr/plan/employee-dashboard.html'
+        dashboardUrl: dashboardUrl
       });
 
       const textContent = this.replaceTemplateVariables(template.textContent, {
         employeeName: mutuelle.employeeName,
         expirationDate: expirationDate,
-        dashboardUrl: 'https://www.filmara.fr/plan/employee-dashboard.html'
+        dashboardUrl: dashboardUrl
       });
       
       return await this.sendEmail(
