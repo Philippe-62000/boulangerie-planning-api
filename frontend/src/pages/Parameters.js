@@ -945,12 +945,23 @@ const Parameters = () => {
                         onChange={(e) => {
                           const param = parameters.find(p => p.name === 'storeEmail');
                           if (param) {
+                            // Le paramètre existe, mettre à jour normalement
                             const updatedParams = parameters.map(p => 
                               p.name === 'storeEmail' 
                                 ? { ...p, stringValue: e.target.value }
                                 : p
                             );
                             setParameters(updatedParams);
+                          } else {
+                            // Le paramètre n'existe pas encore, le créer temporairement
+                            const newParam = {
+                              name: 'storeEmail',
+                              displayName: 'Email du Magasin',
+                              stringValue: e.target.value,
+                              kmValue: -1,
+                              _id: `temp-${Date.now()}` // ID temporaire pour l'UI
+                            };
+                            setParameters([...parameters, newParam]);
                           }
                         }}
                         className="email-input"
@@ -970,12 +981,23 @@ const Parameters = () => {
                         onChange={(e) => {
                           const param = parameters.find(p => p.name === 'adminEmail');
                           if (param) {
+                            // Le paramètre existe, mettre à jour normalement
                             const updatedParams = parameters.map(p => 
                               p.name === 'adminEmail' 
                                 ? { ...p, stringValue: e.target.value }
                                 : p
                             );
                             setParameters(updatedParams);
+                          } else {
+                            // Le paramètre n'existe pas encore, le créer temporairement
+                            const newParam = {
+                              name: 'adminEmail',
+                              displayName: 'Email de l\'Administrateur',
+                              stringValue: e.target.value,
+                              kmValue: -1,
+                              _id: `temp-${Date.now()}` // ID temporaire pour l'UI
+                            };
+                            setParameters([...parameters, newParam]);
                           }
                         }}
                         className="email-input"
@@ -1024,34 +1046,108 @@ const Parameters = () => {
                       className="btn btn-primary"
                       onClick={async () => {
                         try {
-                          // Sauvegarder seulement les paramètres d'alerte
-                          const alertParams = parameters.filter(p => 
-                            ['storeEmail', 'adminEmail', 'alertStore', 'alertAdmin'].includes(p.name)
-                          );
+                          setSaving(true);
                           
-                          if (alertParams.length === 0) {
-                            toast.error('Aucun paramètre d\'alerte trouvé');
+                          // Récupérer les paramètres depuis le serveur (cela créera les paramètres manquants automatiquement)
+                          const response = await api.get('/parameters');
+                          let serverParams = response.data;
+                          
+                          // Récupérer les valeurs modifiées dans l'interface
+                          const localStoreEmail = parameters.find(p => p.name === 'storeEmail')?.stringValue;
+                          const localAdminEmail = parameters.find(p => p.name === 'adminEmail')?.stringValue;
+                          const localAlertStore = parameters.find(p => p.name === 'alertStore')?.booleanValue;
+                          const localAlertAdmin = parameters.find(p => p.name === 'alertAdmin')?.booleanValue;
+                          
+                          // Construire les données à sauvegarder
+                          const paramsToSave = [];
+                          
+                          // Fonction helper pour obtenir ou créer un paramètre
+                          const getOrCreateParam = (name, defaultValue) => {
+                            let param = serverParams.find(p => p.name === name);
+                            if (!param) {
+                              // Le paramètre n'existe pas encore, il sera créé par le backend lors du GET
+                              // On doit recharger pour obtenir les nouveaux paramètres
+                              return null;
+                            }
+                            return param;
+                          };
+                          
+                          // Vérifier si tous les paramètres existent, sinon recharger
+                          const storeEmailParam = getOrCreateParam('storeEmail', '');
+                          const adminEmailParam = getOrCreateParam('adminEmail', '');
+                          const alertStoreParam = getOrCreateParam('alertStore', false);
+                          const alertAdminParam = getOrCreateParam('alertAdmin', false);
+                          
+                          // Si un paramètre manque, recharger pour le créer
+                          if (!storeEmailParam || !adminEmailParam || !alertStoreParam || !alertAdminParam) {
+                            const refreshResponse = await api.get('/parameters');
+                            serverParams = refreshResponse.data;
+                          }
+                          
+                          // Construire les paramètres à sauvegarder avec les valeurs locales
+                          const finalStoreEmail = serverParams.find(p => p.name === 'storeEmail');
+                          const finalAdminEmail = serverParams.find(p => p.name === 'adminEmail');
+                          const finalAlertStore = serverParams.find(p => p.name === 'alertStore');
+                          const finalAlertAdmin = serverParams.find(p => p.name === 'alertAdmin');
+                          
+                          if (finalStoreEmail) {
+                            paramsToSave.push({
+                              _id: finalStoreEmail._id,
+                              displayName: 'Email du Magasin',
+                              stringValue: localStoreEmail !== undefined ? localStoreEmail : (finalStoreEmail.stringValue || ''),
+                              kmValue: -1
+                            });
+                          }
+                          
+                          if (finalAdminEmail) {
+                            paramsToSave.push({
+                              _id: finalAdminEmail._id,
+                              displayName: 'Email de l\'Administrateur',
+                              stringValue: localAdminEmail !== undefined ? localAdminEmail : (finalAdminEmail.stringValue || ''),
+                              kmValue: -1
+                            });
+                          }
+                          
+                          if (finalAlertStore) {
+                            paramsToSave.push({
+                              _id: finalAlertStore._id,
+                              displayName: 'Alerte au Magasin',
+                              booleanValue: localAlertStore !== undefined ? localAlertStore : (finalAlertStore.booleanValue ?? false),
+                              kmValue: -1
+                            });
+                          }
+                          
+                          if (finalAlertAdmin) {
+                            paramsToSave.push({
+                              _id: finalAlertAdmin._id,
+                              displayName: 'Alerte à l\'Administrateur',
+                              booleanValue: localAlertAdmin !== undefined ? localAlertAdmin : (finalAlertAdmin.booleanValue ?? false),
+                              kmValue: -1
+                            });
+                          }
+                          
+                          if (paramsToSave.length === 0) {
+                            toast.error('Aucun paramètre à sauvegarder');
                             return;
                           }
                           
-                          const alertData = alertParams.map(param => ({
-                            _id: param._id,
-                            displayName: param.displayName,
-                            stringValue: param.stringValue,
-                            booleanValue: param.booleanValue,
-                            kmValue: param.kmValue
-                          }));
+                          console.log('📤 Sauvegarde des paramètres d\'alerte:', paramsToSave);
+                          await api.put('/parameters/batch', { parameters: paramsToSave });
                           
-                          console.log('📤 Sauvegarde des paramètres d\'alerte:', alertData);
-                          await api.put('/parameters/batch', { parameters: alertData });
+                          // Recharger les paramètres pour avoir les valeurs à jour
+                          await fetchParameters();
+                          
                           toast.success('Configuration des alertes sauvegardée');
                         } catch (error) {
                           console.error('❌ Erreur lors de la sauvegarde:', error);
-                          toast.error('Erreur lors de la sauvegarde des alertes');
+                          toast.error('Erreur lors de la sauvegarde des alertes: ' + (error.response?.data?.error || error.message));
+                        } finally {
+                          setSaving(false);
                         }
                       }}
+                      disabled={saving}
                     >
-                      💾 Sauvegarder la configuration des alertes
+                      {saving ? '💾 Sauvegarde...' : '💾 Sauvegarder la configuration des alertes'}
                     </button>
                   </div>
                 </div>
@@ -1156,102 +1252,107 @@ const Parameters = () => {
 
             {/* Section Configuration Email Comptable */}
             <div className="card">
-        <div className="card-header">
-          <h3>📧 Configuration Email Comptable</h3>
-          <p>Adresse email pour l'envoi automatique des arrêts maladie validés</p>
-        </div>
-        <div className="card-body">
-          <div className="accountant-email-section">
-            {parameters.find(p => p.name === 'accountantEmail') ? (
-              <div className="email-config">
-                <div className="email-input-group">
-                  <label htmlFor="accountantEmail">Email du comptable :</label>
-                  <input
-                    type="email"
-                    id="accountantEmail"
-                    value={parameters.find(p => p.name === 'accountantEmail')?.stringValue || ''}
-                    onChange={(e) => {
-                      const emailParam = parameters.find(p => p.name === 'accountantEmail');
-                      if (emailParam) {
-                        const updatedParams = parameters.map(p => 
-                          p.name === 'accountantEmail' 
-                            ? { ...p, stringValue: e.target.value }
-                            : p
-                        );
-                        setParameters(updatedParams);
-                      }
-                    }}
-                    className="email-input"
-                    placeholder="comptable@boulangerie.fr"
-                  />
-                </div>
-                <div className="email-info">
-                  <p>💡 <strong>Utilisation :</strong> Cette adresse sera utilisée pour envoyer automatiquement les arrêts maladie validés au comptable.</p>
-                  <p>🔒 <strong>Sécurité :</strong> Vous pouvez également configurer cette valeur via la variable d'environnement <code>ACCOUNTANT_EMAIL</code> dans Render.</p>
-                </div>
-                <div className="email-actions">
-                  <button
-                    className="btn btn-primary"
-                    onClick={async () => {
-                      try {
-                        console.log('🔍 Tous les paramètres:', parameters);
-                        const emailParam = parameters.find(p => p.name === 'accountantEmail');
-                        console.log('📧 Paramètre email comptable trouvé:', emailParam);
-                        
-                        if (emailParam) {
-                          console.log('📤 Envoi de la requête PUT avec:', {
-                            stringValue: emailParam.stringValue,
-                            _id: emailParam._id
-                          });
-                          
-                          const response = await api.put(`/parameters/${emailParam._id}`, {
-                            stringValue: emailParam.stringValue
-                          });
-                          
-                          console.log('✅ Réponse reçue:', response.data);
-                          toast.success('Email du comptable sauvegardé');
-                        } else {
-                          console.log('❌ Paramètre email comptable non trouvé');
-                          toast.error('Paramètre email comptable non trouvé');
-                        }
-                      } catch (error) {
-                        console.error('❌ Erreur lors de la sauvegarde:', error);
-                        console.error('❌ Détails:', error.response?.data);
-                        toast.error('Erreur lors de la sauvegarde de l\'email');
-                      }
-                    }}
-                  >
-                    💾 Sauvegarder l'email du comptable
-                  </button>
+              <div className="card-header">
+                <h3>📧 Configuration Email Comptable</h3>
+                <p>Adresse email pour l'envoi automatique des arrêts maladie validés</p>
+              </div>
+              <div className="card-body">
+                <div className="accountant-email-section">
+                  <div className="email-config">
+                    <div className="email-input-group">
+                      <label htmlFor="accountantEmail">📧 Email du comptable :</label>
+                      <input
+                        type="email"
+                        id="accountantEmail"
+                        value={parameters.find(p => p.name === 'accountantEmail')?.stringValue || ''}
+                        onChange={(e) => {
+                          const emailParam = parameters.find(p => p.name === 'accountantEmail');
+                          if (emailParam) {
+                            // Le paramètre existe, mettre à jour normalement
+                            const updatedParams = parameters.map(p => 
+                              p.name === 'accountantEmail' 
+                                ? { ...p, stringValue: e.target.value }
+                                : p
+                            );
+                            setParameters(updatedParams);
+                          } else {
+                            // Le paramètre n'existe pas encore, le créer temporairement
+                            const newParam = {
+                              name: 'accountantEmail',
+                              displayName: 'Email du Comptable',
+                              stringValue: e.target.value,
+                              kmValue: -1,
+                              _id: `temp-${Date.now()}` // ID temporaire pour l'UI
+                            };
+                            setParameters([...parameters, newParam]);
+                          }
+                        }}
+                        className="email-input"
+                        placeholder="comptable@boulangerie.fr"
+                      />
+                    </div>
+                    <div className="email-info">
+                      <p>💡 <strong>Utilisation :</strong> Cette adresse sera utilisée pour envoyer automatiquement les arrêts maladie validés au comptable.</p>
+                      <p>🔒 <strong>Sécurité :</strong> Vous pouvez également configurer cette valeur via la variable d'environnement <code>ACCOUNTANT_EMAIL</code> dans Render.</p>
+                    </div>
+                    <div className="email-actions">
+                      <button
+                        className="btn btn-primary"
+                        onClick={async () => {
+                          try {
+                            setSaving(true);
+                            
+                            // Récupérer les paramètres depuis le serveur (cela créera les paramètres manquants automatiquement)
+                            const response = await api.get('/parameters');
+                            let serverParams = response.data;
+                            
+                            // Récupérer la valeur modifiée dans l'interface
+                            const localAccountantEmail = parameters.find(p => p.name === 'accountantEmail')?.stringValue;
+                            
+                            // Vérifier si le paramètre existe
+                            let accountantParam = serverParams.find(p => p.name === 'accountantEmail');
+                            if (!accountantParam) {
+                              // Recharger pour que le backend crée le paramètre manquant
+                              const refreshResponse = await api.get('/parameters');
+                              serverParams = refreshResponse.data;
+                              accountantParam = serverParams.find(p => p.name === 'accountantEmail');
+                            }
+                            
+                            if (!accountantParam) {
+                              toast.error('Impossible de créer le paramètre email comptable');
+                              return;
+                            }
+                            
+                            const paramToSave = {
+                              _id: accountantParam._id,
+                              displayName: 'Email du Comptable',
+                              stringValue: localAccountantEmail !== undefined ? localAccountantEmail : (accountantParam.stringValue || ''),
+                              kmValue: -1
+                            };
+                            
+                            console.log('📤 Sauvegarde de l\'email comptable:', paramToSave);
+                            await api.put('/parameters/batch', { parameters: [paramToSave] });
+                            
+                            // Recharger les paramètres pour avoir les valeurs à jour
+                            await fetchParameters();
+                            
+                            toast.success('Email du comptable sauvegardé');
+                          } catch (error) {
+                            console.error('❌ Erreur lors de la sauvegarde:', error);
+                            toast.error('Erreur lors de la sauvegarde de l\'email: ' + (error.response?.data?.error || error.message));
+                          } finally {
+                            setSaving(false);
+                          }
+                        }}
+                        disabled={saving}
+                      >
+                        {saving ? '💾 Sauvegarde...' : '💾 Sauvegarder l\'email du comptable'}
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </div>
-            ) : (
-              <div className="no-email-param">
-                <p>⚠️ Le paramètre email comptable n'a pas encore été créé.</p>
-                <button
-                  className="btn btn-secondary"
-                  onClick={async () => {
-                    try {
-                      await api.post('/parameters', {
-                        name: 'accountantEmail',
-                        displayName: 'Email du Comptable',
-                        stringValue: 'comptable@boulangerie.fr',
-                        kmValue: 0
-                      });
-                      toast.success('Paramètre email comptable créé');
-                      fetchParameters();
-                    } catch (error) {
-                      toast.error('Erreur lors de la création du paramètre');
-                    }
-                  }}
-                >
-                  Créer le paramètre email comptable
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
+            </div>
 
 
       {/* Section Gestion des Messages Email */}

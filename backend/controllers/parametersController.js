@@ -94,9 +94,9 @@ const getParameters = async (req, res) => {
         missingParameters.push({
           name: requiredParam.name,
           displayName: requiredParam.displayName,
-          stringValue: requiredParam.stringValue,
-          booleanValue: requiredParam.booleanValue,
-          kmValue: 0
+          stringValue: requiredParam.stringValue !== undefined ? requiredParam.stringValue : '',
+          booleanValue: requiredParam.booleanValue !== undefined ? requiredParam.booleanValue : false,
+          kmValue: requiredParam.kmValue !== undefined ? requiredParam.kmValue : -1
         });
       }
     }

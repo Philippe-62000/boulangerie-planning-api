@@ -147,3 +147,12 @@ Si après le déploiement manuel les erreurs persistent :
 - **Render Dashboard** : https://dashboard.render.com
 - **Documentation Render** : https://render.com/docs
 - **Support Render** : Via le dashboard → Support
+
+
+
+
+
+
+
+
+

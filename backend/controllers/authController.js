@@ -52,21 +52,45 @@ const sendPasswordToEmployee = async (req, res) => {
     
     // Envoyer l'email avec le mot de passe
     try {
+      // Vérifier une dernière fois que employee.email est bien défini
+      const employeeEmailToSend = employee.email;
+      if (!employeeEmailToSend) {
+        console.error('❌ employee.email est undefined !', {
+          employeeId: employee._id,
+          employeeName: employee.name,
+          employeeEmail: employee.email,
+          employeeObject: JSON.stringify(employee, null, 2)
+        });
+        return res.status(400).json({
+          success: false,
+          error: 'Aucun email configuré pour cet employé. Veuillez configurer un email avant d\'envoyer le mot de passe.'
+        });
+      }
+      
+      console.log('📧 Envoi email avec les paramètres:', {
+        employeeName: employee.name || 'undefined',
+        employeeEmail: employeeEmailToSend || 'undefined',
+        hasPassword: !!newPassword,
+        loginUrl: process.env.CORS_ORIGIN && process.env.CORS_ORIGIN.includes('/lon') 
+          ? 'https://www.filmara.fr/lon/salarie-connexion.html'
+          : 'https://www.filmara.fr/plan/salarie-connexion.html'
+      });
+      
       await emailService.sendEmployeePassword({
-        employeeName: employee.name,
-        employeeEmail: employee.email,
+        employeeName: employee.name || 'Employé',
+        employeeEmail: employeeEmailToSend,
         password: newPassword,
         loginUrl: process.env.CORS_ORIGIN && process.env.CORS_ORIGIN.includes('/lon') 
           ? 'https://www.filmara.fr/lon/salarie-connexion.html'
           : 'https://www.filmara.fr/plan/salarie-connexion.html'
       });
       
-      console.log('✅ Email envoyé à:', employee.email);
+      console.log('✅ Email envoyé à:', employeeEmailToSend);
       
       res.json({
         success: true,
-        message: `Mot de passe envoyé à ${employee.email}`,
-        email: employee.email
+        message: `Mot de passe envoyé à ${employeeEmailToSend}`,
+        email: employeeEmailToSend
       });
       
     } catch (emailError) {

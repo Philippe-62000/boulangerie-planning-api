@@ -378,6 +378,92 @@ class EmailServiceAlternative {
     }
   }
 
+  // Envoyer via EmailJS avec paramètres supplémentaires (pour les templates qui utilisent des variables)
+  async sendViaEmailJSWithParams(to, subject, htmlContent, textContent, additionalParams = {}) {
+    try {
+      console.log('🔍 sendViaEmailJSWithParams - Paramètres reçus:', {
+        to: to,
+        subject: subject,
+        hasHtml: !!htmlContent,
+        hasText: !!textContent,
+        additionalParams: Object.keys(additionalParams)
+      });
+      
+      // Configuration EmailJS (à configurer)
+      const emailjsConfig = {
+        serviceId: process.env.EMAILJS_SERVICE_ID || 'service_default',
+        templateId: process.env.EMAILJS_TEMPLATE_ID || 'template_default',
+        userId: process.env.EMAILJS_USER_ID || 'user_default',
+        privateKey: process.env.EMAILJS_PRIVATE_KEY || 'jKt0•••••••••••••••••'
+      };
+
+      // Si EmailJS n'est pas configuré, passer au suivant
+      if (emailjsConfig.serviceId === 'service_default') {
+        throw new Error('EmailJS non configuré');
+      }
+
+      console.log('📧 Données EmailJS:', {
+        serviceId: emailjsConfig.serviceId,
+        templateId: emailjsConfig.templateId,
+        userId: emailjsConfig.userId ? emailjsConfig.userId.substring(0, 5) + '...' : 'non défini',
+        to: to,
+        subject: subject,
+        hasHtml: !!htmlContent,
+        hasText: !!textContent
+      });
+
+      // Appel à l'API EmailJS avec headers pour applications non-browser
+      // IMPORTANT: Le destinataire doit être dans template_params avec la clé utilisée dans le template
+      // EmailJS utilise généralement 'to_email', 'user_email', ou 'reply_to' selon la config du template
+      // Pour le HTML, le template doit utiliser {{html_message}} dans son contenu
+      const templateParams = {
+        to_email: to,  // Destinataire principal
+        user_email: to,  // Alternative (selon config template)
+        reply_to: to,  // Pour la réponse
+        subject: subject,
+        message: textContent,  // Version texte
+        html_message: htmlContent,  // Version HTML - le template doit utiliser {{html_message}}
+        html_content: htmlContent,  // Alternative
+        content: htmlContent,  // Alternative
+        from_name: process.env.STORE_NAME || 'Boulangerie Ange - Arras',
+        from_email: process.env.SMTP_USER || process.env.EMAIL_USER || 'noreply@boulangerie.fr',
+        // Ajouter tous les paramètres supplémentaires pour que le template EmailJS puisse les utiliser
+        ...additionalParams
+      };
+
+      const response = await fetch('https://api.emailjs.com/api/v1.0/email/send', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'User-Agent': 'Boulangerie-Planning-API/1.0',
+          'Origin': 'https://boulangerie-planning-api-4-pbfy.onrender.com'
+        },
+        body: JSON.stringify({
+          service_id: emailjsConfig.serviceId,
+          template_id: emailjsConfig.templateId,
+          user_id: emailjsConfig.userId,
+          accessToken: emailjsConfig.privateKey,
+          template_params: templateParams
+        })
+      });
+
+      if (response.ok) {
+        return {
+          success: true,
+          messageId: `emailjs_${Date.now()}`,
+          message: 'Email envoyé via EmailJS'
+        };
+      } else {
+        const errorText = await response.text();
+        console.error('❌ Erreur EmailJS:', response.status, errorText);
+        throw new Error(`EmailJS error: ${response.status} - ${errorText}`);
+      }
+    } catch (error) {
+      console.error('❌ Erreur sendViaEmailJSWithParams:', error);
+      throw error;
+    }
+  }
+
   // Envoyer via EmailJS (service gratuit)
   async sendViaEmailJS(to, subject, htmlContent, textContent) {
     try {
@@ -1808,7 +1894,18 @@ Ce message a été généré automatiquement.
   // Envoyer un mot de passe à un salarié
   async sendEmployeePassword({ employeeName, employeeEmail, password, loginUrl }) {
     try {
-      console.log('📧 Envoi mot de passe salarié à:', employeeEmail);
+      console.log('📧 Envoi mot de passe salarié:', {
+        employeeName: employeeName || 'undefined',
+        employeeEmail: employeeEmail || 'undefined',
+        hasPassword: !!password,
+        loginUrl: loginUrl || 'undefined'
+      });
+      
+      // Vérifier que employeeEmail n'est pas undefined
+      if (!employeeEmail) {
+        console.error('❌ employeeEmail est undefined !');
+        throw new Error('employeeEmail est requis mais est undefined');
+      }
       
       // 🎯 Récupérer le template depuis la base de données
       const EmailTemplate = require('../models/EmailTemplate');
@@ -1816,36 +1913,61 @@ Ce message a été généré automatiquement.
       
       let htmlContent, textContent;
       
-      if (template && template.htmlContent) {
-        console.log('✅ Utilisation du template de la base de données');
-        // Remplacer les variables dans le template
-        htmlContent = template.htmlContent
-          .replace(/{{employeeName}}/g, employeeName)
-          .replace(/{{employeeEmail}}/g, employeeEmail)
-          .replace(/{{password}}/g, password)
-          .replace(/{{loginUrl}}/g, loginUrl);
-        
-        textContent = template.textContent
-          .replace(/{{employeeName}}/g, employeeName)
-          .replace(/{{employeeEmail}}/g, employeeEmail)
-          .replace(/{{password}}/g, password)
-          .replace(/{{loginUrl}}/g, loginUrl);
-      } else {
-        console.log('⚠️ Template non trouvé, utilisation du template par défaut');
-        htmlContent = this.generateEmployeePasswordHTML({
-          employeeName,
-          employeeEmail,
-          password,
-          loginUrl
+      // 🎯 OPTION 1 : Forcer l'utilisation du template par défaut (recommandé)
+      // Ignorer le template MongoDB pour éviter les problèmes avec "undefined"
+      console.log('⚠️ Utilisation forcée du template par défaut (ignorant le template MongoDB pour éviter les problèmes)');
+      
+      // Vérifier que employeeEmail est bien défini
+      if (!employeeEmail) {
+        console.error('❌ employeeEmail est undefined ! Valeurs reçues:', {
+          employeeName: employeeName || 'undefined',
+          employeeEmail: employeeEmail || 'undefined',
+          hasPassword: !!password,
+          loginUrl: loginUrl || 'undefined'
         });
-        
-        textContent = this.generateEmployeePasswordText({
-          employeeName,
-          employeeEmail,
-          password,
-          loginUrl
-        });
+        throw new Error('employeeEmail est requis mais est undefined');
       }
+      
+      // Toujours utiliser le template par défaut qui fonctionne correctement
+      // Vérifier une dernière fois que employeeEmail est défini avant de générer le HTML
+      const finalEmployeeEmail = (employeeEmail && typeof employeeEmail === 'string' && employeeEmail.trim()) 
+        ? employeeEmail.trim() 
+        : (employeeEmail ? String(employeeEmail).trim() : null);
+      
+      if (!finalEmployeeEmail || finalEmployeeEmail === 'undefined' || finalEmployeeEmail === '') {
+        console.error('❌ employeeEmail est invalide juste avant génération HTML !', {
+          originalEmployeeEmail: employeeEmail,
+          finalEmployeeEmail: finalEmployeeEmail,
+          type: typeof employeeEmail,
+          isUndefined: employeeEmail === undefined,
+          isNull: employeeEmail === null,
+          isEmpty: employeeEmail === ''
+        });
+        throw new Error(`employeeEmail est invalide: "${employeeEmail}" - impossible de générer le template`);
+      }
+      
+      console.log('📧 Génération du template HTML avec email vérifié:', finalEmployeeEmail);
+      
+      htmlContent = this.generateEmployeePasswordHTML({
+        employeeName: employeeName || 'Employé',
+        employeeEmail: finalEmployeeEmail,  // Utiliser l'email vérifié et nettoyé
+        password: password || 'Non généré',
+        loginUrl: loginUrl || 'https://www.filmara.fr/plan/salarie-connexion.html'
+      });
+      
+      textContent = this.generateEmployeePasswordText({
+        employeeName: employeeName || 'Employé',
+        employeeEmail: finalEmployeeEmail,  // Utiliser l'email vérifié et nettoyé
+        password: password || 'Non généré',
+        loginUrl: loginUrl || 'https://www.filmara.fr/plan/salarie-connexion.html'
+      });
+      
+      console.log('✅ Template par défaut généré avec les valeurs:', {
+        employeeName: employeeName || 'undefined',
+        employeeEmail: employeeEmail || 'undefined',
+        hasPassword: !!password,
+        loginUrl: loginUrl || 'undefined'
+      });
       
       const subject = `VOS IDENTIFIANTS DE CONNEXION - ${employeeName}`;
       
@@ -1868,13 +1990,66 @@ Ce message a été généré automatiquement.
         userId: emailjsConfig.userId ? emailjsConfig.userId.substring(0, 5) + '...' : 'non défini'
       });
       
-      const result = await this.sendViaEmailJS(employeeEmail, subject, htmlContent, textContent);
+      // Vérifier une dernière fois que employeeEmail est bien défini avant l'envoi
+      const finalEmployeeEmail = employeeEmail;
+      if (!finalEmployeeEmail) {
+        console.error('❌ employeeEmail est undefined juste avant l\'envoi !', {
+          employeeName,
+          employeeEmail,
+          password: password ? '***' : 'undefined',
+          loginUrl
+        });
+        throw new Error('employeeEmail est undefined - impossible d\'envoyer l\'email');
+      }
+      
+      // Vérifier le contenu HTML avant l'envoi
+      const htmlContainsUndefined = htmlContent?.includes('undefined') || false;
+      const htmlContainsEmployeeEmail = htmlContent?.includes(finalEmployeeEmail) || false;
+      
+      // Extraire un extrait du HTML autour de "Email :" pour vérifier
+      const emailMatch = htmlContent?.match(/Email\s*:\s*([^<]+)/i);
+      const emailInHtml = emailMatch ? emailMatch[1].trim() : 'non trouvé';
+      
+      console.log('📧 Envoi final avec valeurs vérifiées:', {
+        to: finalEmployeeEmail,
+        subject,
+        htmlLength: htmlContent?.length || 0,
+        textLength: textContent?.length || 0,
+        htmlContainsUndefined: htmlContainsUndefined,
+        htmlContainsEmployeeEmail: htmlContainsEmployeeEmail,
+        emailInHtml: emailInHtml.substring(0, 50) // Premiers 50 caractères seulement
+      });
+      
+      if (htmlContainsUndefined) {
+        console.error('❌ ATTENTION: Le HTML contient "undefined" !');
+        console.error('Extrait HTML autour de "Email :":', emailInHtml);
+      }
+      
+      if (!htmlContainsEmployeeEmail && finalEmployeeEmail) {
+        console.warn('⚠️ ATTENTION: Le HTML ne contient pas l\'email du destinataire !');
+        console.warn('Email attendu:', finalEmployeeEmail);
+      }
+      
+      // Passer toutes les variables au cas où le template EmailJS les utilise directement
+      // Même si le HTML généré contient déjà tout, le template EmailJS pourrait avoir du texte supplémentaire
+      const result = await this.sendViaEmailJSWithParams(
+        finalEmployeeEmail, 
+        subject, 
+        htmlContent, 
+        textContent,
+        {
+          employeeName: employeeName || 'Employé',
+          employeeEmail: finalEmployeeEmail,
+          password: password || 'Non généré',
+          loginUrl: loginUrl || 'https://www.filmara.fr/plan/salarie-connexion.html'
+        }
+      );
       console.log('✅ Email mot de passe envoyé:', result);
       
       return {
         success: true,
         messageId: result,
-        to: employeeEmail
+        to: finalEmployeeEmail
       };
       
     } catch (error) {
@@ -1884,7 +2059,30 @@ Ce message a été généré automatiquement.
   }
 
   // Générer le HTML pour l'email mot de passe salarié
-  generateEmployeePasswordHTML({ employeeName, employeeEmail, password, loginUrl }) {
+  generateEmployeePasswordHTML(params = {}) {
+    // Extraire les paramètres avec destructuration et valeurs par défaut
+    const {
+      employeeName = 'Employé',
+      employeeEmail = 'Email non défini - contactez votre administrateur',
+      password = 'Non généré',
+      loginUrl = 'https://www.filmara.fr/plan/salarie-connexion.html'
+    } = params || {};
+    
+    // S'assurer que toutes les valeurs sont des chaînes et non undefined/null/empty
+    const safeEmployeeName = (employeeName && String(employeeName).trim()) || 'Employé';
+    const safeEmployeeEmail = (employeeEmail && String(employeeEmail).trim()) || 'Email non défini - contactez votre administrateur';
+    const safePassword = (password && String(password).trim()) || 'Non généré';
+    const safeLoginUrl = (loginUrl && String(loginUrl).trim()) || 'https://www.filmara.fr/plan/salarie-connexion.html';
+    
+    console.log('📋 Génération HTML avec valeurs:', {
+      employeeName: safeEmployeeName,
+      employeeEmail: safeEmployeeEmail,
+      hasPassword: !!password,
+      loginUrl: safeLoginUrl,
+      rawEmployeeEmail: employeeEmail,
+      rawEmployeeEmailType: typeof employeeEmail
+    });
+    
     return `
     <!DOCTYPE html>
     <html lang="fr">
@@ -2003,7 +2201,7 @@ Ce message a été généré automatiquement.
             </div>
             
             <div class="content">
-                <div class="greeting">Bonjour ${employeeName},</div>
+                <div class="greeting">Bonjour ${safeEmployeeName},</div>
                 
                 <p>Votre administrateur vous a créé un compte pour accéder aux services en ligne de la boulangerie.</p>
                 
@@ -2020,14 +2218,14 @@ Ce message a été généré automatiquement.
                 
                 <div class="credentials-box">
                     <h3>🔐 Vos identifiants de connexion</h3>
-                    <p><strong>Email :</strong> ${employeeEmail}</p>
+                    <p><strong>Email :</strong> ${safeEmployeeEmail}</p>
                     <p><strong>Mot de passe :</strong></p>
-                    <div class="password">${password}</div>
+                    <div class="password">${safePassword}</div>
                     <p><em>💡 Conservez ces identifiants en lieu sûr</em></p>
                 </div>
                 
                 <div style="text-align: center;">
-                    <a href="${loginUrl}" class="login-button">🚀 Se connecter maintenant</a>
+                    <a href="${safeLoginUrl}" class="login-button">🚀 Se connecter maintenant</a>
                 </div>
                 
                 <div class="security-note">
@@ -2049,11 +2247,25 @@ Ce message a été généré automatiquement.
   }
 
   // Générer le texte pour l'email mot de passe salarié
-  generateEmployeePasswordText({ employeeName, employeeEmail, password, loginUrl }) {
+  generateEmployeePasswordText(params = {}) {
+    // Extraire les paramètres avec destructuration et valeurs par défaut
+    const {
+      employeeName = 'Employé',
+      employeeEmail = 'Email non défini - contactez votre administrateur',
+      password = 'Non généré',
+      loginUrl = 'https://www.filmara.fr/plan/salarie-connexion.html'
+    } = params || {};
+    
+    // S'assurer que toutes les valeurs sont des chaînes et non undefined/null/empty
+    const safeEmployeeName = (employeeName && String(employeeName).trim()) || 'Employé';
+    const safeEmployeeEmail = (employeeEmail && String(employeeEmail).trim()) || 'Email non défini - contactez votre administrateur';
+    const safePassword = (password && String(password).trim()) || 'Non généré';
+    const safeLoginUrl = (loginUrl && String(loginUrl).trim()) || 'https://www.filmara.fr/plan/salarie-connexion.html';
+    
     return `
-VOS IDENTIFIANTS DE CONNEXION - ${employeeName}
+VOS IDENTIFIANTS DE CONNEXION - ${safeEmployeeName}
 
-Bonjour ${employeeName},
+Bonjour ${safeEmployeeName},
 
 Votre administrateur vous a créé un compte pour accéder aux services en ligne de la boulangerie.
 
@@ -2065,13 +2277,13 @@ En vous connectant, vous pourrez :
 - Gagner du temps en évitant les formulaires papier
 
 🔐 VOS IDENTIFIANTS DE CONNEXION
-Email : ${employeeEmail}
-Mot de passe : ${password}
+Email : ${safeEmployeeEmail}
+Mot de passe : ${safePassword}
 
 💡 Conservez ces identifiants en lieu sûr
 
 🚀 SE CONNECTER
-Cliquez sur ce lien pour vous connecter : ${loginUrl}
+Cliquez sur ce lien pour vous connecter : ${safeLoginUrl}
 
 🔒 SÉCURITÉ
 - Gardez vos identifiants confidentiels
