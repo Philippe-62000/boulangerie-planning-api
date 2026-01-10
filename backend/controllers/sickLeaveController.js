@@ -24,36 +24,20 @@ const upload = multer({
 });
 
 // Middleware d'upload avec gestion d'erreurs
-// Accepte les deux noms de champs : 'document' (pages HTML) et 'sickLeaveFile' (composants React/JS)
 const uploadMiddleware = (req, res, next) => {
   console.log('🔧 Middleware Multer - Début');
   console.log('🔧 Headers:', req.headers);
   console.log('🔧 Content-Type:', req.headers['content-type']);
   console.log('🔧 Body (avant multer):', req.body);
   
-  // Accepter les deux noms de champs pour compatibilité
-  upload.fields([
-    { name: 'sickLeaveFile', maxCount: 1 },
-    { name: 'document', maxCount: 1 }
-  ])(req, res, (err) => {
+  upload.single('document')(req, res, (err) => {
     if (err) {
       console.error('❌ Erreur Multer:', err);
       return res.status(400).json({
         success: false,
         error: 'Erreur lors de l\'upload du fichier',
-        details: err.message,
-        expectedFields: ['document', 'sickLeaveFile']
+        details: err.message
       });
-    }
-    
-    // Normaliser req.files en req.file pour compatibilité avec le reste du code
-    if (req.files) {
-      // Prendre le premier fichier trouvé (soit 'sickLeaveFile' soit 'document')
-      const fileArray = req.files['sickLeaveFile'] || req.files['document'];
-      if (fileArray && fileArray.length > 0) {
-        req.file = fileArray[0];
-        console.log('✅ Fichier normalisé depuis req.files, champ utilisé:', req.file.fieldname);
-      }
     }
     
     console.log('✅ Middleware Multer - Succès');

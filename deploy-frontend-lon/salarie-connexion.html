@@ -1,0 +1,639 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Connexion Salarié - Planning Boulangerie</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .login-container {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
+            padding: 40px;
+            width: 100%;
+            max-width: 400px;
+            text-align: center;
+        }
+
+        .logo {
+            font-size: 48px;
+            margin-bottom: 20px;
+        }
+
+        .title {
+            color: #333;
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+
+        .subtitle {
+            color: #666;
+            font-size: 14px;
+            margin-bottom: 30px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+            text-align: left;
+        }
+
+        .form-label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-weight: 500;
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid #e1e5e9;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s ease;
+        }
+
+        .form-control:focus {
+            outline: none;
+            border-color: #007bff;
+            box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
+        }
+
+        .btn {
+            width: 100%;
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-top: 10px;
+        }
+
+        .btn-primary {
+            background: #007bff;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #0056b3;
+            transform: translateY(-2px);
+        }
+
+        .btn-primary:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .alert {
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 14px;
+        }
+
+        .alert-success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .alert-danger {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .alert-info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+
+        .alert-warning {
+            background: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeeba;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            margin-top: 20px;
+        }
+
+        .server-status {
+            margin-top: 15px;
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 14px;
+            text-align: center;
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        .server-status.sleeping {
+            background: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeeba;
+        }
+
+        .server-status.waking {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+
+        .server-status.connected {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+
+        .retry-info {
+            margin-top: 10px;
+            font-size: 12px;
+            color: #666;
+            font-style: italic;
+        }
+
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #007bff;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .footer {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #e1e5e9;
+            color: #666;
+            font-size: 12px;
+        }
+
+        .features {
+            margin-top: 20px;
+            text-align: left;
+        }
+
+        .feature {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+            font-size: 14px;
+            color: #666;
+        }
+
+        .feature-icon {
+            margin-right: 10px;
+            font-size: 16px;
+        }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <div class="logo">🏢</div>
+        <h1 class="title">Connexion Salarié</h1>
+        <p class="subtitle">Accédez à vos services en ligne</p>
+
+        <div id="alertContainer"></div>
+
+        <form id="loginForm">
+            <div class="form-group">
+                <label class="form-label" for="email">Email</label>
+                <input
+                    type="email"
+                    id="email"
+                    name="email"
+                    class="form-control"
+                    placeholder="votre.email@exemple.com"
+                    required
+                >
+            </div>
+
+            <div class="form-group">
+                <label class="form-label" for="password">Mot de passe</label>
+                <input
+                    type="password"
+                    id="password"
+                    name="password"
+                    class="form-control"
+                    placeholder="Votre mot de passe"
+                    required
+                >
+            </div>
+
+            <button type="submit" class="btn btn-primary" id="loginBtn">
+                🚀 Se connecter
+            </button>
+        </form>
+
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p id="loadingMessage">Connexion en cours...</p>
+        </div>
+
+        <div id="serverStatus" class="server-status" style="display: none;">
+            <div id="serverStatusMessage"></div>
+            <div id="retryInfo" class="retry-info"></div>
+        </div>
+
+        <div class="features">
+            <div class="feature">
+                <span class="feature-icon">📋</span>
+                Déclarer vos arrêts maladie
+            </div>
+            <div class="feature">
+                <span class="feature-icon">🏖️</span>
+                Demander vos congés
+            </div>
+            <div class="feature">
+                <span class="feature-icon">📱</span>
+                Accès depuis n'importe où
+            </div>
+        </div>
+
+        <div class="footer">
+            <p>Planning Boulangerie - Service sécurisé</p>
+            <p>Si vous n'avez pas d'identifiants, contactez votre administrateur.</p>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = 'https://boulangerie-planning-api-3.onrender.com/api';
+        
+        const loginForm = document.getElementById('loginForm');
+        const loginBtn = document.getElementById('loginBtn');
+        const loading = document.getElementById('loading');
+        const loadingMessage = document.getElementById('loadingMessage');
+        const alertContainer = document.getElementById('alertContainer');
+        const serverStatus = document.getElementById('serverStatus');
+        const serverStatusMessage = document.getElementById('serverStatusMessage');
+        const retryInfo = document.getElementById('retryInfo');
+
+        // Fonction pour décoder un JWT (sans vérification de signature)
+        function decodeJWT(token) {
+            try {
+                const base64Url = token.split('.')[1];
+                const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+                const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
+                    return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+                }).join(''));
+                return JSON.parse(jsonPayload);
+            } catch (error) {
+                return null;
+            }
+        }
+
+        // Fonction pour vérifier si un token est expiré
+        function isTokenExpired(token) {
+            if (!token) return true;
+            
+            const decoded = decodeJWT(token);
+            if (!decoded || !decoded.exp) return true;
+            
+            // Vérifier si le token est expiré (avec une marge de 60 secondes)
+            const currentTime = Math.floor(Date.now() / 1000);
+            return decoded.exp < (currentTime - 60);
+        }
+
+        // Fonction pour nettoyer les tokens expirés
+        function cleanExpiredTokens() {
+            const token = localStorage.getItem('employeeToken');
+            if (token && isTokenExpired(token)) {
+                console.log('🧹 Nettoyage du token expiré');
+                localStorage.removeItem('employeeToken');
+                localStorage.removeItem('employeeData');
+                return true;
+            }
+            return false;
+        }
+
+        // Fonction pour afficher les alertes
+        function showAlert(message, type = 'danger') {
+            // Types supportés: danger, success, info, warning
+            const validTypes = ['danger', 'success', 'info', 'warning'];
+            const alertType = validTypes.includes(type) ? type : 'danger';
+            
+            alertContainer.innerHTML = `
+                <div class="alert alert-${alertType}">
+                    ${message}
+                </div>
+            `;
+        }
+
+        // Fonction pour masquer les alertes
+        function hideAlert() {
+            alertContainer.innerHTML = '';
+        }
+
+        // Fonction pour afficher le statut du serveur
+        function showServerStatus(status, message, retryCount = null) {
+            serverStatus.className = `server-status ${status}`;
+            serverStatusMessage.textContent = message;
+            
+            if (retryCount !== null) {
+                retryInfo.textContent = `Tentative automatique dans quelques secondes... (${retryCount})`;
+            } else {
+                retryInfo.textContent = '';
+            }
+            
+            serverStatus.style.display = 'block';
+        }
+
+        // Fonction pour masquer le statut du serveur
+        function hideServerStatus() {
+            serverStatus.style.display = 'none';
+            serverStatusMessage.textContent = '';
+            retryInfo.textContent = '';
+        }
+
+        // Fonction pour mettre à jour le message de chargement
+        function updateLoadingMessage(message) {
+            loadingMessage.textContent = message;
+        }
+
+        // Fonction pour activer/désactiver le formulaire
+        function setFormEnabled(enabled) {
+            loginBtn.disabled = !enabled;
+            loginForm.querySelectorAll('input').forEach(input => {
+                input.disabled = !enabled;
+            });
+            loading.style.display = enabled ? 'none' : 'block';
+            if (!enabled) {
+                updateLoadingMessage('Connexion en cours...');
+            }
+        }
+
+        // Gestion de la soumission du formulaire
+        let isSubmitting = false; // Prévenir les soumissions multiples
+        let retryCount = 0;
+        let retryTimeout = null;
+        const MAX_RETRIES = 5;
+        const RETRY_DELAYS = [3000, 5000, 7000, 10000, 15000]; // Délais progressifs en ms
+        
+        // Fonction pour tenter la connexion avec retry automatique
+        async function attemptLogin(email, password, attemptNumber = 0) {
+            try {
+                console.log(`🔐 Tentative de connexion ${attemptNumber + 1}/${MAX_RETRIES} pour:`, email);
+                
+                // Mettre à jour le message selon l'état
+                if (attemptNumber === 0) {
+                    updateLoadingMessage('Connexion au serveur...');
+                    hideServerStatus();
+                } else {
+                    updateLoadingMessage('Réveil du serveur en cours...');
+                    showServerStatus('waking', `🔄 Serveur en cours de réveil... (Tentative ${attemptNumber + 1}/${MAX_RETRIES})`, attemptNumber);
+                }
+                
+                // Créer un AbortController pour gérer le timeout
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 30000); // Timeout de 30 secondes
+                
+                const response = await fetch(`${API_URL}/auth/login`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        email: email.toLowerCase(),
+                        password: password
+                    }),
+                    signal: controller.signal
+                });
+
+                clearTimeout(timeoutId);
+                
+                const data = await response.json();
+                console.log('📥 Réponse API:', data);
+
+                if (data.success) {
+                    // Succès !
+                    hideServerStatus();
+                    updateLoadingMessage('Connexion réussie !');
+                    showServerStatus('connected', '✅ Serveur connecté !');
+                    
+                    // Nettoyer les anciens tokens avant de stocker le nouveau
+                    localStorage.removeItem('employeeToken');
+                    localStorage.removeItem('employeeData');
+                    
+                    // Stocker le token et les informations de l'employé
+                    localStorage.setItem('employeeToken', data.token);
+                    localStorage.setItem('employeeData', JSON.stringify(data.employee));
+                    
+                    showAlert('Connexion réussie ! Redirection en cours...', 'success');
+                    
+                    // Rediriger vers le dashboard après 1.5 secondes
+                    setTimeout(() => {
+                        window.location.href = '/plan/employee-dashboard.html';
+                    }, 1500);
+                    
+                    return true; // Succès
+                    
+                } else {
+                    // Erreur d'authentification (pas de retry)
+                    hideServerStatus();
+                    let errorMessage = 'Erreur de connexion';
+                    if (data.error) {
+                        if (data.error.includes('email') || data.error.includes('Email')) {
+                            errorMessage = '❌ Email incorrect. Vérifiez votre adresse email.';
+                        } else if (data.error.includes('mot de passe') || data.error.includes('password') || data.error.includes('Mot de passe')) {
+                            errorMessage = '❌ Mot de passe incorrect. Vérifiez votre mot de passe.';
+                        } else if (data.error.includes('Employé non trouvé')) {
+                            errorMessage = '❌ Aucun compte trouvé avec cet email.';
+                        } else {
+                            errorMessage = `❌ ${data.error}`;
+                        }
+                    } else {
+                        errorMessage = '❌ Email ou mot de passe incorrect.';
+                    }
+                    showAlert(errorMessage);
+                    setFormEnabled(true);
+                    isSubmitting = false;
+                    return false; // Échec définitif
+                }
+
+            } catch (error) {
+                console.error('❌ Erreur connexion:', error);
+                
+                // Détecter si c'est un timeout ou une erreur réseau (serveur en sommeil)
+                const isTimeout = error.name === 'AbortError' || error.message.includes('timeout');
+                const isNetworkError = !error.response && (error.message.includes('Failed to fetch') || error.message.includes('NetworkError'));
+                
+                if ((isTimeout || isNetworkError) && attemptNumber < MAX_RETRIES - 1) {
+                    // Serveur probablement en sommeil, retry automatique
+                    const delay = RETRY_DELAYS[attemptNumber] || 15000;
+                    retryCount = attemptNumber + 1;
+                    
+                    showServerStatus('sleeping', 
+                        `😴 Serveur en sommeil détecté. Réveil en cours...`, 
+                        retryCount
+                    );
+                    
+                    updateLoadingMessage(`Tentative de connexion... (${retryCount + 1}/${MAX_RETRIES})`);
+                    
+                    // Programmer le retry
+                    retryTimeout = setTimeout(() => {
+                        attemptLogin(email, password, attemptNumber + 1);
+                    }, delay);
+                    
+                    return false; // En attente de retry
+                } else {
+                    // Plus de retries ou erreur définitive
+                    hideServerStatus();
+                    if (attemptNumber >= MAX_RETRIES - 1) {
+                        showAlert('⏱️ Le serveur met trop de temps à répondre. Veuillez réessayer dans quelques instants.', 'warning');
+                    } else {
+                        showAlert('Erreur de connexion. Vérifiez votre connexion internet.', 'danger');
+                    }
+                    setFormEnabled(true);
+                    isSubmitting = false;
+                    retryCount = 0;
+                    return false; // Échec définitif
+                }
+            }
+        }
+        
+        loginForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            // Empêcher les soumissions multiples
+            if (isSubmitting) {
+                console.log('⏸️ Connexion déjà en cours...');
+                showAlert('⏸️ Connexion déjà en cours. Veuillez patienter...', 'info');
+                return;
+            }
+            
+            // Annuler tout retry en cours
+            if (retryTimeout) {
+                clearTimeout(retryTimeout);
+                retryTimeout = null;
+            }
+            
+            const email = document.getElementById('email').value.trim();
+            const password = document.getElementById('password').value;
+
+            if (!email || !password) {
+                showAlert('Veuillez remplir tous les champs');
+                return;
+            }
+
+            // Validation email basique
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (!emailRegex.test(email)) {
+                showAlert('Format d\'email invalide');
+                return;
+            }
+
+            hideAlert();
+            hideServerStatus();
+            setFormEnabled(false);
+            isSubmitting = true;
+            retryCount = 0;
+
+            // Lancer la première tentative
+            await attemptLogin(email, password, 0);
+        });
+
+        // Vérifier si l'utilisateur est déjà connecté
+        window.addEventListener('load', () => {
+            // Nettoyer les tokens expirés au chargement
+            const wasExpired = cleanExpiredTokens();
+            if (wasExpired) {
+                console.log('🧹 Token expiré nettoyé au chargement de la page');
+                return; // Rester sur la page de connexion
+            }
+            
+            const token = localStorage.getItem('employeeToken');
+            const employeeData = localStorage.getItem('employeeData');
+            
+            // Si pas de token, ne rien faire (rester sur la page de connexion)
+            if (!token || !employeeData) {
+                return;
+            }
+            
+            // Vérifier si le token est expiré AVANT de faire la requête
+            if (isTokenExpired(token)) {
+                console.log('⏰ Token expiré détecté, nettoyage...');
+                localStorage.removeItem('employeeToken');
+                localStorage.removeItem('employeeData');
+                return; // Rester sur la page de connexion
+            }
+            
+            // Vérifier la validité du token avant de rediriger
+            fetch(`${API_URL}/auth/employee-profile`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            })
+            .then(response => {
+                // Si la réponse n'est pas OK, le token est invalide
+                if (!response.ok) {
+                    return response.json().then(data => {
+                        // Si le token est expiré, nettoyer et rester sur la page
+                        if (data.expired === true) {
+                            console.log('⏰ Token expiré (confirmé par le serveur)');
+                            localStorage.removeItem('employeeToken');
+                            localStorage.removeItem('employeeData');
+                            throw new Error('Token expiré');
+                        }
+                        throw new Error('Token invalide');
+                    });
+                }
+                return response.json();
+            })
+            .then(data => {
+                // Seulement rediriger si le token est explicitement valide
+                if (data.success && data.employee) {
+                    // Token valide, rediriger vers le dashboard
+                    window.location.href = '/plan/employee-dashboard.html';
+                } else {
+                    // Token invalide, nettoyer et rester sur la page de connexion
+                    localStorage.removeItem('employeeToken');
+                    localStorage.removeItem('employeeData');
+                }
+            })
+            .catch((error) => {
+                // Erreur réseau ou token invalide, nettoyer et rester sur la page
+                console.log('Token invalide ou erreur:', error.message);
+                localStorage.removeItem('employeeToken');
+                localStorage.removeItem('employeeData');
+                // Ne pas rediriger, rester sur la page de connexion
+            });
+        });
+    </script>
+</body>
+</html>
+

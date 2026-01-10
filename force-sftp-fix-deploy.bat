@@ -55,3 +55,12 @@ echo    ✅ Timeout augmenté à 30 secondes
 echo    ✅ Keepalive pour maintenir la connexion
 echo.
 pause
+
+
+
+
+
+
+
+
+

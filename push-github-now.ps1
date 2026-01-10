@@ -30,3 +30,12 @@ Write-Host "4. Attendez 2-5 minutes que le déploiement se termine" -ForegroundC
 Write-Host ""
 Write-Host "🌐 Le service devrait se redéployer automatiquement" -ForegroundColor Green
 Write-Host ""
+
+
+
+
+
+
+
+
+

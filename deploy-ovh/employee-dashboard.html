@@ -1386,35 +1386,13 @@
                     body: formData
                 });
 
-                // Vérifier si la réponse est OK avant de parser le JSON
-                if (!response.ok) {
-                    let errorMessage = 'Erreur lors de la déclaration';
-                    try {
-                        const errorResult = await response.json();
-                        errorMessage = errorResult.error || errorMessage;
-                        // Afficher les détails si disponibles
-                        if (errorResult.details) {
-                            errorMessage += ` (${errorResult.details})`;
-                        }
-                    } catch (parseError) {
-                        errorMessage = `Erreur ${response.status}: ${response.statusText}`;
-                    }
-                    showAlert('sickLeaveAlert', errorMessage);
-                    return;
-                }
-
                 const result = await response.json();
 
                 if (result.success) {
                     showAlert('sickLeaveAlert', 'Arrêt maladie déclaré avec succès ! Vous recevrez une confirmation par email.', 'success');
                     resetSickLeaveForm();
                 } else {
-                    // Afficher l'erreur avec les détails si disponibles
-                    let errorMessage = result.error || 'Erreur lors de la déclaration';
-                    if (result.details) {
-                        errorMessage += ` (${result.details})`;
-                    }
-                    showAlert('sickLeaveAlert', errorMessage);
+                    showAlert('sickLeaveAlert', result.error || 'Erreur lors de la déclaration');
                 }
             } catch (error) {
                 console.error('Erreur déclaration arrêt maladie:', error);
