@@ -53,6 +53,7 @@ const Parameters = () => {
   // États pour les mots de passe des fiches de paie
   const [payslipPasswords, setPayslipPasswords] = useState([]);
   const [loadingPayslipPasswords, setLoadingPayslipPasswords] = useState(false);
+  const [savingPayslipPasswords, setSavingPayslipPasswords] = useState(false);
 
   // États pour la vérification de maintenance
   const [maintenanceCheck, setMaintenanceCheck] = useState(null);
@@ -222,6 +223,40 @@ const Parameters = () => {
     } finally {
       setLoadingPayslipPasswords(false);
     }
+  };
+
+  // Mettre à jour les mots de passe des fiches de paie
+  const savePayslipPasswords = async () => {
+    setSavingPayslipPasswords(true);
+    try {
+      const passwords = payslipPasswords.map(emp => ({
+        employeeId: emp._id,
+        payslipPassword: emp.payslipPassword || null
+      }));
+      
+      const response = await api.put('/passwords/payslip-passwords', { passwords });
+      if (response.data.success) {
+        toast.success(response.data.message);
+        // Recharger la liste
+        fetchPayslipPasswords();
+      } else {
+        toast.error(response.data.error || 'Erreur lors de la sauvegarde');
+      }
+    } catch (error) {
+      console.error('Erreur lors de la sauvegarde:', error);
+      toast.error(error.response?.data?.error || 'Erreur lors de la sauvegarde des mots de passe');
+    } finally {
+      setSavingPayslipPasswords(false);
+    }
+  };
+
+  // Mettre à jour un mot de passe localement
+  const updatePayslipPassword = (employeeId, password) => {
+    setPayslipPasswords(prev => 
+      prev.map(emp => 
+        emp._id === employeeId ? { ...emp, payslipPassword: password } : emp
+      )
+    );
   };
 
   // Télécharger le fichier mots_de_passe.bat
@@ -894,8 +929,21 @@ const Parameters = () => {
                         payslipPasswords.map((emp) => (
                           <tr key={emp._id} style={{ borderBottom: '1px solid #e9ecef' }}>
                             <td style={{ padding: '0.75rem' }}>{emp.name}</td>
-                            <td style={{ padding: '0.75rem', fontFamily: 'monospace', fontWeight: 600, color: '#495057' }}>
-                              {emp.payslipPassword || 'Non généré'}
+                            <td style={{ padding: '0.75rem' }}>
+                              <input
+                                type="text"
+                                value={emp.payslipPassword || ''}
+                                onChange={(e) => updatePayslipPassword(emp._id, e.target.value)}
+                                placeholder="Saisir le mot de passe"
+                                style={{
+                                  fontFamily: 'monospace',
+                                  padding: '0.5rem',
+                                  border: '1px solid #ced4da',
+                                  borderRadius: '4px',
+                                  width: '100%',
+                                  maxWidth: '200px'
+                                }}
+                              />
                             </td>
                           </tr>
                         ))
@@ -904,17 +952,22 @@ const Parameters = () => {
                   </table>
                 </div>
                 
-                <div style={{ textAlign: 'center' }}>
+                <div style={{ textAlign: 'center', display: 'flex', gap: '1rem', justifyContent: 'center', flexWrap: 'wrap' }}>
+                  <button
+                    className="btn btn-primary"
+                    onClick={savePayslipPasswords}
+                    disabled={savingPayslipPasswords}
+                    style={{ padding: '12px 24px', fontSize: '1rem', fontWeight: 600 }}
+                  >
+                    {savingPayslipPasswords ? '💾 Sauvegarde...' : '💾 Sauvegarder les mots de passe'}
+                  </button>
                   <button
                     className="btn btn-success"
                     onClick={downloadPayslipPasswordsBat}
                     style={{ padding: '12px 24px', fontSize: '1rem', fontWeight: 600 }}
                   >
-                    💾 Télécharger mots_de_passe.bat
+                    📥 Télécharger mots_de_passe.bat
                   </button>
-                  <p style={{ marginTop: '1rem', color: '#6c757d', fontSize: '0.9rem' }}>
-                    💡 Pour mettre à jour les mots de passe, modifiez-les directement dans la base de données, puis téléchargez le fichier .bat
-                  </p>
                 </div>
               </>
             )}

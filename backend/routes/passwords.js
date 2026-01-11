@@ -17,4 +17,7 @@ router.get('/download-payslip-passwords-bat', passwordController.downloadPayslip
 // Route pour importer les mots de passe depuis le fichier mots_de_passe.bat
 router.post('/import-payslip-passwords-from-bat', passwordController.importPayslipPasswordsFromBat);
 
+// Route pour mettre à jour les mots de passe des fiches de paie
+router.put('/payslip-passwords', passwordController.updatePayslipPasswords);
+
 module.exports = router;

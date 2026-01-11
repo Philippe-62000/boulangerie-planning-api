@@ -340,10 +340,58 @@ const downloadPayslipPasswordsBat = async (req, res) => {
   }
 };
 
+// Mettre à jour les mots de passe des fiches de paie
+const updatePayslipPasswords = async (req, res) => {
+  try {
+    const { passwords } = req.body; // Array of { employeeId, payslipPassword }
+    
+    if (!passwords || !Array.isArray(passwords)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Les mots de passe doivent être fournis sous forme de tableau'
+      });
+    }
+    
+    let updatedCount = 0;
+    const errors = [];
+    
+    for (const { employeeId, payslipPassword } of passwords) {
+      try {
+        const employee = await Employee.findById(employeeId);
+        if (!employee) {
+          errors.push(`Employé ${employeeId} non trouvé`);
+          continue;
+        }
+        
+        employee.payslipPassword = payslipPassword || null;
+        await employee.save();
+        updatedCount++;
+      } catch (error) {
+        errors.push(`Erreur pour ${employeeId}: ${error.message}`);
+      }
+    }
+    
+    res.json({
+      success: true,
+      message: `${updatedCount} mot(s) de passe mis à jour`,
+      updated: updatedCount,
+      errors: errors.length > 0 ? errors : undefined
+    });
+    
+  } catch (error) {
+    console.error('❌ Erreur lors de la mise à jour des mots de passe:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Erreur serveur lors de la mise à jour des mots de passe'
+    });
+  }
+};
+
 module.exports = {
   updatePassword,
   getUsers,
   getPayslipPasswords,
   downloadPayslipPasswordsBat,
-  importPayslipPasswordsFromBat
+  importPayslipPasswordsFromBat,
+  updatePayslipPasswords
 };
