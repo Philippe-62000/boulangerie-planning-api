@@ -75,6 +75,25 @@ class EmailServiceAlternative {
     return adminUrl;
   }
 
+  // Fonction utilitaire pour obtenir l'URL de l'API selon l'environnement
+  getApiBaseUrl() {
+    // Détecter si on est sur Longuenesse (/lon) ou Arras (/plan)
+    const corsOrigin = process.env.CORS_ORIGIN || '';
+    const isLonguenesse = corsOrigin.includes('/lon');
+    // Longuenesse utilise api-3, Arras utilise api-4-pbfy
+    const apiUrl = isLonguenesse 
+      ? 'https://boulangerie-planning-api-3.onrender.com'
+      : 'https://boulangerie-planning-api-4-pbfy.onrender.com';
+    
+    console.log('🔍 getApiBaseUrl:', {
+      corsOrigin: corsOrigin,
+      isLonguenesse: isLonguenesse,
+      apiUrl: apiUrl
+    });
+    
+    return apiUrl;
+  }
+
   // Vérifier la connexion (simulation)
   async verifyConnection() {
     if (!this.isConfigured) {
@@ -996,6 +1015,7 @@ Cet email est envoyé automatiquement, merci de ne pas y répondre.
       }
 
       // Remplacer les variables dans le template
+      const adminUrl = this.getAdminUrl('/sick-leave-management');
       const htmlContent = this.replaceTemplateVariables(template.htmlContent, {
         employeeName: sickLeave.employeeName,
         employeeEmail: sickLeave.employeeEmail,
@@ -1005,7 +1025,7 @@ Cet email est envoyé automatiquement, merci de ne pas y répondre.
         durationPlural: this.calculateDuration(sickLeave.startDate, sickLeave.endDate) > 1 ? 's' : '',
         fileName: sickLeave.fileName,
         uploadDate: new Date(sickLeave.uploadDate).toLocaleDateString('fr-FR'),
-        adminUrl: 'https://www.filmara.fr/plan'
+        adminUrl: adminUrl
       });
 
       const textContent = this.replaceTemplateVariables(template.textContent, {
@@ -1017,7 +1037,7 @@ Cet email est envoyé automatiquement, merci de ne pas y répondre.
         durationPlural: this.calculateDuration(sickLeave.startDate, sickLeave.endDate) > 1 ? 's' : '',
         fileName: sickLeave.fileName,
         uploadDate: new Date(sickLeave.uploadDate).toLocaleDateString('fr-FR'),
-        adminUrl: 'https://www.filmara.fr/plan'
+        adminUrl: adminUrl
       });
       
       return await this.sendEmail(
@@ -1068,7 +1088,8 @@ Cet email est envoyé automatiquement, merci de ne pas y répondre.
       }
 
       // Construire l'URL de téléchargement
-      const downloadUrl = `https://boulangerie-planning-api-4-pbfy.onrender.com/api/sick-leaves/${sickLeave._id}/download`;
+      const apiBaseUrl = this.getApiBaseUrl();
+      const downloadUrl = `${apiBaseUrl}/api/sick-leaves/${sickLeave._id}/download`;
 
       // Remplacer les variables dans le template (gérer les conditions {{#if}} pour downloadUrl)
       let htmlContent = template.htmlContent;
@@ -1329,6 +1350,8 @@ Ce message a été généré automatiquement.
     const startDate = new Date(sickLeave.startDate).toLocaleDateString('fr-FR');
     const endDate = new Date(sickLeave.endDate).toLocaleDateString('fr-FR');
     const uploadDate = new Date(sickLeave.uploadDate).toLocaleDateString('fr-FR');
+    const apiBaseUrl = this.getApiBaseUrl();
+    const downloadUrl = `${apiBaseUrl}/api/sick-leaves/${sickLeave._id}/download`;
 
     return `
     <!DOCTYPE html>
@@ -1371,7 +1394,7 @@ Ce message a été généré automatiquement.
             <h3>📎 Pièce jointe :</h3>
             <p>Le document d'arrêt maladie est disponible au téléchargement :</p>
             <p style="text-align: center; margin: 20px 0;">
-              <a href="https://boulangerie-planning-api-4-pbfy.onrender.com/api/sick-leaves/${sickLeave._id}/download" 
+              <a href="${downloadUrl}" 
                  style="background: #28a745; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; display: inline-block;">
                 📥 Télécharger l'arrêt maladie
               </a>
@@ -1400,6 +1423,8 @@ Ce message a été généré automatiquement.
     const startDate = new Date(sickLeave.startDate).toLocaleDateString('fr-FR');
     const endDate = new Date(sickLeave.endDate).toLocaleDateString('fr-FR');
     const uploadDate = new Date(sickLeave.uploadDate).toLocaleDateString('fr-FR');
+    const apiBaseUrl = this.getApiBaseUrl();
+    const downloadUrl = `${apiBaseUrl}/api/sick-leaves/${sickLeave._id}/download`;
 
     return `
 NOUVEL ARRÊT MALADIE VALIDÉ
@@ -1418,7 +1443,7 @@ INFORMATIONS DE L'ARRÊT :
 
 PIÈCE JOINTE :
 Le document d'arrêt maladie est disponible au téléchargement :
-🔗 https://boulangerie-planning-api-4-pbfy.onrender.com/api/sick-leaves/${sickLeave._id}/download
+🔗 ${downloadUrl}
 
 Le fichier est disponible sur notre serveur sécurisé et peut être téléchargé depuis l'interface d'administration.
 
@@ -1480,7 +1505,7 @@ Ce message a été généré automatiquement par le système de gestion des arr�
           <p>Veuillez vous connecter à l'interface d'administration pour valider ou rejeter cet arrêt maladie.</p>
           
           <div style="text-align: center;">
-            <a href="https://www.filmara.fr/admin" class="action-button">🔗 Accéder à l'Administration</a>
+            <a href="${this.getAdminUrl('/sick-leave-management')}" class="action-button">🔍 Valider l'Arrêt Maladie</a>
           </div>
           
           <p><strong>Important :</strong> Cet arrêt maladie doit être traité dans les plus brefs délais.</p>
@@ -1520,7 +1545,7 @@ Un nouvel arrêt maladie a été déposé et nécessite votre validation.
 
 Veuillez vous connecter à l'interface d'administration pour valider ou rejeter cet arrêt maladie.
 
-🔗 Accéder à l'Administration : https://www.filmara.fr/admin
+🔍 Pour valider : ${this.getAdminUrl('/sick-leave-management')}
 
 IMPORTANT : Cet arrêt maladie doit être traité dans les plus brefs délais.
 
