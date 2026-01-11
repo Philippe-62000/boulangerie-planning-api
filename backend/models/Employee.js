@@ -166,6 +166,11 @@ const employeeSchema = new mongoose.Schema({
     type: String,
     select: false // Ne pas inclure par défaut dans les requêtes
   },
+  payslipPassword: {
+    type: String,
+    trim: true,
+    comment: 'Mot de passe pour protéger les fiches de paie PDF (10 caractères avec chiffres et caractères spéciaux)'
+  },
   connectionCode: {
     type: String,
     unique: true,
