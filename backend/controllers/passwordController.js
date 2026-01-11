@@ -175,19 +175,32 @@ const importPayslipPasswordsFromBat = async (req, res) => {
   try {
     console.log('📥 Import des mots de passe depuis mots_de_passe.bat');
     
-    // Chemin vers le fichier mots_de_passe.bat (à la racine du projet)
-    const batFilePath = path.join(__dirname, '../../mots_de_passe.bat');
+    let fileContent = '';
     
-    // Vérifier si le fichier existe
-    if (!fs.existsSync(batFilePath)) {
-      return res.status(404).json({
+    // Option 1: Si le contenu est envoyé dans le body
+    if (req.body && req.body.content) {
+      fileContent = req.body.content;
+    } 
+    // Option 2: Essayer de lire depuis le fichier local (pour développement)
+    else {
+      const batFilePath = path.join(__dirname, '../../mots_de_passe.bat');
+      if (fs.existsSync(batFilePath)) {
+        fileContent = fs.readFileSync(batFilePath, 'utf8');
+      } else {
+        return res.status(400).json({
+          success: false,
+          error: 'Le fichier mots_de_passe.bat est introuvable. Veuillez envoyer le contenu du fichier dans le body (content).'
+        });
+      }
+    }
+    
+    if (!fileContent || fileContent.trim().length === 0) {
+      return res.status(400).json({
         success: false,
-        error: 'Le fichier mots_de_passe.bat est introuvable'
+        error: 'Le contenu du fichier est vide'
       });
     }
     
-    // Lire le fichier
-    const fileContent = fs.readFileSync(batFilePath, 'utf8');
     const lines = fileContent.split('\n');
     
     // Parser les mots de passe

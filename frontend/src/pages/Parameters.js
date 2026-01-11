@@ -251,7 +251,13 @@ const Parameters = () => {
   // Importer les mots de passe depuis le fichier mots_de_passe.bat
   const importPayslipPasswordsFromBat = async () => {
     try {
-      const response = await api.post('/passwords/import-payslip-passwords-from-bat');
+      // Lire le fichier mots_de_passe.bat depuis le serveur ou utiliser un fichier local
+      // Pour l'instant, on essaie de récupérer le contenu via une requête
+      // Si le fichier n'est pas disponible, on affiche un message d'erreur
+      const response = await api.post('/passwords/import-payslip-passwords-from-bat', {
+        // On peut aussi essayer de lire un fichier local si disponible
+        // Pour l'instant, on laisse le serveur gérer
+      });
       if (response.data.success) {
         toast.success(response.data.message);
         // Recharger la liste des mots de passe
@@ -261,7 +267,13 @@ const Parameters = () => {
       }
     } catch (error) {
       console.error('Erreur lors de l\'import:', error);
-      toast.error(error.response?.data?.error || 'Erreur lors de l\'import des mots de passe');
+      const errorMessage = error.response?.data?.error || 'Erreur lors de l\'import des mots de passe';
+      toast.error(errorMessage);
+      
+      // Si le fichier n'est pas trouvé, proposer une alternative
+      if (error.response?.status === 400 && errorMessage.includes('introuvable')) {
+        toast.info('Le fichier mots_de_passe.bat doit être présent sur le serveur. Contactez l\'administrateur.');
+      }
     }
   };
 
