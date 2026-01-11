@@ -13,6 +13,9 @@ const Parameters = () => {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   
+  // État local pour les 12 paramètres KM
+  const [kmParameters, setKmParameters] = useState([]);
+  
   // États pour la gestion des mots de passe
   const [passwords, setPasswords] = useState({
     admin: '',
@@ -46,6 +49,10 @@ const Parameters = () => {
   // États pour la gestion des employés (pour la sélection nominative)
   const [employees, setEmployees] = useState([]);
   const [loadingEmployees, setLoadingEmployees] = useState(false);
+  
+  // États pour les mots de passe des fiches de paie
+  const [payslipPasswords, setPayslipPasswords] = useState([]);
+  const [loadingPayslipPasswords, setLoadingPayslipPasswords] = useState(false);
 
   // États pour la vérification de maintenance
   const [maintenanceCheck, setMaintenanceCheck] = useState(null);
@@ -64,6 +71,13 @@ const Parameters = () => {
     fetchEmployees();
     fetchMarges();
   }, []);
+
+  // Charger les mots de passe des fiches de paie quand l'onglet passwords est actif
+  useEffect(() => {
+    if (activeTab === 'passwords') {
+      fetchPayslipPasswords();
+    }
+  }, [activeTab]);
 
   // Charger les marges
   const fetchMarges = async () => {
@@ -138,7 +152,34 @@ const Parameters = () => {
     setLoading(true);
     try {
       const response = await api.get('/parameters');
-      setParameters(response.data);
+      const allParams = response.data;
+      setParameters(allParams);
+      
+      // Initialiser kmParameters avec 12 éléments (existants + placeholders)
+      const kmParams = allParams.filter(param => 
+        param.kmValue !== undefined && param.kmValue >= 0
+      ).sort((a, b) => {
+        if (a.createdAt && b.createdAt) {
+          return new Date(a.createdAt) - new Date(b.createdAt);
+        }
+        return 0;
+      });
+      
+      const kmParamsArray = [];
+      for (let i = 0; i < 12; i++) {
+        if (i < kmParams.length) {
+          kmParamsArray.push(kmParams[i]);
+        } else {
+          kmParamsArray.push({
+            _id: `new-${i}`,
+            name: `kmParam${Date.now()}-${i}`,
+            displayName: '',
+            kmValue: 0,
+            isNew: true
+          });
+        }
+      }
+      setKmParameters(kmParamsArray);
     } catch (error) {
       console.error('Erreur lors du chargement des paramètres:', error);
       toast.error('Erreur lors du chargement des paramètres');
@@ -167,6 +208,63 @@ const Parameters = () => {
     }
   };
 
+  // Charger les mots de passe des fiches de paie
+  const fetchPayslipPasswords = async () => {
+    setLoadingPayslipPasswords(true);
+    try {
+      const response = await api.get('/passwords/payslip-passwords');
+      if (response.data.success && response.data.data) {
+        setPayslipPasswords(response.data.data);
+      }
+    } catch (error) {
+      console.error('Erreur lors du chargement des mots de passe des fiches de paie:', error);
+      toast.error('Erreur lors du chargement des mots de passe');
+    } finally {
+      setLoadingPayslipPasswords(false);
+    }
+  };
+
+  // Télécharger le fichier mots_de_passe.bat
+  const downloadPayslipPasswordsBat = async () => {
+    try {
+      const response = await api.get('/passwords/download-payslip-passwords-bat', {
+        responseType: 'blob'
+      });
+      
+      // Créer un lien de téléchargement
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', 'mots_de_passe.bat');
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      
+      toast.success('Fichier mots_de_passe.bat téléchargé avec succès');
+    } catch (error) {
+      console.error('Erreur lors du téléchargement:', error);
+      toast.error('Erreur lors du téléchargement du fichier');
+    }
+  };
+
+  // Importer les mots de passe depuis le fichier mots_de_passe.bat
+  const importPayslipPasswordsFromBat = async () => {
+    try {
+      const response = await api.post('/passwords/import-payslip-passwords-from-bat');
+      if (response.data.success) {
+        toast.success(response.data.message);
+        // Recharger la liste des mots de passe
+        fetchPayslipPasswords();
+      } else {
+        toast.error(response.data.error || 'Erreur lors de l\'import');
+      }
+    } catch (error) {
+      console.error('Erreur lors de l\'import:', error);
+      toast.error(error.response?.data?.error || 'Erreur lors de l\'import des mots de passe');
+    }
+  };
+
   const handleParameterChange = (idOrIndex, field, value) => {
     const newParameters = [...parameters];
     
@@ -189,57 +287,60 @@ const Parameters = () => {
   const saveParameters = async () => {
     setSaving(true);
     try {
-      console.log('📊 Paramètres à sauvegarder:', parameters);
+      console.log('📊 Paramètres KM à sauvegarder:', kmParameters);
       
-      // Validation des données
-      const parametersToSave = parameters.map(param => {
-        if (!param._id) {
-          console.error('❌ Paramètre sans ID:', param);
-          throw new Error('Paramètre sans ID détecté');
-        }
-        
-        const displayName = param.displayName?.trim() || '';
-        const kmValue = parseFloat(param.kmValue) || 0;
-        
-        // Vérifier qu'au moins un champ a une valeur
-        if (!displayName && kmValue === 0) {
-          console.warn('⚠️ Paramètre sans valeur:', param);
-          // Ne pas exclure, mais donner des valeurs par défaut
-        }
-        
-        return {
-          _id: param._id,
-          displayName: displayName || `Paramètre ${param.name || 'inconnu'}`,
-          kmValue: kmValue
-        };
-      });
+      // Séparer les paramètres existants et les nouveaux
+      const existingParams = kmParameters.filter(param => 
+        param._id && !param._id.startsWith('new-') && !param.isNew
+      );
+      const newParams = kmParameters.filter(param => 
+        param._id && param._id.startsWith('new-') || param.isNew
+      );
       
-      console.log('📤 Données envoyées:', parametersToSave);
-      console.log('📤 URL de la requête:', '/api/parameters/batch');
+      // Préparer les paramètres existants à mettre à jour
+      const parametersToUpdate = existingParams.map(param => ({
+        _id: param._id,
+        displayName: param.displayName?.trim() || `Paramètre ${param.name || 'inconnu'}`,
+        kmValue: parseFloat(param.kmValue) || 0
+      }));
       
-      // Debug détaillé de chaque paramètre
-      parametersToSave.forEach((param, index) => {
-        console.log(`📋 Paramètre ${index + 1}:`, {
-          _id: param._id,
-          displayName: param.displayName,
-          kmValue: param.kmValue,
-          displayNameLength: param.displayName?.length || 0,
-          kmValueType: typeof param.kmValue,
-          kmValueIsNaN: isNaN(param.kmValue)
+      // Préparer les nouveaux paramètres à créer (ignorer ceux qui sont vides)
+      const parametersToCreate = newParams
+        .filter(param => {
+          const displayName = param.displayName?.trim() || '';
+          const kmValue = parseFloat(param.kmValue) || 0;
+          return displayName || kmValue > 0;
+        })
+        .map((param, index) => ({
+          name: `kmParam${Date.now()}-${index}`,
+          displayName: param.displayName?.trim() || `Paramètre ${existingParams.length + index + 1}`,
+          kmValue: parseFloat(param.kmValue) || 0
+        }));
+      
+      console.log('📤 Paramètres existants à mettre à jour:', parametersToUpdate);
+      console.log('📤 Nouveaux paramètres à créer:', parametersToCreate);
+      
+      // Mettre à jour les paramètres existants
+      if (parametersToUpdate.length > 0) {
+        await api.put('/parameters/batch', {
+          parameters: parametersToUpdate
         });
-      });
+      }
       
-      const response = await api.put('/parameters/batch', {
-        parameters: parametersToSave
-      });
+      // Créer les nouveaux paramètres via le backend
+      if (parametersToCreate.length > 0) {
+        await api.post('/parameters/km', {
+          parameters: parametersToCreate
+        });
+      }
       
-      console.log('✅ Réponse reçue:', response.data);
+      // Recharger les paramètres
+      await fetchParameters();
+      
       toast.success('Paramètres sauvegardés avec succès');
     } catch (error) {
       console.error('❌ Erreur lors de la sauvegarde:', error);
       console.error('❌ Détails de l\'erreur:', error.response?.data);
-      console.error('❌ Status:', error.response?.status);
-      console.error('❌ Headers:', error.response?.headers);
       
       const errorMessage = error.response?.data?.error || error.message || 'Erreur inconnue';
       toast.error(`Erreur lors de la sauvegarde: ${errorMessage}`);
@@ -636,7 +737,13 @@ const Parameters = () => {
         </button>
         <button 
           className="tab-button"
-          onClick={() => window.open('/plan/admin-documents.html', '_blank')}
+          onClick={() => {
+            // Détecter le basename depuis BASE_URL ou l'URL actuelle
+            const basename = import.meta.env.BASE_URL 
+              ? import.meta.env.BASE_URL.replace(/\/$/, '') // Enlever le slash final
+              : (window.location.pathname.startsWith('/lon') ? '/lon' : '/plan'); // Fallback
+            window.open(`${basename}/admin-documents.html`, '_blank');
+          }}
         >
           📁 Gestion des Documents
         </button>
@@ -756,6 +863,66 @@ const Parameters = () => {
               </button>
             </div>
           </div>
+
+          {/* Section Mots de passe Fiches de paie */}
+          <div className="payslip-passwords-section" style={{ marginTop: '3rem', paddingTop: '2rem', borderTop: '2px solid #e0e0e0' }}>
+            <h4 style={{ marginBottom: '1.5rem', color: '#2c3e50' }}>📄 Mots de passe Fiches de Paie</h4>
+            
+            {loadingPayslipPasswords ? (
+              <div style={{ textAlign: 'center', padding: '2rem' }}>
+                <div className="loading"></div>
+                <p>Chargement des mots de passe...</p>
+              </div>
+            ) : (
+              <>
+                <div className="payslip-passwords-table-container" style={{ marginBottom: '1.5rem', overflowX: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', background: 'white', minWidth: '600px' }}>
+                    <thead>
+                      <tr style={{ background: '#f8f9fa' }}>
+                        <th style={{ padding: '0.75rem', textAlign: 'left', borderBottom: '2px solid #dee2e6', fontWeight: 600 }}>Salarié</th>
+                        <th style={{ padding: '0.75rem', textAlign: 'left', borderBottom: '2px solid #dee2e6', fontWeight: 600 }}>Mot de passe</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {payslipPasswords.length === 0 ? (
+                        <tr>
+                          <td colSpan="2" style={{ padding: '1rem', textAlign: 'center', color: '#6c757d' }}>
+                            Aucun salarié trouvé
+                          </td>
+                        </tr>
+                      ) : (
+                        payslipPasswords.map((emp) => (
+                          <tr key={emp._id} style={{ borderBottom: '1px solid #e9ecef' }}>
+                            <td style={{ padding: '0.75rem' }}>{emp.name}</td>
+                            <td style={{ padding: '0.75rem', fontFamily: 'monospace', fontWeight: 600, color: '#495057' }}>
+                              {emp.payslipPassword || 'Non généré'}
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+                
+                <div style={{ textAlign: 'center', display: 'flex', gap: '1rem', justifyContent: 'center', flexWrap: 'wrap' }}>
+                  <button
+                    className="btn btn-primary"
+                    onClick={importPayslipPasswordsFromBat}
+                    style={{ padding: '12px 24px', fontSize: '1rem', fontWeight: 600 }}
+                  >
+                    📥 Importer depuis mots_de_passe.bat
+                  </button>
+                  <button
+                    className="btn btn-success"
+                    onClick={downloadPayslipPasswordsBat}
+                    style={{ padding: '12px 24px', fontSize: '1rem', fontWeight: 600 }}
+                  >
+                    💾 Télécharger mots_de_passe.bat
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
         </div>
           </div>
         )}
@@ -855,22 +1022,20 @@ const Parameters = () => {
         </div>
         <div className="card-body">
           <div className="parameters-list">
-          {parameters
-            .filter(param => {
-              // Filtrer uniquement les paramètres KM : ceux qui ont un kmValue défini et >= 0 (exclure les -1)
-              return param.kmValue !== undefined && param.kmValue >= 0;
-            })
-            .slice(0, 12) // Limiter à 12 paramètres maximum
-            .map((param, index) => (
-            <div key={param._id} className="parameter-item">
+          {kmParameters.map((param, index) => (
+            <div key={param._id || `new-${index}`} className="parameter-item">
               <div className="parameter-info">
                 <span className="parameter-number">{index + 1}.</span>
                 <input
                   type="text"
-                  value={param.displayName}
+                  value={param.displayName || ''}
                   onChange={(e) => {
-                    const paramIndex = parameters.findIndex(p => p._id === param._id);
-                    handleParameterChange(paramIndex, 'displayName', e.target.value);
+                    const newKmParams = [...kmParameters];
+                    newKmParams[index] = {
+                      ...newKmParams[index],
+                      displayName: e.target.value
+                    };
+                    setKmParameters(newKmParams);
                   }}
                   className="parameter-name-input"
                   placeholder={`Paramètre ${index + 1}`}
@@ -881,8 +1046,12 @@ const Parameters = () => {
                   type="number"
                   value={param.kmValue || 0}
                   onChange={(e) => {
-                    const paramIndex = parameters.findIndex(p => p._id === param._id);
-                    handleParameterChange(paramIndex, 'kmValue', parseFloat(e.target.value) || 0);
+                    const newKmParams = [...kmParameters];
+                    newKmParams[index] = {
+                      ...newKmParams[index],
+                      kmValue: parseFloat(e.target.value) || 0
+                    };
+                    setKmParameters(newKmParams);
                   }}
                   className="parameter-km-input"
                   min="0"
@@ -945,12 +1114,23 @@ const Parameters = () => {
                         onChange={(e) => {
                           const param = parameters.find(p => p.name === 'storeEmail');
                           if (param) {
+                            // Le paramètre existe, mettre à jour normalement
                             const updatedParams = parameters.map(p => 
                               p.name === 'storeEmail' 
                                 ? { ...p, stringValue: e.target.value }
                                 : p
                             );
                             setParameters(updatedParams);
+                          } else {
+                            // Le paramètre n'existe pas encore, le créer temporairement
+                            const newParam = {
+                              name: 'storeEmail',
+                              displayName: 'Email du Magasin',
+                              stringValue: e.target.value,
+                              kmValue: -1,
+                              _id: `temp-${Date.now()}` // ID temporaire pour l'UI
+                            };
+                            setParameters([...parameters, newParam]);
                           }
                         }}
                         className="email-input"
@@ -970,12 +1150,23 @@ const Parameters = () => {
                         onChange={(e) => {
                           const param = parameters.find(p => p.name === 'adminEmail');
                           if (param) {
+                            // Le paramètre existe, mettre à jour normalement
                             const updatedParams = parameters.map(p => 
                               p.name === 'adminEmail' 
                                 ? { ...p, stringValue: e.target.value }
                                 : p
                             );
                             setParameters(updatedParams);
+                          } else {
+                            // Le paramètre n'existe pas encore, le créer temporairement
+                            const newParam = {
+                              name: 'adminEmail',
+                              displayName: 'Email de l\'Administrateur',
+                              stringValue: e.target.value,
+                              kmValue: -1,
+                              _id: `temp-${Date.now()}` // ID temporaire pour l'UI
+                            };
+                            setParameters([...parameters, newParam]);
                           }
                         }}
                         className="email-input"
@@ -1024,34 +1215,108 @@ const Parameters = () => {
                       className="btn btn-primary"
                       onClick={async () => {
                         try {
-                          // Sauvegarder seulement les paramètres d'alerte
-                          const alertParams = parameters.filter(p => 
-                            ['storeEmail', 'adminEmail', 'alertStore', 'alertAdmin'].includes(p.name)
-                          );
+                          setSaving(true);
                           
-                          if (alertParams.length === 0) {
-                            toast.error('Aucun paramètre d\'alerte trouvé');
+                          // Récupérer les paramètres depuis le serveur (cela créera les paramètres manquants automatiquement)
+                          const response = await api.get('/parameters');
+                          let serverParams = response.data;
+                          
+                          // Récupérer les valeurs modifiées dans l'interface
+                          const localStoreEmail = parameters.find(p => p.name === 'storeEmail')?.stringValue;
+                          const localAdminEmail = parameters.find(p => p.name === 'adminEmail')?.stringValue;
+                          const localAlertStore = parameters.find(p => p.name === 'alertStore')?.booleanValue;
+                          const localAlertAdmin = parameters.find(p => p.name === 'alertAdmin')?.booleanValue;
+                          
+                          // Construire les données à sauvegarder
+                          const paramsToSave = [];
+                          
+                          // Fonction helper pour obtenir ou créer un paramètre
+                          const getOrCreateParam = (name, defaultValue) => {
+                            let param = serverParams.find(p => p.name === name);
+                            if (!param) {
+                              // Le paramètre n'existe pas encore, il sera créé par le backend lors du GET
+                              // On doit recharger pour obtenir les nouveaux paramètres
+                              return null;
+                            }
+                            return param;
+                          };
+                          
+                          // Vérifier si tous les paramètres existent, sinon recharger
+                          const storeEmailParam = getOrCreateParam('storeEmail', '');
+                          const adminEmailParam = getOrCreateParam('adminEmail', '');
+                          const alertStoreParam = getOrCreateParam('alertStore', false);
+                          const alertAdminParam = getOrCreateParam('alertAdmin', false);
+                          
+                          // Si un paramètre manque, recharger pour le créer
+                          if (!storeEmailParam || !adminEmailParam || !alertStoreParam || !alertAdminParam) {
+                            const refreshResponse = await api.get('/parameters');
+                            serverParams = refreshResponse.data;
+                          }
+                          
+                          // Construire les paramètres à sauvegarder avec les valeurs locales
+                          const finalStoreEmail = serverParams.find(p => p.name === 'storeEmail');
+                          const finalAdminEmail = serverParams.find(p => p.name === 'adminEmail');
+                          const finalAlertStore = serverParams.find(p => p.name === 'alertStore');
+                          const finalAlertAdmin = serverParams.find(p => p.name === 'alertAdmin');
+                          
+                          if (finalStoreEmail) {
+                            paramsToSave.push({
+                              _id: finalStoreEmail._id,
+                              displayName: 'Email du Magasin',
+                              stringValue: localStoreEmail !== undefined ? localStoreEmail : (finalStoreEmail.stringValue || ''),
+                              kmValue: -1
+                            });
+                          }
+                          
+                          if (finalAdminEmail) {
+                            paramsToSave.push({
+                              _id: finalAdminEmail._id,
+                              displayName: 'Email de l\'Administrateur',
+                              stringValue: localAdminEmail !== undefined ? localAdminEmail : (finalAdminEmail.stringValue || ''),
+                              kmValue: -1
+                            });
+                          }
+                          
+                          if (finalAlertStore) {
+                            paramsToSave.push({
+                              _id: finalAlertStore._id,
+                              displayName: 'Alerte au Magasin',
+                              booleanValue: localAlertStore !== undefined ? localAlertStore : (finalAlertStore.booleanValue ?? false),
+                              kmValue: -1
+                            });
+                          }
+                          
+                          if (finalAlertAdmin) {
+                            paramsToSave.push({
+                              _id: finalAlertAdmin._id,
+                              displayName: 'Alerte à l\'Administrateur',
+                              booleanValue: localAlertAdmin !== undefined ? localAlertAdmin : (finalAlertAdmin.booleanValue ?? false),
+                              kmValue: -1
+                            });
+                          }
+                          
+                          if (paramsToSave.length === 0) {
+                            toast.error('Aucun paramètre à sauvegarder');
                             return;
                           }
                           
-                          const alertData = alertParams.map(param => ({
-                            _id: param._id,
-                            displayName: param.displayName,
-                            stringValue: param.stringValue,
-                            booleanValue: param.booleanValue,
-                            kmValue: param.kmValue
-                          }));
+                          console.log('📤 Sauvegarde des paramètres d\'alerte:', paramsToSave);
+                          await api.put('/parameters/batch', { parameters: paramsToSave });
                           
-                          console.log('📤 Sauvegarde des paramètres d\'alerte:', alertData);
-                          await api.put('/parameters/batch', { parameters: alertData });
+                          // Recharger les paramètres pour avoir les valeurs à jour
+                          await fetchParameters();
+                          
                           toast.success('Configuration des alertes sauvegardée');
                         } catch (error) {
                           console.error('❌ Erreur lors de la sauvegarde:', error);
-                          toast.error('Erreur lors de la sauvegarde des alertes');
+                          toast.error('Erreur lors de la sauvegarde des alertes: ' + (error.response?.data?.error || error.message));
+                        } finally {
+                          setSaving(false);
                         }
                       }}
+                      disabled={saving}
                     >
-                      💾 Sauvegarder la configuration des alertes
+                      {saving ? '💾 Sauvegarde...' : '💾 Sauvegarder la configuration des alertes'}
                     </button>
                   </div>
                 </div>
@@ -1156,102 +1421,107 @@ const Parameters = () => {
 
             {/* Section Configuration Email Comptable */}
             <div className="card">
-        <div className="card-header">
-          <h3>📧 Configuration Email Comptable</h3>
-          <p>Adresse email pour l'envoi automatique des arrêts maladie validés</p>
-        </div>
-        <div className="card-body">
-          <div className="accountant-email-section">
-            {parameters.find(p => p.name === 'accountantEmail') ? (
-              <div className="email-config">
-                <div className="email-input-group">
-                  <label htmlFor="accountantEmail">Email du comptable :</label>
-                  <input
-                    type="email"
-                    id="accountantEmail"
-                    value={parameters.find(p => p.name === 'accountantEmail')?.stringValue || ''}
-                    onChange={(e) => {
-                      const emailParam = parameters.find(p => p.name === 'accountantEmail');
-                      if (emailParam) {
-                        const updatedParams = parameters.map(p => 
-                          p.name === 'accountantEmail' 
-                            ? { ...p, stringValue: e.target.value }
-                            : p
-                        );
-                        setParameters(updatedParams);
-                      }
-                    }}
-                    className="email-input"
-                    placeholder="comptable@boulangerie.fr"
-                  />
-                </div>
-                <div className="email-info">
-                  <p>💡 <strong>Utilisation :</strong> Cette adresse sera utilisée pour envoyer automatiquement les arrêts maladie validés au comptable.</p>
-                  <p>🔒 <strong>Sécurité :</strong> Vous pouvez également configurer cette valeur via la variable d'environnement <code>ACCOUNTANT_EMAIL</code> dans Render.</p>
-                </div>
-                <div className="email-actions">
-                  <button
-                    className="btn btn-primary"
-                    onClick={async () => {
-                      try {
-                        console.log('🔍 Tous les paramètres:', parameters);
-                        const emailParam = parameters.find(p => p.name === 'accountantEmail');
-                        console.log('📧 Paramètre email comptable trouvé:', emailParam);
-                        
-                        if (emailParam) {
-                          console.log('📤 Envoi de la requête PUT avec:', {
-                            stringValue: emailParam.stringValue,
-                            _id: emailParam._id
-                          });
-                          
-                          const response = await api.put(`/parameters/${emailParam._id}`, {
-                            stringValue: emailParam.stringValue
-                          });
-                          
-                          console.log('✅ Réponse reçue:', response.data);
-                          toast.success('Email du comptable sauvegardé');
-                        } else {
-                          console.log('❌ Paramètre email comptable non trouvé');
-                          toast.error('Paramètre email comptable non trouvé');
-                        }
-                      } catch (error) {
-                        console.error('❌ Erreur lors de la sauvegarde:', error);
-                        console.error('❌ Détails:', error.response?.data);
-                        toast.error('Erreur lors de la sauvegarde de l\'email');
-                      }
-                    }}
-                  >
-                    💾 Sauvegarder l'email du comptable
-                  </button>
+              <div className="card-header">
+                <h3>📧 Configuration Email Comptable</h3>
+                <p>Adresse email pour l'envoi automatique des arrêts maladie validés</p>
+              </div>
+              <div className="card-body">
+                <div className="accountant-email-section">
+                  <div className="email-config">
+                    <div className="email-input-group">
+                      <label htmlFor="accountantEmail">📧 Email du comptable :</label>
+                      <input
+                        type="email"
+                        id="accountantEmail"
+                        value={parameters.find(p => p.name === 'accountantEmail')?.stringValue || ''}
+                        onChange={(e) => {
+                          const emailParam = parameters.find(p => p.name === 'accountantEmail');
+                          if (emailParam) {
+                            // Le paramètre existe, mettre à jour normalement
+                            const updatedParams = parameters.map(p => 
+                              p.name === 'accountantEmail' 
+                                ? { ...p, stringValue: e.target.value }
+                                : p
+                            );
+                            setParameters(updatedParams);
+                          } else {
+                            // Le paramètre n'existe pas encore, le créer temporairement
+                            const newParam = {
+                              name: 'accountantEmail',
+                              displayName: 'Email du Comptable',
+                              stringValue: e.target.value,
+                              kmValue: -1,
+                              _id: `temp-${Date.now()}` // ID temporaire pour l'UI
+                            };
+                            setParameters([...parameters, newParam]);
+                          }
+                        }}
+                        className="email-input"
+                        placeholder="comptable@boulangerie.fr"
+                      />
+                    </div>
+                    <div className="email-info">
+                      <p>💡 <strong>Utilisation :</strong> Cette adresse sera utilisée pour envoyer automatiquement les arrêts maladie validés au comptable.</p>
+                      <p>🔒 <strong>Sécurité :</strong> Vous pouvez également configurer cette valeur via la variable d'environnement <code>ACCOUNTANT_EMAIL</code> dans Render.</p>
+                    </div>
+                    <div className="email-actions">
+                      <button
+                        className="btn btn-primary"
+                        onClick={async () => {
+                          try {
+                            setSaving(true);
+                            
+                            // Récupérer les paramètres depuis le serveur (cela créera les paramètres manquants automatiquement)
+                            const response = await api.get('/parameters');
+                            let serverParams = response.data;
+                            
+                            // Récupérer la valeur modifiée dans l'interface
+                            const localAccountantEmail = parameters.find(p => p.name === 'accountantEmail')?.stringValue;
+                            
+                            // Vérifier si le paramètre existe
+                            let accountantParam = serverParams.find(p => p.name === 'accountantEmail');
+                            if (!accountantParam) {
+                              // Recharger pour que le backend crée le paramètre manquant
+                              const refreshResponse = await api.get('/parameters');
+                              serverParams = refreshResponse.data;
+                              accountantParam = serverParams.find(p => p.name === 'accountantEmail');
+                            }
+                            
+                            if (!accountantParam) {
+                              toast.error('Impossible de créer le paramètre email comptable');
+                              return;
+                            }
+                            
+                            const paramToSave = {
+                              _id: accountantParam._id,
+                              displayName: 'Email du Comptable',
+                              stringValue: localAccountantEmail !== undefined ? localAccountantEmail : (accountantParam.stringValue || ''),
+                              kmValue: -1
+                            };
+                            
+                            console.log('📤 Sauvegarde de l\'email comptable:', paramToSave);
+                            await api.put('/parameters/batch', { parameters: [paramToSave] });
+                            
+                            // Recharger les paramètres pour avoir les valeurs à jour
+                            await fetchParameters();
+                            
+                            toast.success('Email du comptable sauvegardé');
+                          } catch (error) {
+                            console.error('❌ Erreur lors de la sauvegarde:', error);
+                            toast.error('Erreur lors de la sauvegarde de l\'email: ' + (error.response?.data?.error || error.message));
+                          } finally {
+                            setSaving(false);
+                          }
+                        }}
+                        disabled={saving}
+                      >
+                        {saving ? '💾 Sauvegarde...' : '💾 Sauvegarder l\'email du comptable'}
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </div>
-            ) : (
-              <div className="no-email-param">
-                <p>⚠️ Le paramètre email comptable n'a pas encore été créé.</p>
-                <button
-                  className="btn btn-secondary"
-                  onClick={async () => {
-                    try {
-                      await api.post('/parameters', {
-                        name: 'accountantEmail',
-                        displayName: 'Email du Comptable',
-                        stringValue: 'comptable@boulangerie.fr',
-                        kmValue: 0
-                      });
-                      toast.success('Paramètre email comptable créé');
-                      fetchParameters();
-                    } catch (error) {
-                      toast.error('Erreur lors de la création du paramètre');
-                    }
-                  }}
-                >
-                  Créer le paramètre email comptable
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
+            </div>
 
 
       {/* Section Gestion des Messages Email */}
