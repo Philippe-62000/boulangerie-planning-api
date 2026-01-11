@@ -904,14 +904,7 @@ const Parameters = () => {
                   </table>
                 </div>
                 
-                <div style={{ textAlign: 'center', display: 'flex', gap: '1rem', justifyContent: 'center', flexWrap: 'wrap' }}>
-                  <button
-                    className="btn btn-primary"
-                    onClick={importPayslipPasswordsFromBat}
-                    style={{ padding: '12px 24px', fontSize: '1rem', fontWeight: 600 }}
-                  >
-                    📥 Importer depuis mots_de_passe.bat
-                  </button>
+                <div style={{ textAlign: 'center' }}>
                   <button
                     className="btn btn-success"
                     onClick={downloadPayslipPasswordsBat}
@@ -919,6 +912,9 @@ const Parameters = () => {
                   >
                     💾 Télécharger mots_de_passe.bat
                   </button>
+                  <p style={{ marginTop: '1rem', color: '#6c757d', fontSize: '0.9rem' }}>
+                    💡 Pour mettre à jour les mots de passe, modifiez-les directement dans la base de données, puis téléchargez le fichier .bat
+                  </p>
                 </div>
               </>
             )}
