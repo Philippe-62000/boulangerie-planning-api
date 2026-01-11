@@ -13,6 +13,9 @@ const Parameters = () => {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   
+  // État local pour les 12 paramètres KM
+  const [kmParameters, setKmParameters] = useState([]);
+  
   // États pour la gestion des mots de passe
   const [passwords, setPasswords] = useState({
     admin: '',
@@ -138,7 +141,34 @@ const Parameters = () => {
     setLoading(true);
     try {
       const response = await api.get('/parameters');
-      setParameters(response.data);
+      const allParams = response.data;
+      setParameters(allParams);
+      
+      // Initialiser kmParameters avec 12 éléments (existants + placeholders)
+      const kmParams = allParams.filter(param => 
+        param.kmValue !== undefined && param.kmValue >= 0
+      ).sort((a, b) => {
+        if (a.createdAt && b.createdAt) {
+          return new Date(a.createdAt) - new Date(b.createdAt);
+        }
+        return 0;
+      });
+      
+      const kmParamsArray = [];
+      for (let i = 0; i < 12; i++) {
+        if (i < kmParams.length) {
+          kmParamsArray.push(kmParams[i]);
+        } else {
+          kmParamsArray.push({
+            _id: `new-${i}`,
+            name: `kmParam${Date.now()}-${i}`,
+            displayName: '',
+            kmValue: 0,
+            isNew: true
+          });
+        }
+      }
+      setKmParameters(kmParamsArray);
     } catch (error) {
       console.error('Erreur lors du chargement des paramètres:', error);
       toast.error('Erreur lors du chargement des paramètres');
@@ -189,57 +219,60 @@ const Parameters = () => {
   const saveParameters = async () => {
     setSaving(true);
     try {
-      console.log('📊 Paramètres à sauvegarder:', parameters);
+      console.log('📊 Paramètres KM à sauvegarder:', kmParameters);
       
-      // Validation des données
-      const parametersToSave = parameters.map(param => {
-        if (!param._id) {
-          console.error('❌ Paramètre sans ID:', param);
-          throw new Error('Paramètre sans ID détecté');
-        }
-        
-        const displayName = param.displayName?.trim() || '';
-        const kmValue = parseFloat(param.kmValue) || 0;
-        
-        // Vérifier qu'au moins un champ a une valeur
-        if (!displayName && kmValue === 0) {
-          console.warn('⚠️ Paramètre sans valeur:', param);
-          // Ne pas exclure, mais donner des valeurs par défaut
-        }
-        
-        return {
-          _id: param._id,
-          displayName: displayName || `Paramètre ${param.name || 'inconnu'}`,
-          kmValue: kmValue
-        };
-      });
+      // Séparer les paramètres existants et les nouveaux
+      const existingParams = kmParameters.filter(param => 
+        param._id && !param._id.startsWith('new-') && !param.isNew
+      );
+      const newParams = kmParameters.filter(param => 
+        param._id && param._id.startsWith('new-') || param.isNew
+      );
       
-      console.log('📤 Données envoyées:', parametersToSave);
-      console.log('📤 URL de la requête:', '/api/parameters/batch');
+      // Préparer les paramètres existants à mettre à jour
+      const parametersToUpdate = existingParams.map(param => ({
+        _id: param._id,
+        displayName: param.displayName?.trim() || `Paramètre ${param.name || 'inconnu'}`,
+        kmValue: parseFloat(param.kmValue) || 0
+      }));
       
-      // Debug détaillé de chaque paramètre
-      parametersToSave.forEach((param, index) => {
-        console.log(`📋 Paramètre ${index + 1}:`, {
-          _id: param._id,
-          displayName: param.displayName,
-          kmValue: param.kmValue,
-          displayNameLength: param.displayName?.length || 0,
-          kmValueType: typeof param.kmValue,
-          kmValueIsNaN: isNaN(param.kmValue)
+      // Préparer les nouveaux paramètres à créer (ignorer ceux qui sont vides)
+      const parametersToCreate = newParams
+        .filter(param => {
+          const displayName = param.displayName?.trim() || '';
+          const kmValue = parseFloat(param.kmValue) || 0;
+          return displayName || kmValue > 0;
+        })
+        .map((param, index) => ({
+          name: `kmParam${Date.now()}-${index}`,
+          displayName: param.displayName?.trim() || `Paramètre ${existingParams.length + index + 1}`,
+          kmValue: parseFloat(param.kmValue) || 0
+        }));
+      
+      console.log('📤 Paramètres existants à mettre à jour:', parametersToUpdate);
+      console.log('📤 Nouveaux paramètres à créer:', parametersToCreate);
+      
+      // Mettre à jour les paramètres existants
+      if (parametersToUpdate.length > 0) {
+        await api.put('/parameters/batch', {
+          parameters: parametersToUpdate
         });
-      });
+      }
       
-      const response = await api.put('/parameters/batch', {
-        parameters: parametersToSave
-      });
+      // Créer les nouveaux paramètres via le backend
+      if (parametersToCreate.length > 0) {
+        await api.post('/parameters/km', {
+          parameters: parametersToCreate
+        });
+      }
       
-      console.log('✅ Réponse reçue:', response.data);
+      // Recharger les paramètres
+      await fetchParameters();
+      
       toast.success('Paramètres sauvegardés avec succès');
     } catch (error) {
       console.error('❌ Erreur lors de la sauvegarde:', error);
       console.error('❌ Détails de l\'erreur:', error.response?.data);
-      console.error('❌ Status:', error.response?.status);
-      console.error('❌ Headers:', error.response?.headers);
       
       const errorMessage = error.response?.data?.error || error.message || 'Erreur inconnue';
       toast.error(`Erreur lors de la sauvegarde: ${errorMessage}`);
@@ -861,22 +894,20 @@ const Parameters = () => {
         </div>
         <div className="card-body">
           <div className="parameters-list">
-          {parameters
-            .filter(param => {
-              // Filtrer uniquement les paramètres KM : ceux qui ont un kmValue défini et >= 0 (exclure les -1)
-              return param.kmValue !== undefined && param.kmValue >= 0;
-            })
-            .slice(0, 12) // Limiter à 12 paramètres maximum
-            .map((param, index) => (
-            <div key={param._id} className="parameter-item">
+          {kmParameters.map((param, index) => (
+            <div key={param._id || `new-${index}`} className="parameter-item">
               <div className="parameter-info">
                 <span className="parameter-number">{index + 1}.</span>
                 <input
                   type="text"
-                  value={param.displayName}
+                  value={param.displayName || ''}
                   onChange={(e) => {
-                    const paramIndex = parameters.findIndex(p => p._id === param._id);
-                    handleParameterChange(paramIndex, 'displayName', e.target.value);
+                    const newKmParams = [...kmParameters];
+                    newKmParams[index] = {
+                      ...newKmParams[index],
+                      displayName: e.target.value
+                    };
+                    setKmParameters(newKmParams);
                   }}
                   className="parameter-name-input"
                   placeholder={`Paramètre ${index + 1}`}
@@ -887,8 +918,12 @@ const Parameters = () => {
                   type="number"
                   value={param.kmValue || 0}
                   onChange={(e) => {
-                    const paramIndex = parameters.findIndex(p => p._id === param._id);
-                    handleParameterChange(paramIndex, 'kmValue', parseFloat(e.target.value) || 0);
+                    const newKmParams = [...kmParameters];
+                    newKmParams[index] = {
+                      ...newKmParams[index],
+                      kmValue: parseFloat(e.target.value) || 0
+                    };
+                    setKmParameters(newKmParams);
                   }}
                   className="parameter-km-input"
                   min="0"

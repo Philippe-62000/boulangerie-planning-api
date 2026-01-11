@@ -8,6 +8,9 @@ router.get('/', parametersController.getParameters);
 // Mettre à jour tous les paramètres (batch) - DOIT être avant /:id
 router.put('/batch', parametersController.updateAllParameters);
 
+// Créer de nouveaux paramètres KM - DOIT être avant /:id
+router.post('/km', parametersController.createKmParameters);
+
 // Mettre à jour un paramètre
 router.put('/:id', parametersController.updateParameter);
 

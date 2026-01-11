@@ -172,6 +172,50 @@ const updateParameter = async (req, res) => {
   }
 };
 
+// Créer de nouveaux paramètres KM
+const createKmParameters = async (req, res) => {
+  try {
+    const { parameters: paramsToCreate } = req.body;
+    
+    console.log('📝 Création de nouveaux paramètres KM');
+    console.log('📋 Paramètres à créer:', paramsToCreate);
+    
+    if (!Array.isArray(paramsToCreate)) {
+      return res.status(400).json({ 
+        error: 'Les paramètres doivent être un tableau' 
+      });
+    }
+    
+    const createdParameters = [];
+    for (const param of paramsToCreate) {
+      try {
+        const newParam = new Parameter({
+          name: param.name,
+          displayName: param.displayName || `Paramètre ${param.name}`,
+          kmValue: parseFloat(param.kmValue) || 0
+        });
+        
+        const savedParam = await newParam.save();
+        createdParameters.push(savedParam);
+        console.log(`✅ Paramètre créé: ${savedParam.name} (${savedParam._id})`);
+      } catch (error) {
+        console.error(`❌ Erreur lors de la création du paramètre ${param.name}:`, error);
+        // Continuer avec les autres paramètres même en cas d'erreur
+      }
+    }
+    
+    res.json({
+      message: `${createdParameters.length} paramètres créés avec succès`,
+      parameters: createdParameters
+    });
+  } catch (error) {
+    console.error('Erreur lors de la création des paramètres KM:', error);
+    res.status(500).json({ 
+      error: 'Erreur lors de la création des paramètres KM' 
+    });
+  }
+};
+
 // Mettre à jour tous les paramètres (batch)
 const updateAllParameters = async (req, res) => {
   try {
@@ -238,5 +282,6 @@ const updateAllParameters = async (req, res) => {
 module.exports = {
   getParameters,
   updateParameter,
-  updateAllParameters
+  updateAllParameters,
+  createKmParameters
 };
