@@ -1635,6 +1635,7 @@ Cet email a été envoyé automatiquement, merci de ne pas y répondre.
       }
 
       const duration = this.calculateDuration(vacationRequest.startDate, vacationRequest.endDate);
+      const adminUrl = this.getAdminUrl('/vacation-management');
 
       const htmlContent = this.replaceTemplateVariables(template.htmlContent, {
         employeeName: vacationRequest.employeeName,
@@ -1645,7 +1646,7 @@ Cet email a été envoyé automatiquement, merci de ne pas y répondre.
         durationPlural: duration > 1 ? 's' : '',
         reason: vacationRequest.reason || 'Congés payés',
         requestDate: new Date(vacationRequest.uploadDate || vacationRequest.createdAt).toLocaleDateString('fr-FR'),
-        adminUrl: 'https://www.filmara.fr/plan'
+        adminUrl: adminUrl
       });
 
       const textContent = this.replaceTemplateVariables(template.textContent, {
@@ -1657,7 +1658,7 @@ Cet email a été envoyé automatiquement, merci de ne pas y répondre.
         durationPlural: duration > 1 ? 's' : '',
         reason: vacationRequest.reason || 'Congés payés',
         requestDate: new Date(vacationRequest.uploadDate || vacationRequest.createdAt).toLocaleDateString('fr-FR'),
-        adminUrl: 'https://www.filmara.fr/plan'
+        adminUrl: adminUrl
       });
 
       return await this.sendEmail(
@@ -1855,7 +1856,7 @@ Ce message a été généré automatiquement.
           </div>
           
           <div style="text-align: center; margin: 20px 0;">
-            <a href="https://www.filmara.fr/plan" class="action-button">🔍 Gérer les Congés</a>
+            <a href="${this.getAdminUrl('/vacation-management')}" class="action-button">🔍 Gérer les Congés</a>
           </div>
           
           <p>Merci de traiter cette demande rapidement.</p>
@@ -1890,7 +1891,7 @@ INFORMATIONS DE LA DEMANDE :
 - Type : ${vacationRequest.reason}
 - Date de demande : ${requestDate}
 
-🔍 Pour gérer : https://www.filmara.fr/plan
+🔍 Pour gérer : ${this.getAdminUrl('/vacation-management')}
 
 Merci de traiter cette demande rapidement.
 
