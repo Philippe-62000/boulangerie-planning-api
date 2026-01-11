@@ -348,6 +348,8 @@ const downloadPayslipPasswordsBat = async (req, res) => {
 // Mettre à jour les mots de passe des fiches de paie
 const updatePayslipPasswords = async (req, res) => {
   try {
+    console.log('📝 Mise à jour des mots de passe des fiches de paie');
+    console.log('📋 Body reçu:', req.body);
     const { passwords } = req.body; // Array of { employeeId, payslipPassword }
     
     if (!passwords || !Array.isArray(passwords)) {
