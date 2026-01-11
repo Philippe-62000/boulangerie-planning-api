@@ -18,11 +18,14 @@ const getKmExpenses = async (req, res) => {
     
     console.log(`📊 ${employees.length} employés récupérés pour les frais KM`);
     
-    // Récupérer les paramètres KM (ceux qui ont un kmValue défini)
-    // On prend tous les paramètres avec kmValue défini, même s'il est à 0
+    // Récupérer les paramètres KM (ceux qui ont un kmValue défini et >= 0)
+    // Exclure les paramètres avec kmValue < 0 (comme -1) qui sont des paramètres système
     // Trier par createdAt croissant pour respecter l'ordre défini dans Parameters
     const allParameters = await Parameter.find({ 
-      kmValue: { $exists: true }
+      $and: [
+        { kmValue: { $exists: true } },
+        { kmValue: { $gte: 0 } }  // Exclure les -1 (paramètres système)
+      ]
     }).sort({ 
       createdAt: 1  // Ordre de création pour respecter l'ordre dans Parameters
     });
