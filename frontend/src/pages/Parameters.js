@@ -231,7 +231,7 @@ const Parameters = () => {
     try {
       const passwords = payslipPasswords.map(emp => ({
         employeeId: emp._id,
-        payslipPassword: emp.payslipPassword || null
+        payslipPassword: emp.payslipPassword || ''
       }));
       
       const response = await api.put('/passwords/payslip-passwords', { passwords });

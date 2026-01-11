@@ -307,6 +307,11 @@ const downloadPayslipPasswordsBat = async (req, res) => {
     batContent += 'REM Définir les mots de passe pour chaque utilisateur\n';
     
     for (const employee of employees) {
+      // Ne générer une ligne que si le mot de passe existe et n'est pas vide
+      if (!employee.payslipPassword || employee.payslipPassword.trim() === '') {
+        continue;
+      }
+      
       // Extraire le nom de famille (dernier mot du nom)
       // Format attendu dans proteger_pdf.bat: "YYYYMM NOM Prenom_Normal.pdf"
       // Le script extrait tokens=2, donc le format attendu est "NOM Prenom"
