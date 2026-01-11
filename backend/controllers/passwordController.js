@@ -1,4 +1,5 @@
 const User = require('../models/User');
+const Employee = require('../models/Employee');
 
 const updatePassword = async (req, res) => {
   try {
@@ -112,7 +113,128 @@ const getUsers = async (req, res) => {
   }
 };
 
+// Fonction pour générer un mot de passe de 10 caractères avec lettres, chiffres et caractères spéciaux
+const generatePayslipPassword = () => {
+  const letters = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
+  const digits = '0123456789';
+  const special = '@#$';
+  
+  let password = '';
+  
+  // Ajouter 8 lettres
+  for (let i = 0; i < 8; i++) {
+    password += letters[Math.floor(Math.random() * letters.length)];
+  }
+  
+  // Ajouter 1 chiffre
+  password += digits[Math.floor(Math.random() * digits.length)];
+  
+  // Ajouter 1 caractère spécial
+  password += special[Math.floor(Math.random() * special.length)];
+  
+  // Mélanger les caractères
+  return password.split('').sort(() => Math.random() - 0.5).join('');
+};
+
+// Récupérer tous les employés avec leurs mots de passe de fiche de paie
+const getPayslipPasswords = async (req, res) => {
+  try {
+    console.log('📋 Récupération des mots de passe des fiches de paie');
+    
+    const employees = await Employee.find({ isActive: true })
+      .select('name payslipPassword')
+      .sort({ name: 1 });
+    
+    // Générer automatiquement les mots de passe manquants
+    const employeesWithPasswords = await Promise.all(
+      employees.map(async (employee) => {
+        if (!employee.payslipPassword) {
+          employee.payslipPassword = generatePayslipPassword();
+          await employee.save();
+          console.log(`✅ Mot de passe généré pour ${employee.name}: ${employee.payslipPassword}`);
+        }
+        return {
+          _id: employee._id,
+          name: employee.name,
+          payslipPassword: employee.payslipPassword
+        };
+      })
+    );
+    
+    console.log(`✅ ${employeesWithPasswords.length} employés récupérés avec leurs mots de passe`);
+    
+    res.json({
+      success: true,
+      data: employeesWithPasswords
+    });
+    
+  } catch (error) {
+    console.error('❌ Erreur lors de la récupération des mots de passe:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Erreur serveur lors de la récupération des mots de passe'
+    });
+  }
+};
+
+// Télécharger le fichier mots_de_passe.bat
+const downloadPayslipPasswordsBat = async (req, res) => {
+  try {
+    console.log('📥 Génération du fichier mots_de_passe.bat');
+    
+    const employees = await Employee.find({ isActive: true })
+      .select('name payslipPassword')
+      .sort({ name: 1 });
+    
+    // Générer automatiquement les mots de passe manquants
+    for (const employee of employees) {
+      if (!employee.payslipPassword) {
+        employee.payslipPassword = generatePayslipPassword();
+        await employee.save();
+      }
+    }
+    
+    // Construire le contenu du fichier .bat
+    let batContent = '@echo off\n';
+    batContent += 'REM Définir les mots de passe pour chaque utilisateur\n';
+    
+    for (const employee of employees) {
+      // Extraire le nom de famille (dernier mot du nom)
+      // Format attendu dans proteger_pdf.bat: "YYYYMM NOM Prenom_Normal.pdf"
+      // Le script extrait tokens=2, donc le format attendu est "NOM Prenom"
+      // Dans mots_de_passe.bat, on utilise juste "NOM" en majuscules
+      const nameParts = employee.name.trim().split(/\s+/);
+      // Prendre le dernier mot comme nom de famille (cas le plus courant: "Prénom NOM")
+      let lastName = nameParts[nameParts.length - 1];
+      
+      // Si le premier mot est en majuscules, c'est peut-être "NOM Prénom"
+      // Mais on prend toujours le dernier mot pour cohérence avec le format "Prénom NOM"
+      lastName = lastName.toUpperCase();
+      
+      batContent += `set "pwd_${lastName}=${employee.payslipPassword}"\n`;
+    }
+    
+    // Définir les headers pour le téléchargement
+    res.setHeader('Content-Type', 'application/octet-stream');
+    res.setHeader('Content-Disposition', 'attachment; filename="mots_de_passe.bat"');
+    
+    // Envoyer le contenu
+    res.send(batContent);
+    
+    console.log('✅ Fichier mots_de_passe.bat généré avec succès');
+    
+  } catch (error) {
+    console.error('❌ Erreur lors de la génération du fichier:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Erreur serveur lors de la génération du fichier'
+    });
+  }
+};
+
 module.exports = {
   updatePassword,
-  getUsers
+  getUsers,
+  getPayslipPasswords,
+  downloadPayslipPasswordsBat
 };

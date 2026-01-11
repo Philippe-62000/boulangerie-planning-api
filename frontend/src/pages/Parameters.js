@@ -49,6 +49,10 @@ const Parameters = () => {
   // États pour la gestion des employés (pour la sélection nominative)
   const [employees, setEmployees] = useState([]);
   const [loadingEmployees, setLoadingEmployees] = useState(false);
+  
+  // États pour les mots de passe des fiches de paie
+  const [payslipPasswords, setPayslipPasswords] = useState([]);
+  const [loadingPayslipPasswords, setLoadingPayslipPasswords] = useState(false);
 
   // États pour la vérification de maintenance
   const [maintenanceCheck, setMaintenanceCheck] = useState(null);
@@ -67,6 +71,13 @@ const Parameters = () => {
     fetchEmployees();
     fetchMarges();
   }, []);
+
+  // Charger les mots de passe des fiches de paie quand l'onglet passwords est actif
+  useEffect(() => {
+    if (activeTab === 'passwords') {
+      fetchPayslipPasswords();
+    }
+  }, [activeTab]);
 
   // Charger les marges
   const fetchMarges = async () => {
@@ -194,6 +205,46 @@ const Parameters = () => {
       console.error('Erreur lors du chargement des employés:', error);
     } finally {
       setLoadingEmployees(false);
+    }
+  };
+
+  // Charger les mots de passe des fiches de paie
+  const fetchPayslipPasswords = async () => {
+    setLoadingPayslipPasswords(true);
+    try {
+      const response = await api.get('/passwords/payslip-passwords');
+      if (response.data.success && response.data.data) {
+        setPayslipPasswords(response.data.data);
+      }
+    } catch (error) {
+      console.error('Erreur lors du chargement des mots de passe des fiches de paie:', error);
+      toast.error('Erreur lors du chargement des mots de passe');
+    } finally {
+      setLoadingPayslipPasswords(false);
+    }
+  };
+
+  // Télécharger le fichier mots_de_passe.bat
+  const downloadPayslipPasswordsBat = async () => {
+    try {
+      const response = await api.get('/passwords/download-payslip-passwords-bat', {
+        responseType: 'blob'
+      });
+      
+      // Créer un lien de téléchargement
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', 'mots_de_passe.bat');
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      
+      toast.success('Fichier mots_de_passe.bat téléchargé avec succès');
+    } catch (error) {
+      console.error('Erreur lors du téléchargement:', error);
+      toast.error('Erreur lors du téléchargement du fichier');
     }
   };
 
@@ -794,6 +845,59 @@ const Parameters = () => {
                 {savingPasswords ? '🔐 Mise à jour...' : '🔐 Mettre à jour les mots de passe'}
               </button>
             </div>
+          </div>
+
+          {/* Section Mots de passe Fiches de paie */}
+          <div className="payslip-passwords-section" style={{ marginTop: '3rem', paddingTop: '2rem', borderTop: '2px solid #e0e0e0' }}>
+            <h4 style={{ marginBottom: '1.5rem', color: '#2c3e50' }}>📄 Mots de passe Fiches de Paie</h4>
+            
+            {loadingPayslipPasswords ? (
+              <div style={{ textAlign: 'center', padding: '2rem' }}>
+                <div className="loading"></div>
+                <p>Chargement des mots de passe...</p>
+              </div>
+            ) : (
+              <>
+                <div className="payslip-passwords-table-container" style={{ marginBottom: '1.5rem', overflowX: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', background: 'white', minWidth: '600px' }}>
+                    <thead>
+                      <tr style={{ background: '#f8f9fa' }}>
+                        <th style={{ padding: '0.75rem', textAlign: 'left', borderBottom: '2px solid #dee2e6', fontWeight: 600 }}>Salarié</th>
+                        <th style={{ padding: '0.75rem', textAlign: 'left', borderBottom: '2px solid #dee2e6', fontWeight: 600 }}>Mot de passe</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {payslipPasswords.length === 0 ? (
+                        <tr>
+                          <td colSpan="2" style={{ padding: '1rem', textAlign: 'center', color: '#6c757d' }}>
+                            Aucun salarié trouvé
+                          </td>
+                        </tr>
+                      ) : (
+                        payslipPasswords.map((emp) => (
+                          <tr key={emp._id} style={{ borderBottom: '1px solid #e9ecef' }}>
+                            <td style={{ padding: '0.75rem' }}>{emp.name}</td>
+                            <td style={{ padding: '0.75rem', fontFamily: 'monospace', fontWeight: 600, color: '#495057' }}>
+                              {emp.payslipPassword || 'Non généré'}
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+                
+                <div style={{ textAlign: 'center' }}>
+                  <button
+                    className="btn btn-success"
+                    onClick={downloadPayslipPasswordsBat}
+                    style={{ padding: '12px 24px', fontSize: '1rem', fontWeight: 600 }}
+                  >
+                    📥 Télécharger mots_de_passe.bat
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
           </div>
