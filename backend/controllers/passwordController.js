@@ -368,7 +368,12 @@ const updatePayslipPasswords = async (req, res) => {
           continue;
         }
         
-        employee.payslipPassword = payslipPassword || null;
+        // Ne pas convertir les chaînes vides en null - garder la chaîne vide ou null
+        if (payslipPassword === null || payslipPassword === undefined || (typeof payslipPassword === 'string' && payslipPassword.trim() === '')) {
+          employee.payslipPassword = null;
+        } else {
+          employee.payslipPassword = payslipPassword.trim();
+        }
         await employee.save();
         updatedCount++;
       } catch (error) {
