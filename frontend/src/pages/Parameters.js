@@ -636,7 +636,13 @@ const Parameters = () => {
         </button>
         <button 
           className="tab-button"
-          onClick={() => window.open('/plan/admin-documents.html', '_blank')}
+          onClick={() => {
+            // Détecter le basename depuis BASE_URL ou l'URL actuelle
+            const basename = import.meta.env.BASE_URL 
+              ? import.meta.env.BASE_URL.replace(/\/$/, '') // Enlever le slash final
+              : (window.location.pathname.startsWith('/lon') ? '/lon' : '/plan'); // Fallback
+            window.open(`${basename}/admin-documents.html`, '_blank');
+          }}
         >
           📁 Gestion des Documents
         </button>
