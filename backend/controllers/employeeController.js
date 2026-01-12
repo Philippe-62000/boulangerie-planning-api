@@ -178,7 +178,16 @@ const createEmployee = async (req, res) => {
   try {
     console.log('🔍 Création employé - Données reçues:', req.body);
     
-    const employee = new Employee(req.body);
+    // Préparer les données : convertir les chaînes vides en undefined pour les champs avec index sparse unique
+    const employeeData = { ...req.body };
+    if (employeeData.saleCode === '') {
+      employeeData.saleCode = undefined;
+    }
+    if (employeeData.connectionCode === '') {
+      employeeData.connectionCode = undefined;
+    }
+    
+    const employee = new Employee(employeeData);
     await employee.save();
     
     console.log('✅ Employé créé avec succès:', employee);
