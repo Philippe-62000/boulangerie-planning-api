@@ -557,6 +557,14 @@ const Dashboard = () => {
                   <tr key={employee._id}>
                     <td>{employee.name}</td>
                     <td>{(() => {
+                      // Si birthDate est disponible, calculer précisément la date des 18 ans
+                      if (employee.birthDate) {
+                        const birthDate = new Date(employee.birthDate);
+                        const eighteenBirthday = new Date(birthDate);
+                        eighteenBirthday.setFullYear(birthDate.getFullYear() + 18);
+                        return formatDate(eighteenBirthday);
+                      }
+                      // Sinon, calcul approximatif basé sur l'âge actuel
                       const currentAge = employee.age;
                       const yearsUntil18 = 18 - currentAge;
                       const today = new Date();
@@ -565,7 +573,23 @@ const Dashboard = () => {
                     })()}</td>
                     <td>
                       {(() => {
-                        // Calculer la date des 18 ans (approximatif basé sur l'âge actuel)
+                        // Si birthDate est disponible, calculer précisément le nombre de jours
+                        if (employee.birthDate) {
+                          const birthDate = new Date(employee.birthDate);
+                          const eighteenBirthday = new Date(birthDate);
+                          eighteenBirthday.setFullYear(birthDate.getFullYear() + 18);
+                          const daysUntilEighteen = calculateDaysUntil(eighteenBirthday);
+                          
+                          return (
+                            <span style={{ 
+                              color: daysUntilEighteen > 0 ? '#ffc107' : '#28a745',
+                              fontWeight: 'bold'
+                            }}>
+                              {daysUntilEighteen > 0 ? `${daysUntilEighteen} jours` : 'Majeur'}
+                            </span>
+                          );
+                        }
+                        // Sinon, calcul approximatif basé sur l'âge actuel
                         const currentAge = employee.age;
                         const yearsUntil18 = 18 - currentAge;
                         const today = new Date();
@@ -577,7 +601,7 @@ const Dashboard = () => {
                             color: daysUntilEighteen > 0 ? '#ffc107' : '#28a745',
                             fontWeight: 'bold'
                           }}>
-                            {daysUntilEighteen > 0 ? `${daysUntilEighteen} jours` : 'Majeur'}
+                            {daysUntilEighteen > 0 ? `${daysUntilEighteen} jours (approximatif)` : 'Majeur'}
                           </span>
                         );
                       })()}

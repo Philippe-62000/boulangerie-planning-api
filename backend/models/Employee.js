@@ -17,6 +17,11 @@ const employeeSchema = new mongoose.Schema({
     min: 16,
     max: 65
   },
+  birthDate: {
+    type: Date,
+    required: false,
+    comment: 'Date de naissance (obligatoire pour les mineurs pour calculer précisément les 18 ans)'
+  },
   skills: [{
     type: String,
     enum: ['Ouverture', 'Fermeture', 'Management']
