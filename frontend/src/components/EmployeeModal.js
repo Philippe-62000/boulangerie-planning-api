@@ -18,6 +18,7 @@ const EmployeeModal = ({ employee, onSave, onClose, employees = [] }) => {
     name: '',
     contractType: 'CDI',
     age: '',
+    birthDate: '',
     skills: [],
     role: 'vendeuse',
     weeklyHours: 35,
@@ -42,6 +43,7 @@ const EmployeeModal = ({ employee, onSave, onClose, employees = [] }) => {
         name: employee.name || '',
         contractType: employee.contractType || 'CDI',
         age: employee.age || '',
+        birthDate: employee.birthDate ? new Date(employee.birthDate).toISOString().split('T')[0] : '',
         skills: employee.skills || [],
         role: employee.role || 'vendeuse',
         weeklyHours: employee.weeklyHours || 35,
@@ -198,6 +200,7 @@ const EmployeeModal = ({ employee, onSave, onClose, employees = [] }) => {
       weeklyHours: parseInt(formData.weeklyHours),
       // S'assurer que les champs optionnels sont correctement formatés
       contractEndDate: formData.contractEndDate || undefined,
+      birthDate: formData.birthDate || undefined,
       tutor: formData.contractType === 'Apprentissage' ? (tutorValue || undefined) : undefined,
       email: formData.email || undefined
     };
@@ -286,6 +289,24 @@ const EmployeeModal = ({ employee, onSave, onClose, employees = [] }) => {
                 required
               />
             </div>
+
+            {formData.age && parseInt(formData.age) < 18 && (
+              <div className="form-group">
+                <label className="form-label">Date de naissance *</label>
+                <input
+                  type="date"
+                  name="birthDate"
+                  value={formData.birthDate}
+                  onChange={handleInputChange}
+                  className="form-control"
+                  required
+                  max={new Date().toISOString().split('T')[0]}
+                />
+                <small className="form-text" style={{ color: '#666', marginTop: '5px' }}>
+                  Nécessaire pour calculer précisément le nombre de jours avant les 18 ans
+                </small>
+              </div>
+            )}
 
             <div className="form-group">
               <label className="form-label">Email</label>
