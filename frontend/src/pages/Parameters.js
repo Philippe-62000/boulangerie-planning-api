@@ -53,6 +53,7 @@ const Parameters = () => {
   // États pour les mots de passe des fiches de paie
   const [payslipPasswords, setPayslipPasswords] = useState([]);
   const [loadingPayslipPasswords, setLoadingPayslipPasswords] = useState(false);
+  const [savingPayslipPasswords, setSavingPayslipPasswords] = useState(false);
 
   // États pour la vérification de maintenance
   const [maintenanceCheck, setMaintenanceCheck] = useState(null);
