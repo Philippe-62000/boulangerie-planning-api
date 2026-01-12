@@ -222,6 +222,12 @@ const employeeSchema = new mongoose.Schema({
 employeeSchema.pre('save', async function(next) {
   this.updatedAt = Date.now();
   
+  // Convertir les chaînes vides en null pour saleCode (nécessaire pour l'index sparse unique)
+  // MongoDB considère les chaînes vides comme des valeurs réelles, ce qui viole l'index unique
+  if (this.saleCode === '') {
+    this.saleCode = null;
+  }
+  
   // Générer automatiquement un code de connexion si absent
   if (!this.connectionCode) {
     let code;
