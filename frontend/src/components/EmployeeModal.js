@@ -290,24 +290,6 @@ const EmployeeModal = ({ employee, onSave, onClose, employees = [] }) => {
               />
             </div>
 
-            {formData.age && parseInt(formData.age) < 18 && (
-              <div className="form-group">
-                <label className="form-label">Date de naissance *</label>
-                <input
-                  type="date"
-                  name="birthDate"
-                  value={formData.birthDate}
-                  onChange={handleInputChange}
-                  className="form-control"
-                  required
-                  max={new Date().toISOString().split('T')[0]}
-                />
-                <small className="form-text" style={{ color: '#666', marginTop: '5px' }}>
-                  Nécessaire pour calculer précisément le nombre de jours avant les 18 ans
-                </small>
-              </div>
-            )}
-
             <div className="form-group">
               <label className="form-label">Email</label>
               <input
@@ -321,6 +303,25 @@ const EmployeeModal = ({ employee, onSave, onClose, employees = [] }) => {
               <small className="form-text">Email pour l'envoi des identifiants de connexion</small>
             </div>
           </div>
+
+          {/* Champ date de naissance (affiché uniquement pour les mineurs) */}
+          {formData.age && formData.age !== '' && !isNaN(parseInt(formData.age)) && parseInt(formData.age) < 18 && (
+            <div className="form-group">
+              <label className="form-label">Date de naissance *</label>
+              <input
+                type="date"
+                name="birthDate"
+                value={formData.birthDate}
+                onChange={handleInputChange}
+                className="form-control"
+                required
+                max={new Date().toISOString().split('T')[0]}
+              />
+              <small className="form-text" style={{ color: '#666', marginTop: '5px' }}>
+                Nécessaire pour calculer précisément le nombre de jours avant les 18 ans
+              </small>
+            </div>
+          )}
 
           <div className="form-row">
             <div className="form-group">
