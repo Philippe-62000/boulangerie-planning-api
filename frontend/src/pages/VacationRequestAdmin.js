@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { useLocation } from 'react-router-dom';
 import api from '../services/api';
 import { toast } from 'react-toastify';
 import './VacationRequestAdmin.css';
@@ -6,6 +7,7 @@ import './VacationRequestAdmin.css';
 const YEAR_MAX = 2032;
 
 const VacationRequestAdmin = () => {
+  const location = useLocation();
   const [vacationRequests, setVacationRequests] = useState([]);
   const [filteredRequests, setFilteredRequests] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -14,6 +16,20 @@ const VacationRequestAdmin = () => {
   const [editFormData, setEditFormData] = useState({ startDate: '', endDate: '' });
   const [statusFilter, setStatusFilter] = useState('all');
   const [yearFilter, setYearFilter] = useState('all');
+
+  // Détecter le basename depuis l'URL actuelle
+  const getBasename = () => {
+    // Utiliser BASE_URL de Vite (comme dans App.js) pour être cohérent
+    if (import.meta.env.BASE_URL) {
+      return import.meta.env.BASE_URL.replace(/\/$/, ''); // Enlever le slash final
+    }
+    // Fallback : détecter depuis l'URL actuelle
+    const pathname = location.pathname;
+    if (pathname.startsWith('/lon')) {
+      return '/lon';
+    }
+    return '/plan';
+  };
 
   console.log('🔧 VacationRequestAdmin - Rendu du composant');
 
@@ -257,7 +273,7 @@ const VacationRequestAdmin = () => {
       <div className="admin-actions">
         <button 
           className="btn btn-primary"
-          onClick={() => window.open('/plan/vacation-planning', '_blank')}
+          onClick={() => window.open(`${getBasename()}/vacation-planning`, '_blank')}
         >
           🖨️ Impression Calendrier
         </button>
