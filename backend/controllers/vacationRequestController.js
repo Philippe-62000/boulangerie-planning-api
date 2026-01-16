@@ -266,9 +266,8 @@ const validateVacationRequest = async (req, res) => {
     try {
       const Parameter = require('../models/Parameters');
       const storeEmailParam = await Parameter.findOne({ name: 'storeEmail' });
-      const alertStoreParam = await Parameter.findOne({ name: 'alertStore' });
       
-      if (alertStoreParam?.booleanValue && storeEmailParam?.stringValue) {
+      if (storeEmailParam?.stringValue) {
         const storeEmailResult = await emailService.sendVacationRequestValidationToStore(
           vacationRequest,
           storeEmailParam.stringValue,
@@ -280,7 +279,7 @@ const validateVacationRequest = async (req, res) => {
           console.log('⚠️ Email de validation non envoyé au magasin:', storeEmailResult.error);
         }
       } else {
-        console.log('⚠️ Email du magasin non configuré ou alertes désactivées');
+        console.log('⚠️ Email du magasin non configuré');
       }
     } catch (storeEmailError) {
       console.error('❌ Erreur envoi email validation au magasin:', storeEmailError.message);
