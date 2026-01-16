@@ -52,6 +52,11 @@ class EmailService {
     return await emailServiceAlternative.sendVacationRequestValidation(vacationRequest, validatedBy);
   }
 
+  // Envoyer un email au magasin lors de la validation d'un congé
+  async sendVacationRequestValidationToStore(vacationRequest, storeEmail, validatedBy) {
+    return await emailServiceAlternative.sendVacationRequestValidationToStore(vacationRequest, storeEmail, validatedBy);
+  }
+
   // Envoyer un email de rejet de congés
   async sendVacationRequestRejection(vacationRequest, rejectedBy, reason) {
     return await emailServiceAlternative.sendVacationRequestRejection(vacationRequest, rejectedBy, reason);

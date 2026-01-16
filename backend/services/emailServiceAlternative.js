@@ -1725,6 +1725,95 @@ Cet email a été envoyé automatiquement, merci de ne pas y répondre.
     }
   }
 
+  // Envoyer un email au magasin lors de la validation d'un congé
+  async sendVacationRequestValidationToStore(vacationRequest, storeEmail, validatedBy) {
+    try {
+      console.log(`📧 Envoi email validation congé au magasin: ${storeEmail}`);
+      
+      const duration = this.calculateDuration(vacationRequest.startDate, vacationRequest.endDate);
+      const planningUrl = this.getAdminUrl('/vacation-planning');
+      
+      const subject = `Congés validés - ${vacationRequest.employeeName}`;
+      
+      const htmlContent = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="UTF-8">
+          <style>
+            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+            .header { background-color: #4CAF50; color: white; padding: 20px; text-align: center; border-radius: 5px 5px 0 0; }
+            .content { background-color: #f9f9f9; padding: 20px; border-radius: 0 0 5px 5px; }
+            .info-box { background-color: white; padding: 15px; margin: 15px 0; border-left: 4px solid #4CAF50; }
+            .button { display: inline-block; background-color: #4CAF50; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; margin-top: 20px; }
+            .button:hover { background-color: #45a049; }
+            .footer { text-align: center; margin-top: 20px; color: #666; font-size: 12px; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <h1>✅ Congés Validés</h1>
+            </div>
+            <div class="content">
+              <p>Bonjour,</p>
+              <p>Les congés suivants ont été validés :</p>
+              
+              <div class="info-box">
+                <p><strong>👤 Salarié :</strong> ${vacationRequest.employeeName}</p>
+                <p><strong>📅 Période :</strong> Du ${new Date(vacationRequest.startDate).toLocaleDateString('fr-FR')} au ${new Date(vacationRequest.endDate).toLocaleDateString('fr-FR')}</p>
+                <p><strong>⏱️ Durée :</strong> ${duration} jour${duration > 1 ? 's' : ''}</p>
+                ${vacationRequest.reason ? `<p><strong>💬 Raison :</strong> ${vacationRequest.reason}</p>` : ''}
+                <p><strong>✅ Validé par :</strong> ${validatedBy || 'Administrateur'}</p>
+                <p><strong>📅 Date de validation :</strong> ${new Date(vacationRequest.validatedAt || Date.now()).toLocaleDateString('fr-FR')}</p>
+              </div>
+              
+              <p>Vous pouvez consulter et imprimer le calendrier des congés en cliquant sur le bouton ci-dessous :</p>
+              
+              <div style="text-align: center;">
+                <a href="${planningUrl}" class="button">🖨️ Imprimer le Calendrier des Congés</a>
+              </div>
+              
+              <p style="margin-top: 20px; font-size: 12px; color: #666;">
+                Ou copiez ce lien dans votre navigateur :<br>
+                <a href="${planningUrl}">${planningUrl}</a>
+              </p>
+            </div>
+            <div class="footer">
+              <p>Cet email a été envoyé automatiquement par le système de gestion des congés.</p>
+            </div>
+          </div>
+        </body>
+        </html>
+      `;
+      
+      const textContent = `
+Congés Validés
+
+Bonjour,
+
+Les congés suivants ont été validés :
+
+👤 Salarié : ${vacationRequest.employeeName}
+📅 Période : Du ${new Date(vacationRequest.startDate).toLocaleDateString('fr-FR')} au ${new Date(vacationRequest.endDate).toLocaleDateString('fr-FR')}
+⏱️ Durée : ${duration} jour${duration > 1 ? 's' : ''}
+${vacationRequest.reason ? `💬 Raison : ${vacationRequest.reason}\n` : ''}✅ Validé par : ${validatedBy || 'Administrateur'}
+📅 Date de validation : ${new Date(vacationRequest.validatedAt || Date.now()).toLocaleDateString('fr-FR')}
+
+Vous pouvez consulter et imprimer le calendrier des congés à l'adresse suivante :
+${planningUrl}
+
+Cet email a été envoyé automatiquement par le système de gestion des congés.
+      `;
+      
+      return await this.sendEmail(storeEmail, subject, htmlContent, textContent);
+    } catch (error) {
+      console.error('❌ Erreur envoi email validation congé au magasin:', error.message);
+      return { success: false, error: error.message };
+    }
+  }
+
   // Générer le HTML de confirmation de congés
   generateVacationConfirmationHTML(vacationRequest) {
     const startDate = new Date(vacationRequest.startDate).toLocaleDateString('fr-FR');
