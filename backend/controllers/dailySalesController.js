@@ -49,7 +49,7 @@ const parseWeeklyObjectives = (rawString) => {
 // Enregistrer une saisie quotidienne
 exports.submitDailySales = async (req, res) => {
   try {
-    const { saleCode, nbPromo, nbCartesFid } = req.body;
+    const { saleCode, nbPromo, nbCartesFid, nbChallenge } = req.body;
     
     if (!saleCode || nbPromo === undefined || nbCartesFid === undefined) {
       return res.status(400).json({
@@ -101,6 +101,7 @@ exports.submitDailySales = async (req, res) => {
       // Mettre à jour la saisie existante
       existingSale.nbPromo = parseInt(nbPromo) || 0;
       existingSale.nbCartesFid = parseInt(nbCartesFid) || 0;
+      existingSale.nbChallenge = parseInt(nbChallenge) || 0;
       await existingSale.save();
       
       return res.json({
@@ -160,10 +161,12 @@ exports.getWeeklyStats = async (req, res) => {
     // Calculer les totaux par objectif
     let totalPromo = 0;
     let totalCartesFid = 0;
+    let totalChallenge = 0;
     
     weeklySales.forEach(sale => {
       totalPromo += sale.nbPromo || 0;
       totalCartesFid += sale.nbCartesFid || 0;
+      totalChallenge += sale.nbChallenge || 0;
     });
     
     // Récupérer les objectifs hebdomadaires depuis les paramètres
@@ -212,6 +215,7 @@ exports.getWeeklyStats = async (req, res) => {
         weekEnd: endDate,
         totalPromo,
         totalCartesFid,
+        totalChallenge,
         objectifPromo,
         objectifCartesFid,
         pourcentagePromo,

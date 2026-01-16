@@ -177,20 +177,24 @@ const SalesStats = () => {
         aggregated[employeeId] = {
           totalCartes: 0,
           totalPromo: 0,
+          totalChallenge: 0,
           perDay: {}
         };
       }
       const cartesValue = parseInt(sale.nbCartesFid, 10) || 0;
       const promoValue = parseInt(sale.nbPromo, 10) || 0;
+      const challengeValue = parseInt(sale.nbChallenge, 10) || 0;
 
       aggregated[employeeId].totalCartes += cartesValue;
       aggregated[employeeId].totalPromo += promoValue;
+      aggregated[employeeId].totalChallenge += challengeValue;
 
       const dayLabel = getDayNameFromDate(sale.date);
       if (dayLabel) {
-        const dayEntry = aggregated[employeeId].perDay[dayLabel] || { cartes: 0, promo: 0 };
+        const dayEntry = aggregated[employeeId].perDay[dayLabel] || { cartes: 0, promo: 0, challenge: 0 };
         dayEntry.cartes += cartesValue;
         dayEntry.promo += promoValue;
+        dayEntry.challenge += challengeValue;
         aggregated[employeeId].perDay[dayLabel] = dayEntry;
       }
     });
@@ -199,6 +203,7 @@ const SalesStats = () => {
 
   const totalWeekCartes = weeklyStats?.totalCartesFid ?? 0;
   const totalWeekPromo = weeklyStats?.totalPromo ?? 0;
+  const totalWeekChallenge = weeklyStats?.totalChallenge ?? 0;
   const totalCartesPercent = totalCartesObjective > 0 ? Math.round((totalWeekCartes / totalCartesObjective) * 100) : 0;
   const totalPromoPercent = totalPromoObjective > 0 ? Math.round((totalWeekPromo / totalPromoObjective) * 100) : 0;
   const totalCartesReached = totalCartesObjective > 0 ? totalWeekCartes >= totalCartesObjective : totalWeekCartes > 0;
@@ -956,6 +961,9 @@ const SalesStats = () => {
                 <span className={`performance-pill ${totalPromoReached ? 'success' : 'danger'}`}>
                   🔥 Promo : {totalWeekPromo} / {totalPromoObjective} ({totalPromoObjective > 0 ? `${totalPromoPercent}%` : '—'})
                 </span>
+                <span className="performance-pill">
+                  🏆 Challenge : {totalWeekChallenge}
+                </span>
               </div>
             )}
             <table className="presence-table">
@@ -978,9 +986,10 @@ const SalesStats = () => {
                   const hasSomeDaysChecked = employeePresenceCount > 0 && !areAllDaysChecked;
                   const objectifFidEmployee = employeePresenceCount * objectifParPresenceCartesFid;
                   const objectifPromoEmployee = employeePresenceCount * objectifParPresencePromo;
-                  const employeeMetrics = weeklyEmployeeMetrics[vendeuse._id] || { totalCartes: 0, totalPromo: 0, perDay: {} };
+                  const employeeMetrics = weeklyEmployeeMetrics[vendeuse._id] || { totalCartes: 0, totalPromo: 0, totalChallenge: 0, perDay: {} };
                   const employeeCartesActual = employeeMetrics.totalCartes || 0;
                   const employeePromoActual = employeeMetrics.totalPromo || 0;
+                  const employeeChallengeActual = employeeMetrics.totalChallenge || 0;
                   const employeeCartesPercent = objectifFidEmployee > 0 ? Math.round((employeeCartesActual / objectifFidEmployee) * 100) : 0;
                   const employeePromoPercent = objectifPromoEmployee > 0 ? Math.round((employeePromoActual / objectifPromoEmployee) * 100) : 0;
                   const employeeCartesReached = objectifFidEmployee > 0 ? employeeCartesActual >= objectifFidEmployee : employeeCartesActual > 0;
@@ -1010,6 +1019,9 @@ const SalesStats = () => {
                           <span className={`target-badge target-result ${employeePromoReached ? 'success' : 'danger'}`}>
                             🔥 Réalisé : {employeePromoActual}/{objectifPromoEmployee || 0}{objectifPromoEmployee > 0 ? ` (${employeePromoPercent}%)` : ''}
                           </span>
+                          <span className="target-badge target-challenge">
+                            🏆 Challenge : {employeeChallengeActual}
+                          </span>
                         </div>
                       </td>
                       <td className="presence-master-cell">
@@ -1033,7 +1045,7 @@ const SalesStats = () => {
                               onChange={() => togglePresence(vendeuse._id, jour)}
                             />
                             {(() => {
-                              const dayMetrics = employeeMetrics.perDay?.[jour] || { cartes: 0, promo: 0 };
+                              const dayMetrics = employeeMetrics.perDay?.[jour] || { cartes: 0, promo: 0, challenge: 0 };
                               const expectedCartes = presence[jour] ? objectifParPresenceCartesFid : 0;
                               const expectedPromo = presence[jour] ? objectifParPresencePromo : 0;
                               const hasExpectation = expectedCartes > 0 || expectedPromo > 0;
@@ -1046,6 +1058,7 @@ const SalesStats = () => {
                               return (
                                 <span className={`day-metrics ${statusClass}`}>
                                   {dayMetrics.cartes}/{dayMetrics.promo}
+                                  {dayMetrics.challenge > 0 && <span style={{ marginLeft: '4px', color: '#9c27b0' }}>🏆{dayMetrics.challenge}</span>}
                                 </span>
                               );
                             })()}
@@ -1626,7 +1639,7 @@ const SalesStats = () => {
 
             {(() => {
               // Calculer les métriques de l'employé pour la semaine (accessible dans tout le modal)
-              const employeeMetricsForModal = weeklyEmployeeMetrics[selectedEmployeeForDetail._id] || { totalCartes: 0, totalPromo: 0, perDay: {} };
+              const employeeMetricsForModal = weeklyEmployeeMetrics[selectedEmployeeForDetail._id] || { totalCartes: 0, totalPromo: 0, totalChallenge: 0, perDay: {} };
               
               return (
             <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '1rem' }}>
@@ -1636,13 +1649,14 @@ const SalesStats = () => {
                   <th style={{ padding: '0.75rem', textAlign: 'center', border: '1px solid #dee2e6' }}>Présent</th>
                   <th style={{ padding: '0.75rem', textAlign: 'center', border: '1px solid #dee2e6' }}>🎯 Cartes Fidélité</th>
                   <th style={{ padding: '0.75rem', textAlign: 'center', border: '1px solid #dee2e6' }}>🔥 Promo Quinzaine</th>
+                  <th style={{ padding: '0.75rem', textAlign: 'center', border: '1px solid #dee2e6' }}>🏆 Challenge</th>
                   <th style={{ padding: '0.75rem', textAlign: 'center', border: '1px solid #dee2e6' }}>Statut</th>
                 </tr>
               </thead>
               <tbody>
                 {WEEK_DAYS.map(jour => {
                   const presence = presences[selectedEmployeeForDetail._id]?.[jour] || false;
-                  const dayMetrics = employeeMetricsForModal.perDay?.[jour] || { cartes: 0, promo: 0 };
+                  const dayMetrics = employeeMetricsForModal.perDay?.[jour] || { cartes: 0, promo: 0, challenge: 0 };
                   const expectedCartes = presence ? objectifParPresenceCartesFid : 0;
                   const expectedPromo = presence ? objectifParPresencePromo : 0;
                   const cartesReached = expectedCartes > 0 ? dayMetrics.cartes >= expectedCartes : false;
@@ -1662,6 +1676,9 @@ const SalesStats = () => {
                       </td>
                       <td style={{ padding: '0.75rem', textAlign: 'center', border: '1px solid #dee2e6' }}>
                         <strong>{dayMetrics.promo}</strong> / {expectedPromo}
+                      </td>
+                      <td style={{ padding: '0.75rem', textAlign: 'center', border: '1px solid #dee2e6' }}>
+                        <strong>{dayMetrics.challenge || 0}</strong>
                       </td>
                       <td style={{ 
                         padding: '0.75rem', 
@@ -1689,6 +1706,9 @@ const SalesStats = () => {
                   </td>
                   <td style={{ padding: '0.75rem', textAlign: 'center', border: '1px solid #dee2e6' }}>
                     {employeeMetricsForModal.totalPromo || 0}
+                  </td>
+                  <td style={{ padding: '0.75rem', textAlign: 'center', border: '1px solid #dee2e6' }}>
+                    {employeeMetricsForModal.totalChallenge || 0}
                   </td>
                   <td style={{ padding: '0.75rem', textAlign: 'center', border: '1px solid #dee2e6' }}>—</td>
                 </tr>

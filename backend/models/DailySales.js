@@ -32,6 +32,13 @@ const dailySalesSchema = new mongoose.Schema({
     min: 0,
     comment: 'Nombre de Cartes Fidélité du jour'
   },
+  nbChallenge: {
+    type: Number,
+    required: false,
+    default: 0,
+    min: 0,
+    comment: 'Nombre de Challenge du jour'
+  },
   createdAt: {
     type: Date,
     default: Date.now
