@@ -1058,7 +1058,7 @@ const SalesStats = () => {
                               return (
                                 <span className={`day-metrics ${statusClass}`}>
                                   {dayMetrics.cartes}/{dayMetrics.promo}
-                                  {dayMetrics.challenge > 0 && <span style={{ marginLeft: '4px', color: '#9c27b0' }}>🏆{dayMetrics.challenge}</span>}
+                                  <span style={{ marginLeft: '4px', color: '#9c27b0', fontWeight: 'bold' }}>🏆{dayMetrics.challenge || 0}</span>
                                 </span>
                               );
                             })()}
