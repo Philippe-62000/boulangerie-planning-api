@@ -57,18 +57,31 @@ const updatePassword = async (req, res) => {
         });
       }
 
-      const employeeUser = await User.findOne({ 
+      let employeeUser = await User.findOne({ 
         username: 'salarie',
         role: 'employee',
         isActive: true 
       });
 
+      // Si l'utilisateur employee n'existe pas, le créer
       if (!employeeUser) {
-        console.log('❌ Utilisateur employee non trouvé');
-        return res.status(404).json({
-          success: false,
-          error: 'Utilisateur employee non trouvé'
+        console.log('⚠️ Utilisateur employee non trouvé, création en cours...');
+        employeeUser = new User({
+          username: 'salarie',
+          password: employee, // Le mot de passe sera mis à jour juste après
+          role: 'employee',
+          name: 'Salarié',
+          permissions: [
+            'view_planning',
+            'view_absences',
+            'view_sales_stats',
+            'view_meal_expenses',
+            'view_km_expenses'
+          ],
+          isActive: true
         });
+        await employeeUser.save();
+        console.log('✅ Utilisateur employee créé');
       }
 
       employeeUser.password = employee;
