@@ -19,9 +19,11 @@ const VacationPlanning = () => {
       const employeesData = employeesResponse.data.success ? employeesResponse.data.data : employeesResponse.data;
       setEmployees(employeesData);
       
-      // Récupérer les demandes de congés validées
-      const vacationResponse = await api.get('/vacation-requests?status=validated');
-      const vacationData = vacationResponse.data.success ? vacationResponse.data.data : vacationResponse.data;
+      // Récupérer les demandes de congés validées (exclure les annulées)
+      const vacationResponse = await api.get('/vacation-requests');
+      const allVacationData = vacationResponse.data.success ? vacationResponse.data.data : vacationResponse.data;
+      // Filtrer pour ne garder que les validées (pas les annulées)
+      const vacationData = allVacationData.filter(req => req.status === 'validated');
       setVacationRequests(vacationData);
       
     } catch (error) {
@@ -85,6 +87,7 @@ const VacationPlanning = () => {
     
     const vacation = vacationRequests.find(req => {
       if (req.employeeName !== employee.name) return false;
+      // Status validated uniquement (les annulées sont déjà filtrées dans fetchData)
       if (req.status !== 'validated') return false;
       
       // Parser les dates sans tenir compte du fuseau horaire
@@ -160,8 +163,25 @@ const VacationPlanning = () => {
 
   const filteredEmployees = getFilteredEmployees();
 
+  // Déterminer le titre selon la catégorie
+  const categoryTitle = selectedCategory === 'vente' ? 'Vente' : 'Prépa';
+  
+  // Formater la date de génération
+  const printDate = new Date().toLocaleDateString('fr-FR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+
   return (
     <div className="vacation-planning">
+      {/* En-tête PDF avec titre et date (visible uniquement à l'impression) */}
+      <div className="print-header">
+        Planning Congés {categoryTitle} - Généré le {printDate}
+      </div>
+
       {/* En-tête avec contrôles */}
       <div className="planning-header">
         <div className="header-title">

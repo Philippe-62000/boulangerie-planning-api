@@ -235,12 +235,26 @@ const VacationRequestAdmin = () => {
     }
   };
 
+  const handleCancel = async (id) => {
+    try {
+      const response = await api.patch(`/vacation-requests/${id}/cancel`);
+      if (response.data.success) {
+        toast.success('Demande annulée');
+        fetchVacationRequests();
+      }
+    } catch (error) {
+      console.error('Erreur annulation:', error);
+      toast.error('Erreur lors de l\'annulation');
+    }
+  };
+
   const getStatusBadge = (status) => {
     const badges = {
       pending: { text: 'En attente', class: 'badge-warning', icon: '⏳' },
       validated: { text: 'Validé', class: 'badge-success', icon: '✅' },
       accepted: { text: 'Accepté', class: 'badge-success', icon: '✅' },
-      rejected: { text: 'Rejeté', class: 'badge-danger', icon: '❌' }
+      rejected: { text: 'Rejeté', class: 'badge-danger', icon: '❌' },
+      cancelled: { text: 'Annulé', class: 'badge-secondary', icon: '🚫' }
     };
     
     const badge = badges[status] || { text: status, class: 'badge-secondary', icon: '' };
@@ -416,6 +430,15 @@ const VacationRequestAdmin = () => {
                         ❌ Rejeter
                       </button>
                     </>
+                  )}
+                  {request.status === 'validated' && (
+                    <button 
+                      onClick={() => handleCancel(request._id)}
+                      className="btn btn-secondary btn-action"
+                      title="Annuler"
+                    >
+                      🚫 Annuler
+                    </button>
                   )}
                 </div>
               </div>

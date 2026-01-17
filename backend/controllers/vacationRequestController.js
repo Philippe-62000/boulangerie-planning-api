@@ -352,6 +352,48 @@ const rejectVacationRequest = async (req, res) => {
   }
 };
 
+// Annuler une demande de congés validée
+const cancelVacationRequest = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { cancelledBy } = req.body;
+
+    const vacationRequest = await VacationRequest.findById(id);
+    
+    if (!vacationRequest) {
+      return res.status(404).json({
+        success: false,
+        error: 'Demande de congés non trouvée'
+      });
+    }
+
+    if (vacationRequest.status !== 'validated') {
+      return res.status(400).json({
+        success: false,
+        error: 'Seules les demandes validées peuvent être annulées'
+      });
+    }
+
+    // Marquer comme annulé
+    await vacationRequest.markAsCancelled(cancelledBy);
+
+    console.log('✅ Demande de congés annulée:', vacationRequest._id);
+
+    res.json({
+      success: true,
+      message: 'Demande de congés annulée avec succès',
+      data: vacationRequest
+    });
+
+  } catch (error) {
+    console.error('❌ Erreur annulation demande congés:', error.message);
+    res.status(500).json({
+      success: false,
+      error: 'Erreur lors de l\'annulation de la demande de congés'
+    });
+  }
+};
+
 // Modifier une demande de congés
 const updateVacationRequest = async (req, res) => {
   try {
@@ -552,6 +594,7 @@ module.exports = {
   createVacationRequest,
   validateVacationRequest,
   rejectVacationRequest,
+  cancelVacationRequest,
   updateVacationRequest,
   syncVacationsWithEmployees
 };

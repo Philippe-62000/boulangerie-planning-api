@@ -92,6 +92,11 @@
   background: #0056b3;
 }
 
+/* En-tête d'impression (masqué à l'écran) */
+.print-header {
+  display: none;
+}
+
 /* Légende */
 .legend {
   display: flex;
@@ -311,6 +316,18 @@
     width: 100%;
     padding: 0;
     margin: 0;
+  }
+
+  /* En-tête PDF avec titre et date */
+  .print-header {
+    display: block !important;
+    text-align: center;
+    font-size: 16px;
+    font-weight: bold;
+    margin-bottom: 10px;
+    padding-bottom: 10px;
+    border-bottom: 2px solid #333;
+    visibility: visible;
   }
   
   /* Masquer l'en-tête, contrôles et légende */

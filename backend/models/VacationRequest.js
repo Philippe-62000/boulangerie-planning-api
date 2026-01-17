@@ -38,7 +38,7 @@ const vacationRequestSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['pending', 'validated', 'rejected'],
+    enum: ['pending', 'validated', 'rejected', 'cancelled'],
     default: 'pending'
   },
   validatedBy: {
@@ -101,6 +101,14 @@ vacationRequestSchema.methods.markAsRejected = function(rejectedBy, reason) {
   this.rejectedBy = rejectedBy;
   this.rejectedAt = new Date();
   this.rejectionReason = reason;
+  return this.save();
+};
+
+// Méthode pour marquer comme annulé
+vacationRequestSchema.methods.markAsCancelled = function(cancelledBy) {
+  this.status = 'cancelled';
+  this.rejectedBy = cancelledBy; // Réutilisation du champ rejectedBy
+  this.rejectedAt = new Date();
   return this.save();
 };
 
