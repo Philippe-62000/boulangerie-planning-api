@@ -1731,7 +1731,14 @@ Cet email a été envoyé automatiquement, merci de ne pas y répondre.
       console.log(`📧 Envoi email validation congé au magasin: ${storeEmail}`);
       
       const duration = this.calculateDuration(vacationRequest.startDate, vacationRequest.endDate);
-      const planningUrl = this.getAdminUrl('/vacation-planning');
+      
+      // Détecter le chemin selon la ville (plus fiable que CORS_ORIGIN)
+      const city = vacationRequest.city || '';
+      const isLonguenesse = city.toLowerCase() === 'longuenesse' || city.toLowerCase().includes('longuenesse');
+      const basePath = isLonguenesse ? '/lon' : '/plan';
+      const planningUrl = `https://www.filmara.fr${basePath}/vacation-planning`;
+      
+      console.log('🔍 Détection chemin planning:', { city, isLonguenesse, basePath, planningUrl });
       
       const subject = `Congés validés - ${vacationRequest.employeeName}`;
       
