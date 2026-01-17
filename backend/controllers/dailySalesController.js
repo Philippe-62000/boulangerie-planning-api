@@ -117,7 +117,8 @@ exports.submitDailySales = async (req, res) => {
       employeeId: employee._id,
       date: today,
       nbPromo: parseInt(nbPromo) || 0,
-      nbCartesFid: parseInt(nbCartesFid) || 0
+      nbCartesFid: parseInt(nbCartesFid) || 0,
+      nbChallenge: parseInt(nbChallenge) || 0
     });
     
     await dailySale.save();
