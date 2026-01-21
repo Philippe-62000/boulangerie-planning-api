@@ -13,8 +13,10 @@ const EmployeeStatusPrint = () => {
 const [overpayments, setOverpayments] = useState({});
 const [persistedOverpayments, setPersistedOverpayments] = useState({});
 const [savingOverpayment, setSavingOverpayment] = useState({});
-const [employeePrimes, setEmployeePrimes] = useState({}); // { employeeId: [{ primeName, amount }] }
+  const [employeePrimes, setEmployeePrimes] = useState({}); // { employeeId: [{ primeName, amount }] }
 const [accountantComment, setAccountantComment] = useState(''); // Commentaire pour la comptable
+const [savingComment, setSavingComment] = useState(false);
+const [commentTimeout, setCommentTimeout] = useState(null);
 
   useEffect(() => {
     if (data?.employees && data.employees.length > 0) {
@@ -22,6 +24,22 @@ const [accountantComment, setAccountantComment] = useState(''); // Commentaire p
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [month, year, data?.employees]);
+
+  // Charger le commentaire comptable existant quand les données sont récupérées
+  useEffect(() => {
+    if (data?.accountantComment !== undefined) {
+      setAccountantComment(data.accountantComment || '');
+    }
+  }, [data?.accountantComment]);
+
+  // Cleanup du timeout au démontage
+  useEffect(() => {
+    return () => {
+      if (commentTimeout) {
+        clearTimeout(commentTimeout);
+      }
+    };
+  }, [commentTimeout]);
 
   const fetchEmployeePrimes = async (employeesList) => {
     try {
@@ -138,6 +156,7 @@ const [accountantComment, setAccountantComment] = useState(''); // Commentaire p
       employees: sanitizedEmployees,
       overpaymentTotal: normalizedOverpaymentTotal
     });
+    // Le commentaire comptable sera chargé via useEffect
       // Récupérer aussi les acomptes
       await fetchAdvanceRequests();
       // Récupérer les primes
@@ -486,6 +505,54 @@ const calculateTotalOverpayments = () => {
     return employeePrimes[employeeId].reduce((sum, prime) => sum + (prime.amount || 0), 0);
   };
 
+  // Sauvegarder le commentaire comptable avec debounce
+  const handleCommentChange = (value) => {
+    setAccountantComment(value);
+    
+    // Annuler le timeout précédent
+    if (commentTimeout) {
+      clearTimeout(commentTimeout);
+    }
+    
+    // Créer un nouveau timeout pour sauvegarder après 1 seconde d'inactivité
+    const newTimeout = setTimeout(async () => {
+      try {
+        setSavingComment(true);
+        await api.put('/employee-status/accountant-comment', {
+          month,
+          year,
+          comment: value
+        });
+        // Sauvegarde silencieuse, pas de toast pour ne pas perturber
+      } catch (error) {
+        console.error('Erreur lors de la sauvegarde du commentaire:', error);
+        toast.error('Erreur lors de la sauvegarde du commentaire');
+      } finally {
+        setSavingComment(false);
+      }
+    }, 1000);
+    
+    setCommentTimeout(newTimeout);
+  };
+
+  // Sauvegarder explicitement le commentaire (appelé au blur du textarea)
+  const handleCommentBlur = async () => {
+    try {
+      setSavingComment(true);
+      await api.put('/employee-status/accountant-comment', {
+        month,
+        year,
+        comment: accountantComment
+      });
+      toast.success('Commentaire sauvegardé', { autoClose: 1000 });
+    } catch (error) {
+      console.error('Erreur lors de la sauvegarde du commentaire:', error);
+      toast.error('Erreur lors de la sauvegarde du commentaire');
+    } finally {
+      setSavingComment(false);
+    }
+  };
+
   // Fonction pour obtenir le montant total d'acompte d'un employé (peut avoir plusieurs acomptes)
   const getEmployeeAdvance = (employeeName, employeeId) => {
     if (!advanceRequests || advanceRequests.length === 0) {
@@ -625,12 +692,18 @@ const calculateTotalOverpayments = () => {
           <div className="accountant-comment-section" style={{ padding: '1.5rem 2rem', borderBottom: '1px solid #dee2e6' }}>
             <label htmlFor="accountant-comment" style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '600', color: '#2c3e50' }}>
               📝 Commentaire pour la comptable :
+              {savingComment && (
+                <span style={{ marginLeft: '10px', fontSize: '0.85rem', color: '#007bff', fontStyle: 'italic' }}>
+                  (sauvegarde en cours...)
+                </span>
+              )}
             </label>
             <textarea
               id="accountant-comment"
               rows="10"
               value={accountantComment}
-              onChange={(e) => setAccountantComment(e.target.value)}
+              onChange={(e) => handleCommentChange(e.target.value)}
+              onBlur={handleCommentBlur}
               placeholder="Ajoutez un commentaire qui sera affiché sur la feuille d'impression..."
               style={{
                 width: '100%',

@@ -115,7 +115,7 @@ const AppContent = () => {
               </ProtectedRoute>
             } />
             <Route path="/vacation-planning" element={
-              <ProtectedRoute adminOnly={true}>
+              <ProtectedRoute>
                 <VacationPlanning />
               </ProtectedRoute>
             } />
