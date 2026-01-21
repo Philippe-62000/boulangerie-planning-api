@@ -313,7 +313,7 @@ const Dashboard = () => {
     <div className="dashboard fade-in">
       <h2>📊 Tableau de bord</h2>
 
-      {/* Widget Pertes Invendus/Dons */}
+      {/* Widget Pertes Invendus/Dons - Longuenesse et Arras */}
       {shouldShowLosses && lossesStats && (
         <div className="card" style={{ marginBottom: '2rem' }}>
           <h3>📉 Statistiques Pertes (Invendus/Dons)</h3>
