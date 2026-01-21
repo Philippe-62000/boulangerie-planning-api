@@ -19,8 +19,15 @@ echo.
 echo 2. Copie des fichiers vers le dossier de déploiement...
 if not exist "deploy-frontend" mkdir "deploy-frontend"
 
-echo    - Copie des fichiers HTML...
-copy "frontend\public\*.html" "deploy-frontend\" /Y
+echo    - Copie du fichier index.html (du build, pas de public)...
+copy "frontend\build\index.html" "deploy-frontend\" /Y
+
+echo    - Copie des autres fichiers HTML de public (daily-losses-entry.html, etc.)...
+for %%f in (frontend\public\*.html) do (
+    if /i not "%%~nxf"=="index.html" (
+        copy "%%f" "deploy-frontend\" /Y
+    )
+)
 
 echo    - Copie des fichiers CSS...
 xcopy "frontend\build\static\css\*" "deploy-frontend\static\css\" /E /I /Y
@@ -30,9 +37,6 @@ xcopy "frontend\build\static\js\*" "deploy-frontend\static\js\" /E /I /Y
 
 echo    - Copie des fichiers de médias...
 xcopy "frontend\build\static\media\*" "deploy-frontend\static\media\" /E /I /Y
-
-echo    - Copie du fichier index.html...
-copy "frontend\build\index.html" "deploy-frontend\" /Y
 
 echo    - Copie du fichier manifest.json...
 if exist "frontend\build\manifest.json" copy "frontend\build\manifest.json" "deploy-frontend\" /Y
