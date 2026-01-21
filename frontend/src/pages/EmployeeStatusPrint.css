@@ -545,3 +545,75 @@
   }
 }
 
+/* Styles pour le champ commentaire comptable */
+.accountant-comment-section {
+  background: #fff;
+  border-bottom: 1px solid #dee2e6;
+}
+
+.accountant-comment-section label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-weight: 600;
+  color: #2c3e50;
+  font-size: 1rem;
+}
+
+.accountant-comment-section textarea {
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid #ced4da;
+  border-radius: 4px;
+  font-size: 0.95rem;
+  font-family: Arial, sans-serif;
+  line-height: 1.5;
+  resize: vertical;
+  min-height: 150px;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.accountant-comment-section textarea:focus {
+  outline: none;
+  border-color: #007bff;
+  box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.15);
+}
+
+.accountant-comment-section textarea::placeholder {
+  color: #6c757d;
+  font-style: italic;
+}
+
+/* Styles d'impression pour le commentaire */
+@media print {
+  .accountant-comment-section {
+    display: none !important;
+  }
+  
+  .accountant-comment-display {
+    display: none !important;
+  }
+  
+  .accountant-comment {
+    margin-top: 30px;
+    padding: 20px;
+    border: 2px solid #000;
+    background: #fff;
+    border-radius: 5px;
+    page-break-inside: avoid;
+  }
+  
+  .accountant-comment h3 {
+    margin: 0 0 10px 0;
+    font-size: 16px;
+    font-weight: bold;
+    color: #000;
+  }
+  
+  .accountant-comment-content {
+    white-space: pre-wrap;
+    font-size: 12px;
+    line-height: 1.5;
+    color: #000;
+    min-height: 100px;
+  }
+}

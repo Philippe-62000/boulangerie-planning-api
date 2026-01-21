@@ -2,6 +2,7 @@ const Employee = require('../models/Employee');
 const MealExpense = require('../models/MealExpense');
 const KmExpense = require('../models/KmExpense');
 const EmployeeOverpayment = require('../models/EmployeeOverpayment');
+const AccountantComment = require('../models/AccountantComment');
 
 // Récupérer l'état complet des salariés pour un mois/année
 const getEmployeeStatus = async (req, res) => {
@@ -46,6 +47,12 @@ const getEmployeeStatus = async (req, res) => {
 
     // Récupérer les trop-perçus pour ce mois/année
     const overpayments = await EmployeeOverpayment.find({
+      month: parsedMonth,
+      year: parsedYear
+    });
+
+    // Récupérer le commentaire comptable pour ce mois/année
+    const accountantComment = await AccountantComment.findOne({
       month: parsedMonth,
       year: parsedYear
     });
@@ -97,7 +104,8 @@ const getEmployeeStatus = async (req, res) => {
       month: parsedMonth,
       year: parsedYear,
       employees: result,
-      overpaymentTotal: overpayments.reduce((sum, item) => sum + (item.amount || 0), 0)
+      overpaymentTotal: overpayments.reduce((sum, item) => sum + (item.amount || 0), 0),
+      accountantComment: accountantComment ? accountantComment.comment : ''
     });
   } catch (error) {
     console.error('Erreur lors de la récupération de l\'état des salariés:', error);
@@ -186,8 +194,72 @@ const upsertEmployeeOverpayment = async (req, res) => {
   }
 };
 
+// Sauvegarder ou mettre à jour le commentaire comptable
+const upsertAccountantComment = async (req, res) => {
+  try {
+    const { month, year, comment } = req.body;
+
+    if (month === undefined || year === undefined) {
+      return res.status(400).json({
+        success: false,
+        message: 'Le mois et l\'année sont requis'
+      });
+    }
+
+    const parsedMonth = parseInt(month, 10);
+    const parsedYear = parseInt(year, 10);
+
+    if (Number.isNaN(parsedMonth) || parsedMonth < 1 || parsedMonth > 12) {
+      return res.status(400).json({
+        success: false,
+        message: 'Mois invalide'
+      });
+    }
+
+    if (Number.isNaN(parsedYear) || parsedYear < 2020 || parsedYear > 2040) {
+      return res.status(400).json({
+        success: false,
+        message: 'Année invalide'
+      });
+    }
+
+    // Valider la longueur du commentaire
+    const commentText = comment || '';
+    if (commentText.length > 5000) {
+      return res.status(400).json({
+        success: false,
+        message: 'Le commentaire ne peut pas dépasser 5000 caractères'
+      });
+    }
+
+    const accountantComment = await AccountantComment.findOneAndUpdate(
+      { month: parsedMonth, year: parsedYear },
+      { comment: commentText },
+      {
+        new: true,
+        upsert: true,
+        setDefaultsOnInsert: true
+      }
+    );
+
+    return res.json({
+      success: true,
+      message: 'Commentaire comptable enregistré avec succès',
+      data: accountantComment
+    });
+  } catch (error) {
+    console.error('Erreur lors de l\'enregistrement du commentaire comptable:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Erreur lors de l\'enregistrement du commentaire comptable',
+      error: error.message
+    });
+  }
+};
+
 module.exports = {
   getEmployeeStatus,
-  upsertEmployeeOverpayment
+  upsertEmployeeOverpayment,
+  upsertAccountantComment
 };
 

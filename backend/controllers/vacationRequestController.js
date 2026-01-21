@@ -250,16 +250,39 @@ const validateVacationRequest = async (req, res) => {
       console.error('❌ Erreur création absence:', absenceError.message);
     }
 
-    // Envoyer un email de validation
+    // Envoyer un email de validation au salarié
     try {
       const emailResult = await emailService.sendVacationRequestValidation(vacationRequest, validatedBy);
       if (emailResult.success) {
-        console.log('✅ Email de validation envoyé:', emailResult.messageId);
+        console.log('✅ Email de validation envoyé au salarié:', emailResult.messageId);
       } else {
-        console.log('⚠️ Email de validation non envoyé:', emailResult.error);
+        console.log('⚠️ Email de validation non envoyé au salarié:', emailResult.error);
       }
     } catch (emailError) {
-      console.error('❌ Erreur envoi email validation:', emailError.message);
+      console.error('❌ Erreur envoi email validation au salarié:', emailError.message);
+    }
+
+    // Envoyer un email au magasin avec le lien d'impression
+    try {
+      const Parameter = require('../models/Parameters');
+      const storeEmailParam = await Parameter.findOne({ name: 'storeEmail' });
+      
+      if (storeEmailParam?.stringValue) {
+        const storeEmailResult = await emailService.sendVacationRequestValidationToStore(
+          vacationRequest,
+          storeEmailParam.stringValue,
+          validatedBy
+        );
+        if (storeEmailResult.success) {
+          console.log('✅ Email de validation envoyé au magasin:', storeEmailResult.messageId);
+        } else {
+          console.log('⚠️ Email de validation non envoyé au magasin:', storeEmailResult.error);
+        }
+      } else {
+        console.log('⚠️ Email du magasin non configuré');
+      }
+    } catch (storeEmailError) {
+      console.error('❌ Erreur envoi email validation au magasin:', storeEmailError.message);
     }
 
     res.json({

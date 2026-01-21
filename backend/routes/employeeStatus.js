@@ -8,5 +8,8 @@ router.get('/', employeeStatusController.getEmployeeStatus);
 // Créer ou mettre à jour un trop perçu
 router.put('/overpayment', employeeStatusController.upsertEmployeeOverpayment);
 
+// Sauvegarder ou mettre à jour le commentaire comptable
+router.put('/accountant-comment', employeeStatusController.upsertAccountantComment);
+
 module.exports = router;
 
