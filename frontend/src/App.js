@@ -157,16 +157,9 @@ const AppContent = () => {
 };
 
 function App() {
-  // Détecter automatiquement le basename depuis l'URL ou utiliser la variable Vite
-  // Vite définit import.meta.env.BASE_URL qui contient le base path (ex: /plan/ ou /lon/)
-  // On enlève le slash final pour le Router React
-  const basename = import.meta.env.BASE_URL 
-    ? import.meta.env.BASE_URL.replace(/\/$/, '') // Enlever le slash final
-    : (window.location.pathname.startsWith('/lon') ? '/lon' : '/plan'); // Fallback basé sur l'URL
-  
   return (
     <AuthProvider>
-      <Router basename={basename}>
+      <Router basename="/plan">
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="/*" element={<AppContent />} />

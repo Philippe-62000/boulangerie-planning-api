@@ -1,0 +1,17 @@
+@echo off
+REM Définir les mots de passe pour chaque utilisateur
+set "pwd_AKHTAR=nT4$zW9mL6"
+set "pwd_CASTEL=rP3@hK8dQ1"
+set "pwd_DELADERIERE=sM2jD@h9F6"
+set "pwd_DELATTRE=aJ5#cL2vF7"
+set "pwd_DELOBELLE=uB6$qN1wE9"
+set "pwd_DEPLANQUE=xZ8@tM3yR4"
+set "pwd_FERTELLE=m4Z@$7yQ2h8"
+set "pwd_LALLEMAND=S3p$6bK0xN"
+set "pwd_MANIEZ=0gR#5uVq7M"
+set "pwd_MASSON=pL8#xQ3nK9"
+set "pwd_PASCUAL=wR7@mY4vB2"
+set "pwd_POUILLAUDE=jT9$fZ6cH5"
+set "pwd_SANCHEZ=gN2$LdP5kX8"
+set "pwd_WATEL=vM6#sL9qA3"
+set "pwd_WUILBAUX=bK4@yH7rE1"

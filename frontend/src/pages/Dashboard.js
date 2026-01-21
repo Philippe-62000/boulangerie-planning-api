@@ -6,12 +6,19 @@ const Dashboard = () => {
   const [sickLeaves, setSickLeaves] = useState([]);
   const [loading, setLoading] = useState(true);
   const [pendingObligations, setPendingObligations] = useState([]);
+  const [lossesStats, setLossesStats] = useState(null);
+  
+  // Détecter si on est sur Longuenesse
+  const isLonguenesse = window.location.pathname.includes('/lon/');
 
   useEffect(() => {
     fetchDashboardData();
     fetchPendingObligations();
     fetchSickLeaves();
-  }, []);
+    if (isLonguenesse) {
+      fetchLossesStats();
+    }
+  }, [isLonguenesse]);
 
   const fetchDashboardData = async () => {
     try {
@@ -69,6 +76,27 @@ const Dashboard = () => {
       console.error('Erreur lors du chargement des obligations légales:', error);
       setPendingObligations([]);
     }
+  };
+
+  const fetchLossesStats = async () => {
+    try {
+      const response = await api.get('/daily-losses/dashboard', {
+        params: { city: 'longuenesse' }
+      });
+      if (response.data.success) {
+        setLossesStats(response.data.data);
+      }
+    } catch (error) {
+      console.error('Erreur lors du chargement des stats pertes:', error);
+      setLossesStats(null);
+    }
+  };
+
+  const getPercentageColor = (percentage) => {
+    const pct = parseFloat(percentage);
+    if (pct >= 6 && pct <= 8) return '#28a745'; // vert
+    if (pct < 6) return '#ff9800'; // orange
+    return '#dc3545'; // rouge
   };
 
   // Filtrer les employés en arrêt maladie (exclure ceux repris depuis plus de 8 jours)
@@ -281,6 +309,87 @@ const Dashboard = () => {
   return (
     <div className="dashboard fade-in">
       <h2>📊 Tableau de bord</h2>
+
+      {/* Widget Pertes Invendus/Dons - Longuenesse uniquement */}
+      {isLonguenesse && lossesStats && (
+        <div className="card" style={{ marginBottom: '2rem' }}>
+          <h3>📉 Statistiques Pertes (Invendus/Dons)</h3>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
+            {lossesStats.jour && (
+              <div style={{ 
+                textAlign: 'center', 
+                padding: '1rem', 
+                backgroundColor: '#f8f9fa', 
+                borderRadius: '8px',
+                border: '2px solid ' + getPercentageColor(lossesStats.jour.pourcentage)
+              }}>
+                <h4 style={{ color: '#666', fontSize: '0.9rem', marginBottom: '10px' }}>Jour passé</h4>
+                <div style={{ 
+                  fontSize: '2rem', 
+                  fontWeight: 'bold',
+                  color: getPercentageColor(lossesStats.jour.pourcentage)
+                }}>
+                  {lossesStats.jour.pourcentage.toFixed(2)}%
+                </div>
+                <p style={{ fontSize: '0.85rem', color: '#666', marginTop: '5px' }}>
+                  {lossesStats.jour.totalPertes.toFixed(2)}€ / {lossesStats.jour.totalVentes.toFixed(2)}€
+                </p>
+              </div>
+            )}
+            <div style={{ 
+              textAlign: 'center', 
+              padding: '1rem', 
+              backgroundColor: '#f8f9fa', 
+              borderRadius: '8px',
+              border: '2px solid ' + getPercentageColor(lossesStats.semaine.pourcentage)
+            }}>
+              <h4 style={{ color: '#666', fontSize: '0.9rem', marginBottom: '10px' }}>Cumul Semaine</h4>
+              <div style={{ 
+                fontSize: '2rem', 
+                fontWeight: 'bold',
+                color: getPercentageColor(lossesStats.semaine.pourcentage)
+              }}>
+                {lossesStats.semaine.pourcentage.toFixed(2)}%
+              </div>
+              <p style={{ fontSize: '0.85rem', color: '#666', marginTop: '5px' }}>
+                {lossesStats.semaine.totalPertes.toFixed(2)}€ / {lossesStats.semaine.totalVentes.toFixed(2)}€
+              </p>
+            </div>
+            <div style={{ 
+              textAlign: 'center', 
+              padding: '1rem', 
+              backgroundColor: '#f8f9fa', 
+              borderRadius: '8px',
+              border: '2px solid ' + getPercentageColor(lossesStats.mois.pourcentage)
+            }}>
+              <h4 style={{ color: '#666', fontSize: '0.9rem', marginBottom: '10px' }}>Cumul Mois</h4>
+              <div style={{ 
+                fontSize: '2rem', 
+                fontWeight: 'bold',
+                color: getPercentageColor(lossesStats.mois.pourcentage)
+              }}>
+                {lossesStats.mois.pourcentage.toFixed(2)}%
+              </div>
+              <p style={{ fontSize: '0.85rem', color: '#666', marginTop: '5px' }}>
+                {lossesStats.mois.totalPertes.toFixed(2)}€ / {lossesStats.mois.totalVentes.toFixed(2)}€
+              </p>
+            </div>
+          </div>
+          <div style={{ marginTop: '15px', textAlign: 'center' }}>
+            <a href="/lon/daily-losses-entry.html" target="_blank" style={{
+              display: 'inline-block',
+              padding: '10px 20px',
+              backgroundColor: '#667eea',
+              color: 'white',
+              textDecoration: 'none',
+              borderRadius: '8px',
+              fontWeight: '600'
+            }}>
+              📊 Ouvrir la page de saisie
+            </a>
+          </div>
+        </div>
+      )}
 
       {/* Récapitulatif : Arrêts maladie */}
       <div className="card" style={{ marginBottom: '2rem' }}>

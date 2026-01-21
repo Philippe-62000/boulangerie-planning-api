@@ -1,0 +1,11 @@
+Copier le fichier de paye.pdf dans le repertoire
+l'ouvrir dans foxit
+Organiser/extraire
+choisir page 1-dernière
+ENREGISTRER DANS BOULANGERIE PLANNING/ Protection Longuenesse
+
+telecharger mot de passe.bat du site longuenesse
+
+lancer le proteger_pdf.bat
+
+UPLOADER Les fichiers dans le rep traité dans le site longuenesse

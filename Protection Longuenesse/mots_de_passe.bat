@@ -1,0 +1,17 @@
+@echo off
+REM Définir les mots de passe pour chaque utilisateur
+set "pwd_DUCHATEAU=fK@mlls4Gy"
+set "pwd_LEGRAND=#aUF61Fgbw"
+set "pwd_GOSSE=ugAP61@8jT"
+set "pwd_GREBERT=EgxFZ#KYE6"
+set "pwd_CASTIER=VE52ku8#An"
+set "pwd_DERMENGHEM=mUxTllB3$e"
+set "pwd_BOGAERT=$jE8R6d3jv"
+set "pwd_HENON=71BQy8@Eyw"
+set "pwd_BERGEMAN=9jT73@T3Xc"
+set "pwd_MOLAND=JE9cd62#Ha"
+set "pwd_MANTEL=KMw@KH3CiY"
+set "pwd_LECHERF=jwUEsDq#3e"
+set "pwd_FORET=9Hv#A69jPk"
+set "pwd_TEST=null"
+set "pwd_PAUTREMAT=HaxP82#Us4"
