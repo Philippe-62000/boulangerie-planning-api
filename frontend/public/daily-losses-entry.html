@@ -1,0 +1,782 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestion Invendus et Caisses - Longuenesse</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 2rem;
+            text-align: center;
+        }
+
+        .subtitle {
+            color: #666;
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 0.9rem;
+        }
+
+        .month-selector {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 30px;
+            align-items: center;
+        }
+
+        .month-selector select {
+            padding: 10px 15px;
+            border: 2px solid #667eea;
+            border-radius: 8px;
+            font-size: 1rem;
+            background: white;
+            cursor: pointer;
+        }
+
+        .stats-summary {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+
+        .stat-card {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+            border: 2px solid #dee2e6;
+        }
+
+        .stat-card h3 {
+            font-size: 0.9rem;
+            color: #666;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .stat-card .value {
+            font-size: 1.8rem;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .stat-card .percentage {
+            font-size: 2rem;
+            font-weight: bold;
+            margin-top: 5px;
+        }
+
+        .percentage.green {
+            color: #28a745;
+        }
+
+        .percentage.orange {
+            color: #ff9800;
+        }
+
+        .percentage.red {
+            color: #dc3545;
+        }
+
+        .calendar-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 10px;
+            margin-bottom: 30px;
+        }
+
+        .calendar-header {
+            background: #667eea;
+            color: white;
+            padding: 10px;
+            text-align: center;
+            font-weight: bold;
+            border-radius: 8px;
+        }
+
+        .calendar-day {
+            background: #f8f9fa;
+            border: 2px solid #dee2e6;
+            border-radius: 8px;
+            padding: 10px;
+            cursor: pointer;
+            transition: all 0.2s;
+            min-height: 80px;
+            position: relative;
+        }
+
+        .calendar-day:hover {
+            background: #e9ecef;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .calendar-day.other-month {
+            opacity: 0.4;
+            background: #f0f0f0;
+        }
+
+        .calendar-day.today {
+            border-color: #667eea;
+            border-width: 3px;
+            background: #e7f3ff;
+        }
+
+        .day-number {
+            font-weight: bold;
+            font-size: 1.1rem;
+            margin-bottom: 5px;
+        }
+
+        .day-percentage {
+            font-size: 0.85rem;
+            font-weight: bold;
+            margin-top: 5px;
+        }
+
+        .day-percentage.green {
+            color: #28a745;
+        }
+
+        .day-percentage.orange {
+            color: #ff9800;
+        }
+
+        .day-percentage.red {
+            color: #dc3545;
+        }
+
+        .day-total {
+            font-size: 0.75rem;
+            color: #666;
+            margin-top: 2px;
+        }
+
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal-overlay.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            max-width: 600px;
+            width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #dee2e6;
+        }
+
+        .modal-header h2 {
+            color: #333;
+            font-size: 1.5rem;
+        }
+
+        .close-btn {
+            background: none;
+            border: none;
+            font-size: 2rem;
+            cursor: pointer;
+            color: #666;
+            line-height: 1;
+        }
+
+        .close-btn:hover {
+            color: #333;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #dee2e6;
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: border-color 0.2s;
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+        }
+
+        .form-row-4 {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 15px;
+        }
+
+        .total-display {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 15px;
+            border: 2px solid #dee2e6;
+        }
+
+        .total-display .total-item {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            font-weight: 600;
+        }
+
+        .total-display .percentage-display {
+            font-size: 1.3rem;
+            font-weight: bold;
+            text-align: center;
+            padding: 10px;
+            border-radius: 8px;
+            margin-top: 10px;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #5a6268;
+        }
+
+        .message {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+            display: none;
+        }
+
+        .message.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+            display: block;
+        }
+
+        .message.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+            display: block;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📊 Gestion Invendus et Caisses</h1>
+        <p class="subtitle">Boulangerie Ange - Longuenesse</p>
+
+        <div class="month-selector">
+            <label for="monthSelect">Mois :</label>
+            <select id="monthSelect">
+                <!-- Rempli dynamiquement -->
+            </select>
+            <label for="yearSelect">Année :</label>
+            <select id="yearSelect">
+                <!-- Rempli dynamiquement -->
+            </select>
+        </div>
+
+        <div class="stats-summary">
+            <div class="stat-card">
+                <h3>Jour sélectionné</h3>
+                <div class="value" id="dayTotalPertes">-</div>
+                <div class="percentage" id="dayPercentage">-</div>
+            </div>
+            <div class="stat-card">
+                <h3>Cumul Semaine</h3>
+                <div class="value" id="weekTotalPertes">-</div>
+                <div class="percentage" id="weekPercentage">-</div>
+            </div>
+            <div class="stat-card">
+                <h3>Cumul Mois</h3>
+                <div class="value" id="monthTotalPertes">-</div>
+                <div class="percentage" id="monthPercentage">-</div>
+            </div>
+            <div class="stat-card">
+                <h3>Cumul Année</h3>
+                <div class="value" id="yearTotalPertes">-</div>
+                <div class="percentage" id="yearPercentage">-</div>
+            </div>
+        </div>
+
+        <div id="calendarContainer" class="loading">
+            Chargement du calendrier...
+        </div>
+
+        <div id="message" class="message"></div>
+    </div>
+
+    <!-- Modal pour saisir/modifier les données -->
+    <div id="editModal" class="modal-overlay">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modalTitle">Saisir les données</h2>
+                <button class="close-btn" id="closeModal">&times;</button>
+            </div>
+            <form id="dataForm">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="invendus">Invendus (€)</label>
+                        <input type="number" id="invendus" name="invendus" min="0" step="0.01" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="dons">Dons (€)</label>
+                        <input type="number" id="dons" name="dons" min="0" step="0.01" required>
+                    </div>
+                </div>
+
+                <div class="form-row-4">
+                    <div class="form-group">
+                        <label for="caisse1">Caisse 1 (€)</label>
+                        <input type="number" id="caisse1" name="caisse1" min="0" step="0.01" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="caisse2">Caisse 2 (€)</label>
+                        <input type="number" id="caisse2" name="caisse2" min="0" step="0.01" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="caisse3">Caisse 3 (€)</label>
+                        <input type="number" id="caisse3" name="caisse3" min="0" step="0.01" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="caisse4">Caisse 4 (€)</label>
+                        <input type="number" id="caisse4" name="caisse4" min="0" step="0.01" required>
+                    </div>
+                </div>
+
+                <div class="total-display">
+                    <div class="total-item">
+                        <span>Total Pertes (Invendus + Dons) :</span>
+                        <span id="displayTotalPertes">0.00 €</span>
+                    </div>
+                    <div class="total-item">
+                        <span>Total Ventes (Caisses 1-4) :</span>
+                        <span id="displayTotalVentes">0.00 €</span>
+                    </div>
+                    <div class="percentage-display" id="displayPercentage">
+                        0.00 %
+                    </div>
+                </div>
+
+                <div style="display: flex; gap: 10px; margin-top: 20px;">
+                    <button type="submit" class="btn btn-primary" style="flex: 1;">Enregistrer</button>
+                    <button type="button" class="btn btn-secondary" id="cancelBtn">Annuler</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE_URL = 'https://boulangerie-planning-api-3.onrender.com/api';
+        const DAILY_LOSSES_API = `${API_BASE_URL}/daily-losses`;
+
+        let currentMonth = new Date().getMonth() + 1;
+        let currentYear = new Date().getFullYear();
+        let selectedDate = null;
+        let selectedLossId = null;
+        let monthlyData = [];
+
+        // Initialisation
+        document.addEventListener('DOMContentLoaded', () => {
+            initializeMonthYearSelectors();
+            loadMonthlyData();
+            setupEventListeners();
+            setupFormListeners();
+        });
+
+        function initializeMonthYearSelectors() {
+            const monthSelect = document.getElementById('monthSelect');
+            const yearSelect = document.getElementById('yearSelect');
+            
+            const months = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 
+                          'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
+            
+            months.forEach((month, index) => {
+                const option = document.createElement('option');
+                option.value = index + 1;
+                option.textContent = month;
+                if (index + 1 === currentMonth) option.selected = true;
+                monthSelect.appendChild(option);
+            });
+
+            const currentYearNum = new Date().getFullYear();
+            for (let year = currentYearNum - 2; year <= currentYearNum + 1; year++) {
+                const option = document.createElement('option');
+                option.value = year;
+                option.textContent = year;
+                if (year === currentYear) option.selected = true;
+                yearSelect.appendChild(option);
+            }
+
+            monthSelect.addEventListener('change', (e) => {
+                currentMonth = parseInt(e.target.value);
+                loadMonthlyData();
+            });
+
+            yearSelect.addEventListener('change', (e) => {
+                currentYear = parseInt(e.target.value);
+                loadMonthlyData();
+            });
+        }
+
+        function setupEventListeners() {
+            document.getElementById('closeModal').addEventListener('click', closeModal);
+            document.getElementById('cancelBtn').addEventListener('click', closeModal);
+            document.getElementById('editModal').addEventListener('click', (e) => {
+                if (e.target.id === 'editModal') closeModal();
+            });
+        }
+
+        function setupFormListeners() {
+            const form = document.getElementById('dataForm');
+            const inputs = ['invendus', 'dons', 'caisse1', 'caisse2', 'caisse3', 'caisse4'];
+
+            inputs.forEach(id => {
+                document.getElementById(id).addEventListener('input', updateTotals);
+            });
+
+            form.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                await saveData();
+            });
+        }
+
+        function updateTotals() {
+            const invendus = parseFloat(document.getElementById('invendus').value) || 0;
+            const dons = parseFloat(document.getElementById('dons').value) || 0;
+            const caisse1 = parseFloat(document.getElementById('caisse1').value) || 0;
+            const caisse2 = parseFloat(document.getElementById('caisse2').value) || 0;
+            const caisse3 = parseFloat(document.getElementById('caisse3').value) || 0;
+            const caisse4 = parseFloat(document.getElementById('caisse4').value) || 0;
+
+            const totalPertes = invendus + dons;
+            const totalVentes = caisse1 + caisse2 + caisse3 + caisse4;
+            const percentage = totalVentes > 0 ? ((totalPertes / totalVentes) * 100).toFixed(2) : 0;
+
+            document.getElementById('displayTotalPertes').textContent = totalPertes.toFixed(2) + ' €';
+            document.getElementById('displayTotalVentes').textContent = totalVentes.toFixed(2) + ' €';
+            
+            const percentageDisplay = document.getElementById('displayPercentage');
+            percentageDisplay.textContent = percentage + ' %';
+            percentageDisplay.className = 'percentage-display ' + getPercentageColor(percentage);
+        }
+
+        function getPercentageColor(percentage) {
+            const pct = parseFloat(percentage);
+            if (pct >= 6 && pct <= 8) return 'green';
+            if (pct < 6) return 'orange';
+            return 'red';
+        }
+
+        async function loadMonthlyData() {
+            try {
+                document.getElementById('calendarContainer').innerHTML = '<div class="loading">Chargement...</div>';
+                
+                const response = await fetch(`${DAILY_LOSSES_API}/month?month=${currentMonth}&year=${currentYear}&city=longuenesse`);
+                const result = await response.json();
+
+                if (result.success) {
+                    monthlyData = result.data;
+                    renderCalendar();
+                    updateSummaryStats(result.totals);
+                } else {
+                    showMessage('Erreur lors du chargement des données', 'error');
+                }
+            } catch (error) {
+                console.error('Erreur:', error);
+                showMessage('Erreur lors du chargement des données', 'error');
+            }
+        }
+
+        async function loadDashboardStats() {
+            try {
+                const response = await fetch(`${DAILY_LOSSES_API}/dashboard?city=longuenesse`);
+                const result = await response.json();
+
+                if (result.success) {
+                    const { jour, semaine, mois, annee } = result.data;
+                    
+                    if (jour) {
+                        document.getElementById('dayTotalPertes').textContent = jour.totalPertes.toFixed(2) + ' €';
+                        updatePercentageDisplay('dayPercentage', jour.pourcentage);
+                    }
+                    
+                    document.getElementById('weekTotalPertes').textContent = semaine.totalPertes.toFixed(2) + ' €';
+                    updatePercentageDisplay('weekPercentage', semaine.pourcentage);
+                    
+                    document.getElementById('monthTotalPertes').textContent = mois.totalPertes.toFixed(2) + ' €';
+                    updatePercentageDisplay('monthPercentage', mois.pourcentage);
+                    
+                    document.getElementById('yearTotalPertes').textContent = annee.totalPertes.toFixed(2) + ' €';
+                    updatePercentageDisplay('yearPercentage', annee.pourcentage);
+                }
+            } catch (error) {
+                console.error('Erreur chargement stats:', error);
+            }
+        }
+
+        function updatePercentageDisplay(elementId, percentage) {
+            const element = document.getElementById(elementId);
+            element.textContent = percentage.toFixed(2) + ' %';
+            element.className = 'percentage ' + getPercentageColor(percentage);
+        }
+
+        function renderCalendar() {
+            const container = document.getElementById('calendarContainer');
+            const firstDay = new Date(currentYear, currentMonth - 1, 1);
+            const lastDay = new Date(currentYear, currentMonth, 0);
+            const daysInMonth = lastDay.getDate();
+            const startDayOfWeek = firstDay.getDay() === 0 ? 6 : firstDay.getDay() - 1; // Lundi = 0
+
+            let html = '<div class="calendar-grid">';
+            
+            // En-têtes des jours
+            const dayNames = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
+            dayNames.forEach(day => {
+                html += `<div class="calendar-header">${day}</div>`;
+            });
+
+            // Jours du mois précédent
+            const prevMonthLastDay = new Date(currentYear, currentMonth - 1, 0).getDate();
+            for (let i = startDayOfWeek - 1; i >= 0; i--) {
+                const day = prevMonthLastDay - i;
+                html += `<div class="calendar-day other-month"><div class="day-number">${day}</div></div>`;
+            }
+
+            // Jours du mois actuel
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            
+            for (let day = 1; day <= daysInMonth; day++) {
+                const date = new Date(currentYear, currentMonth - 1, day);
+                const dateStr = date.toISOString().split('T')[0];
+                const dayData = monthlyData.find(d => {
+                    const dDate = new Date(d.date);
+                    return dDate.getUTCDate() === day && 
+                           dDate.getUTCMonth() === currentMonth - 1 &&
+                           dDate.getUTCFullYear() === currentYear;
+                });
+
+                const isToday = date.getTime() === today.getTime();
+                const dayClass = `calendar-day ${isToday ? 'today' : ''}`;
+
+                html += `<div class="${dayClass}" data-date="${dateStr}">`;
+                html += `<div class="day-number">${day}</div>`;
+                
+                if (dayData) {
+                    html += `<div class="day-total">Pertes: ${dayData.totalPertes.toFixed(2)}€</div>`;
+                    html += `<div class="day-total">Ventes: ${dayData.totalVentes.toFixed(2)}€</div>`;
+                    if (dayData.pourcentagePertes > 0) {
+                        html += `<div class="day-percentage ${getPercentageColor(dayData.pourcentagePertes)}">${dayData.pourcentagePertes.toFixed(2)}%</div>`;
+                    }
+                }
+                
+                html += '</div>';
+            }
+
+            // Jours du mois suivant pour compléter la grille
+            const totalCells = 7 * Math.ceil((startDayOfWeek + daysInMonth) / 7);
+            const remainingCells = totalCells - (startDayOfWeek + daysInMonth);
+            for (let day = 1; day <= remainingCells; day++) {
+                html += `<div class="calendar-day other-month"><div class="day-number">${day}</div></div>`;
+            }
+
+            html += '</div>';
+            container.innerHTML = html;
+
+            // Ajouter les event listeners
+            document.querySelectorAll('.calendar-day:not(.other-month)').forEach(dayEl => {
+                dayEl.addEventListener('click', () => {
+                    const dateStr = dayEl.dataset.date;
+                    openEditModal(dateStr);
+                });
+            });
+        }
+
+        async function openEditModal(dateStr) {
+            selectedDate = dateStr;
+            const date = new Date(dateStr);
+            document.getElementById('modalTitle').textContent = 
+                `Saisie du ${date.getDate()}/${date.getMonth() + 1}/${date.getFullYear()}`;
+
+            try {
+                const response = await fetch(`${DAILY_LOSSES_API}/day?date=${dateStr}&city=longuenesse`);
+                const result = await response.json();
+
+                if (result.success) {
+                    const data = result.data;
+                    selectedLossId = data._id;
+                    
+                    document.getElementById('invendus').value = data.invendus || 0;
+                    document.getElementById('dons').value = data.dons || 0;
+                    document.getElementById('caisse1').value = data.caisse1 || 0;
+                    document.getElementById('caisse2').value = data.caisse2 || 0;
+                    document.getElementById('caisse3').value = data.caisse3 || 0;
+                    document.getElementById('caisse4').value = data.caisse4 || 0;
+                    
+                    updateTotals();
+                    document.getElementById('editModal').classList.add('active');
+                }
+            } catch (error) {
+                console.error('Erreur:', error);
+                showMessage('Erreur lors du chargement des données', 'error');
+            }
+        }
+
+        function closeModal() {
+            document.getElementById('editModal').classList.remove('active');
+        }
+
+        async function saveData() {
+            if (!selectedLossId) {
+                showMessage('Erreur: ID non trouvé', 'error');
+                return;
+            }
+
+            const formData = {
+                invendus: parseFloat(document.getElementById('invendus').value) || 0,
+                dons: parseFloat(document.getElementById('dons').value) || 0,
+                caisse1: parseFloat(document.getElementById('caisse1').value) || 0,
+                caisse2: parseFloat(document.getElementById('caisse2').value) || 0,
+                caisse3: parseFloat(document.getElementById('caisse3').value) || 0,
+                caisse4: parseFloat(document.getElementById('caisse4').value) || 0
+            };
+
+            try {
+                const response = await fetch(`${DAILY_LOSSES_API}/${selectedLossId}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(formData)
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    showMessage('Données enregistrées avec succès', 'success');
+                    closeModal();
+                    await loadMonthlyData();
+                    await loadDashboardStats();
+                } else {
+                    showMessage('Erreur lors de l\'enregistrement', 'error');
+                }
+            } catch (error) {
+                console.error('Erreur:', error);
+                showMessage('Erreur lors de l\'enregistrement', 'error');
+            }
+        }
+
+        function showMessage(message, type) {
+            const messageEl = document.getElementById('message');
+            messageEl.textContent = message;
+            messageEl.className = `message ${type}`;
+            setTimeout(() => {
+                messageEl.className = 'message';
+            }, 3000);
+        }
+
+        function updateSummaryStats(totals) {
+            // Les stats seront mises à jour via loadDashboardStats
+            loadDashboardStats();
+        }
+
+        // Charger les stats au démarrage
+        loadDashboardStats();
+    </script>
+</body>
+</html>
