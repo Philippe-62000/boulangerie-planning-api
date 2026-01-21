@@ -696,9 +696,11 @@
 
         async function openEditModal(dateStr) {
             selectedDate = dateStr;
-            const date = new Date(dateStr);
+            // Parser la date correctement pour éviter les problèmes de timezone
+            const [year, month, day] = dateStr.split('-').map(Number);
+            const date = new Date(year, month - 1, day); // month - 1 car les mois commencent à 0
             document.getElementById('modalTitle').textContent = 
-                `Saisie du ${date.getDate()}/${date.getMonth() + 1}/${date.getFullYear()}`;
+                `Saisie du ${day}/${month}/${year}`;
 
             try {
                 const response = await fetch(`${DAILY_LOSSES_API}/day?date=${dateStr}&city=${CITY}`);
