@@ -379,7 +379,7 @@ const Dashboard = () => {
             </div>
           </div>
           <div style={{ marginTop: '15px', textAlign: 'center' }}>
-            <a href="/lon/daily-losses-entry.html" target="_blank" style={{
+            <a href={isLonguenesse ? "/lon/daily-losses-entry.html" : "/plan/daily-losses-entry.html"} target="_blank" style={{
               display: 'inline-block',
               padding: '10px 20px',
               backgroundColor: '#667eea',
