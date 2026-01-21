@@ -591,23 +591,53 @@
 
         async function loadDashboardStats() {
             try {
+                // Charger les stats du mois sélectionné (pas forcément le mois actuel)
+                const monthDataResponse = await fetch(`${DAILY_LOSSES_API}/month?month=${currentMonth}&year=${currentYear}&city=${CITY}`);
+                const monthResult = await monthDataResponse.json();
+
+                // Calculer les stats du mois sélectionné
+                let monthTotalPertes = 0;
+                let monthTotalVentes = 0;
+                if (monthResult.success && monthResult.data) {
+                    monthTotalPertes = monthResult.data.reduce((sum, d) => sum + (d.totalPertes || 0), 0);
+                    monthTotalVentes = monthResult.data.reduce((sum, d) => sum + (d.totalVentes || 0), 0);
+                }
+                const monthPourcentage = monthTotalVentes > 0 
+                    ? (monthTotalPertes / monthTotalVentes) * 100 
+                    : 0;
+
+                // Charger les stats générales (jour actuel, semaine actuelle, année)
                 const response = await fetch(`${DAILY_LOSSES_API}/dashboard?city=${CITY}`);
                 const result = await response.json();
 
                 if (result.success) {
-                    const { jour, semaine, mois, annee } = result.data;
+                    const { jour, semaine, annee } = result.data;
                     
-                    if (jour) {
+                    // Jour actuel (seulement si on est dans le mois actuel)
+                    const today = new Date();
+                    const isCurrentMonth = currentMonth === today.getMonth() + 1 && currentYear === today.getFullYear();
+                    if (jour && isCurrentMonth) {
                         document.getElementById('dayTotalPertes').textContent = jour.totalPertes.toFixed(2) + ' €';
                         updatePercentageDisplay('dayPercentage', jour.pourcentage);
+                    } else {
+                        document.getElementById('dayTotalPertes').textContent = '0.00 €';
+                        updatePercentageDisplay('dayPercentage', 0);
                     }
                     
-                    document.getElementById('weekTotalPertes').textContent = semaine.totalPertes.toFixed(2) + ' €';
-                    updatePercentageDisplay('weekPercentage', semaine.pourcentage);
+                    // Semaine actuelle (seulement si on est dans le mois actuel)
+                    if (isCurrentMonth) {
+                        document.getElementById('weekTotalPertes').textContent = semaine.totalPertes.toFixed(2) + ' €';
+                        updatePercentageDisplay('weekPercentage', semaine.pourcentage);
+                    } else {
+                        document.getElementById('weekTotalPertes').textContent = '0.00 €';
+                        updatePercentageDisplay('weekPercentage', 0);
+                    }
                     
-                    document.getElementById('monthTotalPertes').textContent = mois.totalPertes.toFixed(2) + ' €';
-                    updatePercentageDisplay('monthPercentage', mois.pourcentage);
+                    // Mois sélectionné (utilise les données du mois sélectionné)
+                    document.getElementById('monthTotalPertes').textContent = monthTotalPertes.toFixed(2) + ' €';
+                    updatePercentageDisplay('monthPercentage', monthPourcentage);
                     
+                    // Année (toujours affiché)
                     document.getElementById('yearTotalPertes').textContent = annee.totalPertes.toFixed(2) + ' €';
                     updatePercentageDisplay('yearPercentage', annee.pourcentage);
                 }
@@ -651,11 +681,18 @@
             for (let day = 1; day <= daysInMonth; day++) {
                 const date = new Date(currentYear, currentMonth - 1, day);
                 const dateStr = date.toISOString().split('T')[0];
+                // Comparer les dates correctement en utilisant la même logique que le backend
                 const dayData = monthlyData.find(d => {
+                    // Le backend stocke la date en UTC, on compare directement les composants
                     const dDate = new Date(d.date);
-                    return dDate.getUTCDate() === day && 
-                           dDate.getUTCMonth() === currentMonth - 1 &&
-                           dDate.getUTCFullYear() === currentYear;
+                    // Convertir en UTC pour la comparaison
+                    const dayYear = dDate.getUTCFullYear();
+                    const dayMonth = dDate.getUTCMonth(); // 0-11
+                    const dayDay = dDate.getUTCDate();
+                    
+                    return dayDay === day && 
+                           dayMonth === currentMonth - 1 &&
+                           dayYear === currentYear;
                 });
 
                 const isToday = date.getTime() === today.getTime();
@@ -780,7 +817,7 @@
         }
 
         function updateSummaryStats(totals) {
-            // Les stats seront mises à jour via loadDashboardStats
+            // Recharger les stats après changement de mois
             loadDashboardStats();
         }
 
