@@ -357,7 +357,7 @@
 <body>
     <div class="container">
         <h1>📊 Gestion Invendus et Caisses</h1>
-        <p class="subtitle">Boulangerie Ange - Longuenesse</p>
+        <p class="subtitle" id="subtitle">Boulangerie Ange</p>
 
         <div class="month-selector">
             <label for="monthSelect">Mois :</label>
@@ -461,8 +461,13 @@
     </div>
 
     <script>
-        const API_BASE_URL = 'https://boulangerie-planning-api-3.onrender.com/api';
+        // Détecter automatiquement l'API URL selon la base path
+        const isLonguenesse = window.location.pathname.includes('/lon/');
+        const API_BASE_URL = isLonguenesse 
+            ? 'https://boulangerie-planning-api-3.onrender.com/api'
+            : 'https://boulangerie-planning-api-4-pbfy.onrender.com/api';
         const DAILY_LOSSES_API = `${API_BASE_URL}/daily-losses`;
+        const CITY = isLonguenesse ? 'longuenesse' : 'arras';
 
         let currentMonth = new Date().getMonth() + 1;
         let currentYear = new Date().getFullYear();
@@ -472,6 +477,8 @@
 
         // Initialisation
         document.addEventListener('DOMContentLoaded', () => {
+            // Mettre à jour le sous-titre selon la ville
+            document.getElementById('subtitle').textContent = `Boulangerie Ange - ${isLonguenesse ? 'Longuenesse' : 'Arras'}`;
             initializeMonthYearSelectors();
             loadMonthlyData();
             setupEventListeners();
@@ -566,7 +573,7 @@
             try {
                 document.getElementById('calendarContainer').innerHTML = '<div class="loading">Chargement...</div>';
                 
-                const response = await fetch(`${DAILY_LOSSES_API}/month?month=${currentMonth}&year=${currentYear}&city=longuenesse`);
+                const response = await fetch(`${DAILY_LOSSES_API}/month?month=${currentMonth}&year=${currentYear}&city=${CITY}`);
                 const result = await response.json();
 
                 if (result.success) {
@@ -584,7 +591,7 @@
 
         async function loadDashboardStats() {
             try {
-                const response = await fetch(`${DAILY_LOSSES_API}/dashboard?city=longuenesse`);
+                const response = await fetch(`${DAILY_LOSSES_API}/dashboard?city=${CITY}`);
                 const result = await response.json();
 
                 if (result.success) {
@@ -694,7 +701,7 @@
                 `Saisie du ${date.getDate()}/${date.getMonth() + 1}/${date.getFullYear()}`;
 
             try {
-                const response = await fetch(`${DAILY_LOSSES_API}/day?date=${dateStr}&city=longuenesse`);
+                const response = await fetch(`${DAILY_LOSSES_API}/day?date=${dateStr}&city=${CITY}`);
                 const result = await response.json();
 
                 if (result.success) {

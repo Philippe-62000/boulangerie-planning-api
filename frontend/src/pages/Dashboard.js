@@ -8,17 +8,19 @@ const Dashboard = () => {
   const [pendingObligations, setPendingObligations] = useState([]);
   const [lossesStats, setLossesStats] = useState(null);
   
-  // Détecter si on est sur Longuenesse
+  // Détecter si on est sur Longuenesse ou Arras
   const isLonguenesse = window.location.pathname.includes('/lon/');
+  const isArras = window.location.pathname.includes('/plan/');
+  const shouldShowLosses = isLonguenesse || isArras;
 
   useEffect(() => {
     fetchDashboardData();
     fetchPendingObligations();
     fetchSickLeaves();
-    if (isLonguenesse) {
+    if (shouldShowLosses) {
       fetchLossesStats();
     }
-  }, [isLonguenesse]);
+  }, [shouldShowLosses]);
 
   const fetchDashboardData = async () => {
     try {
@@ -80,8 +82,9 @@ const Dashboard = () => {
 
   const fetchLossesStats = async () => {
     try {
+      const city = isLonguenesse ? 'longuenesse' : 'arras';
       const response = await api.get('/daily-losses/dashboard', {
-        params: { city: 'longuenesse' }
+        params: { city }
       });
       if (response.data.success) {
         setLossesStats(response.data.data);
@@ -310,8 +313,8 @@ const Dashboard = () => {
     <div className="dashboard fade-in">
       <h2>📊 Tableau de bord</h2>
 
-      {/* Widget Pertes Invendus/Dons - Longuenesse uniquement */}
-      {isLonguenesse && lossesStats && (
+      {/* Widget Pertes Invendus/Dons - Longuenesse et Arras */}
+      {shouldShowLosses && lossesStats && (
         <div className="card" style={{ marginBottom: '2rem' }}>
           <h3>📉 Statistiques Pertes (Invendus/Dons)</h3>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
@@ -376,7 +379,7 @@ const Dashboard = () => {
             </div>
           </div>
           <div style={{ marginTop: '15px', textAlign: 'center' }}>
-            <a href="/lon/daily-losses-entry.html" target="_blank" style={{
+            <a href={isLonguenesse ? "/lon/daily-losses-entry.html" : "/plan/daily-losses-entry.html"} target="_blank" style={{
               display: 'inline-block',
               padding: '10px 20px',
               backgroundColor: '#667eea',
