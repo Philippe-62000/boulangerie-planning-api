@@ -12,20 +12,21 @@ const getOrCreateDailyLosses = async (req, res) => {
       });
     }
 
-    const dateObj = new Date(date);
-    if (isNaN(dateObj.getTime())) {
+    // Parser la date directement depuis "YYYY-MM-DD" pour éviter les problèmes de timezone
+    const dateMatch = date.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (!dateMatch) {
       return res.status(400).json({
         success: false,
-        error: 'Date invalide'
+        error: 'Format de date invalide. Format attendu: YYYY-MM-DD'
       });
     }
 
+    const year = parseInt(dateMatch[1], 10);
+    const month = parseInt(dateMatch[2], 10) - 1; // Les mois commencent à 0 en JavaScript
+    const day = parseInt(dateMatch[3], 10);
+
     // Normaliser la date à minuit (UTC)
-    const normalizedDate = new Date(Date.UTC(
-      dateObj.getFullYear(),
-      dateObj.getMonth(),
-      dateObj.getDate()
-    ));
+    const normalizedDate = new Date(Date.UTC(year, month, day));
 
     let dailyLoss = await DailyLosses.findOne({
       date: normalizedDate,
