@@ -14,6 +14,7 @@ const [overpayments, setOverpayments] = useState({});
 const [persistedOverpayments, setPersistedOverpayments] = useState({});
 const [savingOverpayment, setSavingOverpayment] = useState({});
 const [employeePrimes, setEmployeePrimes] = useState({}); // { employeeId: [{ primeName, amount }] }
+const [accountantComment, setAccountantComment] = useState(''); // Commentaire pour la comptable
 
   useEffect(() => {
     if (data?.employees && data.employees.length > 0) {
@@ -357,14 +358,43 @@ const calculateTotalOverpayments = () => {
             .summary-item {
               margin-bottom: 10px;
             }
+            .accountant-comment {
+              margin-top: 30px;
+              padding: 20px;
+              border: 2px solid #000;
+              background: #fff;
+              border-radius: 5px;
+            }
+            .accountant-comment h3 {
+              margin: 0 0 10px 0;
+              font-size: 16px;
+              font-weight: bold;
+              color: #000;
+            }
+            .accountant-comment-content {
+              white-space: pre-wrap;
+              font-size: 12px;
+              line-height: 1.5;
+              color: #000;
+              min-height: 100px;
+            }
             @media print {
               body { margin: 0; padding: 15px; }
               .status-table tbody tr { page-break-inside: avoid; }
+              .accountant-comment {
+                page-break-inside: avoid;
+              }
             }
           </style>
         </head>
         <body>
           ${printContent.outerHTML}
+          ${accountantComment ? `
+            <div class="accountant-comment">
+              <h3>📝 Commentaire pour la comptable :</h3>
+              <div class="accountant-comment-content">${accountantComment.replace(/\n/g, '<br>')}</div>
+            </div>
+          ` : ''}
         </body>
         </html>
       `);
@@ -591,6 +621,31 @@ const calculateTotalOverpayments = () => {
             </div>
           </div>
 
+          {/* Champ commentaire pour la comptable */}
+          <div className="accountant-comment-section" style={{ padding: '1.5rem 2rem', borderBottom: '1px solid #dee2e6' }}>
+            <label htmlFor="accountant-comment" style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '600', color: '#2c3e50' }}>
+              📝 Commentaire pour la comptable :
+            </label>
+            <textarea
+              id="accountant-comment"
+              rows="10"
+              value={accountantComment}
+              onChange={(e) => setAccountantComment(e.target.value)}
+              placeholder="Ajoutez un commentaire qui sera affiché sur la feuille d'impression..."
+              style={{
+                width: '100%',
+                padding: '0.75rem',
+                border: '1px solid #ced4da',
+                borderRadius: '4px',
+                fontSize: '0.95rem',
+                fontFamily: 'Arial, sans-serif',
+                lineHeight: '1.5',
+                resize: 'vertical',
+                minHeight: '150px'
+              }}
+            />
+          </div>
+
           <div className="print-table">
             <table className="status-table">
               <thead>
@@ -712,6 +767,23 @@ const calculateTotalOverpayments = () => {
               <strong>Total général :</strong> {formatCurrency(totalGeneralAmount)}
             </div>
           </div>
+
+          {/* Affichage du commentaire dans la vue (masqué à l'impression, car il sera ajouté dans handlePrint) */}
+          {accountantComment && (
+            <div className="accountant-comment-display" style={{ 
+              padding: '1.5rem 2rem', 
+              marginTop: '1rem',
+              borderTop: '2px solid #dee2e6',
+              display: 'none' // Masqué ici car il sera ajouté dans la fenêtre d'impression
+            }}>
+              <h3 style={{ margin: '0 0 10px 0', fontSize: '16px', fontWeight: 'bold', color: '#2c3e50' }}>
+                📝 Commentaire pour la comptable :
+              </h3>
+              <div style={{ whiteSpace: 'pre-wrap', fontSize: '14px', lineHeight: '1.6', color: '#495057' }}>
+                {accountantComment}
+              </div>
+            </div>
+          )}
 
         </div>
       )}
