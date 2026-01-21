@@ -157,9 +157,17 @@ const AppContent = () => {
 };
 
 function App() {
+  const getBasename = () => {
+    const path = window.location.pathname;
+    if (path.startsWith('/lon')) {
+      return '/lon';
+    }
+    return import.meta.env.BASE_URL || '/plan';
+  };
+
   return (
     <AuthProvider>
-      <Router basename="/plan">
+      <Router basename={getBasename()}>
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="/*" element={<AppContent />} />
