@@ -321,6 +321,18 @@ const calculateTotalOverpayments = () => {
     const printContent = document.querySelector('.print-content');
     
     if (printContent) {
+      // Créer une copie du contenu et retirer les sections de commentaire
+      const contentClone = printContent.cloneNode(true);
+      const commentSection = contentClone.querySelector('.accountant-comment-section');
+      const commentDisplay = contentClone.querySelector('.accountant-comment-display');
+      
+      if (commentSection) {
+        commentSection.remove();
+      }
+      if (commentDisplay) {
+        commentDisplay.remove();
+      }
+      
       printWindow.document.write(`
         <!DOCTYPE html>
         <html>
@@ -407,7 +419,7 @@ const calculateTotalOverpayments = () => {
           </style>
         </head>
         <body>
-          ${printContent.outerHTML}
+          ${contentClone.outerHTML}
           ${accountantComment ? `
             <div class="accountant-comment">
               <h3>📝 Commentaire pour la comptable :</h3>
