@@ -10,8 +10,7 @@ const storage = multer.memoryStorage();
 const upload = multer({
   storage: storage,
   limits: {
-    fileSize: 10 * 1024 * 1024, // 10MB
-    files: 1
+    fileSize: 10 * 1024 * 1024 // 10MB
   },
   fileFilter: (req, file, cb) => {
     console.log('🔍 Multer fileFilter - Fieldname:', file.fieldname, 'Mimetype:', file.mimetype);
@@ -25,29 +24,21 @@ const upload = multer({
 });
 
 // Middleware d'upload avec gestion d'erreurs
+// Utiliser upload.any() pour éviter l'erreur LIMIT_UNEXPECTED_FILE
 const uploadMiddleware = (req, res, next) => {
   console.log('🔧 Middleware Multer - Début');
   console.log('🔧 Headers:', req.headers);
   console.log('🔧 Content-Type:', req.headers['content-type']);
   console.log('🔧 Body (avant multer):', req.body);
   
-  upload.single('sickLeaveFile')(req, res, (err) => {
+  // Utiliser upload.any() pour accepter tous les champs
+  const multerAny = upload.any();
+  
+  multerAny(req, res, (err) => {
     if (err) {
       console.error('❌ Erreur Multer:', err);
       console.error('❌ Code erreur:', err.code);
       console.error('❌ Field:', err.field);
-      
-      // Si c'est une erreur de champ inattendu, donner plus d'informations
-      if (err.code === 'LIMIT_UNEXPECTED_FILE') {
-        console.log('⚠️ Champ inattendu détecté:', err.field);
-        console.log('⚠️ Le middleware attend le champ: document');
-        return res.status(400).json({
-          success: false,
-          error: 'Erreur lors de l\'upload du fichier',
-          details: `Champ inattendu: ${err.field}. Le champ attendu est 'document'. Vérifiez que le formulaire utilise bien le nom de champ 'document'.`,
-          code: err.code
-        });
-      }
       
       return res.status(400).json({
         success: false,
@@ -55,6 +46,41 @@ const uploadMiddleware = (req, res, next) => {
         details: err.message,
         code: err.code
       });
+    }
+    
+    // Trouver le fichier 'document' dans req.files
+    if (req.files && req.files.length > 0) {
+      const documentFile = req.files.find(file => file.fieldname === 'document');
+      
+      if (documentFile) {
+        // Mettre le fichier dans req.file pour compatibilité avec le reste du code
+        req.file = documentFile;
+        console.log('✅ Fichier document trouvé:', {
+          fieldname: req.file.fieldname,
+          originalname: req.file.originalname,
+          mimetype: req.file.mimetype,
+          size: req.file.size
+        });
+      } else {
+        console.log('⚠️ Aucun fichier avec fieldname "document" trouvé');
+        console.log('⚠️ Fichiers reçus:', req.files.map(f => ({ fieldname: f.fieldname, originalname: f.originalname })));
+        
+        // Si aucun fichier 'document' n'est trouvé, retourner une erreur
+        return res.status(400).json({
+          success: false,
+          error: 'Erreur lors de l\'upload du fichier',
+          details: 'Aucun fichier avec le nom de champ "document" trouvé. Vérifiez que le formulaire utilise bien le nom de champ "document".',
+          receivedFiles: req.files.map(f => f.fieldname)
+        });
+      }
+      
+      // Vérifier qu'il n'y a qu'un seul fichier
+      if (req.files.length > 1) {
+        console.log('⚠️ Plusieurs fichiers reçus, seul le fichier "document" sera utilisé');
+      }
+    } else {
+      // Aucun fichier n'a été uploadé, mais c'est peut-être acceptable pour certaines routes
+      console.log('ℹ️ Aucun fichier uploadé (peut être optionnel)');
     }
     
     console.log('✅ Middleware Multer - Succès');
