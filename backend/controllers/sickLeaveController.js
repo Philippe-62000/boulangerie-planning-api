@@ -14,6 +14,7 @@ const upload = multer({
     files: 1
   },
   fileFilter: (req, file, cb) => {
+    console.log('🔍 Multer fileFilter - Fieldname:', file.fieldname, 'Mimetype:', file.mimetype);
     const allowedTypes = ['image/jpeg', 'image/jpg', 'application/pdf'];
     if (allowedTypes.includes(file.mimetype)) {
       cb(null, true);
@@ -33,10 +34,26 @@ const uploadMiddleware = (req, res, next) => {
   upload.single('sickLeaveFile')(req, res, (err) => {
     if (err) {
       console.error('❌ Erreur Multer:', err);
+      console.error('❌ Code erreur:', err.code);
+      console.error('❌ Field:', err.field);
+      
+      // Si c'est une erreur de champ inattendu, donner plus d'informations
+      if (err.code === 'LIMIT_UNEXPECTED_FILE') {
+        console.log('⚠️ Champ inattendu détecté:', err.field);
+        console.log('⚠️ Le middleware attend le champ: document');
+        return res.status(400).json({
+          success: false,
+          error: 'Erreur lors de l\'upload du fichier',
+          details: `Champ inattendu: ${err.field}. Le champ attendu est 'document'. Vérifiez que le formulaire utilise bien le nom de champ 'document'.`,
+          code: err.code
+        });
+      }
+      
       return res.status(400).json({
         success: false,
         error: 'Erreur lors de l\'upload du fichier',
-        details: err.message
+        details: err.message,
+        code: err.code
       });
     }
     
