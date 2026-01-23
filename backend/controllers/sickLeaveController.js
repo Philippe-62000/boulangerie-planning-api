@@ -48,35 +48,38 @@ const uploadMiddleware = (req, res, next) => {
       });
     }
     
-    // Trouver le fichier 'document' dans req.files
+    // Trouver le fichier dans req.files (chercher 'document' ou 'sickLeaveFile')
     if (req.files && req.files.length > 0) {
-      const documentFile = req.files.find(file => file.fieldname === 'document');
+      // Chercher d'abord 'document', puis 'sickLeaveFile', sinon prendre le premier fichier
+      const documentFile = req.files.find(file => file.fieldname === 'document') ||
+                          req.files.find(file => file.fieldname === 'sickLeaveFile') ||
+                          req.files[0];
       
       if (documentFile) {
         // Mettre le fichier dans req.file pour compatibilité avec le reste du code
         req.file = documentFile;
-        console.log('✅ Fichier document trouvé:', {
+        console.log('✅ Fichier trouvé:', {
           fieldname: req.file.fieldname,
           originalname: req.file.originalname,
           mimetype: req.file.mimetype,
           size: req.file.size
         });
       } else {
-        console.log('⚠️ Aucun fichier avec fieldname "document" trouvé');
+        console.log('⚠️ Aucun fichier valide trouvé');
         console.log('⚠️ Fichiers reçus:', req.files.map(f => ({ fieldname: f.fieldname, originalname: f.originalname })));
         
-        // Si aucun fichier 'document' n'est trouvé, retourner une erreur
+        // Si aucun fichier valide n'est trouvé, retourner une erreur
         return res.status(400).json({
           success: false,
           error: 'Erreur lors de l\'upload du fichier',
-          details: 'Aucun fichier avec le nom de champ "document" trouvé. Vérifiez que le formulaire utilise bien le nom de champ "document".',
+          details: 'Aucun fichier valide trouvé.',
           receivedFiles: req.files.map(f => f.fieldname)
         });
       }
       
       // Vérifier qu'il n'y a qu'un seul fichier
       if (req.files.length > 1) {
-        console.log('⚠️ Plusieurs fichiers reçus, seul le fichier "document" sera utilisé');
+        console.log('⚠️ Plusieurs fichiers reçus, seul le premier fichier sera utilisé');
       }
     } else {
       // Aucun fichier n'a été uploadé, mais c'est peut-être acceptable pour certaines routes
