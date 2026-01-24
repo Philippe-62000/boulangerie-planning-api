@@ -163,9 +163,11 @@ const getDashboardStats = async (req, res) => {
     const today = new Date();
     today.setUTCHours(0, 0, 0, 0);
 
-    // Jour actuel
-    const todayLoss = await DailyLosses.findOne({
-      date: today,
+    // Jour passé (hier) - pour afficher les stats de la veille
+    const yesterday = new Date(today);
+    yesterday.setUTCDate(yesterday.getUTCDate() - 1);
+    const yesterdayLoss = await DailyLosses.findOne({
+      date: yesterday,
       city: city.toLowerCase()
     });
 
@@ -219,10 +221,10 @@ const getDashboardStats = async (req, res) => {
     res.json({
       success: true,
       data: {
-        jour: todayLoss ? {
-          totalPertes: todayLoss.totalPertes,
-          totalVentes: todayLoss.totalVentes,
-          pourcentage: todayLoss.pourcentagePertes
+        jour: yesterdayLoss ? {
+          totalPertes: yesterdayLoss.totalPertes,
+          totalVentes: yesterdayLoss.totalVentes,
+          pourcentage: yesterdayLoss.pourcentagePertes
         } : null,
         semaine: {
           totalPertes: weekTotalPertes,
