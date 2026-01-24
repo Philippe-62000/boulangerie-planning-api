@@ -666,7 +666,8 @@
             
             for (let day = 1; day <= daysInMonth; day++) {
                 const date = new Date(currentYear, currentMonth - 1, day);
-                const dateStr = date.toISOString().split('T')[0];
+                // Construire dateStr directement pour éviter les problèmes de timezone avec toISOString()
+                const dateStr = `${currentYear}-${String(currentMonth).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
                 // Comparer les dates correctement en utilisant la même logique que le backend
                 const dayData = monthlyData.find(d => {
                     // Le backend stocke la date en UTC, on compare directement les composants

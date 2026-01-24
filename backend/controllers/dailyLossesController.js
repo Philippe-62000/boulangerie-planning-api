@@ -1,6 +1,6 @@
 const DailyLosses = require('../models/DailyLosses');
 
-// R├®cup├®rer ou cr├®er une entr├®e pour une date donn├®e
+// Récupérer ou créer une entrée pour une date donnée
 const getOrCreateDailyLosses = async (req, res) => {
   try {
     const { date, city = 'longuenesse' } = req.query;
@@ -34,7 +34,7 @@ const getOrCreateDailyLosses = async (req, res) => {
     });
 
     if (!dailyLoss) {
-      // Cr├®er une nouvelle entr├®e avec des valeurs par d├®faut
+      // Créer une nouvelle entrée avec des valeurs par défaut
       dailyLoss = new DailyLosses({
         date: normalizedDate,
         month: normalizedDate.getUTCMonth() + 1,
@@ -55,7 +55,7 @@ const getOrCreateDailyLosses = async (req, res) => {
       data: dailyLoss
     });
   } catch (error) {
-    console.error('Erreur lors de la r├®cup├®ration/cr├®ation des pertes quotidiennes:', error);
+    console.error('Erreur lors de la récupération/création des pertes quotidiennes:', error);
     res.status(500).json({
       success: false,
       error: 'Erreur serveur'
@@ -63,7 +63,7 @@ const getOrCreateDailyLosses = async (req, res) => {
   }
 };
 
-// Mettre ├á jour une entr├®e quotidienne
+// Mettre à jour une entrée quotidienne
 const updateDailyLosses = async (req, res) => {
   try {
     const { id } = req.params;
@@ -74,11 +74,11 @@ const updateDailyLosses = async (req, res) => {
     if (!dailyLoss) {
       return res.status(404).json({
         success: false,
-        error: 'Entr├®e non trouv├®e'
+        error: 'Entrée non trouvée'
       });
     }
 
-    // Mettre ├á jour les champs
+    // Mettre à jour les champs
     if (invendus !== undefined) dailyLoss.invendus = parseFloat(invendus) || 0;
     if (dons !== undefined) dailyLoss.dons = parseFloat(dons) || 0;
     if (caisse1 !== undefined) dailyLoss.caisse1 = parseFloat(caisse1) || 0;
@@ -91,11 +91,11 @@ const updateDailyLosses = async (req, res) => {
 
     res.json({
       success: true,
-      message: 'Donn├®es mises ├á jour avec succ├¿s',
+      message: 'Données mises à jour avec succès',
       data: dailyLoss
     });
   } catch (error) {
-    console.error('Erreur lors de la mise ├á jour des pertes quotidiennes:', error);
+    console.error('Erreur lors de la mise à jour des pertes quotidiennes:', error);
     res.status(500).json({
       success: false,
       error: 'Erreur serveur'
@@ -103,7 +103,7 @@ const updateDailyLosses = async (req, res) => {
   }
 };
 
-// R├®cup├®rer toutes les entr├®es pour un mois donn├®
+// Récupérer toutes les entrées pour un mois donné
 const getMonthlyLosses = async (req, res) => {
   try {
     const { month, year, city = 'longuenesse' } = req.query;
@@ -111,7 +111,7 @@ const getMonthlyLosses = async (req, res) => {
     if (!month || !year) {
       return res.status(400).json({
         success: false,
-        error: 'Le mois et l\'ann├®e sont requis'
+        error: 'Le mois et l\'année sont requis'
       });
     }
 
@@ -131,7 +131,7 @@ const getMonthlyLosses = async (req, res) => {
       city: city.toLowerCase()
     }).sort({ date: 1 });
 
-    // Calculer les totaux cumul├®s
+    // Calculer les totaux cumulés
     const totalPertes = dailyLosses.reduce((sum, dl) => sum + dl.totalPertes, 0);
     const totalVentes = dailyLosses.reduce((sum, dl) => sum + dl.totalVentes, 0);
     const pourcentageMois = totalVentes > 0 
@@ -148,7 +148,7 @@ const getMonthlyLosses = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Erreur lors de la r├®cup├®ration des pertes mensuelles:', error);
+    console.error('Erreur lors de la récupération des pertes mensuelles:', error);
     res.status(500).json({
       success: false,
       error: 'Erreur serveur'
@@ -156,20 +156,22 @@ const getMonthlyLosses = async (req, res) => {
   }
 };
 
-// R├®cup├®rer les statistiques pour le dashboard (jour, semaine, mois)
+// Récupérer les statistiques pour le dashboard (jour, semaine, mois)
 const getDashboardStats = async (req, res) => {
   try {
     const { city = 'longuenesse' } = req.query;
     const today = new Date();
     today.setUTCHours(0, 0, 0, 0);
 
-    // Jour actuel
-    const todayLoss = await DailyLosses.findOne({
-      date: today,
+    // Jour passé (hier) - pour afficher les stats de la veille
+    const yesterday = new Date(today);
+    yesterday.setUTCDate(yesterday.getUTCDate() - 1);
+    const yesterdayLoss = await DailyLosses.findOne({
+      date: yesterday,
       city: city.toLowerCase()
     });
 
-    // Semaine actuelle (lundi ├á dimanche)
+    // Semaine actuelle (lundi à dimanche)
     const currentWeekStart = new Date(today);
     const dayOfWeek = today.getUTCDay();
     const diff = dayOfWeek === 0 ? -6 : 1 - dayOfWeek; // Lundi = jour 1
@@ -205,7 +207,7 @@ const getDashboardStats = async (req, res) => {
       ? Math.round((monthTotalPertes / monthTotalVentes) * 100 * 100) / 100 
       : 0;
 
-    // Ann├®e actuelle
+    // Année actuelle
     const yearLosses = await DailyLosses.find({
       year: today.getUTCFullYear(),
       city: city.toLowerCase()
@@ -219,10 +221,10 @@ const getDashboardStats = async (req, res) => {
     res.json({
       success: true,
       data: {
-        jour: todayLoss ? {
-          totalPertes: todayLoss.totalPertes,
-          totalVentes: todayLoss.totalVentes,
-          pourcentage: todayLoss.pourcentagePertes
+        jour: yesterdayLoss ? {
+          totalPertes: yesterdayLoss.totalPertes,
+          totalVentes: yesterdayLoss.totalVentes,
+          pourcentage: yesterdayLoss.pourcentagePertes
         } : null,
         semaine: {
           totalPertes: weekTotalPertes,
@@ -242,7 +244,7 @@ const getDashboardStats = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Erreur lors de la r├®cup├®ration des statistiques dashboard:', error);
+    console.error('Erreur lors de la récupération des statistiques dashboard:', error);
     res.status(500).json({
       success: false,
       error: 'Erreur serveur'

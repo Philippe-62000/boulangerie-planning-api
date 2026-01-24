@@ -4,7 +4,7 @@ const dailyLossesSchema = new mongoose.Schema({
   date: {
     type: Date,
     required: true,
-    comment: 'Date de la journ├®e'
+    comment: 'Date de la journée'
   },
   month: {
     type: Number,
@@ -67,7 +67,7 @@ const dailyLossesSchema = new mongoose.Schema({
     min: 0,
     comment: 'Montant caisse 4 en euros'
   },
-  // Champs calcul├®s (calcul├®s automatiquement)
+  // Champs calculés (calculés automatiquement)
   totalPertes: {
     type: Number,
     default: 0,
@@ -87,10 +87,10 @@ const dailyLossesSchema = new mongoose.Schema({
   timestamps: true
 });
 
-// Index unique sur date + city pour ├®viter les doublons
+// Index unique sur date + city pour éviter les doublons
 dailyLossesSchema.index({ date: 1, city: 1 }, { unique: true });
 
-// Index pour les recherches par mois/ann├®e/ville
+// Index pour les recherches par mois/année/ville
 dailyLossesSchema.index({ month: 1, year: 1, city: 1 });
 
 // Hook pre-save pour calculer les totaux et le pourcentage
@@ -104,7 +104,7 @@ dailyLossesSchema.pre('save', function(next) {
   
   // Calculer le pourcentage des pertes
   if (this.totalVentes > 0) {
-    this.pourcentagePertes = Math.round((this.totalPertes / this.totalVentes) * 100 * 100) / 100; // 2 d├®cimales
+    this.pourcentagePertes = Math.round((this.totalPertes / this.totalVentes) * 100 * 100) / 100; // 2 décimales
   } else {
     this.pourcentagePertes = 0;
   }
