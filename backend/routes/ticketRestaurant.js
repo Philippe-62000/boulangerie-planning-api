@@ -41,7 +41,7 @@ router.get('/', async (req, res) => {
 // POST /api/ticket-restaurant - Ajouter un nouveau ticket
 router.post('/', async (req, res) => {
   try {
-    const { provider, amount, date, month, barcode } = req.body;
+    const { provider, amount, date, month, barcode, forceDuplicate } = req.body;
     
     console.log('📤 Données reçues:', { provider, amount, date, month, barcode });
     
@@ -68,17 +68,22 @@ router.post('/', async (req, res) => {
       });
     }
 
-    // Vérifier si le ticket existe déjà (même code-barres)
-    console.log('🔍 Vérification ticket existant pour barcode:', barcode);
-    const existingTicket = await TicketRestaurant.findOne({ barcode });
-    if (existingTicket) {
-      console.log('❌ Ticket déjà existant:', existingTicket);
-      return res.status(400).json({
-        success: false,
-        error: 'Ce ticket a déjà été scanné'
-      });
+    // Vérifier si le ticket existe déjà (même code-barres) - sauf si forceDuplicate
+    if (!forceDuplicate) {
+      console.log('🔍 Vérification ticket existant pour barcode:', barcode);
+      const existingTicket = await TicketRestaurant.findOne({ barcode });
+      if (existingTicket) {
+        console.log('⚠️ Ticket déjà existant (doublon détecté):', existingTicket._id);
+        return res.status(409).json({
+          success: false,
+          duplicate: true,
+          error: 'Ce ticket a déjà été scanné'
+        });
+      }
+    } else {
+      console.log('⚠️ Ajout forcé (doublon accepté par l\'utilisateur)');
     }
-    console.log('✅ Ticket unique, création autorisée');
+    console.log('✅ Création du ticket autorisée');
 
     const ticket = new TicketRestaurant({
       provider,

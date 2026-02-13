@@ -64,7 +64,7 @@ const TicketRestaurant = () => {
     setTotals(newTotals);
   };
 
-  const handleScanTicket = async (scannedData) => {
+  const handleScanTicket = async (scannedData, forceDuplicate = false) => {
     try {
       setScanning(true);
       
@@ -84,7 +84,8 @@ const TicketRestaurant = () => {
         amount: amount,
         date: new Date().toISOString().split('T')[0],
         month: currentMonth,
-        barcode: scannedData
+        barcode: scannedData,
+        ...(forceDuplicate && { forceDuplicate: true })
       };
 
       console.log('📤 Envoi des données:', ticketData);
@@ -104,8 +105,20 @@ const TicketRestaurant = () => {
       }, 100);
       
     } catch (error) {
-      console.error('Erreur lors de l\'ajout du ticket:', error);
-      toast.error('Erreur lors de l\'ajout du ticket');
+      // Si erreur 409 = doublon détecté, proposer d'ajouter quand même
+      if (error.response?.status === 409 && error.response?.data?.duplicate) {
+        const addAnyway = window.confirm(
+          '⚠️ Doublon détecté\n\nCe ticket a déjà été scanné.\n\nSouhaitez-vous l\'ajouter quand même ?'
+        );
+        if (addAnyway) {
+          await handleScanTicket(scannedData, true);
+        } else {
+          toast.info('Scan annulé');
+        }
+      } else {
+        console.error('Erreur lors de l\'ajout du ticket:', error);
+        toast.error('Erreur lors de l\'ajout du ticket');
+      }
     } finally {
       setScanning(false);
     }
