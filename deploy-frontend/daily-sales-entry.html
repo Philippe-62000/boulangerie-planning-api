@@ -557,6 +557,17 @@
                 />
             </div>
 
+            <div class="form-group">
+                <label for="nbChallenge">Nombre de Challenge</label>
+                <input
+                    type="number"
+                    id="nbChallenge"
+                    name="nbChallenge"
+                    placeholder="0"
+                    min="0"
+                />
+            </div>
+
             <button type="submit" id="submitBtn">
                 📤 Envoyer
             </button>
@@ -943,6 +954,7 @@ const loadEmployeeMessages = async (saleCode) => {
             const saleCode = saleCodeInput.value.trim();
             const nbPromo = parseInt(document.getElementById('nbPromo').value) || 0;
             const nbCartesFid = parseInt(document.getElementById('nbCartesFid').value) || 0;
+            const nbChallenge = parseInt(document.getElementById('nbChallenge').value) || 0;
 
             if (saleCode.length !== 3) {
                 showMessage('Le code vendeuse doit contenir exactement 3 chiffres', 'error');
@@ -961,7 +973,8 @@ const loadEmployeeMessages = async (saleCode) => {
                     body: JSON.stringify({
                         saleCode,
                         nbPromo,
-                        nbCartesFid
+                        nbCartesFid,
+                        nbChallenge
                     })
                 });
 
@@ -969,7 +982,7 @@ const loadEmployeeMessages = async (saleCode) => {
 
                 if (response.ok && data.success) {
                     const successLabel = helperText.textContent ? ` (${helperText.textContent.replace('✅ ', '')})` : '';
-                    const successMessage = `✅ Saisie enregistrée avec succès${successLabel ? ' ' + successLabel : ' !'}\n\n📊 Vos chiffres ont bien été pris en compte :\n🎯 ${nbCartesFid} carte${nbCartesFid > 1 ? 's' : ''} fidélité\n🔥 ${nbPromo} promo quinzaine`;
+                    const successMessage = `✅ Saisie enregistrée avec succès${successLabel ? ' ' + successLabel : ' !'}\n\n📊 Vos chiffres ont bien été pris en compte :\n🎯 ${nbCartesFid} carte${nbCartesFid > 1 ? 's' : ''} fidélité\n🔥 ${nbPromo} promo quinzaine\n🏆 ${nbChallenge} challenge${nbChallenge > 1 ? 's' : ''}`;
                     showMessage(successMessage, 'success');
                     form.reset();
                     lastLookupCode = '';
@@ -1055,6 +1068,7 @@ const loadEmployeeMessages = async (saleCode) => {
                 
                 let totalCartes = 0;
                 let totalPromo = 0;
+                let totalChallenge = 0;
                 
                 if (weeklyData.dailySales && Array.isArray(weeklyData.dailySales)) {
                     weeklyData.dailySales.forEach(sale => {
@@ -1067,15 +1081,18 @@ const loadEmployeeMessages = async (saleCode) => {
                             
                             const cartes = parseInt(sale.nbCartesFid, 10) || 0;
                             const promo = parseInt(sale.nbPromo, 10) || 0;
+                            const challenge = parseInt(sale.nbChallenge, 10) || 0;
                             
                             if (!perDayMetrics[dayName]) {
-                                perDayMetrics[dayName] = { cartes: 0, promo: 0 };
+                                perDayMetrics[dayName] = { cartes: 0, promo: 0, challenge: 0 };
                             }
                             
                             perDayMetrics[dayName].cartes += cartes;
                             perDayMetrics[dayName].promo += promo;
+                            perDayMetrics[dayName].challenge += challenge;
                             totalCartes += cartes;
                             totalPromo += promo;
+                            totalChallenge += challenge;
                         }
                     });
                 }
@@ -1102,6 +1119,7 @@ const loadEmployeeMessages = async (saleCode) => {
                                 <th>Présent</th>
                                 <th>🎯 Cartes Fidélité</th>
                                 <th>🔥 Promo Quinzaine</th>
+                                <th>🏆 Challenge</th>
                                 <th>Statut</th>
                             </tr>
                         </thead>
@@ -1110,7 +1128,7 @@ const loadEmployeeMessages = async (saleCode) => {
 
                 WEEK_DAYS.forEach(jour => {
                     const presence = presences[jour] || false;
-                    const dayMetrics = perDayMetrics[jour] || { cartes: 0, promo: 0 };
+                    const dayMetrics = perDayMetrics[jour] || { cartes: 0, promo: 0, challenge: 0 };
                     const expectedCartes = presence ? objectifParPresenceCartes : 0;
                     const expectedPromo = presence ? objectifParPresencePromo : 0;
                     const cartesReached = expectedCartes > 0 ? dayMetrics.cartes >= expectedCartes : false;
@@ -1128,6 +1146,7 @@ const loadEmployeeMessages = async (saleCode) => {
                             <td>${presence ? '✅' : '❌'}</td>
                             <td><strong>${dayMetrics.cartes}</strong> / ${expectedCartes}</td>
                             <td><strong>${dayMetrics.promo}</strong> / ${expectedPromo}</td>
+                            <td><strong>${dayMetrics.challenge || 0}</strong></td>
                             <td class="${statusClass}">${statusText}</td>
                         </tr>
                     `;
@@ -1141,6 +1160,7 @@ const loadEmployeeMessages = async (saleCode) => {
                                 <td>${presenceCount} jour(s)</td>
                                 <td><strong>${totalCartes}</strong></td>
                                 <td><strong>${totalPromo}</strong></td>
+                                <td><strong>${totalChallenge}</strong></td>
                                 <td>—</td>
                             </tr>
                         </tfoot>

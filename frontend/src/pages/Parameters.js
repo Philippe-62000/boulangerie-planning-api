@@ -1141,9 +1141,8 @@ const Parameters = () => {
         {/* Onglet: Templates disponibles */}
         {activeTab === 'templates' && (
           <>
-            {/* Section Site en maintenance - Longuenesse uniquement */}
-            {window.location.pathname.startsWith('/lon') && (
-              <div className="card">
+            {/* Section Site en maintenance */}
+            <div className="card">
                 <div className="card-header">
                   <h3>🔧 Site en maintenance</h3>
                   <p>Bloquer l'accès des utilisateurs (sauf administrateur) pendant une maintenance</p>
@@ -1190,7 +1189,6 @@ const Parameters = () => {
                   </p>
                 </div>
               </div>
-            )}
 
             {/* Section Configuration des Alertes Email */}
             <div className="card">

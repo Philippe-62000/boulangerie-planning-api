@@ -17,7 +17,8 @@ const Login = () => {
 
   useEffect(() => {
     const checkMaintenance = async () => {
-      if (!window.location.pathname.startsWith('/lon')) return;
+      const path = window.location.pathname;
+      if (!path.startsWith('/lon') && !path.startsWith('/plan')) return;
       try {
         const res = await fetch(`${API_URL}/parameters/maintenance`);
         const data = await res.json();
@@ -112,8 +113,8 @@ const Login = () => {
     }
   };
 
-  const isLonguenesse = window.location.pathname.startsWith('/lon');
-  const showMaintenanceMessage = isLonguenesse && maintenance && !showAdminAccess;
+  const isPlanningSite = window.location.pathname.startsWith('/lon') || window.location.pathname.startsWith('/plan');
+  const showMaintenanceMessage = isPlanningSite && maintenance && !showAdminAccess;
 
   if (isLonguenesse && loadingMaintenance) {
     return (
