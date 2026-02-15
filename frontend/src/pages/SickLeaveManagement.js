@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import { getApiUrl } from '../config/apiConfig';
 import './SickLeaveManagement.css';
 
 const SickLeaveManagement = () => {
@@ -12,7 +13,7 @@ const SickLeaveManagement = () => {
   const [message, setMessage] = useState('');
   const [messageType, setMessageType] = useState('');
 
-  const API_URL = import.meta.env.VITE_API_URL || 'https://boulangerie-planning-api-4-pbfy.onrender.com/api';
+  const API_URL = getApiUrl();
 
   useEffect(() => {
     fetchSickLeaves();

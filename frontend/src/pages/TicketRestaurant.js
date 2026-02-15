@@ -12,6 +12,8 @@ const TicketRestaurant = () => {
   const [scanning, setScanning] = useState(false);
   const [barcodeBuffer, setBarcodeBuffer] = useState('');
   const [scanOrderNumber, setScanOrderNumber] = useState(1);
+  const [showManualModal, setShowManualModal] = useState(false);
+  const [manualAmount, setManualAmount] = useState('');
 
   // États pour les totaux
   const [totals, setTotals] = useState({
@@ -117,6 +119,49 @@ const TicketRestaurant = () => {
         }
       } else {
         console.error('Erreur lors de l\'ajout du ticket:', error);
+        toast.error('Erreur lors de l\'ajout du ticket');
+      }
+    } finally {
+      setScanning(false);
+    }
+  };
+
+  const handleManualEntry = async () => {
+    const amountStr = manualAmount.replace(',', '.').trim();
+    const amount = parseFloat(amountStr);
+    
+    if (!amountStr || isNaN(amount) || amount <= 0 || amount > 999.99) {
+      toast.error('Veuillez saisir un montant valide (ex: 6.80 ou 9.50)');
+      return;
+    }
+
+    const roundedAmount = Math.round(amount * 100) / 100;
+    const barcode = `MANUAL-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+    try {
+      setScanning(true);
+      const scrollPosition = window.pageYOffset || document.documentElement.scrollTop;
+
+      const ticketData = {
+        provider: selectedProvider,
+        amount: roundedAmount,
+        date: new Date().toISOString().split('T')[0],
+        month: currentMonth,
+        barcode
+      };
+
+      const response = await api.post('/ticket-restaurant', ticketData);
+      toast.success(`#${scanOrderNumber} - Ticket ${selectedProvider.toUpperCase()} (saisie manuelle) ajouté: ${roundedAmount}€`);
+      setScanOrderNumber(prev => prev + 1);
+      await loadTickets();
+      setShowManualModal(false);
+      setManualAmount('');
+      setTimeout(() => window.scrollTo(0, scrollPosition), 100);
+    } catch (error) {
+      if (error.response?.status === 409 && error.response?.data?.duplicate) {
+        toast.error('Erreur inattendue (doublon). Réessayez.');
+      } else {
+        console.error('Erreur saisie manuelle:', error);
         toast.error('Erreur lors de l\'ajout du ticket');
       }
     } finally {
@@ -343,13 +388,23 @@ const TicketRestaurant = () => {
             </div>
             
             {!scannerActive ? (
-              <button 
-                className="btn btn-primary"
-                onClick={startScanner}
-                disabled={scanning}
-              >
-                {scanning ? '⏳ Traitement...' : '📱 Démarrer le scanner'}
-              </button>
+              <>
+                <button 
+                  className="btn btn-primary"
+                  onClick={startScanner}
+                  disabled={scanning}
+                >
+                  {scanning ? '⏳ Traitement...' : '📱 Démarrer le scanner'}
+                </button>
+                <button 
+                  className="btn btn-secondary"
+                  onClick={() => setShowManualModal(true)}
+                  disabled={scanning}
+                  title="Saisir un ticket manuellement en cas de problème de code-barres"
+                >
+                  ✏️ Saisie manuelle
+                </button>
+              </>
             ) : (
               <div className="scanner-active">
                 <div className="scanner-status">
@@ -492,6 +547,9 @@ const TicketRestaurant = () => {
                   <div className="ticket-info">
                     <div className="ticket-provider" style={{ color: getProviderColor(ticket.provider) }}>
                       {getProviderLabel(ticket.provider)}
+                      {ticket.barcode && ticket.barcode.startsWith('MANUAL-') && (
+                        <span className="ticket-manual-badge"> (manuel)</span>
+                      )}
                     </div>
                     <div className="ticket-amount">{formatAmount(ticket.amount)}</div>
                     <div className="ticket-date">
@@ -511,6 +569,50 @@ const TicketRestaurant = () => {
           )}
         </div>
       </div>
+
+      {/* Modal Saisie manuelle */}
+      {showManualModal && (
+        <div className="manual-modal-overlay" onClick={() => !scanning && setShowManualModal(false)}>
+          <div className="manual-modal" onClick={e => e.stopPropagation()}>
+            <h3>✏️ Saisie manuelle</h3>
+            <p className="manual-modal-desc">En cas de problème de code-barres, saisissez le montant du ticket.</p>
+            <div className="manual-modal-field">
+              <label>Fournisseur :</label>
+              <span className="manual-modal-provider">{getProviderLabel(selectedProvider)}</span>
+            </div>
+            <div className="manual-modal-field">
+              <label htmlFor="manual-amount">Montant (€) :</label>
+              <input
+                id="manual-amount"
+                type="text"
+                inputMode="decimal"
+                placeholder="ex: 6.80 ou 9.50"
+                value={manualAmount}
+                onChange={e => setManualAmount(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && handleManualEntry()}
+                className="form-control"
+                autoFocus
+              />
+            </div>
+            <div className="manual-modal-actions">
+              <button 
+                className="btn btn-secondary" 
+                onClick={() => { setShowManualModal(false); setManualAmount(''); }}
+                disabled={scanning}
+              >
+                Annuler
+              </button>
+              <button 
+                className="btn btn-primary" 
+                onClick={handleManualEntry}
+                disabled={scanning || !manualAmount.trim()}
+              >
+                {scanning ? '⏳ Enregistrement...' : '✓ Enregistrer'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

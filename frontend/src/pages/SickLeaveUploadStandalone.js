@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import { getApiUrl } from '../config/apiConfig';
 import './SickLeaveUpload.css';
 
 const SickLeaveUploadStandalone = () => {
@@ -19,7 +20,7 @@ const SickLeaveUploadStandalone = () => {
   const [loadingEmployees, setLoadingEmployees] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const API_URL = import.meta.env.VITE_API_URL || 'https://boulangerie-planning-api-4-pbfy.onrender.com/api';
+  const API_URL = getApiUrl();
 
   // Charger la liste des employés
   useEffect(() => {

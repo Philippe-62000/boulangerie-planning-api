@@ -1141,6 +1141,57 @@ const Parameters = () => {
         {/* Onglet: Templates disponibles */}
         {activeTab === 'templates' && (
           <>
+            {/* Section Site en maintenance - Longuenesse uniquement */}
+            {window.location.pathname.startsWith('/lon') && (
+              <div className="card">
+                <div className="card-header">
+                  <h3>🔧 Site en maintenance</h3>
+                  <p>Bloquer l'accès des utilisateurs (sauf administrateur) pendant une maintenance</p>
+                </div>
+                <div className="card-body">
+                  <label className="checkbox-option" style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}>
+                    <input
+                      type="checkbox"
+                      checked={parameters.find(p => p.name === 'siteEnMaintenance')?.booleanValue || false}
+                      onChange={async (e) => {
+                        const param = parameters.find(p => p.name === 'siteEnMaintenance');
+                        const checked = e.target.checked;
+                        const paramId = param?._id && !String(param._id).startsWith('temp-') ? param._id : null;
+                        if (paramId) {
+                          try {
+                            await api.put(`/parameters/${paramId}`, { booleanValue: checked });
+                            toast.success(checked ? 'Site mis en maintenance' : 'Site sorti de maintenance');
+                            fetchParameters();
+                          } catch (err) {
+                            toast.error('Erreur lors de la mise à jour');
+                          }
+                        } else {
+                          await fetchParameters();
+                          const refetched = (await api.get('/parameters')).data;
+                          const p = refetched.find(x => x.name === 'siteEnMaintenance');
+                          if (p?._id) {
+                            try {
+                              await api.put(`/parameters/${p._id}`, { booleanValue: checked });
+                              toast.success(checked ? 'Site mis en maintenance' : 'Site sorti de maintenance');
+                              fetchParameters();
+                            } catch (err) {
+                              toast.error('Erreur lors de la mise à jour');
+                            }
+                          } else {
+                            toast.warning('Paramètre non disponible. Rechargez la page.');
+                          }
+                        }
+                      }}
+                    />
+                    <span>Site en maintenance</span>
+                  </label>
+                  <p className="text-muted" style={{ marginTop: '8px', fontSize: '0.9rem' }}>
+                    Quand activé, les utilisateurs verront un message les invitant à revenir plus tard. L'administrateur peut toujours se connecter.
+                  </p>
+                </div>
+              </div>
+            )}
+
             {/* Section Configuration des Alertes Email */}
             <div className="card">
               <div className="card-header">

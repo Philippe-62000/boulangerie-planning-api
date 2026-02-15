@@ -249,6 +249,12 @@
   min-width: 80px;
 }
 
+.ticket-manual-badge {
+  font-weight: normal;
+  font-size: 0.85rem;
+  color: #7f8c8d;
+}
+
 .ticket-amount {
   font-weight: bold;
   color: #27ae60;
@@ -493,4 +499,77 @@
   font-size: 16px;
 }
 
+/* Modal Saisie manuelle */
+.manual-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+}
+
+.manual-modal {
+  background: white;
+  border-radius: 12px;
+  padding: 24px;
+  max-width: 400px;
+  width: 100%;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+}
+
+.manual-modal h3 {
+  margin: 0 0 10px 0;
+  color: #2c3e50;
+  font-size: 1.4rem;
+}
+
+.manual-modal-desc {
+  color: #7f8c8d;
+  font-size: 0.95rem;
+  margin: 0 0 20px 0;
+}
+
+.manual-modal-field {
+  margin-bottom: 16px;
+}
+
+.manual-modal-field label {
+  display: block;
+  font-weight: 500;
+  color: #34495e;
+  margin-bottom: 6px;
+}
+
+.manual-modal-provider {
+  font-weight: bold;
+  color: #3498db;
+}
+
+.manual-modal-field input {
+  width: 100%;
+  padding: 10px 14px;
+  border: 2px solid #e0e6ed;
+  border-radius: 8px;
+  font-size: 1rem;
+}
+
+.manual-modal-field input:focus {
+  outline: none;
+  border-color: #3498db;
+}
+
+.manual-modal-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+  margin-top: 24px;
+  padding-top: 16px;
+  border-top: 1px solid #e9ecef;
+}
 

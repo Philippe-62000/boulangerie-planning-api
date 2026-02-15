@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { getApiUrl } from '../config/apiConfig';
 import './Sidebar.css';
 
 const Sidebar = () => {
@@ -53,7 +54,7 @@ const Sidebar = () => {
       if (!user) return;
 
       try {
-        const apiBaseUrl = import.meta.env.VITE_API_URL || 'https://boulangerie-planning-api-4-pbfy.onrender.com/api';
+        const apiBaseUrl = getApiUrl();
         const response = await fetch(`${apiBaseUrl}/menu-permissions?role=${user.role}`);
         
         // Vérifier si la réponse est du JSON

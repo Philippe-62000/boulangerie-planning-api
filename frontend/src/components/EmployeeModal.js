@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { getApiUrl } from '../config/apiConfig';
 
 const getTutorId = (value) => {
   if (!value) {
@@ -128,7 +129,7 @@ const EmployeeModal = ({ employee, onSave, onClose, employees = [] }) => {
       console.log('📧 Envoi du mot de passe via backend API pour:', employee.name, employee.email);
       
       // Appeler l'API backend pour générer et sauvegarder le mot de passe
-      const backendResponse = await fetch(`${import.meta.env.VITE_API_URL || 'https://boulangerie-planning-api-4-pbfy.onrender.com/api'}/auth/send-password/${employee._id}`, {
+      const backendResponse = await fetch(`${getApiUrl()}/auth/send-password/${employee._id}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

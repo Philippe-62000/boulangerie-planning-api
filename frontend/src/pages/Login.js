@@ -1,15 +1,35 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import './Login.css';
 
-const API_URL = import.meta.env.VITE_API_URL || 'https://boulangerie-planning-api-4-pbfy.onrender.com/api';
+import { getApiUrl } from '../config/apiConfig';
+const API_URL = getApiUrl();
 
 const Login = () => {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [maintenance, setMaintenance] = useState(false);
+  const [loadingMaintenance, setLoadingMaintenance] = useState(true);
+  const [showAdminAccess, setShowAdminAccess] = useState(false);
   const navigate = useNavigate();
   const { login } = useAuth();
+
+  useEffect(() => {
+    const checkMaintenance = async () => {
+      if (!window.location.pathname.startsWith('/lon')) return;
+      try {
+        const res = await fetch(`${API_URL}/parameters/maintenance`);
+        const data = await res.json();
+        setMaintenance(data.maintenance === true);
+      } catch {
+        setMaintenance(false);
+      } finally {
+        setLoadingMaintenance(false);
+      }
+    };
+    checkMaintenance();
+  }, []);
 
   const handleAdminLogin = async () => {
     if (password !== 'admin2024') {
@@ -91,6 +111,53 @@ const Login = () => {
       loginFunction();
     }
   };
+
+  const isLonguenesse = window.location.pathname.startsWith('/lon');
+  const showMaintenanceMessage = isLonguenesse && maintenance && !showAdminAccess;
+
+  if (isLonguenesse && loadingMaintenance) {
+    return (
+      <div className="login-container">
+        <div className="login-card">
+          <div className="loading-maintenance">
+            <p>Chargement...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (showMaintenanceMessage) {
+    return (
+      <div className="login-container">
+        <div className="login-card maintenance-card">
+          <div className="logo-section">
+            <div className="logo">
+              <div className="logo-animals">
+                <div className="orca"></div>
+                <div className="fox"></div>
+              </div>
+              <h1 className="logo-text">FILMARA</h1>
+              <p className="logo-subtitle">HOLDING COMPANY • & TWO BAKERS</p>
+            </div>
+          </div>
+          <div className="maintenance-message">
+            <h2>🔧 Site en maintenance</h2>
+            <p>Le site est temporairement indisponible.</p>
+            <p><strong>Retour à la normale rapidement.</strong></p>
+            <p className="maintenance-sub">Merci de votre compréhension.</p>
+            <button 
+              type="button"
+              className="admin-access-link"
+              onClick={() => setShowAdminAccess(true)}
+            >
+              Accès administrateur
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="login-container">

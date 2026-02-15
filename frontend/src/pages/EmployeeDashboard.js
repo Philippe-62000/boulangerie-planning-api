@@ -6,7 +6,8 @@ import DocumentsSection from '../components/DocumentsSection';
 import './EmployeeDashboard.css';
 
 const WEEK_DAYS = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://boulangerie-planning-api-4-pbfy.onrender.com/api';
+import { getApiUrl } from '../config/apiConfig';
+const API_BASE_URL = getApiUrl();
 
 const getWeekRangeFromDate = (referenceDate) => {
   const base = (referenceDate instanceof Date && !Number.isNaN(referenceDate.getTime()))
@@ -204,7 +205,7 @@ const EmployeeDashboard = () => {
       
       // Créer un lien de téléchargement temporaire
       const link = document.createElement('a');
-      link.href = `${import.meta.env.VITE_API_URL || 'https://boulangerie-planning-api-4-pbfy.onrender.com/api'}${downloadUrl}`;
+      link.href = `${getApiUrl()}${downloadUrl}`;
       link.download = documentTitle;
       document.body.appendChild(link);
       link.click();

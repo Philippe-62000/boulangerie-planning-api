@@ -1,8 +1,9 @@
 import axios from 'axios';
+import { getApiUrl } from '../config/apiConfig';
 
-// Configuration d'Axios - Appel vers l'API locale sur OVH
+// Configuration d'Axios - URL dynamique selon /lon (Longuenesse) ou /plan (Arras)
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'https://boulangerie-planning-api-4-pbfy.onrender.com/api',
+  baseURL: getApiUrl(),
   timeout: 120000, // Augmenté à 120 secondes pour Render (mode sleep)
   headers: {
     'Content-Type': 'application/json',
@@ -56,8 +57,9 @@ api.interceptors.response.use(
         const currentPath = window.location.pathname;
         let loginPath = '/login';
         
-        // Si on est dans /plan/, rediriger vers /plan/login
-        if (currentPath.startsWith('/plan/')) {
+        if (currentPath.startsWith('/lon')) {
+          loginPath = '/lon/login';
+        } else if (currentPath.startsWith('/plan')) {
           loginPath = '/plan/login';
         }
         

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
+import { getApiUrl } from '../config/apiConfig';
 import { toast } from 'react-toastify';
 import EmployeeModal from '../components/EmployeeModal';
 import DeclarationModal from '../components/DeclarationModal';
@@ -112,7 +113,7 @@ const Employees = () => {
       console.log('🔐 Envoi mot de passe pour:', employee.name);
       
       // D'abord, appeler le backend pour générer et sauvegarder le mot de passe
-      const backendResponse = await fetch(`${import.meta.env.VITE_API_URL || 'https://boulangerie-planning-api-4-pbfy.onrender.com/api'}/auth/send-password/${employee._id}`, {
+      const backendResponse = await fetch(`${getApiUrl()}/auth/send-password/${employee._id}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
+import { getApiUrl } from '../config/apiConfig';
 import './SickLeaveAdmin.css';
 
 const SickLeaveAdmin = () => {
@@ -17,7 +18,7 @@ const SickLeaveAdmin = () => {
   const [editingSickLeave, setEditingSickLeave] = useState(null);
   const [editFormData, setEditFormData] = useState({ startDate: '', endDate: '' });
 
-  const API_URL = import.meta.env.VITE_API_URL || 'https://boulangerie-planning-api-4-pbfy.onrender.com/api';
+  const API_URL = getApiUrl();
 
   const fetchSickLeaves = useCallback(async () => {
     try {

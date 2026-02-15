@@ -15,7 +15,8 @@ const MESSAGE_TARGET_ROLES = [
   'manager',
   'responsable'
 ];
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://boulangerie-planning-api-4-pbfy.onrender.com/api';
+import { getApiUrl } from '../config/apiConfig';
+const API_BASE_URL = getApiUrl();
 const createFullWeekPresence = () => {
   const presence = {};
   WEEK_DAYS.forEach((jour) => {

@@ -5,6 +5,9 @@ const parametersController = require('../controllers/parametersController');
 // Récupérer tous les paramètres
 router.get('/', parametersController.getParameters);
 
+// Récupérer le statut maintenance (pour affichage public)
+router.get('/maintenance', parametersController.getMaintenanceStatus);
+
 // Mettre à jour tous les paramètres (batch) - DOIT être avant /:id
 router.put('/batch', parametersController.updateAllParameters);
 

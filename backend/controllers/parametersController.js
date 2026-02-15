@@ -85,7 +85,8 @@ const getParameters = async (req, res) => {
       { name: 'adminEmail', displayName: 'Email de l\'Administrateur', stringValue: '', kmValue: -1 },
       { name: 'alertStore', displayName: 'Alerte au Magasin', booleanValue: false, kmValue: -1 },
       { name: 'alertAdmin', displayName: 'Alerte à l\'Administrateur', booleanValue: false, kmValue: -1 },
-      { name: 'enableEmployeeAdvanceRequest', displayName: 'Employés autorisés pour la demande d\'acompte', stringValue: '[]', kmValue: -1 }
+      { name: 'enableEmployeeAdvanceRequest', displayName: 'Employés autorisés pour la demande d\'acompte', stringValue: '[]', kmValue: -1 },
+      { name: 'siteEnMaintenance', displayName: 'Site en maintenance', booleanValue: false, kmValue: -1 }
     ];
     
     for (const requiredParam of requiredParams) {
@@ -119,6 +120,18 @@ const getParameters = async (req, res) => {
     res.status(500).json({ 
       error: 'Erreur lors de la récupération des paramètres' 
     });
+  }
+};
+
+// Récupérer le statut maintenance (endpoint public, pas d'auth requise)
+const getMaintenanceStatus = async (req, res) => {
+  try {
+    const param = await Parameter.findOne({ name: 'siteEnMaintenance' });
+    const maintenance = param ? (param.booleanValue === true) : false;
+    res.json({ maintenance });
+  } catch (error) {
+    console.error('Erreur lors de la récupération du statut maintenance:', error);
+    res.json({ maintenance: false });
   }
 };
 
@@ -281,6 +294,7 @@ const updateAllParameters = async (req, res) => {
 
 module.exports = {
   getParameters,
+  getMaintenanceStatus,
   updateParameter,
   updateAllParameters,
   createKmParameters
