@@ -1713,6 +1713,24 @@ Cet email a été envoyé automatiquement, merci de ne pas y répondre.
         validationDate: new Date(vacationRequest.validatedAt || Date.now()).toLocaleDateString('fr-FR')
       });
 
+      // Détecter si c'est Longuenesse pour remplacer les liens /plan/ par /lon/
+      const city = vacationRequest.city || '';
+      const cityLower = city.toLowerCase();
+      let isLonguenesse = cityLower === 'longuenesse' || cityLower.includes('longuenesse');
+      
+      if (!isLonguenesse) {
+        const corsOrigin = process.env.CORS_ORIGIN || '';
+        if (corsOrigin.includes('/lon')) {
+          isLonguenesse = true;
+        }
+      }
+      
+      // Remplacer les liens /plan/ par /lon/ si c'est Longuenesse
+      if (isLonguenesse) {
+        htmlContent = htmlContent.replace(/https:\/\/www\.filmara\.fr\/plan\//g, 'https://www.filmara.fr/lon/');
+        textContent = textContent.replace(/https:\/\/www\.filmara\.fr\/plan\//g, 'https://www.filmara.fr/lon/');
+      }
+
       return await this.sendEmail(
         vacationRequest.employeeEmail,
         this.replaceTemplateVariables(template.subject, { employeeName: vacationRequest.employeeName }),
@@ -1732,13 +1750,37 @@ Cet email a été envoyé automatiquement, merci de ne pas y répondre.
       
       const duration = this.calculateDuration(vacationRequest.startDate, vacationRequest.endDate);
       
-      // Détecter le chemin selon la ville (plus fiable que CORS_ORIGIN)
+      // Détecter le chemin selon la ville
       const city = vacationRequest.city || '';
-      const isLonguenesse = city.toLowerCase() === 'longuenesse' || city.toLowerCase().includes('longuenesse');
+      const cityLower = city.toLowerCase();
+      
+      // Méthode 1 : Détection par la ville dans la demande
+      let isLonguenesse = cityLower === 'longuenesse' || cityLower.includes('longuenesse');
+      
+      // Méthode 2 : Détection par CORS_ORIGIN si la ville n'est pas définie ou est 'Arras'
+      if (!isLonguenesse) {
+        const corsOrigin = process.env.CORS_ORIGIN || '';
+        // Si CORS_ORIGIN contient /lon, c'est Longuenesse
+        if (corsOrigin.includes('/lon')) {
+          isLonguenesse = true;
+        }
+        // Si CORS_ORIGIN ne contient pas /lon mais contient /plan, c'est Arras
+        else if (corsOrigin.includes('/plan') && !corsOrigin.includes('/lon')) {
+          isLonguenesse = false;
+        }
+      }
+      
       const basePath = isLonguenesse ? '/lon' : '/plan';
       const planningUrl = `https://www.filmara.fr${basePath}/vacation-planning`;
       
-      console.log('🔍 Détection chemin planning:', { city, isLonguenesse, basePath, planningUrl });
+      console.log('🔍 Détection chemin planning:', { 
+        city, 
+        cityLower,
+        isLonguenesse, 
+        basePath, 
+        planningUrl,
+        corsOrigin: process.env.CORS_ORIGIN 
+      });
       
       const subject = `Congés validés - ${vacationRequest.employeeName}`;
       
@@ -1813,6 +1855,12 @@ ${planningUrl}
 
 Cet email a été envoyé automatiquement par le système de gestion des congés.
       `;
+      
+      // Remplacer les liens /plan/ par /lon/ si c'est Longuenesse (comme dans d'autres fonctions)
+      if (isLonguenesse) {
+        htmlContent = htmlContent.replace(/https:\/\/www\.filmara\.fr\/plan\//g, 'https://www.filmara.fr/lon/');
+        textContent = textContent.replace(/https:\/\/www\.filmara\.fr\/plan\//g, 'https://www.filmara.fr/lon/');
+      }
       
       return await this.sendEmail(storeEmail, subject, htmlContent, textContent);
     } catch (error) {
