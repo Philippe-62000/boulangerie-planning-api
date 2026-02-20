@@ -328,6 +328,7 @@ const Ambassadeur = () => {
                     <th>Code ambassadeur</th>
                     <th>Cadeau reçu</th>
                     <th>Cadeau retiré</th>
+                    <th>Saisi par</th>
                     <th></th>
                   </tr>
                 </thead>
@@ -365,6 +366,9 @@ const Ambassadeur = () => {
                           />
                           Retiré
                         </label>
+                      </td>
+                      <td title={c.giftReceivedBySaleCode ? `Retiré par: ${c.giftReceivedBySaleCode}` : ''}>
+                        {c.recordedBySaleCode || '-'}
                       </td>
                       <td>
                         <button type="button" className="btn-delete" onClick={() => deleteClient(c._id)}>

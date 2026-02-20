@@ -3,7 +3,13 @@ const router = express.Router();
 const ambassadorController = require('../controllers/ambassadorController');
 const { authenticateEmployee } = require('../middleware/auth');
 
-// Toutes les routes nécessitent une authentification (admin ou salarié)
+// Routes publiques (code vendeuse) pour tablette - SANS auth
+router.get('/public/ambassadors', ambassadorController.getPublicAmbassadorCodes);
+router.get('/public/clients', ambassadorController.getPublicClients);
+router.post('/public/clients', ambassadorController.createPublicClient);
+router.put('/public/clients/:id', ambassadorController.updatePublicClientGift);
+
+// Toutes les routes ci-dessous nécessitent une authentification (admin ou salarié)
 router.use(authenticateEmployee);
 
 // Ambassadeurs

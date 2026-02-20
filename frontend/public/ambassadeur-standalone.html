@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>⭐ Programme Ambassadeur - Saisie tablette</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            max-width: 700px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            padding: 24px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+        }
+        h1 {
+            color: #333;
+            font-size: 1.6rem;
+            margin-bottom: 8px;
+            text-align: center;
+        }
+        .subtitle {
+            color: #666;
+            text-align: center;
+            margin-bottom: 24px;
+            font-size: 0.95rem;
+        }
+        .sale-code-section {
+            background: #f1f5ff;
+            border: 2px solid rgba(102, 126, 234, 0.3);
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 24px;
+        }
+        .sale-code-section label {
+            display: block;
+            font-weight: 600;
+            color: #4c51bf;
+            margin-bottom: 8px;
+        }
+        .sale-code-section input {
+            width: 100%;
+            padding: 14px;
+            font-size: 1.2rem;
+            border: 2px solid #e1e5e9;
+            border-radius: 10px;
+        }
+        .sale-code-section input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        .vendeuse-name {
+            margin-top: 8px;
+            font-size: 0.9rem;
+            color: #28a745;
+            font-weight: 600;
+        }
+        .form-section {
+            margin-bottom: 24px;
+        }
+        .form-section h2 {
+            font-size: 1.2rem;
+            color: #333;
+            margin-bottom: 16px;
+            padding-bottom: 8px;
+            border-bottom: 2px solid #e1e5e9;
+        }
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+        .form-group {
+            margin-bottom: 12px;
+        }
+        .form-group label {
+            display: block;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 6px;
+            font-size: 0.9rem;
+        }
+        .form-group input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e1e5e9;
+            border-radius: 8px;
+            font-size: 1rem;
+        }
+        .form-group input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        button[type="submit"] {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 8px;
+        }
+        button[type="submit"]:hover {
+            opacity: 0.95;
+        }
+        button[type="submit"]:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        .clients-list {
+            margin-top: 24px;
+        }
+        .clients-list h2 {
+            font-size: 1.2rem;
+            color: #333;
+            margin-bottom: 12px;
+        }
+        .client-card {
+            background: #f8f9fa;
+            border: 2px solid #e9ecef;
+            border-radius: 12px;
+            padding: 14px;
+            margin-bottom: 12px;
+        }
+        .client-card .client-name {
+            font-weight: 700;
+            font-size: 1.05rem;
+            color: #333;
+            margin-bottom: 4px;
+        }
+        .client-card .client-code {
+            font-size: 0.9rem;
+            color: #666;
+            margin-bottom: 12px;
+        }
+        .client-card .checkboxes {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+        .checkbox-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+        }
+        .checkbox-item input {
+            width: 22px;
+            height: 22px;
+            cursor: pointer;
+        }
+        .checkbox-item span {
+            font-size: 0.95rem;
+        }
+        .message {
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 16px;
+            display: none;
+        }
+        .message.success {
+            background: #d4edda;
+            color: #155724;
+            border: 2px solid #28a745;
+            display: block;
+        }
+        .message.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 2px solid #dc3545;
+            display: block;
+        }
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #666;
+        }
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>⭐ Programme Ambassadeur</h1>
+        <p class="subtitle">Saisie client parrainé et retrait lot parrain</p>
+
+        <div class="sale-code-section">
+            <label for="saleCode">Code vendeuse *</label>
+            <input type="text" id="saleCode" placeholder="Ex: 123" maxlength="10" autocomplete="off" />
+            <div id="vendeuseName" class="vendeuse-name hidden"></div>
+        </div>
+
+        <div id="message" class="message"></div>
+
+        <div class="form-section">
+            <h2>➕ Nouveau client parrainé</h2>
+            <form id="formClient">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Prénom *</label>
+                        <input type="text" id="firstName" required />
+                    </div>
+                    <div class="form-group">
+                        <label>Nom *</label>
+                        <input type="text" id="lastName" required />
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Téléphone *</label>
+                        <input type="tel" id="phone" required />
+                    </div>
+                    <div class="form-group">
+                        <label>Code ambassadeur *</label>
+                        <input type="text" id="ambassadorCode" placeholder="AMB-XXXXXX" list="ambassadorCodes" required />
+                        <datalist id="ambassadorCodes"></datalist>
+                    </div>
+                </div>
+                <button type="submit" id="btnCreate">Créer le client parrainé</button>
+            </form>
+        </div>
+
+        <div class="clients-list">
+            <h2>📋 Clients parrainés – Retrait lot parrain</h2>
+            <div id="clientsContainer">
+                <div class="loading" id="loadingClients">Chargement...</div>
+                <div id="clientsList"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_URLS = {
+            lon: 'https://boulangerie-planning-api-3.onrender.com/api',
+            plan: 'https://boulangerie-planning-api-4-pbfy.onrender.com/api'
+        };
+        const getApiUrl = () => {
+            const path = window.location.pathname;
+            return path.startsWith('/lon') ? API_URLS.lon : API_URLS.plan;
+        };
+        const API_BASE = getApiUrl();
+        const AMBASSADORS_API = `${API_BASE}/ambassadors`;
+
+        const saleCodeInput = document.getElementById('saleCode');
+        const vendeuseNameEl = document.getElementById('vendeuseName');
+        const formClient = document.getElementById('formClient');
+        const btnCreate = document.getElementById('btnCreate');
+        const clientsList = document.getElementById('clientsList');
+        const loadingClients = document.getElementById('loadingClients');
+        const messageEl = document.getElementById('message');
+
+        const showMessage = (text, type) => {
+            messageEl.textContent = text;
+            messageEl.className = `message ${type}`;
+            messageEl.classList.remove('hidden');
+            if (type === 'success') setTimeout(() => messageEl.classList.add('hidden'), 3000);
+        };
+
+        const loadAmbassadorCodes = async () => {
+            try {
+                const res = await fetch(`${AMBASSADORS_API}/public/ambassadors`);
+                const data = await res.json();
+                if (data.success && data.data) {
+                    const datalist = document.getElementById('ambassadorCodes');
+                    datalist.innerHTML = data.data.map(c => `<option value="${c}">`).join('');
+                }
+            } catch (e) {
+                console.error('Erreur chargement codes ambassadeurs:', e);
+            }
+        };
+
+        const loadClients = async () => {
+            loadingClients.classList.remove('hidden');
+            clientsList.innerHTML = '';
+            try {
+                const res = await fetch(`${AMBASSADORS_API}/public/clients`);
+                const data = await res.json();
+                loadingClients.classList.add('hidden');
+                if (data.success && data.data) {
+                    renderClients(data.data);
+                } else {
+                    clientsList.innerHTML = '<p>Aucun client parrainé.</p>';
+                }
+            } catch (e) {
+                loadingClients.classList.add('hidden');
+                clientsList.innerHTML = '<p>Erreur chargement.</p>';
+                console.error(e);
+            }
+        };
+
+        const renderClients = (clients) => {
+            clientsList.innerHTML = clients.map(c => `
+                <div class="client-card" data-id="${c._id}">
+                    <div class="client-name">${c.firstName} ${c.lastName}</div>
+                    <div class="client-code">Code ambassadeur: ${c.ambassadorCode} · Tél: ${c.phone}</div>
+                    <div class="checkboxes">
+                        <label class="checkbox-item">
+                            <input type="checkbox" data-id="${c._id}" data-field="giftClaimed" ${c.giftClaimed ? 'checked' : ''} />
+                            <span>Bénéficié</span>
+                        </label>
+                        <label class="checkbox-item">
+                            <input type="checkbox" data-id="${c._id}" data-field="giftReceived" ${c.giftReceived ? 'checked' : ''} />
+                            <span>Retiré</span>
+                        </label>
+                    </div>
+                </div>
+            `).join('');
+
+            clientsList.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+                cb.addEventListener('change', (e) => {
+                    const saleCode = saleCodeInput.value.trim();
+                    if (!saleCode) {
+                        showMessage('Saisissez votre code vendeuse.', 'error');
+                        e.target.checked = !e.target.checked;
+                        return;
+                    }
+                    const id = e.target.dataset.id;
+                    const field = e.target.dataset.field;
+                    const value = e.target.checked;
+                    updateGift(id, field, value);
+                });
+            });
+        };
+
+        const updateGift = async (id, field, value) => {
+            const saleCode = saleCodeInput.value.trim();
+            const payload = { saleCode, [field]: value };
+            try {
+                const res = await fetch(`${AMBASSADORS_API}/public/clients/${id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const data = await res.json();
+                if (data.success) {
+                    showMessage('Mis à jour.', 'success');
+                } else {
+                    showMessage(data.error || 'Erreur', 'error');
+                    loadClients();
+                }
+            } catch (e) {
+                showMessage('Erreur réseau.', 'error');
+                loadClients();
+            }
+        };
+
+        formClient.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const saleCode = saleCodeInput.value.trim();
+            if (!saleCode) {
+                showMessage('Saisissez votre code vendeuse.', 'error');
+                return;
+            }
+            btnCreate.disabled = true;
+            const payload = {
+                firstName: document.getElementById('firstName').value.trim(),
+                lastName: document.getElementById('lastName').value.trim(),
+                phone: document.getElementById('phone').value.trim(),
+                ambassadorCode: document.getElementById('ambassadorCode').value.trim().toUpperCase(),
+                saleCode
+            };
+            try {
+                const res = await fetch(`${AMBASSADORS_API}/public/clients`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const data = await res.json();
+                if (data.success) {
+                    showMessage('Client parrainé créé.', 'success');
+                    formClient.reset();
+                    loadClients();
+                } else {
+                    showMessage(data.error || 'Erreur', 'error');
+                }
+            } catch (err) {
+                showMessage('Erreur réseau.', 'error');
+            }
+            btnCreate.disabled = false;
+        });
+
+        loadAmbassadorCodes();
+        loadClients();
+    </script>
+</body>
+</html>

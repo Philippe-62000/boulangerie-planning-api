@@ -33,6 +33,21 @@ const ambassadorClientSchema = new mongoose.Schema({
   giftClaimed: {
     type: Boolean,
     default: false
+  },
+  recordedBySaleCode: {
+    type: String,
+    trim: true,
+    default: null
+  },
+  giftClaimedBySaleCode: {
+    type: String,
+    trim: true,
+    default: null
+  },
+  giftReceivedBySaleCode: {
+    type: String,
+    trim: true,
+    default: null
   }
 }, {
   timestamps: true
