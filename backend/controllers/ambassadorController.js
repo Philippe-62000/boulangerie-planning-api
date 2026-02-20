@@ -2,11 +2,42 @@ const Ambassador = require('../models/Ambassador');
 const AmbassadorClient = require('../models/AmbassadorClient');
 const Employee = require('../models/Employee');
 
-// Liste des ambassadeurs
+// Enrichir les clients avec les noms vendeuses (quand seul saleCode est stocké)
+const enrichClientsWithNames = async (clients) => {
+  const saleCodes = [...new Set(
+    clients.flatMap(c => {
+      const arr = [];
+      if (c.recordedBySaleCode && !c.recordedByName) arr.push(c.recordedBySaleCode);
+      if (c.giftClaimedBySaleCode && !c.giftClaimedByName) arr.push(c.giftClaimedBySaleCode);
+      if (c.giftReceivedBySaleCode && !c.giftReceivedByName) arr.push(c.giftReceivedBySaleCode);
+      return arr;
+    })
+  )];
+  if (saleCodes.length === 0) return clients;
+  const employees = await Employee.find({ saleCode: { $in: saleCodes } }).select('saleCode name');
+  const map = Object.fromEntries(employees.map(e => [String(e.saleCode), e.name]));
+  return clients.map(c => {
+    const obj = c.toObject ? c.toObject() : { ...c };
+    if (obj.recordedBySaleCode && !obj.recordedByName) obj.recordedByName = map[String(obj.recordedBySaleCode)] || obj.recordedBySaleCode;
+    if (obj.giftClaimedBySaleCode && !obj.giftClaimedByName) obj.giftClaimedByName = map[String(obj.giftClaimedBySaleCode)] || obj.giftClaimedBySaleCode;
+    if (obj.giftReceivedBySaleCode && !obj.giftReceivedByName) obj.giftReceivedByName = map[String(obj.giftReceivedBySaleCode)] || obj.giftReceivedBySaleCode;
+    return obj;
+  });
+};
+
+// Liste des ambassadeurs (avec nombre de clients parrainés)
 const getAmbassadors = async (req, res) => {
   try {
     const ambassadors = await Ambassador.find().sort({ lastName: 1, firstName: 1 });
-    res.json({ success: true, data: ambassadors });
+    const counts = await AmbassadorClient.aggregate([
+      { $group: { _id: '$ambassadorCode', count: { $sum: 1 } } }
+    ]);
+    const countMap = Object.fromEntries(counts.map(x => [x._id, x.count]));
+    const data = ambassadors.map(a => ({
+      ...a.toObject(),
+      clientsCount: countMap[a.code] || 0
+    }));
+    res.json({ success: true, data });
   } catch (error) {
     console.error('Erreur getAmbassadors:', error);
     res.status(500).json({ success: false, error: 'Erreur serveur' });
@@ -79,7 +110,8 @@ const getAmbassadorClients = async (req, res) => {
     const clients = await AmbassadorClient.find()
       .populate('ambassadorId', 'firstName lastName code phone email')
       .sort({ createdAt: -1 });
-    res.json({ success: true, data: clients });
+    const enriched = await enrichClientsWithNames(clients);
+    res.json({ success: true, data: enriched });
   } catch (error) {
     console.error('Erreur getAmbassadorClients:', error);
     res.status(500).json({ success: false, error: 'Erreur serveur' });
@@ -162,7 +194,8 @@ const getPublicClients = async (req, res) => {
     const clients = await AmbassadorClient.find()
       .populate('ambassadorId', 'firstName lastName code phone email')
       .sort({ createdAt: -1 });
-    res.json({ success: true, data: clients });
+    const enriched = await enrichClientsWithNames(clients);
+    res.json({ success: true, data: enriched });
   } catch (error) {
     console.error('Erreur getPublicClients:', error);
     res.status(500).json({ success: false, error: 'Erreur serveur' });
@@ -190,7 +223,8 @@ const createPublicClient = async (req, res) => {
       phone: phone.trim(),
       ambassadorCode: ambassadorCode.trim().toUpperCase(),
       ambassadorId: ambassador._id,
-      recordedBySaleCode: employee.saleCode
+      recordedBySaleCode: employee.saleCode,
+      recordedByName: employee.name
     });
     const populated = await AmbassadorClient.findById(client._id)
       .populate('ambassadorId', 'firstName lastName code phone email');
@@ -214,10 +248,12 @@ const updatePublicClientGift = async (req, res) => {
     if (typeof giftReceived === 'boolean') {
       update.giftReceived = giftReceived;
       update.giftReceivedBySaleCode = giftReceived ? employee.saleCode : null;
+      update.giftReceivedByName = giftReceived ? employee.name : null;
     }
     if (typeof giftClaimed === 'boolean') {
       update.giftClaimed = giftClaimed;
       update.giftClaimedBySaleCode = giftClaimed ? employee.saleCode : null;
+      update.giftClaimedByName = giftClaimed ? employee.name : null;
     }
     const client = await AmbassadorClient.findByIdAndUpdate(id, update, { new: true })
       .populate('ambassadorId', 'firstName lastName code phone email');

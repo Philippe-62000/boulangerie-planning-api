@@ -241,6 +241,7 @@ const Ambassadeur = () => {
                     <th>Téléphone</th>
                     <th>Email</th>
                     <th>Code client</th>
+                    <th>Clients parrainés</th>
                     <th></th>
                   </tr>
                 </thead>
@@ -251,6 +252,7 @@ const Ambassadeur = () => {
                       <td>{a.phone}</td>
                       <td>{a.email || '-'}</td>
                       <td><strong>{a.code}</strong></td>
+                      <td><strong>{a.clientsCount ?? 0}</strong></td>
                       <td>
                         <button type="button" className="btn-delete" onClick={() => deleteAmbassador(a._id)}>
                           Supprimer
@@ -367,8 +369,8 @@ const Ambassadeur = () => {
                           Retiré
                         </label>
                       </td>
-                      <td title={c.giftReceivedBySaleCode ? `Retiré par: ${c.giftReceivedBySaleCode}` : ''}>
-                        {c.recordedBySaleCode || '-'}
+                      <td title={c.giftReceivedByName ? `Retiré par: ${c.giftReceivedByName}` : ''}>
+                        {c.recordedByName || '-'}
                       </td>
                       <td>
                         <button type="button" className="btn-delete" onClick={() => deleteClient(c._id)}>
