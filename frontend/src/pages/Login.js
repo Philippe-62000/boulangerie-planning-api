@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import './Login.css';
 
-import { getApiUrl } from '../config/apiConfig';
+import { getApiUrl, setStoredToken, setStoredEmployeeToken } from '../config/apiConfig';
 const API_URL = getApiUrl();
 
 const Login = () => {
@@ -51,10 +51,7 @@ const Login = () => {
       const data = await response.json();
 
       if (data.success && data.token) {
-        // Stocker le token JWT
-        localStorage.setItem('token', data.token);
-        localStorage.setItem('adminToken', data.token);
-        
+        setStoredToken(data.token);
         // Stocker aussi les infos utilisateur pour le contexte React
         const userRole = {
           role: 'admin',
@@ -86,10 +83,7 @@ const Login = () => {
       const data = await response.json();
 
       if (data.success && data.token) {
-        // Stocker le token JWT
-        localStorage.setItem('token', data.token);
-        localStorage.setItem('employeeToken', data.token);
-        
+        setStoredEmployeeToken(data.token);
         // Stocker aussi les infos utilisateur pour le contexte React
         const userRole = {
           role: data.user.role,

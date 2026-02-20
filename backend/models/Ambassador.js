@@ -31,8 +31,8 @@ const ambassadorSchema = new mongoose.Schema({
   timestamps: true
 });
 
-// Générer un code unique avant création
-ambassadorSchema.pre('save', async function(next) {
+// Générer un code unique avant validation (pre('validate') s'exécute avant la validation)
+ambassadorSchema.pre('validate', async function(next) {
   if (!this.isNew || this.code) return next;
   try {
     const generateCode = () => {

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import api from '../services/api';
 import { toast } from 'react-toastify';
-import { getApiUrl } from '../config/apiConfig';
+import { getApiUrl, getStoredToken } from '../config/apiConfig';
 import './Ambassadeur.css';
 
 const Ambassadeur = () => {
@@ -37,7 +37,7 @@ const Ambassadeur = () => {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const token = localStorage.getItem('token') || localStorage.getItem('adminToken') || localStorage.getItem('employeeToken');
+      const token = getStoredToken();
       const headers = token ? { Authorization: `Bearer ${token}` } : {};
       const [ambRes, clientRes] = await Promise.all([
         fetch(`${apiBase}/ambassadors/ambassadors`, { headers }),
