@@ -34,7 +34,8 @@ const menuPermissionsSchema = new mongoose.Schema({
       'manage_employees',
       'manage_parameters',
       'manage_planning',
-      'view_reports'
+      'view_reports',
+      'view_ambassadeur'
     ]
   }],
   isActive: {
@@ -214,6 +215,15 @@ menuPermissionsSchema.statics.createDefaultPermissions = async function() {
         isVisibleToEmployee: false,
         requiredPermissions: ['manage_employees'],
         order: 15
+      },
+      {
+        menuId: 'ambassadeur',
+        menuName: 'Ambassadeur',
+        menuPath: '/ambassadeur',
+        isVisibleToAdmin: true,
+        isVisibleToEmployee: false,
+        requiredPermissions: ['view_ambassadeur'],
+        order: 16
       }
     ];
 

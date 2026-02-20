@@ -154,6 +154,7 @@ app.use('/api/mutuelle', require('./routes/mutuelle'));
 app.use('/api/maintenance', require('./routes/maintenance'));
 app.use('/api/employee-messages', require('./routes/employeeMessages'));
 app.use('/api/recup-hours', require('./routes/recupHours'));
+app.use('/api/ambassadors', require('./routes/ambassadors'));
 
 // Route de santé pour vérifier que l'API fonctionne
 app.get('/health', (req, res) => {
