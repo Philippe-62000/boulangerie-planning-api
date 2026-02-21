@@ -58,13 +58,37 @@
         }
         .vendeuse-name {
             margin-top: 8px;
-            font-size: 0.9rem;
+            font-size: 1rem;
             color: #28a745;
             font-weight: 600;
         }
-        .form-section {
-            margin-bottom: 24px;
+        .vendeuse-name.error {
+            color: #dc3545;
         }
+        .tabs {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #e1e5e9;
+        }
+        .tabs button {
+            padding: 12px 20px;
+            border: none;
+            background: none;
+            font-size: 1rem;
+            font-weight: 600;
+            color: #666;
+            cursor: pointer;
+            border-bottom: 3px solid transparent;
+            margin-bottom: -2px;
+        }
+        .tabs button.active {
+            color: #667eea;
+            border-bottom-color: #667eea;
+        }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        .form-section { margin-bottom: 24px; }
         .form-section h2 {
             font-size: 1.2rem;
             color: #333;
@@ -78,9 +102,7 @@
             gap: 12px;
             margin-bottom: 12px;
         }
-        .form-group {
-            margin-bottom: 12px;
-        }
+        .form-group { margin-bottom: 12px; }
         .form-group label {
             display: block;
             font-weight: 600;
@@ -111,20 +133,42 @@
             cursor: pointer;
             margin-top: 8px;
         }
-        button[type="submit"]:hover {
-            opacity: 0.95;
-        }
         button[type="submit"]:disabled {
             opacity: 0.6;
             cursor: not-allowed;
         }
-        .clients-list {
-            margin-top: 24px;
+        .search-ambassador {
+            margin-bottom: 20px;
         }
-        .clients-list h2 {
-            font-size: 1.2rem;
-            color: #333;
-            margin-bottom: 12px;
+        .search-ambassador input {
+            width: 100%;
+            padding: 14px;
+            font-size: 1.1rem;
+            border: 2px solid #e1e5e9;
+            border-radius: 10px;
+        }
+        .ambassador-results {
+            margin-top: 12px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        .ambassador-item {
+            padding: 12px;
+            border: 2px solid #e9ecef;
+            border-radius: 10px;
+            margin-bottom: 8px;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .ambassador-item:hover {
+            border-color: #667eea;
+            background: #f1f5ff;
+        }
+        .ambassador-item.selected {
+            border-color: #28a745;
+            background: #d4edda;
         }
         .client-card {
             background: #f8f9fa;
@@ -160,9 +204,6 @@
             height: 22px;
             cursor: pointer;
         }
-        .checkbox-item span {
-            font-size: 0.95rem;
-        }
         .message {
             padding: 12px;
             border-radius: 8px;
@@ -181,11 +222,7 @@
             border: 2px solid #dc3545;
             display: block;
         }
-        .loading {
-            text-align: center;
-            padding: 20px;
-            color: #666;
-        }
+        .loading { text-align: center; padding: 20px; color: #666; }
         .hidden { display: none !important; }
     </style>
 </head>
@@ -202,39 +239,51 @@
 
         <div id="message" class="message"></div>
 
-        <div class="form-section">
-            <h2>➕ Nouveau client parrainé</h2>
-            <form id="formClient">
-                <div class="form-row">
-                    <div class="form-group">
-                        <label>Prénom *</label>
-                        <input type="text" id="firstName" required />
-                    </div>
-                    <div class="form-group">
-                        <label>Nom *</label>
-                        <input type="text" id="lastName" required />
-                    </div>
-                </div>
-                <div class="form-row">
-                    <div class="form-group">
-                        <label>Téléphone *</label>
-                        <input type="tel" id="phone" required />
-                    </div>
-                    <div class="form-group">
-                        <label>Code ambassadeur *</label>
-                        <input type="text" id="ambassadorCode" placeholder="AMB-XXXXXX" list="ambassadorCodes" required />
-                        <datalist id="ambassadorCodes"></datalist>
-                    </div>
-                </div>
-                <button type="submit" id="btnCreate">Créer le client parrainé</button>
-            </form>
+        <div class="tabs">
+            <button type="button" id="tabNew" class="active">➕ Nouveau client parrainé</button>
+            <button type="button" id="tabAmbassador">⭐ Ambassadeur – Cadeau retiré</button>
         </div>
 
-        <div class="clients-list">
-            <h2>📋 Clients parrainés – Retrait lot parrain</h2>
-            <div id="clientsContainer">
-                <div class="loading" id="loadingClients">Chargement...</div>
-                <div id="clientsList"></div>
+        <div id="contentNew" class="tab-content active">
+            <div class="form-section">
+                <h2>Créer un nouveau client parrainé</h2>
+                <form id="formClient">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Prénom *</label>
+                            <input type="text" id="firstName" required />
+                        </div>
+                        <div class="form-group">
+                            <label>Nom *</label>
+                            <input type="text" id="lastName" required />
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Téléphone *</label>
+                            <input type="tel" id="phone" required />
+                        </div>
+                        <div class="form-group">
+                            <label>Code ambassadeur *</label>
+                            <input type="text" id="ambassadorCode" placeholder="AMB-XXXXXX" list="ambassadorCodes" required />
+                            <datalist id="ambassadorCodes"></datalist>
+                        </div>
+                    </div>
+                    <button type="submit" id="btnCreate">Créer le client parrainé</button>
+                </form>
+            </div>
+        </div>
+
+        <div id="contentAmbassador" class="tab-content">
+            <div class="form-section">
+                <h2>Rechercher un ambassadeur et cocher « Cadeau retiré »</h2>
+                <div class="search-ambassador">
+                    <input type="text" id="searchAmbassador" placeholder="Rechercher par nom (ex: Philippe, Doyen...)" />
+                    <div id="ambassadorResults" class="ambassador-results"></div>
+                </div>
+                <div id="ambassadorClientsContainer">
+                    <div id="ambassadorClientsList"></div>
+                </div>
             </div>
         </div>
     </div>
@@ -255,9 +304,14 @@
         const vendeuseNameEl = document.getElementById('vendeuseName');
         const formClient = document.getElementById('formClient');
         const btnCreate = document.getElementById('btnCreate');
-        const clientsList = document.getElementById('clientsList');
-        const loadingClients = document.getElementById('loadingClients');
         const messageEl = document.getElementById('message');
+        const searchAmbassadorInput = document.getElementById('searchAmbassador');
+        const ambassadorResultsEl = document.getElementById('ambassadorResults');
+        const ambassadorClientsListEl = document.getElementById('ambassadorClientsList');
+
+        let ambassadorsList = [];
+        let selectedAmbassador = null;
+        let validateTimeout = null;
 
         const showMessage = (text, type) => {
             messageEl.textContent = text;
@@ -266,57 +320,123 @@
             if (type === 'success') setTimeout(() => messageEl.classList.add('hidden'), 3000);
         };
 
+        const validateSaleCode = async () => {
+            const code = saleCodeInput.value.trim();
+            vendeuseNameEl.classList.add('hidden');
+            if (!code) return;
+            try {
+                const res = await fetch(`${AMBASSADORS_API}/public/validate-vendeuse/${encodeURIComponent(code)}`);
+                const data = await res.json();
+                vendeuseNameEl.classList.remove('hidden');
+                if (data.success && data.name) {
+                    vendeuseNameEl.textContent = `✅ ${data.name}`;
+                    vendeuseNameEl.classList.remove('error');
+                } else {
+                    vendeuseNameEl.textContent = '❌ Code invalide ou inactif';
+                    vendeuseNameEl.classList.add('error');
+                }
+            } catch (e) {
+                vendeuseNameEl.classList.remove('hidden');
+                vendeuseNameEl.textContent = '❌ Erreur de vérification';
+                vendeuseNameEl.classList.add('error');
+            }
+        };
+
+        saleCodeInput.addEventListener('input', () => {
+            clearTimeout(validateTimeout);
+            validateTimeout = setTimeout(validateSaleCode, 400);
+        });
+        saleCodeInput.addEventListener('blur', validateSaleCode);
+
+        document.getElementById('tabNew').addEventListener('click', () => {
+            document.getElementById('tabNew').classList.add('active');
+            document.getElementById('tabAmbassador').classList.remove('active');
+            document.getElementById('contentNew').classList.add('active');
+            document.getElementById('contentAmbassador').classList.remove('active');
+        });
+        document.getElementById('tabAmbassador').addEventListener('click', () => {
+            document.getElementById('tabAmbassador').classList.add('active');
+            document.getElementById('tabNew').classList.remove('active');
+            document.getElementById('contentAmbassador').classList.add('active');
+            document.getElementById('contentNew').classList.remove('active');
+            if (ambassadorsList.length === 0) loadAmbassadorsList();
+        });
+
         const loadAmbassadorCodes = async () => {
             try {
                 const res = await fetch(`${AMBASSADORS_API}/public/ambassadors`);
                 const data = await res.json();
                 if (data.success && data.data) {
-                    const datalist = document.getElementById('ambassadorCodes');
-                    datalist.innerHTML = data.data.map(c => `<option value="${c}">`).join('');
+                    document.getElementById('ambassadorCodes').innerHTML = data.data.map(c => `<option value="${c}">`).join('');
                 }
-            } catch (e) {
-                console.error('Erreur chargement codes ambassadeurs:', e);
-            }
+            } catch (e) { console.error(e); }
         };
 
-        const loadClients = async () => {
-            loadingClients.classList.remove('hidden');
-            clientsList.innerHTML = '';
+        const loadAmbassadorsList = async () => {
             try {
-                const res = await fetch(`${AMBASSADORS_API}/public/clients`);
+                const res = await fetch(`${AMBASSADORS_API}/public/ambassadors-list`);
                 const data = await res.json();
-                loadingClients.classList.add('hidden');
-                if (data.success && data.data) {
-                    renderClients(data.data);
+                if (data.success) ambassadorsList = data.data || [];
+            } catch (e) { console.error(e); ambassadorsList = []; }
+        };
+
+        searchAmbassadorInput.addEventListener('input', () => {
+            const q = searchAmbassadorInput.value.trim().toLowerCase();
+            if (q.length < 2) {
+                ambassadorResultsEl.innerHTML = '';
+                return;
+            }
+            const filtered = ambassadorsList.filter(a =>
+                (a.firstName || '').toLowerCase().includes(q) ||
+                (a.lastName || '').toLowerCase().includes(q) ||
+                (a.fullName || '').toLowerCase().includes(q)
+            );
+            ambassadorResultsEl.innerHTML = filtered.slice(0, 15).map(a => `
+                <div class="ambassador-item" data-code="${a.code}">
+                    <span><strong>${a.firstName} ${a.lastName}</strong> – ${a.code}</span>
+                    <span>${a.clientsCount || 0} client(s)</span>
+                </div>
+            `).join('');
+            ambassadorResultsEl.querySelectorAll('.ambassador-item').forEach(el => {
+                el.addEventListener('click', () => {
+                    selectedAmbassador = ambassadorsList.find(x => x.code === el.dataset.code);
+                    ambassadorResultsEl.querySelectorAll('.ambassador-item').forEach(e => e.classList.remove('selected'));
+                    el.classList.add('selected');
+                    loadClientsByAmbassador(selectedAmbassador.code);
+                });
+            });
+        });
+
+        const loadClientsByAmbassador = async (code) => {
+            ambassadorClientsListEl.innerHTML = '<div class="loading">Chargement...</div>';
+            try {
+                const res = await fetch(`${AMBASSADORS_API}/public/ambassadors/${encodeURIComponent(code)}/clients`);
+                const data = await res.json();
+                ambassadorClientsListEl.innerHTML = '';
+                if (data.success && data.data && data.data.length > 0) {
+                    renderAmbassadorClients(data.data);
                 } else {
-                    clientsList.innerHTML = '<p>Aucun client parrainé.</p>';
+                    ambassadorClientsListEl.innerHTML = '<p>Aucun client parrainé pour cet ambassadeur.</p>';
                 }
             } catch (e) {
-                loadingClients.classList.add('hidden');
-                clientsList.innerHTML = '<p>Erreur chargement.</p>';
-                console.error(e);
+                ambassadorClientsListEl.innerHTML = '<p>Erreur chargement.</p>';
             }
         };
 
-        const renderClients = (clients) => {
-            clientsList.innerHTML = clients.map(c => `
-                <div class="client-card" data-id="${c._id}">
+        const renderAmbassadorClients = (clients) => {
+            ambassadorClientsListEl.innerHTML = clients.map(c => `
+                <div class="client-card">
                     <div class="client-name">${c.firstName} ${c.lastName}</div>
-                    <div class="client-code">Code ambassadeur: ${c.ambassadorCode} · Tél: ${c.phone}</div>
+                    <div class="client-code">Tél: ${c.phone}</div>
                     <div class="checkboxes">
                         <label class="checkbox-item">
-                            <input type="checkbox" data-id="${c._id}" data-field="giftClaimed" ${c.giftClaimed ? 'checked' : ''} />
-                            <span>Bénéficié</span>
-                        </label>
-                        <label class="checkbox-item">
                             <input type="checkbox" data-id="${c._id}" data-field="giftReceived" ${c.giftReceived ? 'checked' : ''} />
-                            <span>Retiré</span>
+                            <span>Cadeau retiré</span>
                         </label>
                     </div>
                 </div>
             `).join('');
-
-            clientsList.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+            ambassadorClientsListEl.querySelectorAll('input[type="checkbox"]').forEach(cb => {
                 cb.addEventListener('change', (e) => {
                     const saleCode = saleCodeInput.value.trim();
                     if (!saleCode) {
@@ -324,33 +444,28 @@
                         e.target.checked = !e.target.checked;
                         return;
                     }
-                    const id = e.target.dataset.id;
-                    const field = e.target.dataset.field;
-                    const value = e.target.checked;
-                    updateGift(id, field, value);
+                    updateGift(e.target.dataset.id, 'giftReceived', e.target.checked);
                 });
             });
         };
 
         const updateGift = async (id, field, value) => {
             const saleCode = saleCodeInput.value.trim();
-            const payload = { saleCode, [field]: value };
             try {
                 const res = await fetch(`${AMBASSADORS_API}/public/clients/${id}`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
+                    body: JSON.stringify({ saleCode, [field]: value })
                 });
                 const data = await res.json();
                 if (data.success) {
                     showMessage('Mis à jour.', 'success');
+                    if (selectedAmbassador) loadClientsByAmbassador(selectedAmbassador.code);
                 } else {
                     showMessage(data.error || 'Erreur', 'error');
-                    loadClients();
                 }
             } catch (e) {
                 showMessage('Erreur réseau.', 'error');
-                loadClients();
             }
         };
 
@@ -379,7 +494,6 @@
                 if (data.success) {
                     showMessage('Client parrainé créé.', 'success');
                     formClient.reset();
-                    loadClients();
                 } else {
                     showMessage(data.error || 'Erreur', 'error');
                 }
@@ -390,7 +504,7 @@
         });
 
         loadAmbassadorCodes();
-        loadClients();
+        loadAmbassadorsList();
     </script>
 </body>
 </html>

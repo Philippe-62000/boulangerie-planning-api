@@ -4,8 +4,11 @@ const ambassadorController = require('../controllers/ambassadorController');
 const { authenticateEmployee } = require('../middleware/auth');
 
 // Routes publiques (code vendeuse) pour tablette - SANS auth
+router.get('/public/validate-vendeuse/:saleCode', ambassadorController.validateVendeuse);
 router.get('/public/ambassadors', ambassadorController.getPublicAmbassadorCodes);
+router.get('/public/ambassadors-list', ambassadorController.getPublicAmbassadorsList);
 router.get('/public/clients', ambassadorController.getPublicClients);
+router.get('/public/ambassadors/:code/clients', ambassadorController.getPublicClientsByAmbassador);
 router.post('/public/clients', ambassadorController.createPublicClient);
 router.put('/public/clients/:id', ambassadorController.updatePublicClientGift);
 

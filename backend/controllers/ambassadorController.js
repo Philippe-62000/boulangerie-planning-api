@@ -29,13 +29,21 @@ const enrichClientsWithNames = async (clients) => {
 const getAmbassadors = async (req, res) => {
   try {
     const ambassadors = await Ambassador.find().sort({ lastName: 1, firstName: 1 });
-    const counts = await AmbassadorClient.aggregate([
-      { $group: { _id: '$ambassadorCode', count: { $sum: 1 } } }
+    const [countsById, countsByCode] = await Promise.all([
+      AmbassadorClient.aggregate([
+        { $match: { ambassadorId: { $exists: true, $ne: null } } },
+        { $group: { _id: '$ambassadorId', count: { $sum: 1 } } }
+      ]),
+      AmbassadorClient.aggregate([
+        { $match: { ambassadorCode: { $exists: true, $ne: null, $ne: '' } } },
+        { $group: { _id: '$ambassadorCode', count: { $sum: 1 } } }
+      ])
     ]);
-    const countMap = Object.fromEntries(counts.map(x => [x._id, x.count]));
+    const countById = Object.fromEntries(countsById.map(x => [String(x._id), x.count]));
+    const countByCode = Object.fromEntries(countsByCode.map(x => [String(x._id).toUpperCase(), x.count]));
     const data = ambassadors.map(a => ({
       ...a.toObject(),
-      clientsCount: countMap[a.code] || 0
+      clientsCount: countById[a._id.toString()] ?? countByCode[(a.code || '').toUpperCase()] ?? 0
     }));
     res.json({ success: true, data });
   } catch (error) {
@@ -177,6 +185,21 @@ const validateSaleCode = async (saleCode) => {
   return employee;
 };
 
+// Valider code vendeuse et retourner le nom (pour affichage)
+const validateVendeuse = async (req, res) => {
+  try {
+    const { saleCode } = req.params;
+    const employee = await validateSaleCode(saleCode);
+    if (!employee) {
+      return res.json({ success: false, error: 'Code invalide ou inactif' });
+    }
+    res.json({ success: true, name: employee.name });
+  } catch (error) {
+    console.error('Erreur validateVendeuse:', error);
+    res.status(500).json({ success: false, error: 'Erreur serveur' });
+  }
+};
+
 // Liste des codes ambassadeurs (pour autocomplete)
 const getPublicAmbassadorCodes = async (req, res) => {
   try {
@@ -184,6 +207,57 @@ const getPublicAmbassadorCodes = async (req, res) => {
     res.json({ success: true, data: ambassadors.map(a => a.code) });
   } catch (error) {
     console.error('Erreur getPublicAmbassadorCodes:', error);
+    res.status(500).json({ success: false, error: 'Erreur serveur' });
+  }
+};
+
+// Liste des ambassadeurs avec nom (pour recherche)
+const getPublicAmbassadorsList = async (req, res) => {
+  try {
+    const ambassadors = await Ambassador.find()
+      .select('firstName lastName code')
+      .sort({ lastName: 1, firstName: 1 });
+    const [countsById, countsByCode] = await Promise.all([
+      AmbassadorClient.aggregate([
+        { $match: { ambassadorId: { $exists: true, $ne: null } } },
+        { $group: { _id: '$ambassadorId', count: { $sum: 1 } } }
+      ]),
+      AmbassadorClient.aggregate([
+        { $match: { ambassadorCode: { $exists: true, $ne: null, $ne: '' } } },
+        { $group: { _id: '$ambassadorCode', count: { $sum: 1 } } }
+      ])
+    ]);
+    const countById = Object.fromEntries(countsById.map(x => [String(x._id), x.count]));
+    const countByCode = Object.fromEntries(countsByCode.map(x => [String(x._id).toUpperCase(), x.count]));
+    const data = ambassadors.map(a => ({
+      _id: a._id,
+      firstName: a.firstName,
+      lastName: a.lastName,
+      code: a.code,
+      fullName: `${a.firstName} ${a.lastName}`,
+      clientsCount: countById[a._id.toString()] ?? countByCode[(a.code || '').toUpperCase()] ?? 0
+    }));
+    res.json({ success: true, data });
+  } catch (error) {
+    console.error('Erreur getPublicAmbassadorsList:', error);
+    res.status(500).json({ success: false, error: 'Erreur serveur' });
+  }
+};
+
+// Clients par ambassadeur (public, pour onglet Ambassadeur)
+const getPublicClientsByAmbassador = async (req, res) => {
+  try {
+    const { code } = req.params;
+    if (!code?.trim()) {
+      return res.status(400).json({ success: false, error: 'Code ambassadeur requis' });
+    }
+    const clients = await AmbassadorClient.find({ ambassadorCode: code.trim().toUpperCase() })
+      .populate('ambassadorId', 'firstName lastName code phone email')
+      .sort({ createdAt: -1 });
+    const enriched = await enrichClientsWithNames(clients);
+    res.json({ success: true, data: enriched });
+  } catch (error) {
+    console.error('Erreur getPublicClientsByAmbassador:', error);
     res.status(500).json({ success: false, error: 'Erreur serveur' });
   }
 };
@@ -291,8 +365,11 @@ module.exports = {
   createAmbassadorClient,
   updateAmbassadorClient,
   deleteAmbassadorClient,
+  validateVendeuse,
   getPublicAmbassadorCodes,
+  getPublicAmbassadorsList,
   getPublicClients,
+  getPublicClientsByAmbassador,
   createPublicClient,
   updatePublicClientGift
 };
