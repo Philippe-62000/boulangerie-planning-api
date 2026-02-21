@@ -188,6 +188,14 @@
             color: #666;
             margin-bottom: 12px;
         }
+        .client-card .coupon-expiry {
+            font-size: 0.85rem;
+            margin-bottom: 8px;
+        }
+        .client-card .coupon-expiry.expired {
+            color: #dc3545;
+            font-weight: 600;
+        }
         .client-card .checkboxes {
             display: flex;
             gap: 20px;
@@ -241,6 +249,7 @@
 
         <div class="tabs">
             <button type="button" id="tabNew" class="active">➕ Nouveau client parrainé</button>
+            <button type="button" id="tabClient">📋 Client parrainé</button>
             <button type="button" id="tabAmbassador">⭐ Ambassadeur – Cadeau retiré</button>
         </div>
 
@@ -271,6 +280,19 @@
                     </div>
                     <button type="submit" id="btnCreate">Créer le client parrainé</button>
                 </form>
+            </div>
+        </div>
+
+        <div id="contentClient" class="tab-content">
+            <div class="form-section">
+                <h2>Liste des clients parrainés – Cochez « Cadeau retiré »</h2>
+                <div class="search-ambassador">
+                    <input type="text" id="searchClient" placeholder="Rechercher par nom (ex: Dupont, Marie...)" />
+                </div>
+                <div id="clientsListContainer">
+                    <div id="loadingClients" class="loading">Chargement...</div>
+                    <div id="clientsList"></div>
+                </div>
             </div>
         </div>
 
@@ -308,8 +330,12 @@
         const searchAmbassadorInput = document.getElementById('searchAmbassador');
         const ambassadorResultsEl = document.getElementById('ambassadorResults');
         const ambassadorClientsListEl = document.getElementById('ambassadorClientsList');
+        const searchClientInput = document.getElementById('searchClient');
+        const clientsListEl = document.getElementById('clientsList');
+        const loadingClientsEl = document.getElementById('loadingClients');
 
         let ambassadorsList = [];
+        let allClients = [];
         let selectedAmbassador = null;
         let validateTimeout = null;
 
@@ -348,19 +374,86 @@
         });
         saleCodeInput.addEventListener('blur', validateSaleCode);
 
-        document.getElementById('tabNew').addEventListener('click', () => {
-            document.getElementById('tabNew').classList.add('active');
-            document.getElementById('tabAmbassador').classList.remove('active');
-            document.getElementById('contentNew').classList.add('active');
-            document.getElementById('contentAmbassador').classList.remove('active');
+        const switchTab = (tab) => {
+            document.querySelectorAll('.tabs button').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            document.getElementById('tab' + tab).classList.add('active');
+            document.getElementById('content' + tab).classList.add('active');
+            if (tab === 'Client') loadClientsList();
+            if (tab === 'Ambassador' && ambassadorsList.length === 0) loadAmbassadorsList();
+        };
+        document.getElementById('tabNew').addEventListener('click', () => switchTab('New'));
+        document.getElementById('tabClient').addEventListener('click', () => switchTab('Client'));
+        document.getElementById('tabAmbassador').addEventListener('click', () => switchTab('Ambassador'));
+
+        const getCouponExpiryText = (c) => {
+            if (!c.couponExpiresAt) return '';
+            const exp = new Date(c.couponExpiresAt);
+            const now = new Date();
+            if (exp < now) {
+                const days = Math.ceil((now - exp) / (24 * 60 * 60 * 1000));
+                return `Coupon expiré de ${days} jours`;
+            }
+            const days = Math.ceil((exp - now) / (24 * 60 * 60 * 1000));
+            return `Coupon valide ${days} jours`;
+        };
+
+        const loadClientsList = async () => {
+            loadingClientsEl.classList.remove('hidden');
+            clientsListEl.innerHTML = '';
+            try {
+                const search = searchClientInput.value.trim();
+                const url = search ? `${AMBASSADORS_API}/public/clients?search=${encodeURIComponent(search)}` : `${AMBASSADORS_API}/public/clients`;
+                const res = await fetch(url);
+                const data = await res.json();
+                loadingClientsEl.classList.add('hidden');
+                allClients = data.success ? (data.data || []) : [];
+                renderClientsList(allClients);
+            } catch (e) {
+                loadingClientsEl.classList.add('hidden');
+                clientsListEl.innerHTML = '<p>Erreur chargement.</p>';
+            }
+        };
+
+        const renderClientsList = (clients) => {
+            if (clients.length === 0) {
+                clientsListEl.innerHTML = '<p>Aucun client parrainé.</p>';
+                return;
+            }
+            clientsListEl.innerHTML = clients.map(c => {
+                const expiryText = getCouponExpiryText(c);
+                const isExpired = c.couponExpiresAt && new Date(c.couponExpiresAt) < new Date();
+                return `
+                <div class="client-card">
+                    <div class="client-name">${c.firstName} ${c.lastName}</div>
+                    <div class="client-code">Code: ${c.ambassadorCode} · Tél: ${c.phone}</div>
+                    ${expiryText ? `<div class="coupon-expiry ${isExpired ? 'expired' : ''}">${expiryText}</div>` : ''}
+                    <div class="checkboxes">
+                        <label class="checkbox-item">
+                            <input type="checkbox" data-id="${c._id}" data-field="giftReceived" ${c.giftReceived ? 'checked disabled' : ''} />
+                            <span>Cadeau retiré</span>
+                        </label>
+                    </div>
+                </div>
+            `}).join('');
+            clientsListEl.querySelectorAll('input[type="checkbox"]:not([disabled])').forEach(cb => {
+                cb.addEventListener('change', (e) => {
+                    const saleCode = saleCodeInput.value.trim();
+                    if (!saleCode) {
+                        showMessage('Saisissez votre code vendeuse.', 'error');
+                        e.target.checked = false;
+                        return;
+                    }
+                    updateGift(e.target.dataset.id, 'giftReceived', true);
+                });
+            });
+        };
+
+        searchClientInput.addEventListener('input', () => {
+            clearTimeout(searchClientTimeout);
+            searchClientTimeout = setTimeout(loadClientsList, 300);
         });
-        document.getElementById('tabAmbassador').addEventListener('click', () => {
-            document.getElementById('tabAmbassador').classList.add('active');
-            document.getElementById('tabNew').classList.remove('active');
-            document.getElementById('contentAmbassador').classList.add('active');
-            document.getElementById('contentNew').classList.remove('active');
-            if (ambassadorsList.length === 0) loadAmbassadorsList();
-        });
+        let searchClientTimeout = null;
 
         const loadAmbassadorCodes = async () => {
             try {
@@ -424,43 +517,49 @@
         };
 
         const renderAmbassadorClients = (clients) => {
-            ambassadorClientsListEl.innerHTML = clients.map(c => `
+            ambassadorClientsListEl.innerHTML = clients.map(c => {
+                const expiryText = getCouponExpiryText(c);
+                const isExpired = c.couponExpiresAt && new Date(c.couponExpiresAt) < new Date();
+                return `
                 <div class="client-card">
                     <div class="client-name">${c.firstName} ${c.lastName}</div>
                     <div class="client-code">Tél: ${c.phone}</div>
+                    ${expiryText ? `<div class="coupon-expiry ${isExpired ? 'expired' : ''}">${expiryText}</div>` : ''}
                     <div class="checkboxes">
                         <label class="checkbox-item">
-                            <input type="checkbox" data-id="${c._id}" data-field="giftReceived" ${c.giftReceived ? 'checked' : ''} />
+                            <input type="checkbox" data-id="${c._id}" data-field="giftReceived" ${c.giftReceived ? 'checked disabled' : ''} />
                             <span>Cadeau retiré</span>
                         </label>
                     </div>
                 </div>
-            `).join('');
-            ambassadorClientsListEl.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+            `}).join('');
+            ambassadorClientsListEl.querySelectorAll('input[type="checkbox"]:not([disabled])').forEach(cb => {
                 cb.addEventListener('change', (e) => {
                     const saleCode = saleCodeInput.value.trim();
                     if (!saleCode) {
                         showMessage('Saisissez votre code vendeuse.', 'error');
-                        e.target.checked = !e.target.checked;
+                        e.target.checked = false;
                         return;
                     }
-                    updateGift(e.target.dataset.id, 'giftReceived', e.target.checked);
+                    updateGift(e.target.dataset.id, 'giftReceived', true);
                 });
             });
         };
 
         const updateGift = async (id, field, value) => {
             const saleCode = saleCodeInput.value.trim();
+            if (!value) return;
             try {
                 const res = await fetch(`${AMBASSADORS_API}/public/clients/${id}`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ saleCode, [field]: value })
+                    body: JSON.stringify({ saleCode, [field]: true })
                 });
                 const data = await res.json();
                 if (data.success) {
                     showMessage('Mis à jour.', 'success');
                     if (selectedAmbassador) loadClientsByAmbassador(selectedAmbassador.code);
+                    else loadClientsList();
                 } else {
                     showMessage(data.error || 'Erreur', 'error');
                 }

@@ -26,6 +26,11 @@ const ambassadorSchema = new mongoose.Schema({
     required: true,
     unique: true,
     trim: true
+  },
+  couponValidityDays: {
+    type: Number,
+    default: 30,
+    min: 1
   }
 }, {
   timestamps: true

@@ -29,7 +29,7 @@ const enrichClientsWithNames = async (clients) => {
 const getAmbassadors = async (req, res) => {
   try {
     const ambassadors = await Ambassador.find().sort({ lastName: 1, firstName: 1 });
-    const [countsById, countsByCode] = await Promise.all([
+    const [countsById, countsByCode, giftsRetiredById, giftsRetiredByCode] = await Promise.all([
       AmbassadorClient.aggregate([
         { $match: { ambassadorId: { $exists: true, $ne: null } } },
         { $group: { _id: '$ambassadorId', count: { $sum: 1 } } }
@@ -37,13 +37,24 @@ const getAmbassadors = async (req, res) => {
       AmbassadorClient.aggregate([
         { $match: { ambassadorCode: { $exists: true, $ne: null, $ne: '' } } },
         { $group: { _id: '$ambassadorCode', count: { $sum: 1 } } }
+      ]),
+      AmbassadorClient.aggregate([
+        { $match: { ambassadorId: { $exists: true, $ne: null }, giftReceived: true } },
+        { $group: { _id: '$ambassadorId', count: { $sum: 1 } } }
+      ]),
+      AmbassadorClient.aggregate([
+        { $match: { ambassadorCode: { $exists: true, $ne: null, $ne: '' }, giftReceived: true } },
+        { $group: { _id: '$ambassadorCode', count: { $sum: 1 } } }
       ])
     ]);
     const countById = Object.fromEntries(countsById.map(x => [String(x._id), x.count]));
     const countByCode = Object.fromEntries(countsByCode.map(x => [String(x._id).toUpperCase(), x.count]));
+    const giftsById = Object.fromEntries(giftsRetiredById.map(x => [String(x._id), x.count]));
+    const giftsByCode = Object.fromEntries(giftsRetiredByCode.map(x => [String(x._id).toUpperCase(), x.count]));
     const data = ambassadors.map(a => ({
       ...a.toObject(),
-      clientsCount: countById[a._id.toString()] ?? countByCode[(a.code || '').toUpperCase()] ?? 0
+      clientsCount: countById[a._id.toString()] ?? countByCode[(a.code || '').toUpperCase()] ?? 0,
+      giftsRetiredCount: giftsById[a._id.toString()] ?? giftsByCode[(a.code || '').toUpperCase()] ?? 0
     }));
     res.json({ success: true, data });
   } catch (error) {
@@ -55,15 +66,17 @@ const getAmbassadors = async (req, res) => {
 // Créer un ambassadeur
 const createAmbassador = async (req, res) => {
   try {
-    const { firstName, lastName, phone, email } = req.body;
+    const { firstName, lastName, phone, email, couponValidityDays } = req.body;
     if (!firstName?.trim() || !lastName?.trim() || !phone?.trim()) {
       return res.status(400).json({ success: false, error: 'Nom, prénom et téléphone requis' });
     }
+    const days = couponValidityDays != null ? Math.max(1, parseInt(couponValidityDays, 10) || 30) : 30;
     const ambassador = await Ambassador.create({
       firstName: firstName.trim(),
       lastName: lastName.trim(),
       phone: phone.trim(),
-      email: (email || '').trim()
+      email: (email || '').trim(),
+      couponValidityDays: days
     });
     res.status(201).json({ success: true, data: ambassador });
   } catch (error) {
@@ -137,15 +150,19 @@ const createAmbassadorClient = async (req, res) => {
     if (!ambassador) {
       return res.status(400).json({ success: false, error: 'Code ambassadeur invalide' });
     }
+    const validityDays = ambassador.couponValidityDays || 30;
+    const couponExpiresAt = new Date();
+    couponExpiresAt.setDate(couponExpiresAt.getDate() + validityDays);
     const client = await AmbassadorClient.create({
       firstName: firstName.trim(),
       lastName: lastName.trim(),
       phone: phone.trim(),
       ambassadorCode: ambassadorCode.trim().toUpperCase(),
-      ambassadorId: ambassador._id
+      ambassadorId: ambassador._id,
+      couponExpiresAt
     });
     const populated = await AmbassadorClient.findById(client._id)
-      .populate('ambassadorId', 'firstName lastName code phone email');
+      .populate('ambassadorId', 'firstName lastName code phone email couponValidityDays');
     res.status(201).json({ success: true, data: populated });
   } catch (error) {
     console.error('Erreur createAmbassadorClient:', error);
@@ -217,7 +234,7 @@ const getPublicAmbassadorsList = async (req, res) => {
     const ambassadors = await Ambassador.find()
       .select('firstName lastName code')
       .sort({ lastName: 1, firstName: 1 });
-    const [countsById, countsByCode] = await Promise.all([
+    const [countsById, countsByCode, giftsById, giftsByCode] = await Promise.all([
       AmbassadorClient.aggregate([
         { $match: { ambassadorId: { $exists: true, $ne: null } } },
         { $group: { _id: '$ambassadorId', count: { $sum: 1 } } }
@@ -225,17 +242,28 @@ const getPublicAmbassadorsList = async (req, res) => {
       AmbassadorClient.aggregate([
         { $match: { ambassadorCode: { $exists: true, $ne: null, $ne: '' } } },
         { $group: { _id: '$ambassadorCode', count: { $sum: 1 } } }
+      ]),
+      AmbassadorClient.aggregate([
+        { $match: { ambassadorId: { $exists: true, $ne: null }, giftReceived: true } },
+        { $group: { _id: '$ambassadorId', count: { $sum: 1 } } }
+      ]),
+      AmbassadorClient.aggregate([
+        { $match: { ambassadorCode: { $exists: true, $ne: null, $ne: '' }, giftReceived: true } },
+        { $group: { _id: '$ambassadorCode', count: { $sum: 1 } } }
       ])
     ]);
     const countById = Object.fromEntries(countsById.map(x => [String(x._id), x.count]));
     const countByCode = Object.fromEntries(countsByCode.map(x => [String(x._id).toUpperCase(), x.count]));
+    const giftsRetiredById = Object.fromEntries(giftsById.map(x => [String(x._id), x.count]));
+    const giftsRetiredByCode = Object.fromEntries(giftsByCode.map(x => [String(x._id).toUpperCase(), x.count]));
     const data = ambassadors.map(a => ({
       _id: a._id,
       firstName: a.firstName,
       lastName: a.lastName,
       code: a.code,
       fullName: `${a.firstName} ${a.lastName}`,
-      clientsCount: countById[a._id.toString()] ?? countByCode[(a.code || '').toUpperCase()] ?? 0
+      clientsCount: countById[a._id.toString()] ?? countByCode[(a.code || '').toUpperCase()] ?? 0,
+      giftsRetiredCount: giftsRetiredById[a._id.toString()] ?? giftsRetiredByCode[(a.code || '').toUpperCase()] ?? 0
     }));
     res.json({ success: true, data });
   } catch (error) {
@@ -262,11 +290,20 @@ const getPublicClientsByAmbassador = async (req, res) => {
   }
 };
 
-// Liste des clients parrainés (public)
+// Liste des clients parrainés (public, avec recherche par nom)
 const getPublicClients = async (req, res) => {
   try {
-    const clients = await AmbassadorClient.find()
-      .populate('ambassadorId', 'firstName lastName code phone email')
+    const { search } = req.query;
+    const filter = {};
+    if (search && typeof search === 'string' && search.trim()) {
+      const q = search.trim();
+      filter.$or = [
+        { firstName: { $regex: q, $options: 'i' } },
+        { lastName: { $regex: q, $options: 'i' } }
+      ];
+    }
+    const clients = await AmbassadorClient.find(filter)
+      .populate('ambassadorId', 'firstName lastName code phone email couponValidityDays')
       .sort({ createdAt: -1 });
     const enriched = await enrichClientsWithNames(clients);
     res.json({ success: true, data: enriched });
@@ -291,6 +328,9 @@ const createPublicClient = async (req, res) => {
     if (!ambassador) {
       return res.status(400).json({ success: false, error: 'Code ambassadeur invalide' });
     }
+    const validityDays = ambassador.couponValidityDays || 30;
+    const couponExpiresAt = new Date();
+    couponExpiresAt.setDate(couponExpiresAt.getDate() + validityDays);
     const client = await AmbassadorClient.create({
       firstName: firstName.trim(),
       lastName: lastName.trim(),
@@ -298,10 +338,11 @@ const createPublicClient = async (req, res) => {
       ambassadorCode: ambassadorCode.trim().toUpperCase(),
       ambassadorId: ambassador._id,
       recordedBySaleCode: employee.saleCode,
-      recordedByName: employee.name
+      recordedByName: employee.name,
+      couponExpiresAt
     });
     const populated = await AmbassadorClient.findById(client._id)
-      .populate('ambassadorId', 'firstName lastName code phone email');
+      .populate('ambassadorId', 'firstName lastName code phone email couponValidityDays');
     res.status(201).json({ success: true, data: populated });
   } catch (error) {
     console.error('Erreur createPublicClient:', error);
@@ -310,6 +351,7 @@ const createPublicClient = async (req, res) => {
 };
 
 // Mettre à jour cadeau retiré/bénéficié (public, avec saleCode)
+// La vendeuse ne peut QUE cocher (pas décocher) - une fois retiré, c'est définitif
 const updatePublicClientGift = async (req, res) => {
   try {
     const { id } = req.params;
@@ -318,16 +360,18 @@ const updatePublicClientGift = async (req, res) => {
     if (!employee) {
       return res.status(401).json({ success: false, error: 'Code vendeuse invalide ou inactif' });
     }
+    const current = await AmbassadorClient.findById(id);
+    if (!current) return res.status(404).json({ success: false, error: 'Client introuvable' });
     const update = {};
-    if (typeof giftReceived === 'boolean') {
-      update.giftReceived = giftReceived;
-      update.giftReceivedBySaleCode = giftReceived ? employee.saleCode : null;
-      update.giftReceivedByName = giftReceived ? employee.name : null;
+    if (typeof giftReceived === 'boolean' && giftReceived === true) {
+      update.giftReceived = true;
+      update.giftReceivedBySaleCode = employee.saleCode;
+      update.giftReceivedByName = employee.name;
     }
-    if (typeof giftClaimed === 'boolean') {
-      update.giftClaimed = giftClaimed;
-      update.giftClaimedBySaleCode = giftClaimed ? employee.saleCode : null;
-      update.giftClaimedByName = giftClaimed ? employee.name : null;
+    if (typeof giftClaimed === 'boolean' && giftClaimed === true) {
+      update.giftClaimed = true;
+      update.giftClaimedBySaleCode = employee.saleCode;
+      update.giftClaimedByName = employee.name;
     }
     const client = await AmbassadorClient.findByIdAndUpdate(id, update, { new: true })
       .populate('ambassadorId', 'firstName lastName code phone email');
@@ -356,6 +400,33 @@ const deleteAmbassadorClient = async (req, res) => {
   }
 };
 
+// Régénérer un coupon (admin uniquement)
+const regenerateCoupon = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const client = await AmbassadorClient.findById(id).populate('ambassadorId');
+    if (!client) {
+      return res.status(404).json({ success: false, error: 'Client introuvable' });
+    }
+    const ambassador = client.ambassadorId;
+    const validityDays = (ambassador && ambassador.couponValidityDays) || 30;
+    const couponExpiresAt = new Date();
+    couponExpiresAt.setDate(couponExpiresAt.getDate() + validityDays);
+    const updated = await AmbassadorClient.findByIdAndUpdate(
+      id,
+      {
+        couponExpiresAt,
+        couponRegeneratedCount: (client.couponRegeneratedCount || 0) + 1
+      },
+      { new: true }
+    ).populate('ambassadorId', 'firstName lastName code phone email couponValidityDays');
+    res.json({ success: true, data: updated });
+  } catch (error) {
+    console.error('Erreur regenerateCoupon:', error);
+    res.status(500).json({ success: false, error: 'Erreur serveur' });
+  }
+};
+
 module.exports = {
   getAmbassadors,
   createAmbassador,
@@ -371,5 +442,6 @@ module.exports = {
   getPublicClients,
   getPublicClientsByAmbassador,
   createPublicClient,
-  updatePublicClientGift
+  updatePublicClientGift,
+  regenerateCoupon
 };

@@ -26,5 +26,6 @@ router.get('/clients', ambassadorController.getAmbassadorClients);
 router.post('/clients', ambassadorController.createAmbassadorClient);
 router.put('/clients/:id', ambassadorController.updateAmbassadorClient);
 router.delete('/clients/:id', ambassadorController.deleteAmbassadorClient);
+router.post('/clients/:id/regenerate-coupon', ambassadorController.regenerateCoupon);
 
 module.exports = router;

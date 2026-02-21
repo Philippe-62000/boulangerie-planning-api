@@ -15,7 +15,8 @@ const Ambassadeur = () => {
     firstName: '',
     lastName: '',
     phone: '',
-    email: ''
+    email: '',
+    couponValidityDays: 30
   });
   const [savingAmbassador, setSavingAmbassador] = useState(false);
 
@@ -70,7 +71,7 @@ const Ambassadeur = () => {
       const res = await api.post('/ambassadors/ambassadors', formAmbassador);
       if (res.data.success) {
         toast.success('Ambassadeur créé avec le code ' + res.data.data.code);
-        setFormAmbassador({ firstName: '', lastName: '', phone: '', email: '' });
+        setFormAmbassador({ firstName: '', lastName: '', phone: '', email: '', couponValidityDays: 30 });
         fetchData();
       } else {
         toast.error(res.data.error || 'Erreur');
@@ -149,6 +150,33 @@ const Ambassadeur = () => {
     }
   };
 
+  const regenerateCoupon = async (client) => {
+    if (!window.confirm('Régénérer un nouveau coupon valide pour ce client ?')) return;
+    try {
+      const res = await api.post(`/ambassadors/clients/${client._id}/regenerate-coupon`);
+      if (res.data.success) {
+        toast.success('Coupon régénéré');
+        fetchData();
+      } else {
+        toast.error(res.data.error || 'Erreur');
+      }
+    } catch (err) {
+      toast.error('Erreur');
+    }
+  };
+
+  const getCouponExpiryText = (c) => {
+    if (!c.couponExpiresAt) return '-';
+    const exp = new Date(c.couponExpiresAt);
+    const now = new Date();
+    if (exp < now) {
+      const days = Math.ceil((now - exp) / (24 * 60 * 60 * 1000));
+      return `Expiré depuis ${days} j`;
+    }
+    const days = Math.ceil((exp - now) / (24 * 60 * 60 * 1000));
+    return `Valide ${days} j`;
+  };
+
   const goToAmbassador = (code) => {
     const a = ambassadors.find(amb => amb.code === code);
     if (a) {
@@ -223,6 +251,15 @@ const Ambassadeur = () => {
                   onChange={e => setFormAmbassador({ ...formAmbassador, email: e.target.value })}
                 />
               </div>
+              <div className="form-row">
+                <input
+                  type="number"
+                  placeholder="Durée validité coupon (jours) *"
+                  min={1}
+                  value={formAmbassador.couponValidityDays || ''}
+                  onChange={e => setFormAmbassador({ ...formAmbassador, couponValidityDays: parseInt(e.target.value, 10) || 30 })}
+                />
+              </div>
               <button type="submit" disabled={savingAmbassador}>
                 {savingAmbassador ? 'Création...' : 'Créer l\'ambassadeur'}
               </button>
@@ -241,7 +278,8 @@ const Ambassadeur = () => {
                     <th>Téléphone</th>
                     <th>Email</th>
                     <th>Code client</th>
-                    <th>Clients parrainés</th>
+                    <th>Clients parrainés Total</th>
+                    <th>Cadeaux retirés</th>
                     <th></th>
                   </tr>
                 </thead>
@@ -253,6 +291,7 @@ const Ambassadeur = () => {
                       <td>{a.email || '-'}</td>
                       <td><strong>{a.code}</strong></td>
                       <td><strong>{a.clientsCount ?? 0}</strong></td>
+                      <td><strong>{a.giftsRetiredCount ?? 0}</strong></td>
                       <td>
                         <button type="button" className="btn-delete" onClick={() => deleteAmbassador(a._id)}>
                           Supprimer
@@ -328,6 +367,7 @@ const Ambassadeur = () => {
                     <th>Client</th>
                     <th>Téléphone</th>
                     <th>Code ambassadeur</th>
+                    <th>Coupon</th>
                     <th>Cadeau reçu</th>
                     <th>Cadeau retiré</th>
                     <th>Saisi par</th>
@@ -348,6 +388,16 @@ const Ambassadeur = () => {
                         >
                           {c.ambassadorCode}
                         </button>
+                      </td>
+                      <td title={c.couponRegeneratedCount ? `Régénéré ${c.couponRegeneratedCount} fois` : ''}>
+                        <span className={c.couponExpiresAt && new Date(c.couponExpiresAt) < new Date() ? 'text-danger' : ''}>
+                          {getCouponExpiryText(c)}
+                        </span>
+                        {!c.giftReceived && (
+                          <button type="button" className="btn-regenerate" onClick={() => regenerateCoupon(c)} title="Régénérer un coupon valide">
+                            Régénérer
+                          </button>
+                        )}
                       </td>
                       <td>
                         <label className="checkbox-label">

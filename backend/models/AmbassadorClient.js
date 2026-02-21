@@ -63,6 +63,14 @@ const ambassadorClientSchema = new mongoose.Schema({
     type: String,
     trim: true,
     default: null
+  },
+  couponExpiresAt: {
+    type: Date,
+    default: null
+  },
+  couponRegeneratedCount: {
+    type: Number,
+    default: 0
   }
 }, {
   timestamps: true
