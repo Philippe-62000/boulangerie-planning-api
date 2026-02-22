@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import api from '../services/api';
 import { toast } from 'react-toastify';
-import { getApiUrl, getStoredToken } from '../config/apiConfig';
 import './Ambassadeur.css';
 
 const Ambassadeur = () => {
@@ -29,8 +28,6 @@ const Ambassadeur = () => {
   });
   const [savingClient, setSavingClient] = useState(false);
 
-  const apiBase = getApiUrl();
-
   useEffect(() => {
     fetchData();
   }, []);
@@ -38,22 +35,18 @@ const Ambassadeur = () => {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const token = getStoredToken();
-      const headers = token ? { Authorization: `Bearer ${token}` } : {};
       const [ambRes, clientRes] = await Promise.all([
-        fetch(`${apiBase}/ambassadors/ambassadors`, { headers }),
-        fetch(`${apiBase}/ambassadors/clients`, { headers })
+        api.get('/ambassadors/ambassadors'),
+        api.get('/ambassadors/clients')
       ]);
-      if (ambRes.ok) {
-        const d = await ambRes.json();
-        setAmbassadors(d.data || []);
+      if (ambRes.data?.success) {
+        setAmbassadors(ambRes.data.data || []);
       }
-      if (clientRes.ok) {
-        const d = await clientRes.json();
-        setClients(d.data || []);
+      if (clientRes.data?.success) {
+        setClients(clientRes.data.data || []);
       }
     } catch (e) {
-      console.error(e);
+      console.error('Erreur chargement ambassadeurs:', e);
       toast.error('Erreur lors du chargement');
     } finally {
       setLoading(false);
@@ -251,10 +244,11 @@ const Ambassadeur = () => {
                   onChange={e => setFormAmbassador({ ...formAmbassador, email: e.target.value })}
                 />
               </div>
-              <div className="form-row">
+              <div className="form-row form-row-with-label">
+                <label className="ambassadeur-field-label">Durée de validité du coupon</label>
                 <input
                   type="number"
-                  placeholder="Durée validité coupon (jours) *"
+                  placeholder="Jours *"
                   min={1}
                   value={formAmbassador.couponValidityDays || ''}
                   onChange={e => setFormAmbassador({ ...formAmbassador, couponValidityDays: parseInt(e.target.value, 10) || 30 })}
@@ -279,6 +273,7 @@ const Ambassadeur = () => {
                     <th>Email</th>
                     <th>Code client</th>
                     <th>Clients parrainés Total</th>
+                    <th>Durée validité</th>
                     <th>Cadeaux retirés</th>
                     <th></th>
                   </tr>
@@ -291,6 +286,7 @@ const Ambassadeur = () => {
                       <td>{a.email || '-'}</td>
                       <td><strong>{a.code}</strong></td>
                       <td><strong>{a.clientsCount ?? 0}</strong></td>
+                      <td>{a.couponValidityDays ?? 30} j</td>
                       <td><strong>{a.giftsRetiredCount ?? 0}</strong></td>
                       <td>
                         <button type="button" className="btn-delete" onClick={() => deleteAmbassador(a._id)}>
@@ -368,7 +364,7 @@ const Ambassadeur = () => {
                     <th>Téléphone</th>
                     <th>Code ambassadeur</th>
                     <th>Coupon</th>
-                    <th>Cadeau reçu</th>
+                    <th>Bonus reçu</th>
                     <th>Cadeau retiré</th>
                     <th>Saisi par</th>
                     <th></th>
@@ -406,7 +402,7 @@ const Ambassadeur = () => {
                             checked={!!c.giftClaimed}
                             onChange={() => toggleGiftClaimed(c)}
                           />
-                          Bénéficié
+                          Bonus bénéficié
                         </label>
                       </td>
                       <td>
@@ -416,7 +412,7 @@ const Ambassadeur = () => {
                             checked={!!c.giftReceived}
                             onChange={() => toggleGiftReceived(c)}
                           />
-                          Retiré
+                          Cadeau retiré
                         </label>
                       </td>
                       <td title={c.giftReceivedByName ? `Retiré par: ${c.giftReceivedByName}` : ''}>

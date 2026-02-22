@@ -78,6 +78,18 @@
   flex-wrap: wrap;
 }
 
+.ambassadeur-form .form-row-with-label {
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.ambassadeur-field-label {
+  font-weight: 600;
+  color: #2c3e50;
+  font-size: 0.9rem;
+  margin-bottom: 0.25rem;
+}
+
 .ambassadeur-form input {
   flex: 1;
   min-width: 140px;

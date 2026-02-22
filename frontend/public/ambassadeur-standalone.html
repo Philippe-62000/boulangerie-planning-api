@@ -285,7 +285,7 @@
 
         <div id="contentClient" class="tab-content">
             <div class="form-section">
-                <h2>Liste des clients parrainés – Cochez « Cadeau retiré »</h2>
+                <h2>Liste des clients parrainés – Cochez « Bonus retiré »</h2>
                 <div class="search-ambassador">
                     <input type="text" id="searchClient" placeholder="Rechercher par nom (ex: Dupont, Marie...)" />
                 </div>
@@ -390,12 +390,14 @@
             if (!c.couponExpiresAt) return '';
             const exp = new Date(c.couponExpiresAt);
             const now = new Date();
+            const createdDate = c.createdAt ? new Date(c.createdAt).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '';
+            const createdPart = createdDate ? `Coupon créé le ${createdDate} et ` : 'Coupon ';
             if (exp < now) {
                 const days = Math.ceil((now - exp) / (24 * 60 * 60 * 1000));
-                return `Coupon expiré de ${days} jours`;
+                return `${createdPart}expiré depuis ${days} jours`;
             }
             const days = Math.ceil((exp - now) / (24 * 60 * 60 * 1000));
-            return `Coupon valide ${days} jours`;
+            return `${createdPart}valide ${days} jours`;
         };
 
         const loadClientsList = async () => {
@@ -431,7 +433,7 @@
                     <div class="checkboxes">
                         <label class="checkbox-item">
                             <input type="checkbox" data-id="${c._id}" data-field="giftReceived" ${c.giftReceived ? 'checked disabled' : ''} />
-                            <span>Cadeau retiré</span>
+                            <span>Bonus retiré</span>
                         </label>
                     </div>
                 </div>
