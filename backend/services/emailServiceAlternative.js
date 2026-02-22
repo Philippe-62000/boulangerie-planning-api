@@ -29,67 +29,49 @@ class EmailServiceAlternative {
     }
   }
 
+  // Retourne le basePath (/plan ou /lon) selon l'environnement - utilisé par toutes les méthodes d'URL
+  _getBasePath() {
+    const appBasePath = process.env.APP_BASE_PATH;
+    if (appBasePath === '/lon' || appBasePath === '/plan') return appBasePath;
+    const corsOrigin = process.env.CORS_ORIGIN || '';
+    return corsOrigin.includes('/lon') ? '/lon' : '/plan';
+  }
+
   // Fonction utilitaire pour obtenir l'URL du dashboard selon l'environnement
   getEmployeeDashboardUrl() {
-    // Détecter si on est sur Longuenesse (/lon) ou Arras (/plan)
-    const corsOrigin = process.env.CORS_ORIGIN || '';
-    const isLonguenesse = corsOrigin.includes('/lon');
+    const basePath = this._getBasePath();
+    const dashboardUrl = `https://www.filmara.fr${basePath}/employee-dashboard.html`;
     
-    const dashboardUrl = isLonguenesse 
-      ? 'https://www.filmara.fr/lon/employee-dashboard.html'
-      : 'https://www.filmara.fr/plan/employee-dashboard.html';
-    
-    console.log('🔍 getEmployeeDashboardUrl:', {
-      corsOrigin: corsOrigin,
-      isLonguenesse: isLonguenesse,
-      dashboardUrl: dashboardUrl
-    });
+    console.log('🔍 getEmployeeDashboardUrl:', { basePath, dashboardUrl });
     
     return dashboardUrl;
   }
 
   // Fonction utilitaire pour obtenir l'URL de connexion selon l'environnement
   getSalarieConnexionUrl() {
-    // Détecter si on est sur Longuenesse (/lon) ou Arras (/plan)
-    const isLonguenesse = process.env.CORS_ORIGIN && process.env.CORS_ORIGIN.includes('/lon');
-    return isLonguenesse 
-      ? 'https://www.filmara.fr/lon/salarie-connexion.html'
-      : 'https://www.filmara.fr/plan/salarie-connexion.html';
+    const basePath = this._getBasePath();
+    return `https://www.filmara.fr${basePath}/salarie-connexion.html`;
   }
 
   // Fonction utilitaire pour obtenir l'URL admin selon l'environnement
   getAdminUrl(path = '') {
-    // Détecter si on est sur Longuenesse (/lon) ou Arras (/plan)
-    const corsOrigin = process.env.CORS_ORIGIN || '';
-    const isLonguenesse = corsOrigin.includes('/lon');
-    const basePath = isLonguenesse ? '/lon' : '/plan';
+    const basePath = this._getBasePath();
     const adminUrl = path ? `https://www.filmara.fr${basePath}${path}` : `https://www.filmara.fr${basePath}`;
     
-    console.log('🔍 getAdminUrl:', {
-      corsOrigin: corsOrigin,
-      isLonguenesse: isLonguenesse,
-      path: path,
-      adminUrl: adminUrl
-    });
+    console.log('🔍 getAdminUrl:', { basePath, path, adminUrl });
     
     return adminUrl;
   }
 
   // Fonction utilitaire pour obtenir l'URL de l'API selon l'environnement
   getApiBaseUrl() {
-    // Détecter si on est sur Longuenesse (/lon) ou Arras (/plan)
-    const corsOrigin = process.env.CORS_ORIGIN || '';
-    const isLonguenesse = corsOrigin.includes('/lon');
+    const basePath = this._getBasePath();
     // Longuenesse utilise api-3, Arras utilise api-4-pbfy
-    const apiUrl = isLonguenesse 
+    const apiUrl = basePath === '/lon' 
       ? 'https://boulangerie-planning-api-3.onrender.com'
       : 'https://boulangerie-planning-api-4-pbfy.onrender.com';
     
-    console.log('🔍 getApiBaseUrl:', {
-      corsOrigin: corsOrigin,
-      isLonguenesse: isLonguenesse,
-      apiUrl: apiUrl
-    });
+    console.log('🔍 getApiBaseUrl:', { basePath, apiUrl });
     
     return apiUrl;
   }
@@ -571,22 +553,8 @@ class EmailServiceAlternative {
         hasText: !!textContent
       });
 
-      // Vérifier et corriger les URLs /plan/ dans le contenu HTML avant l'envoi à EmailJS
-      // Le template EmailJS pourrait avoir des URLs hardcodées, mais on s'assure que notre contenu est correct
-      if (htmlContent && (htmlContent.includes('/plan/employee-dashboard.html') || htmlContent.includes('/plan/advance-requests'))) {
-        console.log('⚠️ sendViaEmailJS: Contenu HTML contient /plan/ - Remplacement forcé vers /lon/');
-        htmlContent = htmlContent.replace(/https:\/\/www\.filmara\.fr\/plan\//g, 'https://www.filmara.fr/lon/');
-        htmlContent = htmlContent.replace(/\/plan\/employee-dashboard\.html/g, '/lon/employee-dashboard.html');
-        htmlContent = htmlContent.replace(/\/plan\/advance-requests/g, '/lon/advance-requests');
-      }
-      
-      if (textContent && (textContent.includes('/plan/employee-dashboard.html') || textContent.includes('/plan/advance-requests'))) {
-        console.log('⚠️ sendViaEmailJS: Contenu texte contient /plan/ - Remplacement forcé vers /lon/');
-        textContent = textContent.replace(/https:\/\/www\.filmara\.fr\/plan\//g, 'https://www.filmara.fr/lon/');
-        textContent = textContent.replace(/\/plan\/employee-dashboard\.html/g, '/lon/employee-dashboard.html');
-        textContent = textContent.replace(/\/plan\/advance-requests/g, '/lon/advance-requests');
-      }
-      
+      // Les URLs (admin_url, dashboard_url, etc.) sont déjà correctes selon l'environnement (getAdminUrl, getEmployeeDashboardUrl)
+      // Ne pas forcer de remplacement /plan/ → /lon/ : chaque magasin (Arras /plan, Longuenesse /lon) doit garder ses URLs
       console.log('🔍 sendViaEmailJS - Contenu final avant envoi:', {
         htmlContainsPlan: htmlContent ? htmlContent.includes('/plan/') : false,
         htmlContainsLon: htmlContent ? htmlContent.includes('/lon/') : false,
@@ -2760,14 +2728,6 @@ Date : ${new Date().toLocaleDateString('fr-FR')}
         dashboard_url: dashboardUrl
       });
       
-      // Vérifier si le template contient encore des URLs hardcodées /plan/ et les remplacer
-      if (htmlContent.includes('/plan/employee-dashboard.html') || htmlContent.includes('/plan/advance-requests')) {
-        console.log('⚠️ ATTENTION: Le template contient encore des URLs /plan/ - Remplacement forcé');
-        htmlContent = htmlContent.replace(/https:\/\/www\.filmara\.fr\/plan\//g, 'https://www.filmara.fr/lon/');
-        htmlContent = htmlContent.replace(/\/plan\/employee-dashboard\.html/g, '/lon/employee-dashboard.html');
-        htmlContent = htmlContent.replace(/\/plan\/advance-requests/g, '/lon/advance-requests');
-      }
-
       let textContent = this.replaceTemplateVariables(template.textContent, {
         to_name: employeeName,
         amount: amount,
@@ -2775,14 +2735,6 @@ Date : ${new Date().toLocaleDateString('fr-FR')}
         request_date: new Date().toLocaleDateString('fr-FR'),
         dashboard_url: dashboardUrl
       });
-      
-      // Vérifier si le textContent contient encore des URLs hardcodées /plan/ et les remplacer
-      if (textContent.includes('/plan/employee-dashboard.html') || textContent.includes('/plan/advance-requests')) {
-        console.log('⚠️ ATTENTION: Le textContent contient encore des URLs /plan/ - Remplacement forcé');
-        textContent = textContent.replace(/https:\/\/www\.filmara\.fr\/plan\//g, 'https://www.filmara.fr/lon/');
-        textContent = textContent.replace(/\/plan\/employee-dashboard\.html/g, '/lon/employee-dashboard.html');
-        textContent = textContent.replace(/\/plan\/advance-requests/g, '/lon/advance-requests');
-      }
       
       console.log('✅ sendAdvanceRequestConfirmation - Contenu final:', {
         htmlContainsPlan: htmlContent.includes('/plan/'),
@@ -2843,14 +2795,6 @@ Date : ${new Date().toLocaleDateString('fr-FR')}
         admin_url: adminUrl
       });
       
-      // Vérifier si le template contient encore des URLs hardcodées /plan/ et les remplacer
-      if (htmlContent.includes('/plan/employee-dashboard.html') || htmlContent.includes('/plan/advance-requests')) {
-        console.log('⚠️ ATTENTION: Le template contient encore des URLs /plan/ - Remplacement forcé');
-        htmlContent = htmlContent.replace(/https:\/\/www\.filmara\.fr\/plan\//g, 'https://www.filmara.fr/lon/');
-        htmlContent = htmlContent.replace(/\/plan\/employee-dashboard\.html/g, '/lon/employee-dashboard.html');
-        htmlContent = htmlContent.replace(/\/plan\/advance-requests/g, '/lon/advance-requests');
-      }
-
       let textContent = this.replaceTemplateVariables(template.textContent, {
         to_name: managerName,
         employee_name: employeeName,
@@ -2860,14 +2804,6 @@ Date : ${new Date().toLocaleDateString('fr-FR')}
         request_date: new Date().toLocaleDateString('fr-FR'),
         admin_url: adminUrl
       });
-      
-      // Vérifier si le textContent contient encore des URLs hardcodées /plan/ et les remplacer
-      if (textContent.includes('/plan/employee-dashboard.html') || textContent.includes('/plan/advance-requests')) {
-        console.log('⚠️ ATTENTION: Le textContent contient encore des URLs /plan/ - Remplacement forcé');
-        textContent = textContent.replace(/https:\/\/www\.filmara\.fr\/plan\//g, 'https://www.filmara.fr/lon/');
-        textContent = textContent.replace(/\/plan\/employee-dashboard\.html/g, '/lon/employee-dashboard.html');
-        textContent = textContent.replace(/\/plan\/advance-requests/g, '/lon/advance-requests');
-      }
       
       console.log('✅ sendAdvanceRequestNotification - Contenu final:', {
         htmlContainsPlan: htmlContent.includes('/plan/'),
@@ -2927,14 +2863,6 @@ Date : ${new Date().toLocaleDateString('fr-FR')}
         dashboard_url: dashboardUrl
       });
 
-      // Vérifier si le template contient encore des URLs hardcodées /plan/ et les remplacer
-      if (htmlContent.includes('/plan/employee-dashboard.html') || htmlContent.includes('/plan/advance-requests')) {
-        console.log('⚠️ ATTENTION: Le template contient encore des URLs /plan/ - Remplacement forcé');
-        htmlContent = htmlContent.replace(/https:\/\/www\.filmara\.fr\/plan\//g, 'https://www.filmara.fr/lon/');
-        htmlContent = htmlContent.replace(/\/plan\/employee-dashboard\.html/g, '/lon/employee-dashboard.html');
-        htmlContent = htmlContent.replace(/\/plan\/advance-requests/g, '/lon/advance-requests');
-      }
-
       let textContent = this.replaceTemplateVariables(template.textContent, {
         to_name: employeeName,
         amount: amount,
@@ -2943,14 +2871,6 @@ Date : ${new Date().toLocaleDateString('fr-FR')}
         approval_date: new Date().toLocaleDateString('fr-FR'),
         dashboard_url: dashboardUrl
       });
-      
-      // Vérifier si le textContent contient encore des URLs hardcodées /plan/ et les remplacer
-      if (textContent.includes('/plan/employee-dashboard.html') || textContent.includes('/plan/advance-requests')) {
-        console.log('⚠️ ATTENTION: Le textContent contient encore des URLs /plan/ - Remplacement forcé');
-        textContent = textContent.replace(/https:\/\/www\.filmara\.fr\/plan\//g, 'https://www.filmara.fr/lon/');
-        textContent = textContent.replace(/\/plan\/employee-dashboard\.html/g, '/lon/employee-dashboard.html');
-        textContent = textContent.replace(/\/plan\/advance-requests/g, '/lon/advance-requests');
-      }
       
       console.log('✅ sendAdvanceApproved - Contenu final:', {
         htmlContainsPlan: htmlContent.includes('/plan/'),
