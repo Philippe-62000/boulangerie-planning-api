@@ -1027,6 +1027,7 @@ const Parameters = () => {
                         {permission.menuId === 'employee-status-print' && '🖨️'}
                         {permission.menuId === 'sick-leave-management' && '🏥'}
                         {permission.menuId === 'vacation-management' && '🏖️'}
+                        {permission.menuId === 'ambassadeur' && '⭐'}
                       </span>
                       {permission.menuName}
                     </div>

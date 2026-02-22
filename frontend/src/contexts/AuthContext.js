@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { clearStoredTokens } from '../config/apiConfig';
 
 const AuthContext = createContext();
 
@@ -44,6 +45,7 @@ export const AuthProvider = ({ children }) => {
   const logout = () => {
     setUser(null);
     localStorage.removeItem('userRole');
+    clearStoredTokens();
   };
 
   const hasPermission = (permission) => {

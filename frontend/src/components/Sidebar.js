@@ -32,7 +32,8 @@ const Sidebar = () => {
         { menuId: 'ticket-restaurant', isVisibleToAdmin: true, isVisibleToEmployee: true },
         { menuId: 'advance-requests', isVisibleToAdmin: true, isVisibleToEmployee: false },
         { menuId: 'employee-dashboard', isVisibleToAdmin: false, isVisibleToEmployee: true },
-        { menuId: 'primes', isVisibleToAdmin: true, isVisibleToEmployee: false }
+        { menuId: 'primes', isVisibleToAdmin: true, isVisibleToEmployee: false },
+        { menuId: 'ambassadeur', isVisibleToAdmin: true, isVisibleToEmployee: false }
       ];
     } else {
       return [
@@ -43,7 +44,8 @@ const Sidebar = () => {
         { menuId: 'meal-expenses', isVisibleToAdmin: false, isVisibleToEmployee: true },
         { menuId: 'km-expenses', isVisibleToAdmin: false, isVisibleToEmployee: true },
         { menuId: 'recup', isVisibleToAdmin: false, isVisibleToEmployee: true },
-        { menuId: 'ticket-restaurant', isVisibleToAdmin: false, isVisibleToEmployee: true }
+        { menuId: 'ticket-restaurant', isVisibleToAdmin: false, isVisibleToEmployee: true },
+        { menuId: 'ambassadeur', isVisibleToAdmin: false, isVisibleToEmployee: false }
       ];
     }
   };
@@ -105,7 +107,8 @@ const Sidebar = () => {
     { path: '/vacation-management', label: 'Gestion des Congés', icon: '🏖️', menuId: 'vacation-management' },
     { path: '/ticket-restaurant', label: 'Ticket restaurant', icon: '🎫', menuId: 'ticket-restaurant' },
     { path: '/advance-requests', label: 'Demandes d\'Acompte', icon: '💰', menuId: 'advance-requests' },
-    { path: '/employee-dashboard', label: 'Mes Documents', icon: '📁', menuId: 'employee-dashboard' }
+    { path: '/employee-dashboard', label: 'Mes Documents', icon: '📁', menuId: 'employee-dashboard' },
+    { path: '/ambassadeur', label: 'Ambassadeur', icon: '⭐', menuId: 'ambassadeur' }
   ];
 
   // Filtrer les menus selon les permissions

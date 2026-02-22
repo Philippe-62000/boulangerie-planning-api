@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { getApiUrl } from '../config/apiConfig';
+import { getApiUrl, getStoredToken, clearStoredTokens } from '../config/apiConfig';
 
 // Configuration d'Axios - URL dynamique selon /lon (Longuenesse) ou /plan (Arras)
 const api = axios.create({
@@ -13,12 +13,7 @@ const api = axios.create({
 // Intercepteur pour ajouter le token JWT automatiquement
 api.interceptors.request.use(
   (config) => {
-    // Chercher le token dans localStorage avec différents noms possibles
-    const token = 
-      localStorage.getItem('token') ||
-      localStorage.getItem('adminToken') ||
-      localStorage.getItem('managerToken') ||
-      localStorage.getItem('employeeToken');
+    const token = getStoredToken();
     
     // Si un token est trouvé, l'ajouter dans les headers
     if (token) {
@@ -43,32 +38,21 @@ api.interceptors.response.use(
       console.warn('⚠️ Timeout API - Render en mode sleep, veuillez patienter...');
     } else if (error.response?.status === 401) {
       const errorData = error.response.data;
-      
-      // Si le token a expiré, nettoyer le localStorage et rediriger vers login
-      if (errorData?.expired === true) {
-        console.warn('⚠️ Token expiré, redirection vers la page de connexion...');
-        // Nettoyer tous les tokens
-        localStorage.removeItem('token');
-        localStorage.removeItem('adminToken');
-        localStorage.removeItem('managerToken');
-        localStorage.removeItem('employeeToken');
-        
-        // Déterminer le chemin de login en fonction de l'URL actuelle
-        const currentPath = window.location.pathname;
-        let loginPath = '/login';
-        
-        if (currentPath.startsWith('/lon')) {
-          loginPath = '/lon/login';
-        } else if (currentPath.startsWith('/plan')) {
-          loginPath = '/plan/login';
-        }
-        
-        // Rediriger vers la page de login (seulement si on n'y est pas déjà)
-        if (currentPath !== loginPath && !currentPath.endsWith('/login')) {
-          window.location.href = loginPath;
-        }
-      } else {
-        console.error('Erreur d\'authentification:', errorData?.error || 'Token invalide');
+      const msg = errorData?.error || 'Token invalide';
+      console.warn('⚠️ 401:', msg, '- redirection vers la page de connexion...');
+      clearStoredTokens();
+      localStorage.removeItem('userRole');
+      // Déterminer le chemin de login en fonction de l'URL actuelle
+      const currentPath = window.location.pathname;
+      let loginPath = '/login';
+      if (currentPath.startsWith('/lon')) {
+        loginPath = '/lon/login';
+      } else if (currentPath.startsWith('/plan')) {
+        loginPath = '/plan/login';
+      }
+      // Rediriger vers la page de login (seulement si on n'y est pas déjà)
+      if (currentPath !== loginPath && !currentPath.endsWith('/login')) {
+        window.location.href = loginPath;
       }
     } else if (error.response?.status >= 500) {
       console.error('Erreur serveur:', error.response.data);

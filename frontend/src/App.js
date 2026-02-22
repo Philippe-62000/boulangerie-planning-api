@@ -29,6 +29,7 @@ import AdvanceRequests from './pages/AdvanceRequests';
 import Recup from './pages/Recup';
 import Primes from './pages/Primes';
 import MutuelleManagement from './pages/MutuelleManagement';
+import Ambassadeur from './pages/Ambassadeur';
 
 const AppContent = () => {
   const { user } = useAuth();
@@ -147,6 +148,11 @@ const AppContent = () => {
             <Route path="/mutuelle-management" element={
               <ProtectedRoute adminOnly={true}>
                 <MutuelleManagement />
+              </ProtectedRoute>
+            } />
+            <Route path="/ambassadeur" element={
+              <ProtectedRoute>
+                <Ambassadeur />
               </ProtectedRoute>
             } />
           </Routes>
