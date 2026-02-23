@@ -175,6 +175,7 @@ function App() {
     <AuthProvider>
       <Router basename={getBasename()}>
         <Routes>
+          <Route path="/ambassadeur-standalone" element={<Navigate to="/ambassadeur-standalone.html" replace />} />
           <Route path="/login" element={<Login />} />
           <Route path="/*" element={<AppContent />} />
         </Routes>

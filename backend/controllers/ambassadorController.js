@@ -39,11 +39,11 @@ const getAmbassadors = async (req, res) => {
         { $group: { _id: '$ambassadorCode', count: { $sum: 1 } } }
       ]),
       AmbassadorClient.aggregate([
-        { $match: { ambassadorId: { $exists: true, $ne: null }, giftReceived: true } },
+        { $match: { ambassadorId: { $exists: true, $ne: null }, giftClaimed: true } },
         { $group: { _id: '$ambassadorId', count: { $sum: 1 } } }
       ]),
       AmbassadorClient.aggregate([
-        { $match: { ambassadorCode: { $exists: true, $ne: null, $ne: '' }, giftReceived: true } },
+        { $match: { ambassadorCode: { $exists: true, $ne: null, $ne: '' }, giftClaimed: true } },
         { $group: { _id: '$ambassadorCode', count: { $sum: 1 } } }
       ])
     ]);
@@ -244,11 +244,11 @@ const getPublicAmbassadorsList = async (req, res) => {
         { $group: { _id: '$ambassadorCode', count: { $sum: 1 } } }
       ]),
       AmbassadorClient.aggregate([
-        { $match: { ambassadorId: { $exists: true, $ne: null }, giftReceived: true } },
+        { $match: { ambassadorId: { $exists: true, $ne: null }, giftClaimed: true } },
         { $group: { _id: '$ambassadorId', count: { $sum: 1 } } }
       ]),
       AmbassadorClient.aggregate([
-        { $match: { ambassadorCode: { $exists: true, $ne: null, $ne: '' }, giftReceived: true } },
+        { $match: { ambassadorCode: { $exists: true, $ne: null, $ne: '' }, giftClaimed: true } },
         { $group: { _id: '$ambassadorCode', count: { $sum: 1 } } }
       ])
     ]);

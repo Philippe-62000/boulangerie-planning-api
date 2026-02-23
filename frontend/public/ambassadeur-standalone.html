@@ -529,7 +529,7 @@
                     ${expiryText ? `<div class="coupon-expiry ${isExpired ? 'expired' : ''}">${expiryText}</div>` : ''}
                     <div class="checkboxes">
                         <label class="checkbox-item">
-                            <input type="checkbox" data-id="${c._id}" data-field="giftReceived" ${c.giftReceived ? 'checked disabled' : ''} />
+                            <input type="checkbox" data-id="${c._id}" data-field="giftClaimed" ${c.giftClaimed ? 'checked disabled' : ''} />
                             <span>Cadeau retiré</span>
                         </label>
                     </div>
@@ -543,7 +543,7 @@
                         e.target.checked = false;
                         return;
                     }
-                    updateGift(e.target.dataset.id, 'giftReceived', true);
+                    updateGift(e.target.dataset.id, 'giftClaimed', true);
                 });
             });
         };

@@ -399,8 +399,8 @@ const Ambassadeur = () => {
                         <label className="checkbox-label">
                           <input
                             type="checkbox"
-                            checked={!!c.giftClaimed}
-                            onChange={() => toggleGiftClaimed(c)}
+                            checked={!!c.giftReceived}
+                            onChange={() => toggleGiftReceived(c)}
                           />
                           Bonus bénéficié
                         </label>
@@ -409,13 +409,13 @@ const Ambassadeur = () => {
                         <label className="checkbox-label">
                           <input
                             type="checkbox"
-                            checked={!!c.giftReceived}
-                            onChange={() => toggleGiftReceived(c)}
+                            checked={!!c.giftClaimed}
+                            onChange={() => toggleGiftClaimed(c)}
                           />
                           Cadeau retiré
                         </label>
                       </td>
-                      <td title={c.giftReceivedByName ? `Retiré par: ${c.giftReceivedByName}` : ''}>
+                      <td title={c.giftClaimedByName ? `Retiré par: ${c.giftClaimedByName}` : (c.giftReceivedByName ? `Bonus par: ${c.giftReceivedByName}` : '')}>
                         {c.recordedByName || '-'}
                       </td>
                       <td>
