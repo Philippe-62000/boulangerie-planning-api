@@ -220,10 +220,57 @@
             margin-right: 10px;
             font-size: 16px;
         }
+
+        .maintenance-container {
+            display: none;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
+            padding: 40px;
+            width: 100%;
+            max-width: 400px;
+            text-align: center;
+        }
+
+        .maintenance-container.visible {
+            display: block;
+        }
+
+        .maintenance-container.hidden {
+            display: none !important;
+        }
+
+        .maintenance-message h2 {
+            color: #f59e0b;
+            margin-bottom: 20px;
+            font-size: 1.5rem;
+        }
+
+        .maintenance-message p {
+            margin: 10px 0;
+            color: #555;
+            font-size: 1.1rem;
+        }
+
+        .maintenance-sub {
+            margin-top: 20px;
+            color: #888;
+            font-size: 0.95rem;
+        }
     </style>
 </head>
 <body>
-    <div class="login-container">
+    <div id="maintenanceContainer" class="maintenance-container">
+        <div class="logo">🏢</div>
+        <div class="maintenance-message">
+            <h2>🔧 Site en maintenance</h2>
+            <p>Le site est temporairement indisponible.</p>
+            <p><strong>Retour à la normale rapidement.</strong></p>
+            <p class="maintenance-sub">Merci de votre compréhension.</p>
+        </div>
+    </div>
+
+    <div class="login-container" id="loginContainer">
         <div class="logo">🏢</div>
         <h1 class="title">Connexion Salarié</h1>
         <p class="subtitle">Accédez à vos services en ligne</p>
@@ -567,8 +614,29 @@
             await attemptLogin(email, password, 0);
         });
 
-        // Vérifier si l'utilisateur est déjà connecté
-        window.addEventListener('load', () => {
+        // Vérifier le mode maintenance (Longuenesse ou Arras) puis initialiser
+        async function checkMaintenanceAndInit() {
+            const path = window.location.pathname;
+            const shouldCheckMaintenance = path.indexOf('/lon') !== -1 || path.indexOf('/plan') !== -1;
+            if (shouldCheckMaintenance) {
+                try {
+                    const res = await fetch(API_URL + '/parameters/maintenance');
+                    const data = await res.json();
+                    if (data.maintenance === true) {
+                        document.getElementById('maintenanceContainer').classList.add('visible');
+                        document.getElementById('loginContainer').style.display = 'none';
+                        return;
+                    }
+                } catch (e) {
+                    console.log('Vérification maintenance:', e);
+                }
+            }
+            document.getElementById('maintenanceContainer').classList.remove('visible');
+            document.getElementById('loginContainer').style.display = 'block';
+            checkExistingToken();
+        }
+
+        function checkExistingToken() {
             // Nettoyer les tokens expirés au chargement
             const wasExpired = cleanExpiredTokens();
             if (wasExpired) {
@@ -632,6 +700,10 @@
                 localStorage.removeItem('employeeData');
                 // Ne pas rediriger, rester sur la page de connexion
             });
+        }
+
+        window.addEventListener('load', () => {
+            checkMaintenanceAndInit();
         });
     </script>
 </body>

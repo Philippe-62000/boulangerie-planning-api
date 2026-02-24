@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
@@ -982,7 +982,7 @@ const loadEmployeeMessages = async (saleCode) => {
 
                 if (response.ok && data.success) {
                     const successLabel = helperText.textContent ? ` (${helperText.textContent.replace('✅ ', '')})` : '';
-                    const successMessage = `✅ Saisie enregistrée avec succès${successLabel ? ' ' + successLabel : ' !'}\n\n📊 Vos chiffres ont bien été pris en compte :\n🎯 ${nbCartesFid} carte${nbCartesFid > 1 ? 's' : ''} fidélité\n🔥 ${nbPromo} promo quinzaine`;
+                    const successMessage = `✅ Saisie enregistrée avec succès${successLabel ? ' ' + successLabel : ' !'}\n\n📊 Vos chiffres ont bien été pris en compte :\n🎯 ${nbCartesFid} carte${nbCartesFid > 1 ? 's' : ''} fidélité\n🔥 ${nbPromo} promo quinzaine\n🏆 ${nbChallenge} challenge${nbChallenge > 1 ? 's' : ''}`;
                     showMessage(successMessage, 'success');
                     form.reset();
                     lastLookupCode = '';

@@ -7,9 +7,10 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(true);
   const [pendingObligations, setPendingObligations] = useState([]);
   const [lossesStats, setLossesStats] = useState(null);
+  const [printingRecup, setPrintingRecup] = useState(false);
   
   // Détecter si on est sur Longuenesse ou Arras
-  const isLonguenesse = window.location.pathname.includes('/lon/');
+  const isLonguenesse = window.location.pathname.startsWith('/lon');
   const isArras = window.location.pathname.includes('/plan/');
   const shouldShowLosses = isLonguenesse || isArras;
 
@@ -92,6 +93,79 @@ const Dashboard = () => {
     } catch (error) {
       console.error('Erreur lors du chargement des stats pertes:', error);
       setLossesStats(null);
+    }
+  };
+
+  // Impression Heures de Récup (Longuenesse uniquement)
+  const getMonday = (date) => {
+    const ref = new Date(date);
+    const day = ref.getDay() || 7;
+    if (day !== 1) ref.setDate(ref.getDate() - (day - 1));
+    ref.setHours(0, 0, 0, 0);
+    return ref;
+  };
+
+  const handlePrintRecupHours = async () => {
+    try {
+      setPrintingRecup(true);
+      const weekStart = getMonday(new Date()).toISOString().split('T')[0];
+      const response = await api.get('/recup-hours', { params: { weekStart } });
+      if (!response.data?.success || !response.data?.data?.employees) {
+        console.error('Données recup invalides');
+        return;
+      }
+      const employees = [...(response.data.data.employees || [])]
+        .sort((a, b) => (a.employeeName || '').localeCompare(b.employeeName || '', 'fr'));
+      const printContent = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="utf-8">
+          <title>Heures de Récup - Impression</title>
+          <style>
+            body { font-family: Arial, sans-serif; padding: 20px; }
+            h1 { font-size: 1.4rem; margin-bottom: 1rem; }
+            table { width: 100%; border-collapse: collapse; }
+            th, td { border: 1px solid #333; padding: 8px 12px; text-align: left; }
+            th { background: #f0f0f0; font-weight: bold; }
+            .total { font-weight: bold; }
+            .positive { color: #28a745; }
+            .negative { color: #dc3545; }
+          </style>
+        </head>
+        <body>
+          <h1>Heures de Récup – Liste des salariés (Longuenesse)</h1>
+          <p>Imprimé le ${new Date().toLocaleDateString('fr-FR', { dateStyle: 'full' })}</p>
+          <table>
+            <thead><tr><th>Salarié</th><th>Compteur (heures)</th></tr></thead>
+            <tbody>
+              ${employees.map((e) => {
+                const h = Number(e.totalHours || 0);
+                const cls = h > 0 ? 'positive' : h < 0 ? 'negative' : '';
+                return `<tr><td>${(e.employeeName || '-').replace(/</g, '&lt;')}</td><td class="${cls}">${h >= 0 ? '+' : ''}${h.toFixed(2)} h</td></tr>`;
+              }).join('')}
+            </tbody>
+          </table>
+        </body>
+        </html>
+      `;
+      const w = window.open('', '_blank');
+      if (!w) {
+        alert('Veuillez autoriser les pop-ups pour imprimer.');
+        return;
+      }
+      w.document.write(printContent);
+      w.document.close();
+      w.focus();
+      setTimeout(() => {
+        w.print();
+        w.close();
+      }, 250);
+    } catch (err) {
+      console.error('Erreur impression heures récup:', err);
+      alert('Erreur lors du chargement des heures de récup.');
+    } finally {
+      setPrintingRecup(false);
     }
   };
 
@@ -311,7 +385,20 @@ const Dashboard = () => {
 
   return (
     <div className="dashboard fade-in">
-      <h2>📊 Tableau de bord</h2>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
+        <h2 style={{ margin: 0 }}>📊 Tableau de bord</h2>
+        {isLonguenesse && (
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={handlePrintRecupHours}
+            disabled={printingRecup}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}
+          >
+            {printingRecup ? '⏳ Chargement...' : '🖨️ Impression Heures de Récup'}
+          </button>
+        )}
+      </div>
 
       {/* Widget Pertes Invendus/Dons - Longuenesse et Arras */}
       {shouldShowLosses && lossesStats && (

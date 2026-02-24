@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
@@ -357,7 +357,7 @@
 <body>
     <div class="container">
         <h1>📊 Gestion Invendus et Caisses</h1>
-        <p class="subtitle">Boulangerie Ange - Longuenesse</p>
+        <p class="subtitle" id="subtitle">Boulangerie Ange</p>
 
         <div class="month-selector">
             <label for="monthSelect">Mois :</label>
@@ -371,11 +371,6 @@
         </div>
 
         <div class="stats-summary">
-            <div class="stat-card">
-                <h3>Jour sélectionné</h3>
-                <div class="value" id="dayTotalPertes">-</div>
-                <div class="percentage" id="dayPercentage">-</div>
-            </div>
             <div class="stat-card">
                 <h3>Cumul Semaine</h3>
                 <div class="value" id="weekTotalPertes">-</div>
@@ -461,8 +456,13 @@
     </div>
 
     <script>
-        const API_BASE_URL = 'https://boulangerie-planning-api-3.onrender.com/api';
+        // Détecter automatiquement l'API URL selon la base path
+        const isLonguenesse = window.location.pathname.includes('/lon/');
+        const API_BASE_URL = isLonguenesse 
+            ? 'https://boulangerie-planning-api-3.onrender.com/api'
+            : 'https://boulangerie-planning-api-3.onrender.com/api';
         const DAILY_LOSSES_API = `${API_BASE_URL}/daily-losses`;
+        const CITY = isLonguenesse ? 'longuenesse' : 'arras';
 
         let currentMonth = new Date().getMonth() + 1;
         let currentYear = new Date().getFullYear();
@@ -472,6 +472,8 @@
 
         // Initialisation
         document.addEventListener('DOMContentLoaded', () => {
+            // Mettre à jour le sous-titre selon la ville
+            document.getElementById('subtitle').textContent = `Boulangerie Ange - ${isLonguenesse ? 'Longuenesse' : 'Arras'}`;
             initializeMonthYearSelectors();
             loadMonthlyData();
             setupEventListeners();
@@ -566,7 +568,7 @@
             try {
                 document.getElementById('calendarContainer').innerHTML = '<div class="loading">Chargement...</div>';
                 
-                const response = await fetch(`${DAILY_LOSSES_API}/month?month=${currentMonth}&year=${currentYear}&city=longuenesse`);
+                const response = await fetch(`${DAILY_LOSSES_API}/month?month=${currentMonth}&year=${currentYear}&city=${CITY}`);
                 const result = await response.json();
 
                 if (result.success) {
@@ -584,23 +586,44 @@
 
         async function loadDashboardStats() {
             try {
-                const response = await fetch(`${DAILY_LOSSES_API}/dashboard?city=longuenesse`);
+                // Charger les stats du mois sélectionné (pas forcément le mois actuel)
+                const monthDataResponse = await fetch(`${DAILY_LOSSES_API}/month?month=${currentMonth}&year=${currentYear}&city=${CITY}`);
+                const monthResult = await monthDataResponse.json();
+
+                // Calculer les stats du mois sélectionné
+                let monthTotalPertes = 0;
+                let monthTotalVentes = 0;
+                if (monthResult.success && monthResult.data) {
+                    monthTotalPertes = monthResult.data.reduce((sum, d) => sum + (d.totalPertes || 0), 0);
+                    monthTotalVentes = monthResult.data.reduce((sum, d) => sum + (d.totalVentes || 0), 0);
+                }
+                const monthPourcentage = monthTotalVentes > 0 
+                    ? (monthTotalPertes / monthTotalVentes) * 100 
+                    : 0;
+
+                // Charger les stats générales (jour actuel, semaine actuelle, année)
+                const response = await fetch(`${DAILY_LOSSES_API}/dashboard?city=${CITY}`);
                 const result = await response.json();
 
                 if (result.success) {
-                    const { jour, semaine, mois, annee } = result.data;
+                    const { semaine, annee } = result.data;
                     
-                    if (jour) {
-                        document.getElementById('dayTotalPertes').textContent = jour.totalPertes.toFixed(2) + ' €';
-                        updatePercentageDisplay('dayPercentage', jour.pourcentage);
+                    // Semaine actuelle (seulement si on est dans le mois actuel)
+                    const today = new Date();
+                    const isCurrentMonth = currentMonth === today.getMonth() + 1 && currentYear === today.getFullYear();
+                    if (isCurrentMonth) {
+                        document.getElementById('weekTotalPertes').textContent = semaine.totalPertes.toFixed(2) + ' €';
+                        updatePercentageDisplay('weekPercentage', semaine.pourcentage);
+                    } else {
+                        document.getElementById('weekTotalPertes').textContent = '0.00 €';
+                        updatePercentageDisplay('weekPercentage', 0);
                     }
                     
-                    document.getElementById('weekTotalPertes').textContent = semaine.totalPertes.toFixed(2) + ' €';
-                    updatePercentageDisplay('weekPercentage', semaine.pourcentage);
+                    // Mois sélectionné (utilise les données du mois sélectionné)
+                    document.getElementById('monthTotalPertes').textContent = monthTotalPertes.toFixed(2) + ' €';
+                    updatePercentageDisplay('monthPercentage', monthPourcentage);
                     
-                    document.getElementById('monthTotalPertes').textContent = mois.totalPertes.toFixed(2) + ' €';
-                    updatePercentageDisplay('monthPercentage', mois.pourcentage);
-                    
+                    // Année (toujours affiché)
                     document.getElementById('yearTotalPertes').textContent = annee.totalPertes.toFixed(2) + ' €';
                     updatePercentageDisplay('yearPercentage', annee.pourcentage);
                 }
@@ -644,11 +667,18 @@
             for (let day = 1; day <= daysInMonth; day++) {
                 const date = new Date(currentYear, currentMonth - 1, day);
                 const dateStr = date.toISOString().split('T')[0];
+                // Comparer les dates correctement en utilisant la même logique que le backend
                 const dayData = monthlyData.find(d => {
+                    // Le backend stocke la date en UTC, on compare directement les composants
                     const dDate = new Date(d.date);
-                    return dDate.getUTCDate() === day && 
-                           dDate.getUTCMonth() === currentMonth - 1 &&
-                           dDate.getUTCFullYear() === currentYear;
+                    // Convertir en UTC pour la comparaison
+                    const dayYear = dDate.getUTCFullYear();
+                    const dayMonth = dDate.getUTCMonth(); // 0-11
+                    const dayDay = dDate.getUTCDate();
+                    
+                    return dayDay === day && 
+                           dayMonth === currentMonth - 1 &&
+                           dayYear === currentYear;
                 });
 
                 const isToday = date.getTime() === today.getTime();
@@ -689,12 +719,14 @@
 
         async function openEditModal(dateStr) {
             selectedDate = dateStr;
-            const date = new Date(dateStr);
+            // Parser la date correctement pour éviter les problèmes de timezone
+            const [year, month, day] = dateStr.split('-').map(Number);
+            const date = new Date(year, month - 1, day); // month - 1 car les mois commencent à 0
             document.getElementById('modalTitle').textContent = 
-                `Saisie du ${date.getDate()}/${date.getMonth() + 1}/${date.getFullYear()}`;
+                `Saisie du ${day}/${month}/${year}`;
 
             try {
-                const response = await fetch(`${DAILY_LOSSES_API}/day?date=${dateStr}&city=longuenesse`);
+                const response = await fetch(`${DAILY_LOSSES_API}/day?date=${dateStr}&city=${CITY}`);
                 const result = await response.json();
 
                 if (result.success) {
@@ -771,7 +803,7 @@
         }
 
         function updateSummaryStats(totals) {
-            // Les stats seront mises à jour via loadDashboardStats
+            // Recharger les stats après changement de mois
             loadDashboardStats();
         }
 

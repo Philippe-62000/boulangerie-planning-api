@@ -1,0 +1,611 @@
+﻿<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>⭐ Programme Ambassadeur - Saisie tablette</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            max-width: 700px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            padding: 24px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+        }
+        h1 {
+            color: #333;
+            font-size: 1.6rem;
+            margin-bottom: 8px;
+            text-align: center;
+        }
+        .subtitle {
+            color: #666;
+            text-align: center;
+            margin-bottom: 24px;
+            font-size: 0.95rem;
+        }
+        .sale-code-section {
+            background: #f1f5ff;
+            border: 2px solid rgba(102, 126, 234, 0.3);
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 24px;
+        }
+        .sale-code-section label {
+            display: block;
+            font-weight: 600;
+            color: #4c51bf;
+            margin-bottom: 8px;
+        }
+        .sale-code-section input {
+            width: 100%;
+            padding: 14px;
+            font-size: 1.2rem;
+            border: 2px solid #e1e5e9;
+            border-radius: 10px;
+        }
+        .sale-code-section input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        .vendeuse-name {
+            margin-top: 8px;
+            font-size: 1rem;
+            color: #28a745;
+            font-weight: 600;
+        }
+        .vendeuse-name.error {
+            color: #dc3545;
+        }
+        .tabs {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #e1e5e9;
+        }
+        .tabs button {
+            padding: 12px 20px;
+            border: none;
+            background: none;
+            font-size: 1rem;
+            font-weight: 600;
+            color: #666;
+            cursor: pointer;
+            border-bottom: 3px solid transparent;
+            margin-bottom: -2px;
+        }
+        .tabs button.active {
+            color: #667eea;
+            border-bottom-color: #667eea;
+        }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        .form-section { margin-bottom: 24px; }
+        .form-section h2 {
+            font-size: 1.2rem;
+            color: #333;
+            margin-bottom: 16px;
+            padding-bottom: 8px;
+            border-bottom: 2px solid #e1e5e9;
+        }
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+        .form-group { margin-bottom: 12px; }
+        .form-group label {
+            display: block;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 6px;
+            font-size: 0.9rem;
+        }
+        .form-group input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e1e5e9;
+            border-radius: 8px;
+            font-size: 1rem;
+        }
+        .form-group input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        button[type="submit"] {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 8px;
+        }
+        button[type="submit"]:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        .search-ambassador {
+            margin-bottom: 20px;
+        }
+        .search-ambassador input {
+            width: 100%;
+            padding: 14px;
+            font-size: 1.1rem;
+            border: 2px solid #e1e5e9;
+            border-radius: 10px;
+        }
+        .ambassador-results {
+            margin-top: 12px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        .ambassador-item {
+            padding: 12px;
+            border: 2px solid #e9ecef;
+            border-radius: 10px;
+            margin-bottom: 8px;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .ambassador-item:hover {
+            border-color: #667eea;
+            background: #f1f5ff;
+        }
+        .ambassador-item.selected {
+            border-color: #28a745;
+            background: #d4edda;
+        }
+        .client-card {
+            background: #f8f9fa;
+            border: 2px solid #e9ecef;
+            border-radius: 12px;
+            padding: 14px;
+            margin-bottom: 12px;
+        }
+        .client-card .client-name {
+            font-weight: 700;
+            font-size: 1.05rem;
+            color: #333;
+            margin-bottom: 4px;
+        }
+        .client-card .client-code {
+            font-size: 0.9rem;
+            color: #666;
+            margin-bottom: 12px;
+        }
+        .client-card .coupon-expiry {
+            font-size: 0.85rem;
+            margin-bottom: 8px;
+        }
+        .client-card .coupon-expiry.expired {
+            color: #dc3545;
+            font-weight: 600;
+        }
+        .client-card .checkboxes {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+        .checkbox-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+        }
+        .checkbox-item input {
+            width: 22px;
+            height: 22px;
+            cursor: pointer;
+        }
+        .message {
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 16px;
+            display: none;
+        }
+        .message.success {
+            background: #d4edda;
+            color: #155724;
+            border: 2px solid #28a745;
+            display: block;
+        }
+        .message.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 2px solid #dc3545;
+            display: block;
+        }
+        .loading { text-align: center; padding: 20px; color: #666; }
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>⭐ Programme Ambassadeur</h1>
+        <p class="subtitle">Saisie client parrainé et retrait lot parrain</p>
+
+        <div class="sale-code-section">
+            <label for="saleCode">Code vendeuse *</label>
+            <input type="text" id="saleCode" placeholder="Ex: 123" maxlength="10" autocomplete="off" />
+            <div id="vendeuseName" class="vendeuse-name hidden"></div>
+        </div>
+
+        <div id="message" class="message"></div>
+
+        <div class="tabs">
+            <button type="button" id="tabNew" class="active">➕ Nouveau client parrainé</button>
+            <button type="button" id="tabClient">📋 Client parrainé</button>
+            <button type="button" id="tabAmbassador">⭐ Ambassadeur – Cadeau retiré</button>
+        </div>
+
+        <div id="contentNew" class="tab-content active">
+            <div class="form-section">
+                <h2>Créer un nouveau client parrainé</h2>
+                <form id="formClient">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Prénom *</label>
+                            <input type="text" id="firstName" required />
+                        </div>
+                        <div class="form-group">
+                            <label>Nom *</label>
+                            <input type="text" id="lastName" required />
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Téléphone *</label>
+                            <input type="tel" id="phone" required />
+                        </div>
+                        <div class="form-group">
+                            <label>Code ambassadeur *</label>
+                            <input type="text" id="ambassadorCode" placeholder="AMB-XXXXXX" list="ambassadorCodes" required />
+                            <datalist id="ambassadorCodes"></datalist>
+                        </div>
+                    </div>
+                    <button type="submit" id="btnCreate">Créer le client parrainé</button>
+                </form>
+            </div>
+        </div>
+
+        <div id="contentClient" class="tab-content">
+            <div class="form-section">
+                <h2>Liste des clients parrainés – Cochez « Bonus retiré »</h2>
+                <div class="search-ambassador">
+                    <input type="text" id="searchClient" placeholder="Rechercher par nom (ex: Dupont, Marie...)" />
+                </div>
+                <div id="clientsListContainer">
+                    <div id="loadingClients" class="loading">Chargement...</div>
+                    <div id="clientsList"></div>
+                </div>
+            </div>
+        </div>
+
+        <div id="contentAmbassador" class="tab-content">
+            <div class="form-section">
+                <h2>Rechercher un ambassadeur et cocher « Cadeau retiré »</h2>
+                <div class="search-ambassador">
+                    <input type="text" id="searchAmbassador" placeholder="Rechercher par nom (ex: Philippe, Doyen...)" />
+                    <div id="ambassadorResults" class="ambassador-results"></div>
+                </div>
+                <div id="ambassadorClientsContainer">
+                    <div id="ambassadorClientsList"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_URLS = {
+            lon: 'https://boulangerie-planning-api-3.onrender.com/api',
+            plan: 'https://boulangerie-planning-api-3.onrender.com/api'
+        };
+        const getApiUrl = () => {
+            const path = window.location.pathname;
+            return path.startsWith('/lon') ? API_URLS.lon : API_URLS.plan;
+        };
+        const API_BASE = getApiUrl();
+        const AMBASSADORS_API = `${API_BASE}/ambassadors`;
+
+        const saleCodeInput = document.getElementById('saleCode');
+        const vendeuseNameEl = document.getElementById('vendeuseName');
+        const formClient = document.getElementById('formClient');
+        const btnCreate = document.getElementById('btnCreate');
+        const messageEl = document.getElementById('message');
+        const searchAmbassadorInput = document.getElementById('searchAmbassador');
+        const ambassadorResultsEl = document.getElementById('ambassadorResults');
+        const ambassadorClientsListEl = document.getElementById('ambassadorClientsList');
+        const searchClientInput = document.getElementById('searchClient');
+        const clientsListEl = document.getElementById('clientsList');
+        const loadingClientsEl = document.getElementById('loadingClients');
+
+        let ambassadorsList = [];
+        let allClients = [];
+        let selectedAmbassador = null;
+        let validateTimeout = null;
+
+        const showMessage = (text, type) => {
+            messageEl.textContent = text;
+            messageEl.className = `message ${type}`;
+            messageEl.classList.remove('hidden');
+            if (type === 'success') setTimeout(() => messageEl.classList.add('hidden'), 3000);
+        };
+
+        const validateSaleCode = async () => {
+            const code = saleCodeInput.value.trim();
+            vendeuseNameEl.classList.add('hidden');
+            if (!code) return;
+            try {
+                const res = await fetch(`${AMBASSADORS_API}/public/validate-vendeuse/${encodeURIComponent(code)}`);
+                const data = await res.json();
+                vendeuseNameEl.classList.remove('hidden');
+                if (data.success && data.name) {
+                    vendeuseNameEl.textContent = `✅ ${data.name}`;
+                    vendeuseNameEl.classList.remove('error');
+                } else {
+                    vendeuseNameEl.textContent = '❌ Code invalide ou inactif';
+                    vendeuseNameEl.classList.add('error');
+                }
+            } catch (e) {
+                vendeuseNameEl.classList.remove('hidden');
+                vendeuseNameEl.textContent = '❌ Erreur de vérification';
+                vendeuseNameEl.classList.add('error');
+            }
+        };
+
+        saleCodeInput.addEventListener('input', () => {
+            clearTimeout(validateTimeout);
+            validateTimeout = setTimeout(validateSaleCode, 400);
+        });
+        saleCodeInput.addEventListener('blur', validateSaleCode);
+
+        const switchTab = (tab) => {
+            document.querySelectorAll('.tabs button').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            document.getElementById('tab' + tab).classList.add('active');
+            document.getElementById('content' + tab).classList.add('active');
+            if (tab === 'Client') loadClientsList();
+            if (tab === 'Ambassador' && ambassadorsList.length === 0) loadAmbassadorsList();
+        };
+        document.getElementById('tabNew').addEventListener('click', () => switchTab('New'));
+        document.getElementById('tabClient').addEventListener('click', () => switchTab('Client'));
+        document.getElementById('tabAmbassador').addEventListener('click', () => switchTab('Ambassador'));
+
+        const getCouponExpiryText = (c) => {
+            if (!c.couponExpiresAt) return '';
+            const exp = new Date(c.couponExpiresAt);
+            const now = new Date();
+            const createdDate = c.createdAt ? new Date(c.createdAt).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '';
+            const createdPart = createdDate ? `Coupon créé le ${createdDate} et ` : 'Coupon ';
+            if (exp < now) {
+                const days = Math.ceil((now - exp) / (24 * 60 * 60 * 1000));
+                return `${createdPart}expiré depuis ${days} jours`;
+            }
+            const days = Math.ceil((exp - now) / (24 * 60 * 60 * 1000));
+            return `${createdPart}valide ${days} jours`;
+        };
+
+        const loadClientsList = async () => {
+            loadingClientsEl.classList.remove('hidden');
+            clientsListEl.innerHTML = '';
+            try {
+                const search = searchClientInput.value.trim();
+                const url = search ? `${AMBASSADORS_API}/public/clients?search=${encodeURIComponent(search)}` : `${AMBASSADORS_API}/public/clients`;
+                const res = await fetch(url);
+                const data = await res.json();
+                loadingClientsEl.classList.add('hidden');
+                allClients = data.success ? (data.data || []) : [];
+                renderClientsList(allClients);
+            } catch (e) {
+                loadingClientsEl.classList.add('hidden');
+                clientsListEl.innerHTML = '<p>Erreur chargement.</p>';
+            }
+        };
+
+        const renderClientsList = (clients) => {
+            if (clients.length === 0) {
+                clientsListEl.innerHTML = '<p>Aucun client parrainé.</p>';
+                return;
+            }
+            clientsListEl.innerHTML = clients.map(c => {
+                const expiryText = getCouponExpiryText(c);
+                const isExpired = c.couponExpiresAt && new Date(c.couponExpiresAt) < new Date();
+                return `
+                <div class="client-card">
+                    <div class="client-name">${c.firstName} ${c.lastName}</div>
+                    <div class="client-code">Code: ${c.ambassadorCode} · Tél: ${c.phone}</div>
+                    ${expiryText ? `<div class="coupon-expiry ${isExpired ? 'expired' : ''}">${expiryText}</div>` : ''}
+                    <div class="checkboxes">
+                        <label class="checkbox-item">
+                            <input type="checkbox" data-id="${c._id}" data-field="giftReceived" ${c.giftReceived ? 'checked disabled' : ''} />
+                            <span>Bonus retiré</span>
+                        </label>
+                    </div>
+                </div>
+            `}).join('');
+            clientsListEl.querySelectorAll('input[type="checkbox"]:not([disabled])').forEach(cb => {
+                cb.addEventListener('change', (e) => {
+                    const saleCode = saleCodeInput.value.trim();
+                    if (!saleCode) {
+                        showMessage('Saisissez votre code vendeuse.', 'error');
+                        e.target.checked = false;
+                        return;
+                    }
+                    updateGift(e.target.dataset.id, 'giftReceived', true);
+                });
+            });
+        };
+
+        searchClientInput.addEventListener('input', () => {
+            clearTimeout(searchClientTimeout);
+            searchClientTimeout = setTimeout(loadClientsList, 300);
+        });
+        let searchClientTimeout = null;
+
+        const loadAmbassadorCodes = async () => {
+            try {
+                const res = await fetch(`${AMBASSADORS_API}/public/ambassadors`);
+                const data = await res.json();
+                if (data.success && data.data) {
+                    document.getElementById('ambassadorCodes').innerHTML = data.data.map(c => `<option value="${c}">`).join('');
+                }
+            } catch (e) { console.error(e); }
+        };
+
+        const loadAmbassadorsList = async () => {
+            try {
+                const res = await fetch(`${AMBASSADORS_API}/public/ambassadors-list`);
+                const data = await res.json();
+                if (data.success) ambassadorsList = data.data || [];
+            } catch (e) { console.error(e); ambassadorsList = []; }
+        };
+
+        searchAmbassadorInput.addEventListener('input', () => {
+            const q = searchAmbassadorInput.value.trim().toLowerCase();
+            if (q.length < 2) {
+                ambassadorResultsEl.innerHTML = '';
+                return;
+            }
+            const filtered = ambassadorsList.filter(a =>
+                (a.firstName || '').toLowerCase().includes(q) ||
+                (a.lastName || '').toLowerCase().includes(q) ||
+                (a.fullName || '').toLowerCase().includes(q)
+            );
+            ambassadorResultsEl.innerHTML = filtered.slice(0, 15).map(a => `
+                <div class="ambassador-item" data-code="${a.code}">
+                    <span><strong>${a.firstName} ${a.lastName}</strong> – ${a.code}</span>
+                    <span>${a.clientsCount || 0} client(s)</span>
+                </div>
+            `).join('');
+            ambassadorResultsEl.querySelectorAll('.ambassador-item').forEach(el => {
+                el.addEventListener('click', () => {
+                    selectedAmbassador = ambassadorsList.find(x => x.code === el.dataset.code);
+                    ambassadorResultsEl.querySelectorAll('.ambassador-item').forEach(e => e.classList.remove('selected'));
+                    el.classList.add('selected');
+                    loadClientsByAmbassador(selectedAmbassador.code);
+                });
+            });
+        });
+
+        const loadClientsByAmbassador = async (code) => {
+            ambassadorClientsListEl.innerHTML = '<div class="loading">Chargement...</div>';
+            try {
+                const res = await fetch(`${AMBASSADORS_API}/public/ambassadors/${encodeURIComponent(code)}/clients`);
+                const data = await res.json();
+                ambassadorClientsListEl.innerHTML = '';
+                if (data.success && data.data && data.data.length > 0) {
+                    renderAmbassadorClients(data.data);
+                } else {
+                    ambassadorClientsListEl.innerHTML = '<p>Aucun client parrainé pour cet ambassadeur.</p>';
+                }
+            } catch (e) {
+                ambassadorClientsListEl.innerHTML = '<p>Erreur chargement.</p>';
+            }
+        };
+
+        const renderAmbassadorClients = (clients) => {
+            ambassadorClientsListEl.innerHTML = clients.map(c => {
+                const expiryText = getCouponExpiryText(c);
+                const isExpired = c.couponExpiresAt && new Date(c.couponExpiresAt) < new Date();
+                return `
+                <div class="client-card">
+                    <div class="client-name">${c.firstName} ${c.lastName}</div>
+                    <div class="client-code">Tél: ${c.phone}</div>
+                    ${expiryText ? `<div class="coupon-expiry ${isExpired ? 'expired' : ''}">${expiryText}</div>` : ''}
+                    <div class="checkboxes">
+                        <label class="checkbox-item">
+                            <input type="checkbox" data-id="${c._id}" data-field="giftClaimed" ${c.giftClaimed ? 'checked disabled' : ''} />
+                            <span>Cadeau retiré</span>
+                        </label>
+                    </div>
+                </div>
+            `}).join('');
+            ambassadorClientsListEl.querySelectorAll('input[type="checkbox"]:not([disabled])').forEach(cb => {
+                cb.addEventListener('change', (e) => {
+                    const saleCode = saleCodeInput.value.trim();
+                    if (!saleCode) {
+                        showMessage('Saisissez votre code vendeuse.', 'error');
+                        e.target.checked = false;
+                        return;
+                    }
+                    updateGift(e.target.dataset.id, 'giftClaimed', true);
+                });
+            });
+        };
+
+        const updateGift = async (id, field, value) => {
+            const saleCode = saleCodeInput.value.trim();
+            if (!value) return;
+            try {
+                const res = await fetch(`${AMBASSADORS_API}/public/clients/${id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ saleCode, [field]: true })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    showMessage('Mis à jour.', 'success');
+                    if (selectedAmbassador) loadClientsByAmbassador(selectedAmbassador.code);
+                    else loadClientsList();
+                } else {
+                    showMessage(data.error || 'Erreur', 'error');
+                }
+            } catch (e) {
+                showMessage('Erreur réseau.', 'error');
+            }
+        };
+
+        formClient.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const saleCode = saleCodeInput.value.trim();
+            if (!saleCode) {
+                showMessage('Saisissez votre code vendeuse.', 'error');
+                return;
+            }
+            btnCreate.disabled = true;
+            const payload = {
+                firstName: document.getElementById('firstName').value.trim(),
+                lastName: document.getElementById('lastName').value.trim(),
+                phone: document.getElementById('phone').value.trim(),
+                ambassadorCode: document.getElementById('ambassadorCode').value.trim().toUpperCase(),
+                saleCode
+            };
+            try {
+                const res = await fetch(`${AMBASSADORS_API}/public/clients`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const data = await res.json();
+                if (data.success) {
+                    showMessage('Client parrainé créé.', 'success');
+                    formClient.reset();
+                } else {
+                    showMessage(data.error || 'Erreur', 'error');
+                }
+            } catch (err) {
+                showMessage('Erreur réseau.', 'error');
+            }
+            btnCreate.disabled = false;
+        });
+
+        loadAmbassadorCodes();
+        loadAmbassadorsList();
+    </script>
+</body>
+</html>
