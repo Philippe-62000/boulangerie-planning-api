@@ -31,6 +31,10 @@ const ambassadorSchema = new mongoose.Schema({
     type: Number,
     default: 30,
     min: 1
+  },
+  smsSent: {
+    type: Boolean,
+    default: false
   }
 }, {
   timestamps: true

@@ -28,6 +28,7 @@ const Ambassadeur = () => {
   });
   const [savingClient, setSavingClient] = useState(false);
   const [sendingSms, setSendingSms] = useState(false);
+  const [regeneratingId, setRegeneratingId] = useState(null);
 
   useEffect(() => {
     fetchData();
@@ -144,13 +145,24 @@ const Ambassadeur = () => {
     }
   };
 
+  const toggleSmsSent = async (ambassador) => {
+    try {
+      const res = await api.put(`/ambassadors/ambassadors/${ambassador._id}`, {
+        smsSent: !ambassador.smsSent
+      });
+      if (res.data.success) fetchData();
+    } catch (err) {
+      toast.error('Erreur');
+    }
+  };
+
   const handleSendSms = async () => {
-    const withPhone = ambassadors.filter(a => a.phone?.trim());
-    if (withPhone.length === 0) {
-      toast.error('Aucun ambassadeur avec numéro de téléphone');
+    const toSend = ambassadors.filter(a => a.phone?.trim() && !a.smsSent);
+    if (toSend.length === 0) {
+      toast.error('Aucun ambassadeur sans SMS envoyé (avec numéro de téléphone)');
       return;
     }
-    if (!window.confirm(`Envoyer le message de bienvenue à ${withPhone.length} ambassadeur(s) ?`)) return;
+    if (!window.confirm(`Envoyer le message de bienvenue à ${toSend.length} ambassadeur(s) n'ayant pas encore reçu le SMS ?`)) return;
     setSendingSms(true);
     try {
       const res = await api.post('/ambassadors/ambassadors/send-sms');
@@ -168,6 +180,49 @@ const Ambassadeur = () => {
       toast.error(err.response?.data?.error || 'Erreur lors de l\'envoi des SMS');
     } finally {
       setSendingSms(false);
+    }
+  };
+
+  const regenerateAmbassadorCode = async (ambassador, withSms = false) => {
+    const msg = withSms
+      ? `Régénérer le code et renvoyer le SMS avec le nouveau code à ${ambassador.firstName} ?`
+      : `Régénérer le code de ${ambassador.firstName} ?`;
+    if (!window.confirm(msg)) return;
+    setRegeneratingId(ambassador._id);
+    try {
+      const res = await api.post(`/ambassadors/ambassadors/${ambassador._id}/regenerate-code`, { resendSms: withSms });
+      if (res.data.success) {
+        toast.success(`Code régénéré : ${res.data.data.newCode}${res.data.data.smsResult === 'envoyé' ? ' - SMS envoyé' : ''}`);
+        fetchData();
+      } else {
+        toast.error(res.data.error || 'Erreur');
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Erreur');
+    } finally {
+      setRegeneratingId(null);
+    }
+  };
+
+  const resendSmsAmbassador = async (ambassador) => {
+    if (!ambassador.phone?.trim()) {
+      toast.error('Aucun numéro de téléphone');
+      return;
+    }
+    if (!window.confirm(`Renvoyer le SMS avec le code actuel (${ambassador.code}) à ${ambassador.firstName} ?`)) return;
+    setRegeneratingId(ambassador._id);
+    try {
+      const res = await api.post(`/ambassadors/ambassadors/${ambassador._id}/resend-sms`);
+      if (res.data.success) {
+        toast.success('SMS envoyé');
+        fetchData();
+      } else {
+        toast.error(res.data.error || 'Erreur');
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Erreur');
+    } finally {
+      setRegeneratingId(null);
     }
   };
 
@@ -291,15 +346,15 @@ const Ambassadeur = () => {
           <div className="ambassadeur-list">
             <div className="ambassadeur-list-header">
               <h2>Liste des ambassadeurs</h2>
-              {ambassadors.some(a => a.phone?.trim()) && (
+              {ambassadors.some(a => a.phone?.trim() && !a.smsSent) && (
                 <button
                   type="button"
                   className="btn-send-sms"
                   onClick={handleSendSms}
                   disabled={sendingSms}
-                  title="Envoyer le message de bienvenue ambassadeur (avec code parrainage) à chaque ambassadeur"
+                  title="Envoyer le message de bienvenue aux ambassadeurs n'ayant pas encore reçu le SMS"
                 >
-                  {sendingSms ? 'Envoi...' : '📱 Envoyer SMS bienvenue'}
+                  {sendingSms ? 'Envoi...' : `📱 Envoyer SMS bienvenue (${ambassadors.filter(a => a.phone?.trim() && !a.smsSent).length})`}
                 </button>
               )}
             </div>
@@ -313,10 +368,11 @@ const Ambassadeur = () => {
                     <th>Téléphone</th>
                     <th>Email</th>
                     <th>Code client</th>
-                    <th>Clients parrainés Total</th>
+                    <th>Clients parrainés</th>
                     <th>Durée validité</th>
                     <th>Cadeaux retirés</th>
-                    <th></th>
+                    <th>SMS envoyé</th>
+                    <th>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -330,6 +386,44 @@ const Ambassadeur = () => {
                       <td>{a.couponValidityDays ?? 30} j</td>
                       <td><strong>{a.giftsRetiredCount ?? 0}</strong></td>
                       <td>
+                        <label className="checkbox-label">
+                          <input
+                            type="checkbox"
+                            checked={!!a.smsSent}
+                            onChange={() => toggleSmsSent(a)}
+                            title="Coché = SMS de bienvenue déjà envoyé"
+                          />
+                          Oui
+                        </label>
+                      </td>
+                      <td className="amb-actions">
+                        <button
+                          type="button"
+                          className="btn-regenerate"
+                          onClick={() => regenerateAmbassadorCode(a, false)}
+                          disabled={regeneratingId === a._id}
+                          title="Régénérer le code uniquement"
+                        >
+                          {regeneratingId === a._id ? '...' : '🔄'}
+                        </button>
+                        <button
+                          type="button"
+                          className="btn-regenerate-sms"
+                          onClick={() => regenerateAmbassadorCode(a, true)}
+                          disabled={regeneratingId === a._id}
+                          title="Régénérer le code et renvoyer le SMS"
+                        >
+                          {regeneratingId === a._id ? '...' : '🔄+SMS'}
+                        </button>
+                        <button
+                          type="button"
+                          className="btn-resend-sms"
+                          onClick={() => resendSmsAmbassador(a)}
+                          disabled={regeneratingId === a._id || !a.phone?.trim()}
+                          title="Renvoyer le SMS avec le code actuel"
+                        >
+                          📱
+                        </button>
                         <button type="button" className="btn-delete" onClick={() => deleteAmbassador(a._id)}>
                           Supprimer
                         </button>

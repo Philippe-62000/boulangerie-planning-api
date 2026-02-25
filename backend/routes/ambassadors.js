@@ -21,8 +21,10 @@ router.post('/ambassadors', ambassadorController.createAmbassador);
 router.put('/ambassadors/:id', ambassadorController.updateAmbassador);
 router.delete('/ambassadors/:id', ambassadorController.deleteAmbassador);
 
-// Envoyer SMS aux ambassadeurs (nombre de parrainages)
+// Envoyer SMS aux ambassadeurs (bienvenue, uniquement ceux sans smsSent)
 router.post('/ambassadors/send-sms', ambassadorController.sendSmsToAmbassadors);
+router.post('/ambassadors/:id/regenerate-code', ambassadorController.regenerateAmbassadorCode);
+router.post('/ambassadors/:id/resend-sms', ambassadorController.resendSmsAmbassador);
 
 // Clients parrainés
 router.get('/clients', ambassadorController.getAmbassadorClients);

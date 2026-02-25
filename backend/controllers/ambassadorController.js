@@ -90,14 +90,15 @@ const createAmbassador = async (req, res) => {
 const updateAmbassador = async (req, res) => {
   try {
     const { id } = req.params;
-    const { firstName, lastName, phone, email } = req.body;
+    const { firstName, lastName, phone, email, smsSent } = req.body;
     const ambassador = await Ambassador.findByIdAndUpdate(
       id,
       {
         ...(firstName !== undefined && { firstName: firstName.trim() }),
         ...(lastName !== undefined && { lastName: lastName.trim() }),
         ...(phone !== undefined && { phone: phone.trim() }),
-        ...(email !== undefined && { email: email.trim() })
+        ...(email !== undefined && { email: email.trim() }),
+        ...(typeof smsSent === 'boolean' && { smsSent })
       },
       { new: true }
     );
@@ -401,7 +402,7 @@ const deleteAmbassadorClient = async (req, res) => {
   }
 };
 
-// Envoyer un SMS à chaque ambassadeur avec son nombre de parrainages
+// Envoyer un SMS de bienvenue uniquement aux ambassadeurs qui ne l'ont pas encore reçu
 const sendSmsToAmbassadors = async (req, res) => {
   try {
     if (!smsService.isConfigured()) {
@@ -411,15 +412,16 @@ const sendSmsToAmbassadors = async (req, res) => {
       });
     }
 
-    const ambassadors = await Ambassador.find().sort({ lastName: 1, firstName: 1 });
+    const ambassadors = await Ambassador.find({ smsSent: { $ne: true } })
+      .sort({ lastName: 1, firstName: 1 });
 
-    // Max 149 caractères (STOP ajouté auto = 1 SMS commercial en 7 bits)
     const buildMessage = (firstName, code) =>
       `Félicitations ${firstName} ! Voici un code Ambassadeur : code ${code}. 3 pains pour vous, 1 pain pour le filleul à chaque carte créée. Ange Arras`;
 
     const items = ambassadors
       .filter(a => a.phone?.trim())
       .map(a => ({
+        ambassadorId: a._id.toString(),
         phone: a.phone.trim(),
         message: buildMessage(a.firstName, a.code || '')
       }));
@@ -427,11 +429,20 @@ const sendSmsToAmbassadors = async (req, res) => {
     if (items.length === 0) {
       return res.status(400).json({
         success: false,
-        error: 'Aucun ambassadeur avec numéro de téléphone'
+        error: 'Aucun ambassadeur sans SMS envoyé (ou sans numéro de téléphone)'
       });
     }
 
     const { sent, failed, details } = await smsService.sendBulkSms(items);
+
+    // Marquer smsSent = true pour les ambassadeurs qui ont reçu le SMS
+    const sentIds = details
+      .filter(d => d.status === 'ok')
+      .map(d => items.find(i => i.phone === d.phone)?.ambassadorId)
+      .filter(Boolean);
+    if (sentIds.length > 0) {
+      await Ambassador.updateMany({ _id: { $in: sentIds } }, { smsSent: true });
+    }
 
     res.json({
       success: true,
@@ -444,6 +455,103 @@ const sendSmsToAmbassadors = async (req, res) => {
     });
   } catch (error) {
     console.error('Erreur sendSmsToAmbassadors:', error);
+    res.status(500).json({ success: false, error: 'Erreur serveur' });
+  }
+};
+
+// Régénérer le code d'un ambassadeur et optionnellement renvoyer le SMS
+const regenerateAmbassadorCode = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { resendSms } = req.body;
+
+    const ambassador = await Ambassador.findById(id);
+    if (!ambassador) {
+      return res.status(404).json({ success: false, error: 'Ambassadeur introuvable' });
+    }
+
+    const oldCode = ambassador.code;
+    const generateCode = () => {
+      const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+      let code = 'AMB-';
+      for (let i = 0; i < 6; i++) {
+        code += chars.charAt(Math.floor(Math.random() * chars.length));
+      }
+      return code;
+    };
+    let newCode = generateCode();
+    let exists = await Ambassador.findOne({ code: newCode, _id: { $ne: id } });
+    let attempts = 0;
+    while (exists && attempts < 10) {
+      newCode = generateCode();
+      exists = await Ambassador.findOne({ code: newCode, _id: { $ne: id } });
+      attempts++;
+    }
+
+    ambassador.code = newCode;
+    await ambassador.save();
+
+    // Mettre à jour les clients parrainés avec l'ancien code
+    await AmbassadorClient.updateMany(
+      { ambassadorCode: oldCode.toUpperCase() },
+      { ambassadorCode: newCode.toUpperCase() }
+    );
+
+    let smsResult = null;
+    if (resendSms && ambassador.phone?.trim() && smsService.isConfigured()) {
+      const message = `Bonjour ${ambassador.firstName} ! Voici un nouveau code Ambassadeur : code ${newCode}. 3 pains pour vous, 1 pain pour le filleul à chaque carte créée. Ange Arras`;
+      const res = await smsService.sendSms(message, [ambassador.phone.trim()]);
+      smsResult = res.success ? 'envoyé' : 'échec';
+    }
+
+    const updated = await Ambassador.findById(id);
+    res.json({
+      success: true,
+      data: {
+        ambassador: updated,
+        newCode,
+        smsResult
+      }
+    });
+  } catch (error) {
+    console.error('Erreur regenerateAmbassadorCode:', error);
+    res.status(500).json({ success: false, error: 'Erreur serveur' });
+  }
+};
+
+// Renvoyer SMS avec nouveau code (sans régénérer le code)
+const resendSmsAmbassador = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!smsService.isConfigured()) {
+      return res.status(503).json({
+        success: false,
+        error: 'Service SMS non configuré.'
+      });
+    }
+
+    const ambassador = await Ambassador.findById(id);
+    if (!ambassador) {
+      return res.status(404).json({ success: false, error: 'Ambassadeur introuvable' });
+    }
+    if (!ambassador.phone?.trim()) {
+      return res.status(400).json({ success: false, error: 'Aucun numéro de téléphone' });
+    }
+
+    const message = `Bonjour ${ambassador.firstName} ! Voici un nouveau code Ambassadeur : code ${ambassador.code}. 3 pains pour vous, 1 pain pour le filleul à chaque carte créée. Ange Arras`;
+    const smsRes = await smsService.sendSms(message, [ambassador.phone.trim()]);
+
+    if (!smsRes.success) {
+      return res.status(500).json({ success: false, error: smsRes.error || 'Erreur envoi SMS' });
+    }
+
+    res.json({
+      success: true,
+      data: { message: 'SMS envoyé' }
+    });
+  } catch (error) {
+    console.error('Erreur resendSmsAmbassador:', error);
     res.status(500).json({ success: false, error: 'Erreur serveur' });
   }
 };
@@ -485,6 +593,8 @@ module.exports = {
   updateAmbassadorClient,
   deleteAmbassadorClient,
   sendSmsToAmbassadors,
+  regenerateAmbassadorCode,
+  resendSmsAmbassador,
   validateVendeuse,
   getPublicAmbassadorCodes,
   getPublicAmbassadorsList,
