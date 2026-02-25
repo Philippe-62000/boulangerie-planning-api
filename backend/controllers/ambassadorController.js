@@ -416,7 +416,7 @@ const sendSmsToAmbassadors = async (req, res) => {
       .sort({ lastName: 1, firstName: 1 });
 
     const buildMessage = (firstName, code) =>
-      `Félicitations ${firstName} ! Voici un code Ambassadeur : code ${code}. 3 pains pour vous, 1 pain pour le filleul à chaque carte créée. Ange Arras`;
+      `Félicitations ${firstName} ! Voici un code Parrainage : code ${code}. 3 pains pour vous, 1 pain pour le filleul à chaque carte créée. Ange Arras`;
 
     const items = ambassadors
       .filter(a => a.phone?.trim())
@@ -499,7 +499,7 @@ const regenerateAmbassadorCode = async (req, res) => {
 
     let smsResult = null;
     if (resendSms && ambassador.phone?.trim() && smsService.isConfigured()) {
-      const message = `Bonjour ${ambassador.firstName} ! Voici un nouveau code Ambassadeur : code ${newCode}. 3 pains pour vous, 1 pain pour le filleul à chaque carte créée. Ange Arras`;
+      const message = `Bonjour ${ambassador.firstName} ! Voici un nouveau code Parrainage : code ${newCode}. 3 pains pour vous, 1 pain pour le filleul à chaque carte créée. Ange Arras`;
       const res = await smsService.sendSms(message, [ambassador.phone.trim()]);
       smsResult = res.success ? 'envoyé' : 'échec';
     }
@@ -539,7 +539,7 @@ const resendSmsAmbassador = async (req, res) => {
       return res.status(400).json({ success: false, error: 'Aucun numéro de téléphone' });
     }
 
-    const message = `Bonjour ${ambassador.firstName} ! Voici un nouveau code Ambassadeur : code ${ambassador.code}. 3 pains pour vous, 1 pain pour le filleul à chaque carte créée. Ange Arras`;
+    const message = `Bonjour ${ambassador.firstName} ! Voici un nouveau code Parrainage : code ${ambassador.code}. 3 pains pour vous, 1 pain pour le filleul à chaque carte créée. Ange Arras`;
     const smsRes = await smsService.sendSms(message, [ambassador.phone.trim()]);
 
     if (!smsRes.success) {
