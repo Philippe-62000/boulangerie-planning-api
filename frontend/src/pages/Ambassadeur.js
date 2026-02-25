@@ -346,13 +346,15 @@ const Ambassadeur = () => {
           <div className="ambassadeur-list">
             <div className="ambassadeur-list-header">
               <h2>Liste des ambassadeurs</h2>
-              {ambassadors.some(a => a.phone?.trim() && !a.smsSent) && (
+              {ambassadors.some(a => a.phone?.trim()) && (
                 <button
                   type="button"
                   className="btn-send-sms"
                   onClick={handleSendSms}
-                  disabled={sendingSms}
-                  title="Envoyer le message de bienvenue aux ambassadeurs n'ayant pas encore reçu le SMS"
+                  disabled={sendingSms || ambassadors.filter(a => a.phone?.trim() && !a.smsSent).length === 0}
+                  title={ambassadors.filter(a => a.phone?.trim() && !a.smsSent).length === 0
+                    ? "Tous les ambassadeurs ont déjà reçu le SMS"
+                    : "Envoyer le message de bienvenue aux ambassadeurs n'ayant pas encore reçu le SMS"}
                 >
                   {sendingSms ? 'Envoi...' : `📱 Envoyer SMS bienvenue (${ambassadors.filter(a => a.phone?.trim() && !a.smsSent).length})`}
                 </button>
