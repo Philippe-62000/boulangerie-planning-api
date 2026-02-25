@@ -27,6 +27,7 @@ const Ambassadeur = () => {
     ambassadorCode: ''
   });
   const [savingClient, setSavingClient] = useState(false);
+  const [sendingSms, setSendingSms] = useState(false);
 
   useEffect(() => {
     fetchData();
@@ -140,6 +141,33 @@ const Ambassadeur = () => {
       fetchData();
     } catch (err) {
       toast.error('Erreur');
+    }
+  };
+
+  const handleSendSms = async () => {
+    const withPhone = ambassadors.filter(a => a.phone?.trim());
+    if (withPhone.length === 0) {
+      toast.error('Aucun ambassadeur avec numéro de téléphone');
+      return;
+    }
+    if (!window.confirm(`Envoyer le message de bienvenue à ${withPhone.length} ambassadeur(s) ?`)) return;
+    setSendingSms(true);
+    try {
+      const res = await api.post('/ambassadors/ambassadors/send-sms');
+      if (res.data?.success) {
+        const { sent, failed, total } = res.data.data || {};
+        if (failed > 0) {
+          toast.warning(`${sent}/${total} SMS envoyés. ${failed} échec(s).`);
+        } else {
+          toast.success(`${sent} SMS envoyé(s) aux ambassadeurs`);
+        }
+      } else {
+        toast.error(res.data?.error || 'Erreur lors de l\'envoi');
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Erreur lors de l\'envoi des SMS');
+    } finally {
+      setSendingSms(false);
     }
   };
 
@@ -261,7 +289,20 @@ const Ambassadeur = () => {
           </div>
 
           <div className="ambassadeur-list">
-            <h2>Liste des ambassadeurs</h2>
+            <div className="ambassadeur-list-header">
+              <h2>Liste des ambassadeurs</h2>
+              {ambassadors.some(a => a.phone?.trim()) && (
+                <button
+                  type="button"
+                  className="btn-send-sms"
+                  onClick={handleSendSms}
+                  disabled={sendingSms}
+                  title="Envoyer le message de bienvenue ambassadeur (avec code parrainage) à chaque ambassadeur"
+                >
+                  {sendingSms ? 'Envoi...' : '📱 Envoyer SMS bienvenue'}
+                </button>
+              )}
+            </div>
             {ambassadors.length === 0 ? (
               <p className="ambassadeur-empty">Aucun ambassadeur.</p>
             ) : (

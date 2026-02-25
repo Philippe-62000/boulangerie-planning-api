@@ -1,6 +1,7 @@
 const Ambassador = require('../models/Ambassador');
 const AmbassadorClient = require('../models/AmbassadorClient');
 const Employee = require('../models/Employee');
+const smsService = require('../services/smsService');
 
 // Enrichir les clients avec les noms vendeuses (quand seul saleCode est stocké)
 const enrichClientsWithNames = async (clients) => {
@@ -400,6 +401,53 @@ const deleteAmbassadorClient = async (req, res) => {
   }
 };
 
+// Envoyer un SMS à chaque ambassadeur avec son nombre de parrainages
+const sendSmsToAmbassadors = async (req, res) => {
+  try {
+    if (!smsService.isConfigured()) {
+      return res.status(503).json({
+        success: false,
+        error: 'Service SMS non configuré. Configurez OVH_APP_KEY, OVH_APP_SECRET et OVH_CONSUMER_KEY.'
+      });
+    }
+
+    const ambassadors = await Ambassador.find().sort({ lastName: 1, firstName: 1 });
+
+    // Max 149 caractères (STOP ajouté auto = 1 SMS commercial en 7 bits)
+    const buildMessage = (firstName, code) =>
+      `Félicitations ${firstName} ! Voici un code Ambassadeur : code ${code}. 3 pains pour vous, 1 pain pour le filleul à chaque carte créée. Ange Arras`;
+
+    const items = ambassadors
+      .filter(a => a.phone?.trim())
+      .map(a => ({
+        phone: a.phone.trim(),
+        message: buildMessage(a.firstName, a.code || '')
+      }));
+
+    if (items.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'Aucun ambassadeur avec numéro de téléphone'
+      });
+    }
+
+    const { sent, failed, details } = await smsService.sendBulkSms(items);
+
+    res.json({
+      success: true,
+      data: {
+        total: items.length,
+        sent,
+        failed,
+        details
+      }
+    });
+  } catch (error) {
+    console.error('Erreur sendSmsToAmbassadors:', error);
+    res.status(500).json({ success: false, error: 'Erreur serveur' });
+  }
+};
+
 // Régénérer un coupon (admin uniquement)
 const regenerateCoupon = async (req, res) => {
   try {
@@ -436,6 +484,7 @@ module.exports = {
   createAmbassadorClient,
   updateAmbassadorClient,
   deleteAmbassadorClient,
+  sendSmsToAmbassadors,
   validateVendeuse,
   getPublicAmbassadorCodes,
   getPublicAmbassadorsList,

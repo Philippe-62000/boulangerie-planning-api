@@ -21,6 +21,9 @@ router.post('/ambassadors', ambassadorController.createAmbassador);
 router.put('/ambassadors/:id', ambassadorController.updateAmbassador);
 router.delete('/ambassadors/:id', ambassadorController.deleteAmbassador);
 
+// Envoyer SMS aux ambassadeurs (nombre de parrainages)
+router.post('/ambassadors/send-sms', ambassadorController.sendSmsToAmbassadors);
+
 // Clients parrainés
 router.get('/clients', ambassadorController.getAmbassadorClients);
 router.post('/clients', ambassadorController.createAmbassadorClient);
