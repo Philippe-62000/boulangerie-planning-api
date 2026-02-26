@@ -1,6 +1,7 @@
 const Ambassador = require('../models/Ambassador');
 const AmbassadorClient = require('../models/AmbassadorClient');
 const Employee = require('../models/Employee');
+const Parameter = require('../models/Parameters');
 const smsService = require('../services/smsService');
 
 // Enrichir les clients avec les noms vendeuses (quand seul saleCode est stocké)
@@ -409,6 +410,19 @@ const getDefaultSmsTemplate = () => {
   return `Félicitations {{firstName}} ! Voici un code Parrainage : code {{code}}. 3 pains pour vous, 1 pain pour le filleul à chaque carte créée. ${signature}`;
 };
 
+// Récupérer le template stocké (ou null si non défini)
+const getStoredSmsTemplate = async () => {
+  const param = await Parameter.findOne({ name: 'smsTemplate' });
+  return param?.stringValue?.trim() || null;
+};
+
+// Obtenir le template effectif (stocké > default)
+const getEffectiveSmsTemplate = async (overrideParam) => {
+  if (overrideParam && overrideParam.trim()) return overrideParam.trim();
+  const stored = await getStoredSmsTemplate();
+  return stored || getDefaultSmsTemplate();
+};
+
 // Construire le message à partir du template
 const buildMessageFromTemplate = (template, firstName, code) => {
   return (template || getDefaultSmsTemplate())
@@ -416,11 +430,48 @@ const buildMessageFromTemplate = (template, firstName, code) => {
     .replace(/\{\{code\}\}/g, code || '');
 };
 
+// Récupérer le template SMS stocké
+const getSmsTemplate = async (req, res) => {
+  try {
+    const stored = await getStoredSmsTemplate();
+    res.json({
+      success: true,
+      data: {
+        template: stored || getDefaultSmsTemplate(),
+        isCustom: !!stored
+      }
+    });
+  } catch (error) {
+    console.error('Erreur getSmsTemplate:', error);
+    res.status(500).json({ success: false, error: 'Erreur serveur' });
+  }
+};
+
+// Enregistrer le template SMS
+const saveSmsTemplate = async (req, res) => {
+  try {
+    const { messageTemplate } = req.body || {};
+    const template = messageTemplate?.trim() || '';
+    await Parameter.findOneAndUpdate(
+      { name: 'smsTemplate' },
+      { name: 'smsTemplate', displayName: 'Modèle SMS ambassadeurs', stringValue: template, kmValue: -1 },
+      { upsert: true, new: true }
+    );
+    res.json({
+      success: true,
+      data: { template: template || getDefaultSmsTemplate(), saved: !!template }
+    });
+  } catch (error) {
+    console.error('Erreur saveSmsTemplate:', error);
+    res.status(500).json({ success: false, error: 'Erreur serveur' });
+  }
+};
+
 // Prévisualiser le SMS (retourne message exemple + infos caractères)
 const previewSmsToAmbassadors = async (req, res) => {
   try {
     const { messageTemplate } = req.body || {};
-    const template = (messageTemplate && messageTemplate.trim()) || getDefaultSmsTemplate();
+    const template = await getEffectiveSmsTemplate(messageTemplate);
 
     const ambassadors = await Ambassador.find({
       smsSent: { $ne: true },
@@ -450,6 +501,7 @@ const previewSmsToAmbassadors = async (req, res) => {
       data: {
         template,
         defaultTemplate: getDefaultSmsTemplate(),
+        storedTemplate: await getStoredSmsTemplate(),
         sampleMessage: sampleWithStop,
         sampleCharCount: sampleWithStop.length,
         singleSmsLimit: 160,
@@ -474,7 +526,7 @@ const sendSmsToAmbassadors = async (req, res) => {
     }
 
     const { messageTemplate } = req.body || {};
-    const template = (messageTemplate && messageTemplate.trim()) || getDefaultSmsTemplate();
+    const template = await getEffectiveSmsTemplate(messageTemplate);
 
     const ambassadors = await Ambassador.find({
       smsSent: { $ne: true },
@@ -709,6 +761,8 @@ module.exports = {
   createAmbassadorClient,
   updateAmbassadorClient,
   deleteAmbassadorClient,
+  getSmsTemplate,
+  saveSmsTemplate,
   previewSmsToAmbassadors,
   sendSmsToAmbassadors,
   regenerateAmbassadorCode,

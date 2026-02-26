@@ -18,14 +18,15 @@ router.use(authenticateEmployee);
 // Ambassadeurs
 router.get('/ambassadors', ambassadorController.getAmbassadors);
 router.post('/ambassadors', ambassadorController.createAmbassador);
-router.put('/ambassadors/:id', ambassadorController.updateAmbassador);
-router.delete('/ambassadors/:id', ambassadorController.deleteAmbassador);
-
+// Template SMS (avant /:id pour éviter que "sms-template" soit pris comme id)
+router.get('/ambassadors/sms-template', ambassadorController.getSmsTemplate);
+router.put('/ambassadors/sms-template', ambassadorController.saveSmsTemplate);
 // Prévisualiser SMS / Synchroniser blacklist
 router.post('/ambassadors/preview-sms', ambassadorController.previewSmsToAmbassadors);
 router.post('/ambassadors/sync-blacklist', ambassadorController.syncSmsBlacklist);
-// Envoyer SMS aux ambassadeurs (bienvenue, uniquement ceux sans smsSent)
 router.post('/ambassadors/send-sms', ambassadorController.sendSmsToAmbassadors);
+router.put('/ambassadors/:id', ambassadorController.updateAmbassador);
+router.delete('/ambassadors/:id', ambassadorController.deleteAmbassador);
 router.post('/ambassadors/:id/regenerate-code', ambassadorController.regenerateAmbassadorCode);
 router.post('/ambassadors/:id/resend-sms', ambassadorController.resendSmsAmbassador);
 

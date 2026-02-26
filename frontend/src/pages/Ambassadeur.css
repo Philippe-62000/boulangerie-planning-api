@@ -451,3 +451,16 @@
 .btn-cancel:hover {
   background: #7f8c8d;
 }
+
+.btn-save-template {
+  padding: 0.5rem 1rem;
+  background: #9b59b6;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.btn-save-template:hover {
+  background: #8e44ad;
+}

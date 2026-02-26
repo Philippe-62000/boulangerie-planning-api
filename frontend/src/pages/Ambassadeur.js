@@ -180,10 +180,14 @@ const Ambassadeur = () => {
     setSmsModalOpen(true);
     setSmsTemplate('');
     try {
-      const res = await api.post('/ambassadors/ambassadors/preview-sms', {});
-      if (res.data?.success && res.data.data) {
-        setSmsTemplate(res.data.data.defaultTemplate);
-        setSmsPreview(res.data.data);
+      const templateRes = await api.get('/ambassadors/ambassadors/sms-template');
+      const template = templateRes.data?.success ? templateRes.data.data?.template : '';
+      setSmsTemplate(template || '');
+      const previewRes = await api.post('/ambassadors/ambassadors/preview-sms', {
+        messageTemplate: template || undefined
+      });
+      if (previewRes.data?.success && previewRes.data.data) {
+        setSmsPreview(previewRes.data.data);
       }
     } catch (err) {
       toast.error('Erreur chargement prévisualisation');
@@ -231,6 +235,22 @@ const Ambassadeur = () => {
       toast.error(err.response?.data?.error || 'Erreur lors de l\'envoi des SMS');
     } finally {
       setSendingSms(false);
+    }
+  };
+
+  const handleSaveSmsTemplate = async () => {
+    try {
+      const res = await api.put('/ambassadors/ambassadors/sms-template', {
+        messageTemplate: smsTemplate.trim()
+      });
+      if (res.data?.success) {
+        toast.success('Modèle SMS enregistré');
+        refreshSmsPreview();
+      } else {
+        toast.error(res.data?.error || 'Erreur');
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Erreur lors de l\'enregistrement');
     }
   };
 
@@ -720,6 +740,14 @@ const Ambassadeur = () => {
             <div className="sms-modal-actions">
               <button type="button" className="btn-cancel" onClick={() => setSmsModalOpen(false)}>
                 Fermer
+              </button>
+              <button
+                type="button"
+                className="btn-save-template"
+                onClick={handleSaveSmsTemplate}
+                title="Enregistrer ce modèle pour les prochains envois"
+              >
+                💾 Enregistrer le modèle
               </button>
               <button
                 type="button"
