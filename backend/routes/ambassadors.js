@@ -1,7 +1,10 @@
 const express = require('express');
+const multer = require('multer');
 const router = express.Router();
 const ambassadorController = require('../controllers/ambassadorController');
 const { authenticateEmployee } = require('../middleware/auth');
+
+const uploadExcel = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
 
 // Routes publiques (code vendeuse) pour tablette - SANS auth
 router.get('/public/validate-vendeuse/:saleCode', ambassadorController.validateVendeuse);
@@ -18,6 +21,7 @@ router.use(authenticateEmployee);
 // Ambassadeurs
 router.get('/ambassadors', ambassadorController.getAmbassadors);
 router.post('/ambassadors', ambassadorController.createAmbassador);
+router.post('/ambassadors/import-excel', uploadExcel.single('file'), ambassadorController.importAmbassadorsFromExcel);
 // Template SMS (avant /:id pour éviter que "sms-template" soit pris comme id)
 router.get('/ambassadors/sms-template', ambassadorController.getSmsTemplate);
 router.put('/ambassadors/sms-template', ambassadorController.saveSmsTemplate);

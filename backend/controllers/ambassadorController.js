@@ -3,6 +3,7 @@ const AmbassadorClient = require('../models/AmbassadorClient');
 const Employee = require('../models/Employee');
 const Parameter = require('../models/Parameters');
 const smsService = require('../services/smsService');
+const XLSX = require('xlsx');
 
 // Enrichir les clients avec les noms vendeuses (quand seul saleCode est stocké)
 const enrichClientsWithNames = async (clients) => {
@@ -62,6 +63,112 @@ const getAmbassadors = async (req, res) => {
   } catch (error) {
     console.error('Erreur getAmbassadors:', error);
     res.status(500).json({ success: false, error: 'Erreur serveur' });
+  }
+};
+
+// Importer des ambassadeurs depuis un fichier Excel (format Adelya)
+const importAmbassadorsFromExcel = async (req, res) => {
+  try {
+    if (!req.file || !req.file.buffer) {
+      return res.status(400).json({ success: false, error: 'Fichier Excel requis' });
+    }
+
+    const wb = XLSX.read(req.file.buffer, { type: 'buffer' });
+    const sheetName = wb.SheetNames[0];
+    const ws = wb.Sheets[sheetName];
+    const raw = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+
+    // Trouver la ligne d'en-têtes (Nom, Prénom, E-mail, Mobile)
+    let headerRow = 0;
+    while (headerRow < raw.length) {
+      const row = raw[headerRow];
+      if (Array.isArray(row) && row.some(c => String(c).includes('Nom') || String(c).includes('Prénom'))) {
+        break;
+      }
+      headerRow++;
+    }
+
+    if (headerRow >= raw.length) {
+      return res.status(400).json({
+        success: false,
+        error: 'Aucune ligne d\'en-têtes (Nom, Prénom, E-mail, Mobile) trouvée'
+      });
+    }
+
+    const headers = raw[headerRow].map(h => String(h || '').trim());
+    const idxNom = headers.findIndex(h => /^Nom$/i.test(String(h).trim()));
+    const idxPrenom = headers.findIndex(h => /^Pr[eéè]nom$/i.test(String(h).trim()));
+    const idxEmail = headers.findIndex(h => /^E-?mail$/i.test(String(h).trim()));
+    const idxMobile = headers.findIndex(h => /^Mobile$/i.test(String(h).trim()));
+
+    if (idxNom < 0 || idxPrenom < 0 || idxMobile < 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'Colonnes requises : Nom, Prénom, Mobile. E-mail optionnel.'
+      });
+    }
+
+    const normalizePhone = (val) => {
+      if (!val) return '';
+      let s = String(val).replace(/\s/g, '').replace(/\./g, '');
+      if (s.startsWith('+33')) s = '0' + s.slice(3);
+      else if (s.startsWith('33') && s.length >= 11) s = '0' + s.slice(2);
+      return s.trim();
+    };
+
+    const created = [];
+    const skipped = [];
+    const errors = [];
+
+    for (let i = headerRow + 1; i < raw.length; i++) {
+      const row = raw[i];
+      if (!Array.isArray(row)) continue;
+
+      const lastName = String(row[idxNom] ?? '').trim();
+      const firstName = String(row[idxPrenom] ?? '').trim();
+      const emailRaw = row[idxEmail];
+      const email = (emailRaw === null || emailRaw === undefined || emailRaw === '') ? '' : String(emailRaw).trim();
+      const phone = normalizePhone(row[idxMobile]);
+
+      if (!lastName || !firstName || !phone) {
+        skipped.push({ row: i + 1, reason: 'Nom, prénom ou téléphone manquant' });
+        continue;
+      }
+
+      if (phone.length < 10) {
+        skipped.push({ row: i + 1, reason: 'Téléphone invalide' });
+        continue;
+      }
+
+      try {
+        const ambassador = await Ambassador.create({
+          firstName,
+          lastName,
+          phone,
+          email: email || ''
+        });
+        created.push({ id: ambassador._id, name: `${firstName} ${lastName}` });
+      } catch (err) {
+        if (err.code === 11000) {
+          skipped.push({ row: i + 1, reason: 'Doublon (téléphone ou code)' });
+        } else {
+          errors.push({ row: i + 1, error: err.message });
+        }
+      }
+    }
+
+    res.json({
+      success: true,
+      data: {
+        created: created.length,
+        skipped: skipped.length,
+        errors: errors.length,
+        details: { created, skipped, errors }
+      }
+    });
+  } catch (error) {
+    console.error('Erreur importAmbassadorsFromExcel:', error);
+    res.status(500).json({ success: false, error: error.message || 'Erreur serveur' });
   }
 };
 
@@ -755,6 +862,7 @@ const syncSmsBlacklist = async (req, res) => {
 module.exports = {
   getAmbassadors,
   createAmbassador,
+  importAmbassadorsFromExcel,
   updateAmbassador,
   deleteAmbassador,
   getAmbassadorClients,

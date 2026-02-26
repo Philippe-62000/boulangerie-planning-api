@@ -66,6 +66,41 @@
   margin: 0 0 1rem 0;
 }
 
+.ambassadeur-import-excel {
+  margin-top: 1.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid #eee;
+}
+
+.ambassadeur-import-excel h3 {
+  font-size: 1.1rem;
+  margin: 0 0 0.5rem 0;
+  color: #2c3e50;
+}
+
+.import-excel-row {
+  margin-top: 0.75rem;
+}
+
+.btn-import-excel {
+  display: inline-block;
+  padding: 0.5rem 1rem;
+  background: #8e44ad;
+  color: #fff;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.btn-import-excel:hover {
+  background: #7d3c98;
+}
+
+.btn-import-excel.disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
 .ambassadeur-form {
   display: flex;
   flex-direction: column;

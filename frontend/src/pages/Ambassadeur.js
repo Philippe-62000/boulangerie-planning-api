@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import api from '../services/api';
 import { toast } from 'react-toastify';
 import './Ambassadeur.css';
@@ -30,6 +30,8 @@ const Ambassadeur = () => {
   const [sendingSms, setSendingSms] = useState(false);
   const [regeneratingId, setRegeneratingId] = useState(null);
   const [smsModalOpen, setSmsModalOpen] = useState(false);
+  const [importingExcel, setImportingExcel] = useState(false);
+  const importFileRef = useRef(null);
   const [smsTemplate, setSmsTemplate] = useState('');
   const [smsPreview, setSmsPreview] = useState(null);
   const [syncingBlacklist, setSyncingBlacklist] = useState(false);
@@ -238,6 +240,40 @@ const Ambassadeur = () => {
     }
   };
 
+  const handleImportExcel = async (e) => {
+    const file = e?.target?.files?.[0];
+    if (!file) return;
+    const ext = (file.name || '').toLowerCase();
+    if (!ext.endsWith('.xlsx') && !ext.endsWith('.xls')) {
+      toast.error('Format accepté : .xlsx ou .xls');
+      return;
+    }
+    setImportingExcel(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const res = await api.post('/ambassadors/ambassadors/import-excel', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      if (res.data?.success) {
+        const { created, skipped, errors } = res.data.data || {};
+        if (created > 0) {
+          toast.success(`${created} ambassadeur(s) importé(s)${skipped > 0 ? `. ${skipped} ignoré(s)` : ''}${errors > 0 ? `. ${errors} erreur(s)` : ''}`);
+          fetchData();
+        } else {
+          toast.warning(skipped > 0 ? `${skipped} ligne(s) ignorée(s)` : 'Aucun ambassadeur importé');
+        }
+        if (importFileRef.current) importFileRef.current.value = '';
+      } else {
+        toast.error(res.data?.error || 'Erreur import');
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Erreur lors de l\'import');
+    } finally {
+      setImportingExcel(false);
+    }
+  };
+
   const handleSaveSmsTemplate = async () => {
     try {
       const res = await api.put('/ambassadors/ambassadors/sms-template', {
@@ -432,6 +468,31 @@ const Ambassadeur = () => {
                 {savingAmbassador ? 'Création...' : 'Créer l\'ambassadeur'}
               </button>
             </form>
+
+            <div className="ambassadeur-import-excel">
+              <h3>📥 Import Excel</h3>
+              <p className="ambassadeur-hint">
+                Format Adelya : colonnes Nom, Prénom, E-mail, Mobile. Les colonnes Numéro de carte, Adresse, Comptage sont ignorées. Téléphone : +33 remplacé par 0.
+              </p>
+              <div className="import-excel-row">
+                <input
+                  ref={importFileRef}
+                  type="file"
+                  accept=".xlsx,.xls"
+                  onChange={handleImportExcel}
+                  disabled={importingExcel}
+                  style={{ display: 'none' }}
+                  id="import-excel-input"
+                />
+                <label
+                  htmlFor="import-excel-input"
+                  className={`btn-import-excel ${importingExcel ? 'disabled' : ''}`}
+                  style={importingExcel ? { pointerEvents: 'none' } : {}}
+                >
+                  {importingExcel ? 'Import...' : '📂 Choisir un fichier Excel'}
+                </label>
+              </div>
+            </div>
           </div>
 
           <div className="ambassadeur-list">
