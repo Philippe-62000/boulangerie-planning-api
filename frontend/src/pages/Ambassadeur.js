@@ -171,9 +171,9 @@ const Ambassadeur = () => {
     }
   };
 
-  const openSmsModal = async () => {
+  const openSmsModal = async (canSend = true) => {
     const toSend = ambassadors.filter(a => a.phone?.trim() && !a.smsSent && !a.smsOptOut);
-    if (toSend.length === 0) {
+    if (canSend && toSend.length === 0) {
       toast.error('Aucun ambassadeur sans SMS envoyé (avec numéro de téléphone, non STOP)');
       return;
     }
@@ -420,6 +420,14 @@ const Ambassadeur = () => {
               <div className="ambassadeur-list-actions">
                 <button
                   type="button"
+                  className="btn-preview-sms"
+                  onClick={() => openSmsModal(false)}
+                  title="Voir et modifier le message qui sera envoyé"
+                >
+                  👁️ Voir le message
+                </button>
+                <button
+                  type="button"
                   className="btn-sync-blacklist"
                   onClick={handleSyncBlacklist}
                   disabled={syncingBlacklist}
@@ -431,7 +439,7 @@ const Ambassadeur = () => {
                   <button
                     type="button"
                     className="btn-send-sms"
-                    onClick={openSmsModal}
+                    onClick={() => openSmsModal(true)}
                     disabled={sendingSms || ambassadors.filter(a => a.phone?.trim() && !a.smsSent && !a.smsOptOut).length === 0}
                     title={ambassadors.filter(a => a.phone?.trim() && !a.smsSent && !a.smsOptOut).length === 0
                       ? "Tous les ambassadeurs ont déjà reçu le SMS ou ont répondu STOP"
@@ -711,9 +719,15 @@ const Ambassadeur = () => {
             )}
             <div className="sms-modal-actions">
               <button type="button" className="btn-cancel" onClick={() => setSmsModalOpen(false)}>
-                Annuler
+                Fermer
               </button>
-              <button type="button" className="btn-send-sms" onClick={handleSendSms} disabled={sendingSms}>
+              <button
+                type="button"
+                className="btn-send-sms"
+                onClick={handleSendSms}
+                disabled={sendingSms || ambassadors.filter(a => a.phone?.trim() && !a.smsSent && !a.smsOptOut).length === 0}
+                title={ambassadors.filter(a => a.phone?.trim() && !a.smsSent && !a.smsOptOut).length === 0 ? 'Aucun ambassadeur à envoyer' : ''}
+              >
                 {sendingSms ? 'Envoi...' : 'Envoyer'}
               </button>
             </div>

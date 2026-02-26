@@ -283,6 +283,20 @@
   flex-wrap: wrap;
 }
 
+.btn-preview-sms {
+  padding: 0.5rem 1rem;
+  font-size: 0.9rem;
+  background: #3498db;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.btn-preview-sms:hover {
+  background: #2980b9;
+}
+
 .btn-sync-blacklist {
   padding: 0.5rem 1rem;
   font-size: 0.9rem;
