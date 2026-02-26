@@ -148,10 +148,42 @@ async function sendBulkSms(items) {
   return { sent, failed, details };
 }
 
+/**
+ * Récupère la blacklist OVH (numéros ayant répondu STOP)
+ * @returns {Promise<string[]>} Liste des numéros blacklistés (format OVH 0033...)
+ */
+function getBlacklist() {
+  return new Promise((resolve) => {
+    if (!isConfigured()) {
+      return resolve([]);
+    }
+    const ovhClient = ovh({
+      appKey: process.env.OVH_APP_KEY,
+      appSecret: process.env.OVH_APP_SECRET,
+      consumerKey: process.env.OVH_CONSUMER_KEY
+    });
+    ovhClient.request('GET', '/sms', (err, serviceName) => {
+      if (err) {
+        console.warn('Erreur OVH GET /sms (blacklist):', err.message);
+        return resolve([]);
+      }
+      const smsAccount = Array.isArray(serviceName) ? serviceName[0] : serviceName;
+      ovhClient.request('GET', `/sms/${smsAccount}/blacklist`, (errBlacklist, numbers) => {
+        if (errBlacklist) {
+          console.warn('OVH blacklist non disponible:', errBlacklist.message);
+          return resolve([]);
+        }
+        resolve(Array.isArray(numbers) ? numbers : []);
+      });
+    });
+  });
+}
+
 module.exports = {
   sendSms,
   sendBulkSms,
   normalizePhone,
   isConfigured,
+  getBlacklist,
   MAX_SMS_LENGTH
 };

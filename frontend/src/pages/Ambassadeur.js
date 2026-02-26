@@ -29,6 +29,10 @@ const Ambassadeur = () => {
   const [savingClient, setSavingClient] = useState(false);
   const [sendingSms, setSendingSms] = useState(false);
   const [regeneratingId, setRegeneratingId] = useState(null);
+  const [smsModalOpen, setSmsModalOpen] = useState(false);
+  const [smsTemplate, setSmsTemplate] = useState('');
+  const [smsPreview, setSmsPreview] = useState(null);
+  const [syncingBlacklist, setSyncingBlacklist] = useState(false);
 
   useEffect(() => {
     fetchData();
@@ -156,16 +160,62 @@ const Ambassadeur = () => {
     }
   };
 
-  const handleSendSms = async () => {
-    const toSend = ambassadors.filter(a => a.phone?.trim() && !a.smsSent);
+  const toggleSmsOptOut = async (ambassador) => {
+    try {
+      const res = await api.put(`/ambassadors/ambassadors/${ambassador._id}`, {
+        smsOptOut: !ambassador.smsOptOut
+      });
+      if (res.data.success) fetchData();
+    } catch (err) {
+      toast.error('Erreur');
+    }
+  };
+
+  const openSmsModal = async () => {
+    const toSend = ambassadors.filter(a => a.phone?.trim() && !a.smsSent && !a.smsOptOut);
     if (toSend.length === 0) {
-      toast.error('Aucun ambassadeur sans SMS envoyé (avec numéro de téléphone)');
+      toast.error('Aucun ambassadeur sans SMS envoyé (avec numéro de téléphone, non STOP)');
       return;
     }
-    if (!window.confirm(`Envoyer le message de bienvenue à ${toSend.length} ambassadeur(s) n'ayant pas encore reçu le SMS ?`)) return;
-    setSendingSms(true);
+    setSmsModalOpen(true);
+    setSmsTemplate('');
     try {
-      const res = await api.post('/ambassadors/ambassadors/send-sms');
+      const res = await api.post('/ambassadors/ambassadors/preview-sms', {});
+      if (res.data?.success && res.data.data) {
+        setSmsTemplate(res.data.data.defaultTemplate);
+        setSmsPreview(res.data.data);
+      }
+    } catch (err) {
+      toast.error('Erreur chargement prévisualisation');
+    }
+  };
+
+  const refreshSmsPreview = async () => {
+    try {
+      const res = await api.post('/ambassadors/ambassadors/preview-sms', {
+        messageTemplate: smsTemplate.trim() || undefined
+      });
+      if (res.data?.success && res.data.data) {
+        setSmsPreview(res.data.data);
+      }
+    } catch (err) {
+      toast.error('Erreur prévisualisation');
+    }
+  };
+
+  const handleSendSms = async () => {
+    const toSend = ambassadors.filter(a => a.phone?.trim() && !a.smsSent && !a.smsOptOut);
+    if (toSend.length === 0) {
+      toast.error('Aucun ambassadeur sans SMS envoyé (avec numéro de téléphone, non STOP)');
+      return;
+    }
+    if (!window.confirm(`Envoyer le message à ${toSend.length} ambassadeur(s) ?`)) return;
+    setSendingSms(true);
+    setSmsModalOpen(false);
+    try {
+      const res = await api.post('/ambassadors/ambassadors/send-sms', {
+        messageTemplate: smsTemplate.trim() || undefined
+      });
       if (res.data?.success) {
         const { sent, failed, total } = res.data.data || {};
         if (failed > 0) {
@@ -173,6 +223,7 @@ const Ambassadeur = () => {
         } else {
           toast.success(`${sent} SMS envoyé(s) aux ambassadeurs`);
         }
+        fetchData();
       } else {
         toast.error(res.data?.error || 'Erreur lors de l\'envoi');
       }
@@ -180,6 +231,26 @@ const Ambassadeur = () => {
       toast.error(err.response?.data?.error || 'Erreur lors de l\'envoi des SMS');
     } finally {
       setSendingSms(false);
+    }
+  };
+
+  const handleSyncBlacklist = async () => {
+    setSyncingBlacklist(true);
+    try {
+      const res = await api.post('/ambassadors/ambassadors/sync-blacklist');
+      if (res.data?.success) {
+        const { updated, blacklistCount } = res.data.data || {};
+        toast.success(blacklistCount > 0
+          ? `${updated} ambassadeur(s) marqué(s) STOP (${blacklistCount} en blacklist OVH)`
+          : 'Aucun numéro en blacklist OVH');
+        fetchData();
+      } else {
+        toast.error(res.data?.error || 'Erreur');
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Erreur synchronisation blacklist');
+    } finally {
+      setSyncingBlacklist(false);
     }
   };
 
@@ -346,19 +417,30 @@ const Ambassadeur = () => {
           <div className="ambassadeur-list">
             <div className="ambassadeur-list-header">
               <h2>Liste des ambassadeurs</h2>
-              {ambassadors.some(a => a.phone?.trim()) && (
+              <div className="ambassadeur-list-actions">
                 <button
                   type="button"
-                  className="btn-send-sms"
-                  onClick={handleSendSms}
-                  disabled={sendingSms || ambassadors.filter(a => a.phone?.trim() && !a.smsSent).length === 0}
-                  title={ambassadors.filter(a => a.phone?.trim() && !a.smsSent).length === 0
-                    ? "Tous les ambassadeurs ont déjà reçu le SMS"
-                    : "Envoyer le message de bienvenue aux ambassadeurs n'ayant pas encore reçu le SMS"}
+                  className="btn-sync-blacklist"
+                  onClick={handleSyncBlacklist}
+                  disabled={syncingBlacklist}
+                  title="Synchroniser avec la blacklist OVH (numéros ayant répondu STOP)"
                 >
-                  {sendingSms ? 'Envoi...' : `📱 Envoyer SMS bienvenue (${ambassadors.filter(a => a.phone?.trim() && !a.smsSent).length})`}
+                  {syncingBlacklist ? 'Sync...' : '🔄 Sync blacklist STOP'}
                 </button>
-              )}
+                {ambassadors.some(a => a.phone?.trim()) && (
+                  <button
+                    type="button"
+                    className="btn-send-sms"
+                    onClick={openSmsModal}
+                    disabled={sendingSms || ambassadors.filter(a => a.phone?.trim() && !a.smsSent && !a.smsOptOut).length === 0}
+                    title={ambassadors.filter(a => a.phone?.trim() && !a.smsSent && !a.smsOptOut).length === 0
+                      ? "Tous les ambassadeurs ont déjà reçu le SMS ou ont répondu STOP"
+                      : "Prévisualiser et envoyer le message de bienvenue"}
+                  >
+                    {sendingSms ? 'Envoi...' : `📱 Envoyer SMS (${ambassadors.filter(a => a.phone?.trim() && !a.smsSent && !a.smsOptOut).length})`}
+                  </button>
+                )}
+              </div>
             </div>
             {ambassadors.length === 0 ? (
               <p className="ambassadeur-empty">Aucun ambassadeur.</p>
@@ -374,6 +456,7 @@ const Ambassadeur = () => {
                     <th>Durée validité</th>
                     <th>Cadeaux retirés</th>
                     <th>SMS envoyé</th>
+                    <th>STOP</th>
                     <th>Actions</th>
                   </tr>
                 </thead>
@@ -398,6 +481,16 @@ const Ambassadeur = () => {
                           Oui
                         </label>
                       </td>
+                      <td>
+                        <label className="checkbox-label" title="Coché = a répondu STOP, ne plus envoyer">
+                          <input
+                            type="checkbox"
+                            checked={!!a.smsOptOut}
+                            onChange={() => toggleSmsOptOut(a)}
+                          />
+                          STOP
+                        </label>
+                      </td>
                       <td className="amb-actions">
                         <button
                           type="button"
@@ -412,8 +505,8 @@ const Ambassadeur = () => {
                           type="button"
                           className="btn-regenerate-sms"
                           onClick={() => regenerateAmbassadorCode(a, true)}
-                          disabled={regeneratingId === a._id}
-                          title="Régénérer le code et renvoyer le SMS"
+                          disabled={regeneratingId === a._id || a.smsOptOut}
+                          title={a.smsOptOut ? 'STOP : envoi impossible' : 'Régénérer le code et renvoyer le SMS'}
                         >
                           {regeneratingId === a._id ? '...' : '🔄+SMS'}
                         </button>
@@ -421,8 +514,8 @@ const Ambassadeur = () => {
                           type="button"
                           className="btn-resend-sms"
                           onClick={() => resendSmsAmbassador(a)}
-                          disabled={regeneratingId === a._id || !a.phone?.trim()}
-                          title="Renvoyer le SMS avec le code actuel"
+                          disabled={regeneratingId === a._id || !a.phone?.trim() || a.smsOptOut}
+                          title={a.smsOptOut ? 'STOP : envoi impossible' : 'Renvoyer le SMS avec le code actuel'}
                         >
                           📱
                         </button>
@@ -565,6 +658,65 @@ const Ambassadeur = () => {
                 </tbody>
               </table>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Modal envoi SMS */}
+      {smsModalOpen && (
+        <div className="sms-modal-overlay" onClick={() => setSmsModalOpen(false)}>
+          <div className="sms-modal" onClick={e => e.stopPropagation()}>
+            <h3>📱 Envoyer SMS aux ambassadeurs</h3>
+            <p className="sms-modal-hint">
+              Placeholders : <code>{'{{firstName}}'}</code> et <code>{'{{code}}'}</code>. La mention STOP est ajoutée automatiquement.
+            </p>
+            <div className="sms-modal-template-row">
+              <textarea
+                className="sms-modal-textarea"
+                value={smsTemplate}
+                onChange={e => setSmsTemplate(e.target.value)}
+                onBlur={refreshSmsPreview}
+                rows={5}
+                placeholder="Message du SMS..."
+              />
+              <button type="button" className="btn-refresh-preview" onClick={refreshSmsPreview} title="Actualiser l'aperçu">
+                Actualiser
+              </button>
+            </div>
+            {(() => {
+              const sampleMsg = (smsTemplate || '')
+                .replace(/\{\{firstName\}\}/g, 'Jean')
+                .replace(/\{\{code\}\}/g, 'AMB-XXXXXX');
+              const withStop = sampleMsg + (sampleMsg.toUpperCase().includes('STOP') ? '' : ' STOP');
+              const charCount = withStop.length;
+              return (
+                <div className="sms-modal-stats">
+                  <span className={charCount <= 160 ? 'ok' : 'warn'}>
+                    {charCount} caractères
+                    {charCount <= 160 ? ' (1 SMS)' : ` (${Math.ceil(charCount / 160)} SMS)`}
+                  </span>
+                </div>
+              );
+            })()}
+            {smsPreview?.previews?.length > 0 && (
+              <div className="sms-modal-previews">
+                <strong>Aperçu (exemples) :</strong>
+                {smsPreview.previews.map((p, i) => (
+                  <div key={i} className="sms-preview-item">
+                    <span className="sms-preview-name">{p.ambassador}</span>
+                    <span className="sms-preview-msg">{p.message}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+            <div className="sms-modal-actions">
+              <button type="button" className="btn-cancel" onClick={() => setSmsModalOpen(false)}>
+                Annuler
+              </button>
+              <button type="button" className="btn-send-sms" onClick={handleSendSms} disabled={sendingSms}>
+                {sendingSms ? 'Envoi...' : 'Envoyer'}
+              </button>
+            </div>
           </div>
         </div>
       )}

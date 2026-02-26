@@ -35,6 +35,11 @@ const ambassadorSchema = new mongoose.Schema({
   smsSent: {
     type: Boolean,
     default: false
+  },
+  smsOptOut: {
+    type: Boolean,
+    default: false,
+    comment: 'Coché si la personne a répondu STOP (ne plus envoyer de SMS)'
   }
 }, {
   timestamps: true

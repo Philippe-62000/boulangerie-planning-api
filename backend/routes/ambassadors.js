@@ -21,6 +21,9 @@ router.post('/ambassadors', ambassadorController.createAmbassador);
 router.put('/ambassadors/:id', ambassadorController.updateAmbassador);
 router.delete('/ambassadors/:id', ambassadorController.deleteAmbassador);
 
+// Prévisualiser SMS / Synchroniser blacklist
+router.post('/ambassadors/preview-sms', ambassadorController.previewSmsToAmbassadors);
+router.post('/ambassadors/sync-blacklist', ambassadorController.syncSmsBlacklist);
 // Envoyer SMS aux ambassadeurs (bienvenue, uniquement ceux sans smsSent)
 router.post('/ambassadors/send-sms', ambassadorController.sendSmsToAmbassadors);
 router.post('/ambassadors/:id/regenerate-code', ambassadorController.regenerateAmbassadorCode);

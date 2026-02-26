@@ -90,7 +90,7 @@ const createAmbassador = async (req, res) => {
 const updateAmbassador = async (req, res) => {
   try {
     const { id } = req.params;
-    const { firstName, lastName, phone, email, smsSent } = req.body;
+    const { firstName, lastName, phone, email, smsSent, smsOptOut } = req.body;
     const ambassador = await Ambassador.findByIdAndUpdate(
       id,
       {
@@ -98,7 +98,8 @@ const updateAmbassador = async (req, res) => {
         ...(lastName !== undefined && { lastName: lastName.trim() }),
         ...(phone !== undefined && { phone: phone.trim() }),
         ...(email !== undefined && { email: email.trim() }),
-        ...(typeof smsSent === 'boolean' && { smsSent })
+        ...(typeof smsSent === 'boolean' && { smsSent }),
+        ...(typeof smsOptOut === 'boolean' && { smsOptOut })
       },
       { new: true }
     );
@@ -402,6 +403,66 @@ const deleteAmbassadorClient = async (req, res) => {
   }
 };
 
+// Template par défaut du SMS (signature : SMS_SIGNATURE > STORE_NAME > Ange Arras)
+const getDefaultSmsTemplate = () => {
+  const signature = process.env.SMS_SIGNATURE || process.env.STORE_NAME || 'Ange Arras';
+  return `Félicitations {{firstName}} ! Voici un code Parrainage : code {{code}}. 3 pains pour vous, 1 pain pour le filleul à chaque carte créée. ${signature}`;
+};
+
+// Construire le message à partir du template
+const buildMessageFromTemplate = (template, firstName, code) => {
+  return (template || getDefaultSmsTemplate())
+    .replace(/\{\{firstName\}\}/g, firstName || '')
+    .replace(/\{\{code\}\}/g, code || '');
+};
+
+// Prévisualiser le SMS (retourne message exemple + infos caractères)
+const previewSmsToAmbassadors = async (req, res) => {
+  try {
+    const { messageTemplate } = req.body || {};
+    const template = (messageTemplate && messageTemplate.trim()) || getDefaultSmsTemplate();
+
+    const ambassadors = await Ambassador.find({
+      smsSent: { $ne: true },
+      smsOptOut: { $ne: true },
+      phone: { $exists: true, $ne: null, $regex: /\S/ }
+    })
+      .sort({ lastName: 1, firstName: 1 })
+      .limit(3);
+
+    const previews = ambassadors.map(a => {
+      const msg = buildMessageFromTemplate(template, a.firstName, a.code || '');
+      const withStop = msg + (msg.toUpperCase().includes('STOP') ? '' : ' STOP');
+      return {
+        ambassador: `${a.firstName} ${a.lastName}`,
+        phone: a.phone,
+        message: withStop,
+        charCount: withStop.length,
+        smsCount: Math.ceil(withStop.length / 160) || 1
+      };
+    });
+
+    const sampleMsg = buildMessageFromTemplate(template, 'Jean', 'AMB-XXXXXX');
+    const sampleWithStop = sampleMsg + (sampleMsg.toUpperCase().includes('STOP') ? '' : ' STOP');
+
+    res.json({
+      success: true,
+      data: {
+        template,
+        defaultTemplate: getDefaultSmsTemplate(),
+        sampleMessage: sampleWithStop,
+        sampleCharCount: sampleWithStop.length,
+        singleSmsLimit: 160,
+        maxBeforeStop: 155,
+        previews
+      }
+    });
+  } catch (error) {
+    console.error('Erreur previewSmsToAmbassadors:', error);
+    res.status(500).json({ success: false, error: 'Erreur serveur' });
+  }
+};
+
 // Envoyer un SMS de bienvenue uniquement aux ambassadeurs qui ne l'ont pas encore reçu
 const sendSmsToAmbassadors = async (req, res) => {
   try {
@@ -412,24 +473,27 @@ const sendSmsToAmbassadors = async (req, res) => {
       });
     }
 
-    const ambassadors = await Ambassador.find({ smsSent: { $ne: true } })
-      .sort({ lastName: 1, firstName: 1 });
+    const { messageTemplate } = req.body || {};
+    const template = (messageTemplate && messageTemplate.trim()) || getDefaultSmsTemplate();
 
-    const buildMessage = (firstName, code) =>
-      `Félicitations ${firstName} ! Voici un code Parrainage : code ${code}. 3 pains pour vous, 1 pain pour le filleul à chaque carte créée. Ange Arras`;
+    const ambassadors = await Ambassador.find({
+      smsSent: { $ne: true },
+      smsOptOut: { $ne: true }
+    })
+      .sort({ lastName: 1, firstName: 1 });
 
     const items = ambassadors
       .filter(a => a.phone?.trim())
       .map(a => ({
         ambassadorId: a._id.toString(),
         phone: a.phone.trim(),
-        message: buildMessage(a.firstName, a.code || '')
+        message: buildMessageFromTemplate(template, a.firstName, a.code || '')
       }));
 
     if (items.length === 0) {
       return res.status(400).json({
         success: false,
-        error: 'Aucun ambassadeur sans SMS envoyé (ou sans numéro de téléphone)'
+        error: 'Aucun ambassadeur sans SMS envoyé (ou sans numéro de téléphone, ou ayant répondu STOP)'
       });
     }
 
@@ -498,8 +562,9 @@ const regenerateAmbassadorCode = async (req, res) => {
     );
 
     let smsResult = null;
-    if (resendSms && ambassador.phone?.trim() && smsService.isConfigured()) {
-      const message = `Bonjour ${ambassador.firstName} ! Voici un nouveau code Parrainage : code ${newCode}. 3 pains pour vous, 1 pain pour le filleul à chaque carte créée. Ange Arras`;
+    if (resendSms && ambassador.phone?.trim() && smsService.isConfigured() && !ambassador.smsOptOut) {
+      const signature = process.env.SMS_SIGNATURE || process.env.STORE_NAME || 'Ange Arras';
+      const message = `Bonjour ${ambassador.firstName} ! Voici un nouveau code Parrainage : code ${newCode}. 3 pains pour vous, 1 pain pour le filleul à chaque carte créée. ${signature}`;
       const res = await smsService.sendSms(message, [ambassador.phone.trim()]);
       smsResult = res.success ? 'envoyé' : 'échec';
     }
@@ -538,8 +603,12 @@ const resendSmsAmbassador = async (req, res) => {
     if (!ambassador.phone?.trim()) {
       return res.status(400).json({ success: false, error: 'Aucun numéro de téléphone' });
     }
+    if (ambassador.smsOptOut) {
+      return res.status(400).json({ success: false, error: 'Cet ambassadeur a répondu STOP, envoi impossible' });
+    }
 
-    const message = `Bonjour ${ambassador.firstName} ! Voici un nouveau code Parrainage : code ${ambassador.code}. 3 pains pour vous, 1 pain pour le filleul à chaque carte créée. Ange Arras`;
+    const signature = process.env.SMS_SIGNATURE || process.env.STORE_NAME || 'Ange Arras';
+    const message = `Bonjour ${ambassador.firstName} ! Voici un nouveau code Parrainage : code ${ambassador.code}. 3 pains pour vous, 1 pain pour le filleul à chaque carte créée. ${signature}`;
     const smsRes = await smsService.sendSms(message, [ambassador.phone.trim()]);
 
     if (!smsRes.success) {
@@ -583,6 +652,54 @@ const regenerateCoupon = async (req, res) => {
   }
 };
 
+// Synchroniser la blacklist OVH (numéros ayant répondu STOP) avec les ambassadeurs
+const syncSmsBlacklist = async (req, res) => {
+  try {
+    if (!smsService.isConfigured()) {
+      return res.status(503).json({
+        success: false,
+        error: 'Service SMS non configuré.'
+      });
+    }
+
+    const blacklistedPhones = await smsService.getBlacklist();
+    if (!blacklistedPhones || blacklistedPhones.length === 0) {
+      return res.json({
+        success: true,
+        data: { updated: 0, message: 'Aucun numéro en blacklist OVH (ou API non disponible)' }
+      });
+    }
+
+    const blacklistSet = new Set(
+      blacklistedPhones
+        .map(p => (typeof p === 'object' && p?.number ? p.number : p))
+        .map(p => smsService.normalizePhone(String(p)))
+        .filter(Boolean)
+    );
+
+    const ambassadors = await Ambassador.find({ phone: { $exists: true, $ne: '' } });
+    let updated = 0;
+    for (const a of ambassadors) {
+      const norm = smsService.normalizePhone(a.phone);
+      if (norm && blacklistSet.has(norm)) {
+        await Ambassador.findByIdAndUpdate(a._id, { smsOptOut: true });
+        updated++;
+      }
+    }
+
+    res.json({
+      success: true,
+      data: {
+        blacklistCount: blacklistedPhones.length,
+        updated
+      }
+    });
+  } catch (error) {
+    console.error('Erreur syncSmsBlacklist:', error);
+    res.status(500).json({ success: false, error: error.message || 'Erreur serveur' });
+  }
+};
+
 module.exports = {
   getAmbassadors,
   createAmbassador,
@@ -592,9 +709,11 @@ module.exports = {
   createAmbassadorClient,
   updateAmbassadorClient,
   deleteAmbassadorClient,
+  previewSmsToAmbassadors,
   sendSmsToAmbassadors,
   regenerateAmbassadorCode,
   resendSmsAmbassador,
+  syncSmsBlacklist,
   validateVendeuse,
   getPublicAmbassadorCodes,
   getPublicAmbassadorsList,
