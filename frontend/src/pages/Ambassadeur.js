@@ -472,7 +472,7 @@ const Ambassadeur = () => {
             <div className="ambassadeur-import-excel">
               <h3>📥 Import Excel</h3>
               <p className="ambassadeur-hint">
-                Format Adelya : colonnes Nom, Prénom, E-mail, Mobile. Les colonnes Numéro de carte, Adresse, Comptage sont ignorées. Téléphone : +33 remplacé par 0.
+                Format Adelya : Nom, Prénom, E-mail, Mobile. Adresse = nombre de jours de validité du coupon (vide = 30 j). Colonnes ignorées : Numéro de carte, Comptage. Téléphone : +33 → 0.
               </p>
               <div className="import-excel-row">
                 <input

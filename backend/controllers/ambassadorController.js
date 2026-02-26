@@ -100,6 +100,7 @@ const importAmbassadorsFromExcel = async (req, res) => {
     const idxPrenom = headers.findIndex(h => /^Pr[eéè]nom$/i.test(String(h).trim()));
     const idxEmail = headers.findIndex(h => /^E-?mail$/i.test(String(h).trim()));
     const idxMobile = headers.findIndex(h => /^Mobile$/i.test(String(h).trim()));
+    const idxAdresse = headers.findIndex(h => /^Adresse$/i.test(String(h).trim()));
 
     if (idxNom < 0 || idxPrenom < 0 || idxMobile < 0) {
       return res.status(400).json({
@@ -129,6 +130,10 @@ const importAmbassadorsFromExcel = async (req, res) => {
       const emailRaw = row[idxEmail];
       const email = (emailRaw === null || emailRaw === undefined || emailRaw === '') ? '' : String(emailRaw).trim();
       const phone = normalizePhone(row[idxMobile]);
+      const adresseRaw = idxAdresse >= 0 ? row[idxAdresse] : null;
+      const couponValidityDays = (adresseRaw !== null && adresseRaw !== undefined && adresseRaw !== '')
+        ? Math.max(1, parseInt(String(adresseRaw).replace(/\s/g, ''), 10) || 30)
+        : 30;
 
       if (!lastName || !firstName || !phone) {
         skipped.push({ row: i + 1, reason: 'Nom, prénom ou téléphone manquant' });
@@ -145,7 +150,8 @@ const importAmbassadorsFromExcel = async (req, res) => {
           firstName,
           lastName,
           phone,
-          email: email || ''
+          email: email || '',
+          couponValidityDays
         });
         created.push({ id: ambassador._id, name: `${firstName} ${lastName}` });
       } catch (err) {
