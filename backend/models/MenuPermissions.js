@@ -224,6 +224,15 @@ menuPermissionsSchema.statics.createDefaultPermissions = async function() {
         isVisibleToEmployee: false,
         requiredPermissions: ['view_ambassadeur'],
         order: 16
+      },
+      {
+        menuId: 'commandes-en-ligne',
+        menuName: 'Commandes en ligne',
+        menuPath: '/commandes-en-ligne',
+        isVisibleToAdmin: true,
+        isVisibleToEmployee: true,
+        requiredPermissions: [],
+        order: 17
       }
     ];
 

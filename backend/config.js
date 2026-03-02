@@ -9,6 +9,9 @@ module.exports = {
   // Clé secrète pour JWT (à changer en production)
   JWT_SECRET: process.env.JWT_SECRET || 'votre-cle-secrete-ici',
 
+  // Google API Key pour Commandes en ligne (Google Sheets) - Longuenesse
+  GOOGLE_API_KEY: process.env.GOOGLE_API_KEY || '',
+
   // Configuration de l'application
   APP_NAME: 'Planning Boulangerie',
   APP_VERSION: '1.0.0',

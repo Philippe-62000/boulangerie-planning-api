@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import './App.css';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
@@ -30,6 +30,7 @@ import Recup from './pages/Recup';
 import Primes from './pages/Primes';
 import MutuelleManagement from './pages/MutuelleManagement';
 import Ambassadeur from './pages/Ambassadeur';
+import CommandesEnLigne from './pages/CommandesEnLigne';
 
 const AppContent = () => {
   const { user } = useAuth();
@@ -155,9 +156,27 @@ const AppContent = () => {
                 <Ambassadeur />
               </ProtectedRoute>
             } />
+            <Route path="/commandes-en-ligne" element={
+              <ProtectedRoute>
+                <CommandesEnLigne />
+              </ProtectedRoute>
+            } />
           </Routes>
         </main>
       </div>
+    </div>
+  );
+};
+
+// Redirection complète (rechargement page) vers la page standalone - évite le mot de passe planning
+const AmbassadeurStandaloneRedirect = () => {
+  useEffect(() => {
+    const base = window.location.pathname.startsWith('/lon') ? '/lon' : '/plan';
+    window.location.replace(`${window.location.origin}${base}/ambassadeur-standalone.html`);
+  }, []);
+  return (
+    <div style={{ padding: 40, textAlign: 'center', fontFamily: 'sans-serif' }}>
+      Redirection vers la page Ambassadeur…
     </div>
   );
 };
@@ -175,7 +194,7 @@ function App() {
     <AuthProvider>
       <Router basename={getBasename()}>
         <Routes>
-          <Route path="/ambassadeur-standalone" element={<Navigate to="/ambassadeur-standalone.html" replace />} />
+          <Route path="/ambassadeur-standalone" element={<AmbassadeurStandaloneRedirect />} />
           <Route path="/login" element={<Login />} />
           <Route path="/*" element={<AppContent />} />
         </Routes>

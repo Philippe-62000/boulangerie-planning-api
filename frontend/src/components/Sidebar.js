@@ -33,7 +33,8 @@ const Sidebar = () => {
         { menuId: 'advance-requests', isVisibleToAdmin: true, isVisibleToEmployee: false },
         { menuId: 'employee-dashboard', isVisibleToAdmin: false, isVisibleToEmployee: true },
         { menuId: 'primes', isVisibleToAdmin: true, isVisibleToEmployee: false },
-        { menuId: 'ambassadeur', isVisibleToAdmin: true, isVisibleToEmployee: false }
+        { menuId: 'ambassadeur', isVisibleToAdmin: true, isVisibleToEmployee: false },
+        { menuId: 'commandes-en-ligne', isVisibleToAdmin: true, isVisibleToEmployee: true }
       ];
     } else {
       return [
@@ -45,7 +46,8 @@ const Sidebar = () => {
         { menuId: 'km-expenses', isVisibleToAdmin: false, isVisibleToEmployee: true },
         { menuId: 'recup', isVisibleToAdmin: false, isVisibleToEmployee: true },
         { menuId: 'ticket-restaurant', isVisibleToAdmin: false, isVisibleToEmployee: true },
-        { menuId: 'ambassadeur', isVisibleToAdmin: false, isVisibleToEmployee: false }
+        { menuId: 'ambassadeur', isVisibleToAdmin: false, isVisibleToEmployee: false },
+        { menuId: 'commandes-en-ligne', isVisibleToAdmin: false, isVisibleToEmployee: true }
       ];
     }
   };
@@ -108,19 +110,24 @@ const Sidebar = () => {
     { path: '/ticket-restaurant', label: 'Ticket restaurant', icon: '🎫', menuId: 'ticket-restaurant' },
     { path: '/advance-requests', label: 'Demandes d\'Acompte', icon: '💰', menuId: 'advance-requests' },
     { path: '/employee-dashboard', label: 'Mes Documents', icon: '📁', menuId: 'employee-dashboard' },
-    { path: '/ambassadeur', label: 'Ambassadeur', icon: '⭐', menuId: 'ambassadeur' }
+    { path: '/ambassadeur', label: 'Ambassadeur', icon: '⭐', menuId: 'ambassadeur' },
+    { path: '/commandes-en-ligne', label: 'Commandes en ligne', icon: '🛒', menuId: 'commandes-en-ligne', longuenesseOnly: true }
   ];
 
-  // Filtrer les menus selon les permissions
+  const isLonguenesse = window.location.pathname.startsWith('/lon');
+
+  // Filtrer les menus selon les permissions (et Longuenesse pour certains items)
   const getFilteredMenuItems = () => {
     if (!user) {
       console.log('⚠️ Pas d\'utilisateur connecté');
       return [];
     }
+
+    let items = menuItems.filter(item => !(item.longuenesseOnly && !isLonguenesse));
     
     if (menuPermissions.length === 0) {
       console.log('⚠️ Permissions vides, utilisation des permissions par défaut');
-      return menuItems.filter(item => {
+      return items.filter(item => {
         const defaultPermission = getDefaultMenuPermissions(user.role).find(p => p.menuId === item.menuId);
         if (!defaultPermission) return false;
         
