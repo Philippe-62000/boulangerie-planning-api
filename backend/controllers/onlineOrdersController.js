@@ -157,16 +157,20 @@ function parseOrdersFromSheet(values, defaultClassName) {
   return orders;
 }
 
-// Parser une date au format DD/MM/YYYY, DD/MM/YYYY HHhMM, DD/MM/YY, ou nombre série Excel
+// Parser une date au format DD/MM/YYYY, DD/MM/YYYY HHhMM, YYYY-MM-DD, ou nombre série Excel
 function parseDateFromCell(str) {
   if (str === undefined || str === null) return null;
   const s = String(str).trim();
   if (!s) return null;
-  const m = s.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})/);
-  if (m) {
-    const day = parseInt(m[1], 10);
-    const month = parseInt(m[2], 10);
-    let year = parseInt(m[3], 10);
+  const iso = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+  if (iso) {
+    return { day: parseInt(iso[3], 10), month: parseInt(iso[2], 10), year: parseInt(iso[1], 10) };
+  }
+  const eu = s.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})/);
+  if (eu) {
+    const day = parseInt(eu[1], 10);
+    const month = parseInt(eu[2], 10);
+    let year = parseInt(eu[3], 10);
     if (year < 100) year += 2000;
     return { day, month, year };
   }
@@ -178,12 +182,12 @@ function parseDateFromCell(str) {
   return null;
 }
 
-// Filtrer les commandes pour une date donnée
+// Filtrer les commandes pour une date donnée (jour + mois, année ignorée pour compatibilité)
 function filterOrdersForDay(orders, targetDay, targetMonth, targetYear) {
   return orders.filter(o => {
     const parsed = parseDateFromCell(o.rawDate || o.day);
     if (parsed) {
-      return parsed.day === targetDay && parsed.month === targetMonth && (!targetYear || parsed.year === targetYear);
+      return parsed.day === targetDay && parsed.month === targetMonth;
     }
     const d = String(o.day || '').trim();
     if (!d) return false;
