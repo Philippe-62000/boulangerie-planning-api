@@ -3,7 +3,7 @@ services:
     name: boulangerie-planning-api
     env: node
     plan: free
-    buildCommand: npm install --force && npm install nodemailer jsonwebtoken --save
+    buildCommand: npm install
     startCommand: node server.js
     envVars:
       - key: NODE_ENV
