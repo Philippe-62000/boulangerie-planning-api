@@ -10,13 +10,18 @@ function getOAuth2Client() {
   const clientId = process.env.GOOGLE_CLIENT_ID;
   const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
   if (!clientId || !clientSecret) {
-    throw new Error('GOOGLE_CLIENT_ID et GOOGLE_CLIENT_SECRET requis');
+    throw new Error('Connexion Google non configurée. L\'administrateur doit ajouter GOOGLE_CLIENT_ID et GOOGLE_CLIENT_SECRET dans les variables d\'environnement Render. Voir backend/GOOGLE_OAUTH_SETUP.md');
   }
   return new google.auth.OAuth2(
     clientId,
     clientSecret,
     process.env.GOOGLE_OAUTH_REDIRECT_URI || `${(process.env.API_BASE_URL || 'https://boulangerie-planning-api-3.onrender.com')}/api/online-orders/auth/google/callback`
   );
+}
+
+function buildFrontendUrl(path) {
+  const base = process.env.FRONTEND_URL || 'https://www.filmara.fr';
+  return `${base.replace(/\/$/, '')}${path.startsWith('/') ? path : '/' + path}`;
 }
 
 async function initiateAuth(req, res) {
@@ -34,7 +39,9 @@ async function initiateAuth(req, res) {
     res.redirect(authUrl);
   } catch (error) {
     console.error('Erreur initiateAuth:', error);
-    res.status(500).send(`Erreur: ${error.message}`);
+    const redirectTo = req.query.return_url || req.query.returnUrl || buildFrontendUrl('/lon/commandes-en-ligne');
+    const sep = redirectTo.includes('?') ? '&' : '?';
+    res.redirect(`${redirectTo}${sep}google_error=${encodeURIComponent(error.message)}`);
   }
 }
 
@@ -76,11 +83,6 @@ async function handleCallback(req, res) {
     console.error('Erreur handleCallback:', error);
     res.redirect(buildFrontendUrl(`/lon/commandes-en-ligne?google_error=${encodeURIComponent(error.message)}`));
   }
-}
-
-function buildFrontendUrl(path) {
-  const base = process.env.FRONTEND_URL || 'https://www.filmara.fr';
-  return `${base.replace(/\/$/, '')}${path.startsWith('/') ? path : '/' + path}`;
 }
 
 async function getAuthStatus(req, res) {

@@ -151,10 +151,10 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1000;
+  z-index: 9999;
 }
 
-.commandes-en-ligne .modal {
+.commandes-en-ligne .commandes-modal {
   background: white;
   padding: 24px;
   border-radius: 8px;
@@ -162,21 +162,23 @@
   width: 90%;
   max-height: 90vh;
   overflow-y: auto;
+  opacity: 1;
+  visibility: visible;
 }
 
-.commandes-en-ligne .modal h2 {
+.commandes-en-ligne .commandes-modal h2 {
   margin: 0 0 16px 0;
   font-size: 1.25rem;
 }
 
-.commandes-en-ligne .modal form {
+.commandes-en-ligne .commandes-modal form {
   display: flex;
   flex-direction: column;
   gap: 10px;
   margin-bottom: 20px;
 }
 
-.commandes-en-ligne .modal form input {
+.commandes-en-ligne .commandes-modal form input {
   padding: 8px 12px;
   border: 1px solid #d1d5db;
   border-radius: 6px;
