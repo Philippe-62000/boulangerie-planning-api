@@ -123,36 +123,69 @@ async function fetchSheetData(spreadsheetId, rangeOrGid, city) {
   return { values: response.data.values || [], sheetTitle };
 }
 
-// Parser les lignes du sheet en commandes (jour, nom, commande)
-// Structure: A1 = nom de la classe, ligne 2 = en-têtes, lignes 3+ = données
+// Parser les lignes du sheet en commandes
+// Structure REPAS TP: ÉLÈVE - NOM | DATE/HEURE | MENU MIDI | ...
+// Ou structure simple: Jour | Nom | Commande
 function parseOrdersFromSheet(values, defaultClassName) {
   const orders = [];
   if (!values || values.length < 2) return orders;
   const className = (values[0]?.[0] || defaultClassName).toString().trim();
-  const headerRow = values[1] || values[0] || [];
-  const dataStart = values[1]?.some?.(c => /jour|date|nom|commande/i.test(String(c))) ? 2 : 1;
+  const row1 = values[0] || [];
+  const row2 = values[1] || [];
+  const row1HasHeaders = row1.some(h => /élève|eleve|date|heure|menu|nom|commande/i.test(String(h)));
+  const row2HasHeaders = row2.some(h => /élève|eleve|date|heure|menu|nom|commande/i.test(String(h)));
+  const headerRow = row2HasHeaders ? row2 : (row1HasHeaders ? row1 : row2);
+  const dataStart = row2HasHeaders ? 2 : (row1HasHeaders ? 1 : 2);
   const dataRows = values.slice(dataStart);
-  const dayIdx = headerRow.findIndex(h => /jour|date/i.test(String(h)));
-  const nameIdx = headerRow.findIndex(h => /nom|prénom|prenom/i.test(String(h)));
-  const orderIdx = headerRow.findIndex(h => /commande|order/i.test(String(h)));
-  const fallbackDay = dayIdx >= 0 ? dayIdx : 0;
-  const fallbackName = nameIdx >= 0 ? nameIdx : 1;
+
+  const nameIdx = headerRow.findIndex(h => /élève|eleve|nom|prénom|prenom/i.test(String(h)));
+  const dateIdx = headerRow.findIndex(h => /date|heure|date\/heure/i.test(String(h)));
+  const orderIdx = headerRow.findIndex(h => /menu|commande|order|midi/i.test(String(h)));
+
+  const fallbackName = nameIdx >= 0 ? nameIdx : 0;
+  const fallbackDate = dateIdx >= 0 ? dateIdx : 1;
   const fallbackOrder = orderIdx >= 0 ? orderIdx : 2;
+
   for (const row of dataRows) {
-    const day = (row[fallbackDay] ?? row[0] ?? '').toString().trim();
-    const name = (row[fallbackName] ?? row[1] ?? '').toString().trim();
+    const name = (row[fallbackName] ?? row[0] ?? '').toString().trim();
+    const dateStr = (row[fallbackDate] ?? row[1] ?? '').toString().trim();
     const order = (row[fallbackOrder] ?? row[2] ?? '').toString().trim();
-    if (day || name || order) {
-      orders.push({ day, name, order, className });
+    if (name || dateStr || order) {
+      orders.push({ day: dateStr, name, order, className, rawDate: dateStr });
     }
   }
   return orders;
 }
 
-// Filtrer les commandes pour un jour donné (format: 1, 2, 3... ou 01/03, etc.)
-function filterOrdersForDay(orders, targetDay, targetMonth) {
+// Parser une date au format DD/MM/YYYY, DD/MM/YYYY HHhMM, DD/MM/YY, ou nombre série Excel
+function parseDateFromCell(str) {
+  if (str === undefined || str === null) return null;
+  const s = String(str).trim();
+  if (!s) return null;
+  const m = s.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})/);
+  if (m) {
+    const day = parseInt(m[1], 10);
+    const month = parseInt(m[2], 10);
+    let year = parseInt(m[3], 10);
+    if (year < 100) year += 2000;
+    return { day, month, year };
+  }
+  const num = parseFloat(s);
+  if (!isNaN(num) && num > 40000) {
+    const d = new Date((num - 25569) * 86400 * 1000);
+    return { day: d.getDate(), month: d.getMonth() + 1, year: d.getFullYear() };
+  }
+  return null;
+}
+
+// Filtrer les commandes pour une date donnée
+function filterOrdersForDay(orders, targetDay, targetMonth, targetYear) {
   return orders.filter(o => {
-    const d = String(o.day).trim();
+    const parsed = parseDateFromCell(o.rawDate || o.day);
+    if (parsed) {
+      return parsed.day === targetDay && parsed.month === targetMonth && (!targetYear || parsed.year === targetYear);
+    }
+    const d = String(o.day || '').trim();
     if (!d) return false;
     const dayNum = parseInt(d, 10);
     if (!isNaN(dayNum) && dayNum >= 1 && dayNum <= 31) {
@@ -175,6 +208,7 @@ async function getOrdersForDay(req, res) {
     const targetDate = date ? new Date(date) : new Date();
     const targetDay = targetDate.getDate();
     const targetMonth = targetDate.getMonth() + 1;
+    const targetYear = targetDate.getFullYear();
     const monthName = MONTH_NAMES[targetMonth - 1];
     const links = await OnlineOrderLink.find({ city }).sort({ order: 1 });
     const allOrders = [];
@@ -183,7 +217,7 @@ async function getOrdersForDay(req, res) {
         const { values } = await fetchSheetData(link.spreadsheetId, link.monthGids?.[monthName] || monthName, city);
         const className = values[0]?.[0] || link.className;
         const orders = parseOrdersFromSheet(values, className);
-        const dayOrders = filterOrdersForDay(orders, targetDay, targetMonth);
+        const dayOrders = filterOrdersForDay(orders, targetDay, targetMonth, targetYear);
         allOrders.push(...dayOrders.map(o => ({ ...o, className: className || link.className })));
       } catch (err) {
         console.error(`Erreur fetch sheet ${link.className}:`, err.message);
