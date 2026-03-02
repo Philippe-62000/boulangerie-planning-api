@@ -316,7 +316,7 @@ const CommandesEnLigne = () => {
       )}
 
       {showLinksModal && (
-        <div className="modal-overlay" onClick={() => setShowLinksModal(false)}>
+        <div className="commandes-modal-overlay" onClick={() => setShowLinksModal(false)}>
           <div className="commandes-modal" onClick={(e) => e.stopPropagation()}>
             <h2>Gestion des liens</h2>
             <form onSubmit={handleAddLink}>
@@ -349,7 +349,7 @@ const CommandesEnLigne = () => {
       )}
 
       {showMonthlySummary && (
-        <div className="modal-overlay" onClick={() => setShowMonthlySummary(false)}>
+        <div className="commandes-modal-overlay" onClick={() => setShowMonthlySummary(false)}>
           <div className="commandes-modal" onClick={(e) => e.stopPropagation()}>
             <h2>Récapitulatif par mois</h2>
             <div className="summary-filters">

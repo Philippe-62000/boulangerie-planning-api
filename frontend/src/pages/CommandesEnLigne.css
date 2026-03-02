@@ -144,26 +144,31 @@
   font-weight: 600;
 }
 
-.commandes-en-ligne .modal-overlay {
+.commandes-en-ligne .commandes-modal-overlay {
   position: fixed;
   inset: 0;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
   background: rgba(0, 0, 0, 0.5);
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 9999;
+  z-index: 99999;
 }
 
-.commandes-en-ligne .commandes-modal {
-  background: white;
+.commandes-en-ligne .commandes-modal-overlay .commandes-modal {
+  background: #ffffff;
   padding: 24px;
   border-radius: 8px;
   max-width: 500px;
   width: 90%;
   max-height: 90vh;
   overflow-y: auto;
-  opacity: 1;
-  visibility: visible;
+  opacity: 1 !important;
+  visibility: visible !important;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.3);
 }
 
 .commandes-en-ligne .commandes-modal h2 {
