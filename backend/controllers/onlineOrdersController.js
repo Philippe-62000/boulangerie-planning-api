@@ -182,12 +182,12 @@ function parseDateFromCell(str) {
   return null;
 }
 
-// Filtrer les commandes pour une date donnée (jour + mois, année ignorée pour compatibilité)
+// Filtrer les commandes pour une date donnée (jour + mois + année)
 function filterOrdersForDay(orders, targetDay, targetMonth, targetYear) {
   return orders.filter(o => {
     const parsed = parseDateFromCell(o.rawDate || o.day);
     if (parsed) {
-      return parsed.day === targetDay && parsed.month === targetMonth;
+      return parsed.day === targetDay && parsed.month === targetMonth && parsed.year === targetYear;
     }
     const d = String(o.day || '').trim();
     if (!d) return false;
