@@ -144,6 +144,16 @@ const CommandesEnLigne = () => {
     }
   };
 
+  const handleSyncTabs = async (id) => {
+    try {
+      await api.post(`/online-orders/links/${id}/sync-tabs`, null, { params: { city } });
+      toast.success('Onglets synchronisés (Mars, Avril, etc.)');
+      loadLinks();
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Erreur lors de la synchronisation');
+    }
+  };
+
   const handleDeleteLink = async (id) => {
     if (!window.confirm('Supprimer ce lien ?')) return;
     try {
@@ -339,6 +349,9 @@ const CommandesEnLigne = () => {
                 <li key={l._id}>
                   <span className="link-class">{l.className}</span>
                   <a href={l.spreadsheetUrl} target="_blank" rel="noopener noreferrer">Ouvrir</a>
+                  <button type="button" className="btn btn-sm" onClick={() => handleSyncTabs(l._id)} title="Synchroniser les onglets (Mars, Avril...)">
+                    Sync onglets
+                  </button>
                   <button type="button" className="btn-delete" onClick={() => handleDeleteLink(l._id)}>Supprimer</button>
                 </li>
               ))}
