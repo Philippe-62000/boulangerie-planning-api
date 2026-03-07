@@ -99,6 +99,38 @@ async function addLink(req, res) {
   }
 }
 
+// Mettre à jour un lien (nom, URL)
+async function updateLink(req, res) {
+  try {
+    const { id } = req.params;
+    const { className, spreadsheetUrl } = req.body;
+    const link = await OnlineOrderLink.findById(id);
+    if (!link) {
+      return res.status(404).json({ success: false, error: 'Lien non trouvé' });
+    }
+    if (className !== undefined && className !== null) {
+      link.className = String(className).trim();
+    }
+    if (spreadsheetUrl !== undefined && spreadsheetUrl !== null) {
+      const spreadsheetId = extractSpreadsheetId(spreadsheetUrl);
+      if (spreadsheetId) {
+        link.spreadsheetId = spreadsheetId;
+        link.spreadsheetUrl = spreadsheetUrl.trim();
+        const gidFromUrl = extractGidFromUrl(spreadsheetUrl);
+        if (gidFromUrl && Object.keys(link.monthGids || {}).length === 0) {
+          const monthName = MONTH_NAMES[new Date().getMonth()];
+          link.monthGids = { ...(link.monthGids || {}), [monthName]: gidFromUrl };
+        }
+      }
+    }
+    await link.save();
+    res.json({ success: true, data: link });
+  } catch (error) {
+    console.error('Erreur updateLink:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+}
+
 // Synchroniser les onglets (monthGids) d'un lien existant
 async function syncLinkTabs(req, res) {
   try {
@@ -109,12 +141,24 @@ async function syncLinkTabs(req, res) {
       return res.status(404).json({ success: false, error: 'Lien non trouvé' });
     }
     const monthGids = await fetchMonthGidsFromTabs(link.spreadsheetId, city);
-    link.monthGids = monthGids;
+    if (Object.keys(monthGids).length > 0) {
+      link.monthGids = monthGids;
+    } else {
+      const gidFromUrl = extractGidFromUrl(link.spreadsheetUrl || '');
+      if (gidFromUrl) {
+        const monthName = MONTH_NAMES[new Date().getMonth()];
+        link.monthGids = { ...(link.monthGids || {}), [monthName]: gidFromUrl };
+      }
+    }
     await link.save();
     res.json({ success: true, data: link });
   } catch (error) {
     console.error('Erreur syncLinkTabs:', error);
-    res.status(500).json({ success: false, error: error.message });
+    const msg = error.message || 'Erreur serveur interne';
+    if (msg.includes('non connecté') || msg.includes('Connecter Google')) {
+      return res.status(401).json({ success: false, error: msg });
+    }
+    res.status(500).json({ success: false, error: msg });
   }
 }
 
@@ -406,6 +450,7 @@ async function getSheetTabs(req, res) {
 module.exports = {
   getLinks,
   addLink,
+  updateLink,
   deleteLink,
   updateLinksOrder,
   syncLinkTabs,

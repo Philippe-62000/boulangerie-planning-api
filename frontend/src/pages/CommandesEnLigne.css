@@ -203,6 +203,23 @@
   border-bottom: 1px solid #e5e7eb;
 }
 
+.commandes-en-ligne .links-list .link-edit-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  flex: 1;
+}
+
+.commandes-en-ligne .links-list .link-edit-form input {
+  flex: 1;
+  min-width: 120px;
+  padding: 6px 10px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 13px;
+}
+
 .commandes-en-ligne .links-list .link-class {
   flex: 1;
   font-weight: 500;

@@ -78,9 +78,10 @@ const generateCleanupReport = async () => {
     console.log(`📋 Documents généraux: ${generalDocuments}`);
     console.log(`👤 Documents personnels actifs: ${personalDocuments}`);
     
-    // Documents qui vont expirer bientôt (dans les 7 prochains jours)
+    // Documents qui vont expirer bientôt (dans les 7 prochains jours) - fiches de paie exclues
     const soonToExpire = await Document.find({
       type: 'personal',
+      category: { $ne: 'payslip' },
       isActive: true,
       expiryDate: {
         $gte: new Date(),

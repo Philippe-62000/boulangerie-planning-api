@@ -1,0 +1,784 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Gestionnaire de Commandes Scolaires</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <style>
+        @media print {
+            @page {
+                size: A4;
+                margin: 1cm;
+            }
+            body {
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+            .print-container {
+                display: block !important;
+                width: 100%;
+                height: 100%;
+            }
+            .ticket-page {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 0.5cm 1cm;
+                page-break-after: always;
+                min-height: 100vh;
+            }
+            .ticket-page:last-child {
+                page-break-after: avoid;
+            }
+            .ticket {
+                border: 1px solid black;
+                padding: 0.5rem;
+                width: calc(50% - 0.5cm); /* 2 columns with 1cm gap */
+                height: calc(16.66% - 0.4cm); /* 6 rows with 0.5cm gap for 12 tickets */
+                display: flex;
+                flex-direction: column;
+                justify-content: space-between;
+                box-sizing: border-box;
+                overflow: hidden;
+                font-size: 13px;
+            }
+            .ticket .ticket-num { font-size: 14px; font-weight: bold; }
+            .ticket .ticket-class { font-size: 12px; }
+            .ticket .ticket-name { font-size: 16px; font-weight: bold; }
+            .ticket .ticket-order { font-size: 13px; }
+            .ticket .ticket-meta { font-size: 11px; }
+        }
+    </style>
+</head>
+<body class="bg-gray-100">
+    <div id="root"></div>
+
+    <script type="text/babel" data-presets="react,typescript">
+        const { useState, useEffect, useCallback, useMemo } = React;
+
+        // --- CONSTANTS ---
+        const MONTHS = [
+            'Aout', 'Septembre', 'Octobre', 'Novembre', 'Decembre', 'Janvier',
+            'Fevrier', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet'
+        ];
+        const VIEW_MODES = { DAILY: 'daily', SUMMARY: 'summary' };
+        const LOCAL_STORAGE_KEY = 'googleSheetIds';
+        const LOCAL_STORAGE_API_KEY = 'googleSheetApiKey';
+        
+        // --- HELPERS ---
+        function parseCSV(csvText) {
+            const lines = csvText.replace(/\r/g, '').split('\n');
+            return lines.map(line => {
+                const result = [];
+                let current = '';
+                let inQuotes = false;
+                for (let i = 0; i < line.length; i++) {
+                    const char = line[i];
+                    if (char === '"' && (i === 0 || line[i - 1] !== '\\')) {
+                        inQuotes = !inQuotes;
+                    } else if (char === ',' && !inQuotes) {
+                        result.push(current.trim().replace(/^"|"$/g, ''));
+                        current = '';
+                    } else {
+                        current += char;
+                    }
+                }
+                result.push(current.trim().replace(/^"|"$/g, ''));
+                return result;
+            });
+        }
+        
+        function extractSheetIdFromUrl(url) {
+            if (!url) return '';
+            const match = url.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
+            return match ? match[1] : '';
+        }
+
+        function convertJsonToCsv(jsonText) {
+            try {
+                // Google Sheets JSON a une structure spécifique
+                const data = JSON.parse(jsonText);
+                if (!data.table || !data.table.rows) return '';
+                
+                const rows = data.table.rows;
+                const csvLines = [];
+                
+                // Header - utiliser les labels des colonnes
+                if (data.table.cols && data.table.cols.length > 0) {
+                    const header = data.table.cols.map(col => col.label || '').join(',');
+                    csvLines.push(header);
+                }
+                
+                // Data rows - gérer les cellules vides correctement
+                for (const row of rows) {
+                    if (row.c) {
+                        // Déterminer le nombre de colonnes à partir du header
+                        const numCols = data.table.cols ? data.table.cols.length : row.c.length;
+                        const rowData = [];
+                        
+                        for (let i = 0; i < numCols; i++) {
+                            const cell = row.c[i];
+                            let value = '';
+                            
+                            if (cell && cell.v !== null && cell.v !== undefined) {
+                                value = String(cell.v);
+                            }
+                            
+                            // Échapper les guillemets et virgules
+                            if (value.includes(',') || value.includes('"') || value.includes('\n')) {
+                                value = '"' + value.replace(/"/g, '""') + '"';
+                            }
+                            
+                            rowData.push(value);
+                        }
+                        
+                        csvLines.push(rowData.join(','));
+                    }
+                }
+                
+                console.log(`🔄 JSON converti en CSV: ${csvLines.length} lignes`);
+                return csvLines.join('\n');
+            } catch (error) {
+                console.error('Erreur conversion JSON vers CSV:', error);
+                return '';
+            }
+        }
+
+        // --- PARSER HTML pour contourner le bug CSV de Google Sheets ---
+        const parseGoogleSheetsHTML = (htmlText) => {
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(htmlText, 'text/html');
+            const table = doc.querySelector('table');
+            
+            if (!table) return [];
+            
+            const rows = [];
+            const trs = table.querySelectorAll('tr');
+            
+            trs.forEach((tr, index) => {
+                const cells = [];
+                const tds = tr.querySelectorAll('td, th');
+                tds.forEach(td => {
+                    // Remplacer &nbsp; par chaîne vide
+                    const text = td.textContent.trim().replace(/\u00A0/g, '');
+                    cells.push(text);
+                });
+                
+                // Ignorer la première ligne si elle est complètement vide (header Google Sheets)
+                if (index === 0) {
+                    const hasContent = cells.some(cell => cell && cell.length > 0);
+                    if (!hasContent) {
+                        return; // Skip cette ligne vide
+                    }
+                }
+                
+                if (cells.length > 0) {
+                    rows.push(cells);
+                }
+            });
+            
+            return rows;
+        };
+
+        // --- DATA FETCHING ---
+        const rowsToOrders = (filteredRows, month, sheetId) => {
+            if (!filteredRows || filteredRows.length < 2 || filteredRows[0].length < 2) return [];
+            const headerRow = filteredRows[0];
+            const className = headerRow[0] || 'Classe non définie';
+            let headerCells = headerRow.slice(1);
+            if (headerCells.length > 0 && (headerCells[headerCells.length - 1].toLowerCase().includes('statut') || headerCells[headerCells.length - 1].toLowerCase().includes('actif'))) {
+                headerCells = headerCells.slice(0, -1);
+            }
+            const allHeaderCells = headerCells.map(d => d ? String(d).trim() : '');
+            const orders = [];
+            for (let i = 1; i < filteredRows.length; i++) {
+                const studentRow = filteredRows[i];
+                const studentName = studentRow[0];
+                if (!studentName || !String(studentName).trim()) continue;
+                let commands = studentRow.slice(1);
+                if (commands.length > 0 && (String(commands[commands.length - 1]).toLowerCase().includes('oui') || String(commands[commands.length - 1]).toLowerCase().includes('actif'))) {
+                    commands = commands.slice(0, -1);
+                }
+                for (let j = 0; j < allHeaderCells.length; j++) {
+                    const date = allHeaderCells[j];
+                    const command = commands[j] ?? '';
+                    if (command && String(command).trim() && date && String(date).trim()) {
+                        orders.push({ date: String(date).trim(), time: 'N/A', class: String(className).trim(), name: String(studentName).trim(), command: String(command).trim() });
+                    }
+                }
+            }
+            return orders;
+        };
+
+        const fetchAndParseSheet = async (sheetId, month, apiKey) => {
+            const sheetName = month;
+            
+            if (apiKey && apiKey.trim()) {
+                try {
+                    const range = encodeURIComponent(sheetName + '!A1:Z1000');
+                    const apiUrl = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${range}?key=${encodeURIComponent(apiKey.trim())}`;
+                    const response = await fetch(apiUrl);
+                    if (response.ok) {
+                        const data = await response.json();
+                        if (data.values && Array.isArray(data.values) && data.values.length >= 2) {
+                            const maxCols = Math.max(...data.values.map(r => Array.isArray(r) ? r.length : 0));
+                            const rows = data.values.map(row => {
+                                const arr = Array.isArray(row) ? row.map(c => c != null ? String(c) : '') : [];
+                                while (arr.length < maxCols) arr.push('');
+                                return arr;
+                            });
+                            const filteredRows = rows.filter(row => row.some(cell => cell && cell.trim() !== ''));
+                            const orders = rowsToOrders(filteredRows, month, sheetId);
+                            if (orders.length > 0 || filteredRows.length >= 2) {
+                                console.log(`[${month}] Sheet ${sheetId}: ${orders.length} commandes via API v4`);
+                                return orders;
+                            }
+                        }
+                    }
+                } catch (e) {
+                    console.warn(`[${month}] API v4 échouée pour ${sheetId}, bascule vers gviz:`, e.message);
+                }
+            }
+            
+            try {
+                const htmlUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:html&sheet=${encodeURIComponent(sheetName)}`;
+                const response = await fetch(htmlUrl);
+                if (!response.ok) {
+                    throw new Error(`Erreur réseau (${response.status}) en accédant à la feuille ${sheetId}.`);
+                }
+                const htmlText = await response.text();
+                if (htmlText.includes('accounts.google.com')) {
+                    throw new Error(`Permission refusée pour la feuille ${sheetId}. Veuillez la partager publiquement.`);
+                }
+                if (!htmlText.trim()) return [];
+
+                const rows = parseGoogleSheetsHTML(htmlText);
+                const titleMatch = htmlText.match(/<title>([^<]*)<\/title>/i);
+                const returnedSheetName = titleMatch ? titleMatch[1].trim() : '';
+                if (returnedSheetName && returnedSheetName.toLowerCase() !== sheetName.toLowerCase()) {
+                    console.warn(`[${sheetName}] L'API a renvoyé l'onglet "${returnedSheetName}" au lieu de "${sheetName}". Vérifiez que l'onglet existe et s'appelle exactement "${sheetName}" dans le Google Sheet.`);
+                }
+                
+                // Afficher le HTML brut complet pour CAP EPC 1
+                if (sheetId.includes('1XfrB2pqX')) {
+                    console.log(`🔍 DEBUG CAP EPC 1 - HTML COMPLET:`, htmlText);
+                }
+                
+                if (sheetId.includes('1XfrB2pqX')) {
+                    console.log(`✅ DEBUG CAP EPC 1 - ${rows.length} lignes parsées depuis HTML`);
+                    console.log(`✅ DEBUG CAP EPC 1 - Header (ligne 0):`, rows[0]);
+                    console.log(`✅ DEBUG CAP EPC 1 - Ligne 1:`, rows[1]);
+                    console.log(`✅ DEBUG CAP EPC 1 - Ligne 2 (COEUGNIET):`, rows[2]);
+                    console.log(`✅ DEBUG CAP EPC 1 - Ligne 3:`, rows[3]);
+                    console.log(`✅ DEBUG CAP EPC 1 - Ligne 4:`, rows[4]);
+                }
+                
+                // Filtrer SEULEMENT les lignes où TOUTES les cellules sont vides
+                const filteredRows = rows.filter(row => {
+                    // Une ligne est gardée si au moins une cellule contient quelque chose
+                    const hasContent = row.some(cell => cell && cell.trim() !== '');
+                    return hasContent;
+                });
+                
+                console.log(`[${month}] Sheet ${sheetId}: ${filteredRows.length} lignes après filtrage`);
+                console.log(`[${month}] Sheet ${sheetId}: Lignes filtrées:`, filteredRows.slice(0, 5));
+                
+                if (filteredRows.length < 2) {
+                    console.log(`[${month}] Sheet ${sheetId}: Pas assez de données (minimum 2 lignes: header + au moins 1 élève)`);
+                    return [];
+                }
+                
+                if (filteredRows[0].length < 2) {
+                    console.log(`[${month}] Sheet ${sheetId}: Header invalide (${filteredRows[0].length} colonnes)`);
+                    return [];
+                }
+
+                return rowsToOrders(filteredRows, month, sheetId);
+            } catch (error) {
+                console.error(`Erreur lors de la récupération de la feuille ${sheetId} pour le mois ${month}:`, error);
+                throw error; // Propage l'erreur pour qu'elle soit gérée dans l'interface
+            }
+        };
+
+        const fetchOrdersForMonth = async (month, sheetIds, apiKey) => {
+            if (!sheetIds || sheetIds.length === 0) return [];
+            const allSheetPromises = sheetIds.map(id => fetchAndParseSheet(id, month, apiKey));
+            const results = await Promise.all(allSheetPromises);
+            const combinedOrders = results.flat();
+            combinedOrders.sort((a, b) => {
+                try {
+                    const dateA = new Date(a.date.split('/').reverse().join('-')).getTime();
+                    const dateB = new Date(b.date.split('/').reverse().join('-')).getTime();
+                    return (isNaN(dateA) || isNaN(dateB)) ? 0 : dateA - dateB;
+                } catch { return a.date.localeCompare(b.date); }
+            });
+            return combinedOrders;
+        };
+
+        // --- COMPONENTS ---
+        const Spinner = () => (
+            <div className="flex justify-center items-center p-8">
+                <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+            </div>
+        );
+
+        const SettingsModal = ({ initialUrls, initialApiKey, onSave, onClose }) => {
+            const [urls, setUrls] = useState([...initialUrls, ...Array(6 - initialUrls.length).fill('')]);
+            const [apiKey, setApiKey] = useState(initialApiKey || '');
+
+            const handleSave = () => {
+                onSave(urls.filter(url => url.trim() !== ''), apiKey.trim());
+                onClose();
+            };
+
+            const handleChange = (index, value) => {
+                const newUrls = [...urls];
+                newUrls[index] = value;
+                setUrls(newUrls);
+            };
+
+            return (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
+                    <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+                        <h2 className="text-2xl font-bold mb-4">Configuration des Google Sheets</h2>
+                        <p className="text-gray-600 mb-4">Veuillez coller les adresses complètes de vos 6 Google Sheets ci-dessous.</p>
+                        <div className="space-y-4 mb-6">
+                            {urls.map((url, index) => (
+                                <input
+                                    key={index}
+                                    type="text"
+                                    placeholder={`Adresse de la Google Sheet ${index + 1}`}
+                                    value={url}
+                                    onChange={(e) => handleChange(index, e.target.value)}
+                                    className="w-full p-2 border border-gray-300 rounded-md"
+                                />
+                            ))}
+                        </div>
+                        <div className="border-t pt-4 mb-6">
+                            <h3 className="font-semibold text-gray-800 mb-2">Clé API Google (recommandée pour Mars à Juillet)</h3>
+                            <p className="text-sm text-gray-600 mb-2">L'API gviz renvoie parfois le mauvais onglet. Une clé API Google Sheets v4 corrige ce problème. <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noopener noreferrer" className="text-blue-600 underline">Créer une clé API</a> (gratuit, activer "Google Sheets API").</p>
+                            <input
+                                type="password"
+                                placeholder="Clé API (optionnel)"
+                                value={apiKey}
+                                onChange={(e) => setApiKey(e.target.value)}
+                                className="w-full p-2 border border-gray-300 rounded-md"
+                            />
+                        </div>
+                        <div className="flex justify-end gap-4">
+                            <button onClick={onClose} className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300">Annuler</button>
+                            <button onClick={handleSave} className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">Sauvegarder</button>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        const PrintView = ({ orders }) => {
+            if (!orders || orders.length === 0) return null;
+
+            const generationTime = new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+            const date = orders[0].date;
+            
+            const chunkArray = (arr, size) => Array.from({ length: Math.ceil(arr.length / size) }, (v, i) => arr.slice(i * size, i * size + size));
+            const pages = chunkArray(orders, 10);
+
+            return (
+                <div className="hidden print:block font-sans print-container">
+                    {pages.map((pageOrders, pageIndex) => (
+                        <div key={pageIndex} className="ticket-page">
+                            {pageOrders.map((order, index) => {
+                                const orderNum = pageIndex * 10 + index + 1;
+                                return (
+                                    <div key={index} className="ticket">
+                                        <div>
+                                            <div className="flex justify-between items-center border-b border-black pb-1 mb-1">
+                                                <h4 className="font-bold ticket-num">Ticket #{orderNum}/{orders.length}</h4>
+                                                <p className="text-gray-700 ticket-meta">{date}</p>
+                                            </div>
+                                            <div className="my-2">
+                                                <p className="ticket-class"><span className="font-bold">Classe:</span> {order.class}</p>
+                                                <p className="ticket-name my-1 truncate">{order.name}</p>
+                                            </div>
+                                            <div className="border-t border-dashed border-gray-400 pt-2 mt-2">
+                                                <p className="font-bold ticket-order">Commande:</p>
+                                                <p className="ticket-order break-words">{order.command}</p>
+                                            </div>
+                                        </div>
+                                        <div className="text-right text-gray-500 ticket-meta mt-2 pt-1 border-t border-gray-200">
+                                            Généré à {generationTime}
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    ))}
+                </div>
+            );
+        };
+
+        const MonthlySummary = ({ orders, selectedMonth }) => {
+            console.log('MonthlySummary props:', { orders, selectedMonth });
+            
+            const summaryData = useMemo(() => {
+                console.log('Calculating summary data for orders:', orders);
+                if (!orders || orders.length === 0) return [];
+                
+                const classCounts = orders.reduce((acc, order) => {
+                    const className = order.class || 'Non spécifié';
+                    acc[className] = (acc[className] || 0) + 1;
+                    return acc;
+                }, {});
+                
+                console.log('Class counts:', classCounts);
+                
+                return Object.entries(classCounts)
+                    .map(([name, total]) => ({ name, total }))
+                    .sort((a, b) => b.total - a.total);
+            }, [orders]);
+
+            const totalCommands = orders ? orders.length : 0;
+            
+            console.log('Summary data:', summaryData, 'Total commands:', totalCommands);
+
+            if (!orders || orders.length === 0) {
+                return (
+                    <div className="space-y-6">
+                        <div className="bg-yellow-50 rounded-lg p-6">
+                            <h2 className="text-2xl font-bold text-center mb-4">Récapitulatif mensuel - {selectedMonth}</h2>
+                            <p className="text-center text-gray-600">Aucune commande trouvée pour ce mois.</p>
+                        </div>
+                    </div>
+                );
+            }
+
+            const maxValue = Math.max(...summaryData.map(item => item.total));
+
+            return (
+                <div className="space-y-6">
+                    {/* En-tête avec statistiques globales */}
+                    <div className="bg-blue-50 rounded-lg p-6">
+                        <h2 className="text-2xl font-bold text-center mb-4">Récapitulatif mensuel - {selectedMonth}</h2>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div className="text-center">
+                                <div className="text-3xl font-bold text-blue-600">{totalCommands}</div>
+                                <div className="text-sm text-gray-600">Total des commandes</div>
+                            </div>
+                            <div className="text-center">
+                                <div className="text-3xl font-bold text-green-600">{summaryData.length}</div>
+                                <div className="text-sm text-gray-600">Classes actives</div>
+                            </div>
+                            <div className="text-center">
+                                <div className="text-3xl font-bold text-purple-600">
+                                    {summaryData.length > 0 ? Math.round(totalCommands / summaryData.length) : 0}
+                                </div>
+                                <div className="text-sm text-gray-600">Moyenne par classe</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Graphique CSS personnalisé */}
+                    <div className="bg-white rounded-lg p-6 shadow-sm">
+                        <h3 className="text-xl font-bold text-slate-700 mb-6 text-center">Répartition des commandes par classe</h3>
+                        <div className="space-y-4">
+                            {summaryData.map((item, index) => {
+                                const percentage = maxValue > 0 ? (item.total / maxValue) * 100 : 0;
+                                return (
+                                    <div key={index} className="flex items-center space-x-4">
+                                        <div className="w-24 text-sm font-medium text-gray-900 truncate" title={item.name}>
+                                            {item.name}
+                                        </div>
+                                        <div className="flex-1 bg-gray-200 rounded-full h-6 relative">
+                                            <div 
+                                                className="bg-blue-600 h-6 rounded-full flex items-center justify-end pr-2"
+                                                style={{ width: `${Math.max(percentage, 10)}%` }}
+                                            >
+                                                <span className="text-white text-xs font-bold">{item.total}</span>
+                                            </div>
+                                        </div>
+                                        <div className="w-16 text-sm text-gray-500 text-right">
+                                            {totalCommands > 0 ? ((item.total / totalCommands) * 100).toFixed(1) : 0}%
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+
+                    {/* Tableau détaillé */}
+                    <div className="bg-white rounded-lg p-6 shadow-sm">
+                        <h3 className="text-xl font-bold text-slate-700 mb-4">Détail par classe</h3>
+                        <div className="overflow-x-auto">
+                            <table className="min-w-full divide-y divide-gray-200">
+                                <thead className="bg-gray-50">
+                                    <tr>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rang</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Classe</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nombre de commandes</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Pourcentage</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="bg-white divide-y divide-gray-200">
+                                    {summaryData.map((item, index) => (
+                                        <tr key={index} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                                #{index + 1}
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                                                {item.name}
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                                    {item.total}
+                                                </span>
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                                {totalCommands > 0 ? ((item.total / totalCommands) * 100).toFixed(1) : 0}%
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        const DailyOrdersView = ({ orders, onPrint }) => {
+            const ordersByDay = useMemo(() => orders.reduce((acc, order) => {
+                (acc[order.date] = acc[order.date] || []).push(order);
+                return acc;
+            }, {}), [orders]);
+            const sortedDays = useMemo(() => Object.keys(ordersByDay).sort((a, b) => {
+                try {
+                    const dateA = new Date(a.split('/').reverse().join('-')).getTime();
+                    const dateB = new Date(b.split('/').reverse().join('-')).getTime();
+                    return (isNaN(dateA) || isNaN(dateB)) ? 0 : dateB - dateA; // Inversé pour afficher les dates les plus récentes en premier
+                } catch { return b.localeCompare(a); } // Inversé aussi ici
+            }), [ordersByDay]);
+
+            return (
+                <div className="space-y-8">
+                    {sortedDays.map(day => (
+                        <div key={day} className="bg-slate-50 p-4 rounded-lg shadow-sm">
+                            <div className="flex justify-between items-center mb-4">
+                                <h3 className="text-xl font-bold text-slate-700">{day}</h3>
+                                <button onClick={() => onPrint(ordersByDay[day])} className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors text-sm">
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>
+                                    Imprimer les tickets du jour
+                                </button>
+                            </div>
+                            <div className="overflow-x-auto">
+                                <table className="min-w-full divide-y divide-gray-200">
+                                    <thead className="bg-gray-100">
+                                        <tr>
+                                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-14">N°</th>
+                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Classe</th>
+                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nom de l'élève</th>
+                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Commande</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="bg-white divide-y divide-gray-200">
+                                        {ordersByDay[day].map((order, index) => (
+                                            <tr key={index} className="hover:bg-gray-50">
+                                                <td className="px-4 py-4 whitespace-nowrap text-sm font-bold text-gray-700">{index + 1}</td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{order.class}</td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{order.name}</td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{order.command}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            );
+        };
+
+        const MonthTabs = ({ currentMonthIndex, setCurrentMonthIndex }) => (
+            <div className="border-b border-gray-200">
+                <nav className="-mb-px flex space-x-4 overflow-x-auto" aria-label="Tabs">
+                    {MONTHS.map((month, index) => (
+                        <button key={month} onClick={() => setCurrentMonthIndex(index)}
+                            className={`whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors ${index === currentMonthIndex ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}>
+                            {month}
+                        </button>
+                    ))}
+                </nav>
+            </div>
+        );
+
+        // --- MAIN APP ---
+        const App = () => {
+            const getInitialMonthIndex = () => {
+                const calendarMonths = ['Janvier', 'Fevrier', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Aout', 'Septembre', 'Octobre', 'Novembre', 'Decembre'];
+                const currentMonthName = calendarMonths[new Date().getMonth()];
+                const academicIndex = MONTHS.findIndex(m => m.toLowerCase() === currentMonthName.toLowerCase());
+                return academicIndex > -1 ? academicIndex : 0;
+            };
+            
+            const [currentMonthIndex, setCurrentMonthIndex] = useState(getInitialMonthIndex());
+            const [sheetUrls, setSheetUrls] = useState([]);
+            const [orders, setOrders] = useState([]);
+            const [loading, setLoading] = useState(true);
+            const [error, setError] = useState(null);
+            const [permissionError, setPermissionError] = useState(false);
+            const [viewMode, setViewMode] = useState(VIEW_MODES.DAILY);
+            const [ordersToPrint, setOrdersToPrint] = useState(null);
+            const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+            const [apiKey, setApiKey] = useState('');
+
+            const sheetIds = useMemo(() => sheetUrls.map(extractSheetIdFromUrl).filter(Boolean), [sheetUrls]);
+            const selectedMonthName = useMemo(() => MONTHS[currentMonthIndex], [currentMonthIndex]);
+
+            useEffect(() => {
+                try {
+                    const savedUrls = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY));
+                    if (savedUrls && Array.isArray(savedUrls) && savedUrls.length > 0) {
+                        setSheetUrls(savedUrls);
+                    } else {
+                        setIsSettingsOpen(true);
+                    }
+                    const savedKey = localStorage.getItem(LOCAL_STORAGE_API_KEY);
+                    if (savedKey) setApiKey(savedKey);
+                } catch (e) {
+                    console.error("Failed to load settings from localStorage", e);
+                }
+            }, []);
+
+            const loadOrders = useCallback(async (month, ids, key) => {
+                if (ids.length === 0) {
+                    setLoading(false);
+                    setOrders([]);
+                    return;
+                }
+                setLoading(true);
+                setError(null);
+                setPermissionError(false);
+                try {
+                    setOrders(await fetchOrdersForMonth(month, ids, key));
+                } catch (err) {
+                    if (err.message.includes('Permission refusée')) {
+                        setPermissionError(true);
+                    } else {
+                        setError(err instanceof Error ? err.message : 'Une erreur inconnue est survenue.');
+                    }
+                    setOrders([]);
+                } finally {
+                    setLoading(false);
+                }
+            }, []);
+
+            useEffect(() => {
+                loadOrders(selectedMonthName, sheetIds, apiKey);
+            }, [selectedMonthName, sheetIds, apiKey, loadOrders]);
+
+            const handleSaveSettings = (urls, key) => {
+                setSheetUrls(urls);
+                setApiKey(key || '');
+                localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(urls));
+                localStorage.setItem(LOCAL_STORAGE_API_KEY, key || '');
+            };
+
+            const handlePrint = (dailyOrders) => {
+                setOrdersToPrint(dailyOrders);
+                setTimeout(() => {
+                    window.print();
+                    setOrdersToPrint(null);
+                }, 100);
+            };
+            
+            const renderContent = () => {
+                if (loading) return <Spinner />;
+
+                if (permissionError) {
+                    return (
+                        <div className="text-center text-orange-800 bg-orange-100 border-l-4 border-orange-500 p-6 rounded-md" role="alert">
+                            <h3 className="text-xl font-bold mb-3">Action requise : Problème de permission</h3>
+                            <p className="text-left mb-4">L'application ne peut pas accéder aux données car un ou plusieurs de vos fichiers Google Sheets ne sont pas partagés publiquement. Veuillez suivre ces étapes pour <strong>chaque feuille de calcul</strong> :</p>
+                            <ol className="list-decimal list-inside text-left space-y-3">
+                                <li>Ouvrez votre fichier Google Sheet.</li>
+                                <li>Cliquez sur le bouton bleu <strong>"Partager"</strong> en haut à droite.</li>
+                                <li>Dans la fenêtre qui s'ouvre, cherchez la section "Accès général".</li>
+                                <li>Si elle indique "Restreint", cliquez dessus et sélectionnez <strong>"Tous les utilisateurs disposant du lien"</strong>.</li>
+                                <li>Assurez-vous que le rôle à droite est bien "<strong>Lecteur</strong>".</li>
+                                <li>Cliquez sur "OK", puis revenez ici et <strong>rechargez la page</strong> (touche F5 ou Ctrl+R).</li>
+                            </ol>
+                        </div>
+                    );
+                }
+
+                if (error) return <div className="text-center text-red-500 bg-red-100 p-4 rounded-md">{error}</div>;
+
+                if (sheetIds.length === 0) {
+                    return (
+                        <div className="text-center text-gray-500 mt-8">
+                            <h3 className="text-xl font-semibold mb-2">Bienvenue !</h3>
+                            <p>Veuillez configurer les adresses de vos Google Sheets en cliquant sur l'icône ⚙️ en haut à droite.</p>
+                        </div>
+                    );
+                }
+                
+                if (orders.length === 0) {
+                     return (
+                        <div className="text-center text-gray-500 mt-8">
+                            <h3 className="text-xl font-semibold mb-2">Aucune commande trouvée</h3>
+                            <p>Vérifiez que les adresses des Google Sheets sont correctes et que l'onglet pour "{selectedMonthName}" existe et contient des données.</p>
+                            <p className="mt-2 text-sm">Si le problème persiste, assurez-vous que les feuilles sont partagées publiquement ("Tous les utilisateurs disposant du lien").</p>
+                        </div>
+                    );
+                }
+
+                return viewMode === VIEW_MODES.DAILY
+                    ? <DailyOrdersView orders={orders} onPrint={handlePrint} />
+                    : <MonthlySummary orders={orders} selectedMonth={selectedMonthName} />;
+            };
+
+            return (
+                <React.Fragment>
+                    <div className="min-h-screen bg-slate-50 text-slate-800 print:hidden">
+                        <header className="bg-white shadow-md">
+                            <div className="container mx-auto px-4 py-6 flex justify-between items-center">
+                                <div>
+                                    <h1 className="text-3xl font-bold text-slate-900">Gestionnaire de Commandes</h1>
+                                    <p className="text-slate-600 mt-1">Consultez et imprimez les commandes journalières.</p>
+                                </div>
+                                <button onClick={() => setIsSettingsOpen(true)} className="p-2 rounded-full hover:bg-gray-200" title="Configuration">
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                                </button>
+                            </div>
+                        </header>
+                        <main className="container mx-auto p-4">
+                            <MonthTabs currentMonthIndex={currentMonthIndex} setCurrentMonthIndex={setCurrentMonthIndex} />
+                            <div className="bg-white p-6 rounded-lg shadow-lg mt-4 min-h-[60vh]">
+                                <div className="flex justify-between items-center mb-4 border-b pb-4">
+                                    <h2 className="text-2xl font-semibold">{selectedMonthName}</h2>
+                                    <div className="flex items-center gap-2">
+                                        <button onClick={() => setViewMode(VIEW_MODES.DAILY)} className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${viewMode === VIEW_MODES.DAILY ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}>Vue Journalière</button>
+                                        <button onClick={() => setViewMode(VIEW_MODES.SUMMARY)} className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${viewMode === VIEW_MODES.SUMMARY ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}>Récapitulatif</button>
+                                    </div>
+                                </div>
+                                {renderContent()}
+                            </div>
+                        </main>
+                        <footer className="text-center py-4 text-slate-500 text-sm">
+                            <p>Généré le {new Date().toLocaleString('fr-FR')}</p>
+                        </footer>
+                    </div>
+                    {isSettingsOpen && <SettingsModal initialUrls={sheetUrls} initialApiKey={apiKey} onSave={handleSaveSettings} onClose={() => setIsSettingsOpen(false)} />}
+                    {ordersToPrint && <PrintView orders={ordersToPrint} />}
+                </React.Fragment>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>

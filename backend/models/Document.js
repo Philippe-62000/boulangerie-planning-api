@@ -116,11 +116,12 @@ documentSchema.statics.getGeneralDocuments = async function() {
 };
 
 // Méthode statique pour récupérer les documents personnels d'un employé
+// Inclut TOUS les documents : actifs + expirés (pour permettre le téléchargement des fiches de paie historiques)
 documentSchema.statics.getPersonalDocuments = async function(employeeId) {
   return await this.find({ 
     type: 'personal', 
-    employeeId: employeeId,
-    isActive: true 
+    employeeId: employeeId
+    // Plus de filtre isActive: true - les salariés voient toutes leurs fiches de paie
   }).sort({ uploadDate: -1 });
 };
 
@@ -149,11 +150,13 @@ documentSchema.statics.recordDownload = async function(documentId, employeeId = 
 };
 
 // Méthode statique pour nettoyer les documents expirés
+// Les fiches de paie (payslip) ne sont JAMAIS expirées - les salariés doivent y avoir accès indéfiniment
 documentSchema.statics.cleanExpiredDocuments = async function() {
   const now = new Date();
   const expiredDocs = await this.find({
     type: 'personal',
-    expiryDate: { $lt: now },
+    category: { $ne: 'payslip' }, // Exclure les fiches de paie
+    expiryDate: { $lt: now, $ne: null },
     isActive: true
   });
   
@@ -161,23 +164,30 @@ documentSchema.statics.cleanExpiredDocuments = async function() {
     await this.updateMany(
       { 
         type: 'personal',
-        expiryDate: { $lt: now },
+        category: { $ne: 'payslip' },
+        expiryDate: { $lt: now, $ne: null },
         isActive: true 
       },
       { isActive: false }
     );
     
-    console.log(`🧹 ${expiredDocs.length} documents personnels expirés désactivés`);
+    console.log(`🧹 ${expiredDocs.length} documents personnels expirés désactivés (fiches de paie exclues)`);
   }
   
   return expiredDocs.length;
 };
 
 // Méthode statique pour créer un document personnel avec expiration
+// Les fiches de paie (payslip) n'expirent jamais - les salariés doivent pouvoir les télécharger indéfiniment
 documentSchema.statics.createPersonalDocument = async function(docData) {
-  // Calculer la date d'expiration (1 mois après l'upload)
-  const expiryDate = new Date();
-  expiryDate.setMonth(expiryDate.getMonth() + 1);
+  const isPayslip = docData.category === 'payslip';
+  
+  // Fiches de paie : pas d'expiration. Autres documents : expiration 1 mois
+  let expiryDate = null;
+  if (!isPayslip) {
+    expiryDate = new Date();
+    expiryDate.setMonth(expiryDate.getMonth() + 1);
+  }
   
   const document = new this({
     ...docData,

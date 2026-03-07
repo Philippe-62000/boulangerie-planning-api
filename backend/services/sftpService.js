@@ -384,6 +384,46 @@ class SFTPService {
     }
   }
 
+  /**
+   * Liste récursivement tous les fichiers dans personal/ (y compris personal/2024/, personal/2025/, etc.)
+   * Retourne les chemins relatifs au basePath (ex: personal/fiche.pdf, personal/2024/fiche.pdf)
+   */
+  async listAllPersonalFiles(basePath) {
+    try {
+      await this.connect();
+      const personalPath = `${basePath}/personal`;
+      const allFiles = [];
+
+      try {
+        const items = await this._client.list(personalPath);
+        for (const item of items) {
+          const itemPath = `personal/${item.name}`;
+          if (item.type === '-') {
+            allFiles.push(itemPath);
+          } else if (item.type === 'd' && /^\d{4}$/.test(item.name)) {
+            // Sous-dossier année (2024, 2025, etc.)
+            const yearFiles = await this._client.list(`${personalPath}/${item.name}`);
+            for (const f of yearFiles) {
+              if (f.type === '-') {
+                allFiles.push(`personal/${item.name}/${f.name}`);
+              }
+            }
+          }
+        }
+      } catch (err) {
+        if (err.message && err.message.includes('No such file')) {
+          return [];
+        }
+        throw err;
+      }
+
+      return allFiles;
+    } catch (error) {
+      console.error('❌ Erreur listage fichiers personnels:', error.message);
+      throw error;
+    }
+  }
+
   // Vérifier si un fichier existe
   async fileExists(filePath) {
     try {

@@ -15,7 +15,8 @@ const DocumentCard = ({
   };
 
   const getExpiryStatus = () => {
-    if (!isPersonal || !document.expiryDate) return null;
+    // Les fiches de paie n'expirent jamais - toujours téléchargeables
+    if (!isPersonal || !document.expiryDate || document.category === 'payslip') return null;
     
     const now = new Date();
     const expiryDate = new Date(document.expiryDate);
@@ -34,6 +35,7 @@ const DocumentCard = ({
   };
 
   const expiryStatus = getExpiryStatus();
+  const isPayslip = document.category === 'payslip';
 
   return (
     <div className={`document-card ${isPersonal ? 'personal' : 'general'}`}>
@@ -90,13 +92,13 @@ const DocumentCard = ({
         <button 
           className="download-btn"
           onClick={handleDownload}
-          disabled={expiryStatus?.status === 'expired'}
+          disabled={expiryStatus?.status === 'expired' && !isPayslip}
         >
           <span className="download-icon">⬇️</span>
           Télécharger
         </button>
         
-        {expiryStatus?.status === 'expired' && (
+        {expiryStatus?.status === 'expired' && !isPayslip && (
           <div className="expired-message">
             ⚠️ Ce document a expiré et ne peut plus être téléchargé
           </div>

@@ -10,6 +10,7 @@ router.post('/auth/disconnect', googleOAuthController.disconnect);
 
 router.get('/links', onlineOrdersController.getLinks);
 router.post('/links', onlineOrdersController.addLink);
+router.put('/links/:id', onlineOrdersController.updateLink);
 router.post('/links/:id/sync-tabs', onlineOrdersController.syncLinkTabs);
 router.delete('/links/:id', onlineOrdersController.deleteLink);
 router.put('/links/order', onlineOrdersController.updateLinksOrder);

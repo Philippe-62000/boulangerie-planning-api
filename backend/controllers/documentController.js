@@ -95,7 +95,9 @@ exports.downloadDocument = async (req, res) => {
       });
     }
     
-    if (!document.isActive) {
+    // Les fiches de paie restent téléchargeables même si marquées inactives (expirées)
+    const isPayslip = document.category === 'payslip';
+    if (!document.isActive && !isPayslip) {
       return res.status(410).json({
         success: false,
         message: 'Document non disponible'
@@ -334,7 +336,11 @@ exports.uploadDocument = async (req, res) => {
     }
     
     // Créer le chemin de destination sur le NAS (avant le bloc try)
-    const targetDir = type === 'personal' ? NAS_CONFIG.personalPath : NAS_CONFIG.generalPath;
+    // Documents personnels : classés par année (personal/2024/, personal/2025/) pour archivage
+    const currentYear = new Date().getFullYear();
+    const targetDir = type === 'personal' 
+      ? `${NAS_CONFIG.personalPath}/${currentYear}` 
+      : NAS_CONFIG.generalPath;
     // Garder le nom d'origine du fichier et normaliser l'encodage UTF-8
     // Utiliser des séparateurs Unix pour les chemins SFTP
     const normalizePath = (...parts) => parts.filter(p => p).join('/').replace(/\\/g, '/');
@@ -380,17 +386,17 @@ exports.uploadDocument = async (req, res) => {
         throw new Error('Client SFTP non initialisé');
       }
       
-      // Créer le dossier sur le NAS s'il n'existe pas
+      // Créer le dossier sur le NAS s'il n'existe pas (avec sous-dossiers par année pour personal/)
       const dir = normalizePath(NAS_CONFIG.basePath, targetDir);
       console.log('📁 Création du dossier sur le NAS:', dir);
       
       try {
-        // Vérifier si le dossier existe
+        // mkdir avec recursive: true crée toute la hiérarchie (personal, personal/2024, etc.)
         try {
           await sftpService.client.stat(dir);
           console.log('✅ Dossier existe déjà sur le NAS:', dir);
         } catch (error) {
-          // Dossier n'existe pas, le créer
+          // Dossier n'existe pas, le créer (recursive pour personal/2024)
           console.log('📁 Création du dossier sur le NAS:', dir);
           await sftpService.client.mkdir(dir, true);
           console.log('✅ Dossier créé avec succès sur le NAS:', dir);
@@ -654,6 +660,137 @@ exports.cleanExpiredDocuments = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Erreur lors du nettoyage des documents expirés',
+      error: error.message
+    });
+  }
+};
+
+// Lister les fiches orphelines : fichiers sur le NAS sans enregistrement en base
+// (fichiers uploadés dont le lien de téléchargement a été supprimé)
+exports.getOrphanedDocuments = async (req, res) => {
+  let sftpConnected = false;
+  try {
+    console.log('🔍 Recherche des documents orphelins sur le NAS...');
+    
+    await sftpService.connect();
+    sftpConnected = true;
+    
+    const basePath = NAS_CONFIG.basePath;
+    const allFilesOnNas = await sftpService.listAllPersonalFiles(basePath);
+    
+    const dbDocuments = await Document.find({ type: 'personal' }).select('filePath');
+    const dbPaths = new Set(dbDocuments.map(d => d.filePath));
+    
+    const orphaned = allFilesOnNas.filter(filePath => !dbPaths.has(filePath));
+    
+    console.log(`📄 Fichiers sur NAS: ${allFilesOnNas.length}, en base: ${dbDocuments.length}, orphelins: ${orphaned.length}`);
+    
+    res.json({
+      success: true,
+      data: {
+        orphanedFiles: orphaned.map(fp => ({
+          filePath: fp,
+          fileName: path.basename(fp)
+        })),
+        totalOnNas: allFilesOnNas.length,
+        totalInDb: dbDocuments.length,
+        orphanedCount: orphaned.length
+      }
+    });
+  } catch (error) {
+    console.error('❌ Erreur recherche documents orphelins:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erreur lors de la recherche des documents orphelins',
+      error: error.message
+    });
+  } finally {
+    if (sftpConnected) {
+      try {
+        await sftpService.disconnect();
+      } catch (e) {
+        console.error('⚠️ Erreur déconnexion SFTP:', e.message);
+      }
+    }
+  }
+};
+
+// Réassocier un fichier orphelin à un employé (créer l'enregistrement en base)
+exports.reassociateOrphanedDocument = async (req, res) => {
+  try {
+    const { filePath, employeeId, title } = req.body;
+    
+    if (!filePath || !employeeId || !title) {
+      return res.status(400).json({
+        success: false,
+        message: 'filePath, employeeId et title sont requis'
+      });
+    }
+    
+    const employee = await Employee.findById(employeeId);
+    if (!employee) {
+      return res.status(404).json({
+        success: false,
+        message: 'Employé non trouvé'
+      });
+    }
+    
+    const fullPath = `${NAS_CONFIG.basePath}/${filePath}`.replace(/\\/g, '/');
+    const fileExists = await sftpService.fileExists(fullPath);
+    if (!fileExists) {
+      return res.status(404).json({
+        success: false,
+        message: 'Fichier non trouvé sur le NAS'
+      });
+    }
+    
+    const existingDoc = await Document.findOne({ filePath });
+    if (existingDoc) {
+      return res.status(400).json({
+        success: false,
+        message: 'Ce fichier est déjà associé à un document'
+      });
+    }
+    
+    const stats = await sftpService.getFileStats(fullPath);
+    const fileName = path.basename(filePath);
+    const ext = path.extname(fileName).toLowerCase().substring(1);
+    const mimeTypes = {
+      pdf: 'application/pdf',
+      doc: 'application/msword',
+      docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      xls: 'application/vnd.ms-excel',
+      xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      jpg: 'image/jpeg',
+      jpeg: 'image/jpeg',
+      png: 'image/png',
+      txt: 'text/plain'
+    };
+    
+    const document = await Document.createPersonalDocument({
+      title,
+      type: 'personal',
+      category: 'payslip',
+      employeeId,
+      filePath,
+      fileName,
+      fileSize: stats.size,
+      mimeType: mimeTypes[ext] || 'application/octet-stream',
+      description: 'Document réassocié depuis les fichiers orphelins'
+    });
+    
+    console.log(`✅ Document orphelin réassocié: ${title} pour ${employee.name}`);
+    
+    res.json({
+      success: true,
+      message: 'Document réassocié avec succès',
+      data: document
+    });
+  } catch (error) {
+    console.error('❌ Erreur réassociation document:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erreur lors de la réassociation',
       error: error.message
     });
   }

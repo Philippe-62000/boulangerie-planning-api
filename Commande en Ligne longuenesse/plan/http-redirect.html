@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Redirection vers HTTPS - Planning Boulangerie</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            color: white;
+        }
+        .container {
+            text-align: center;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 40px;
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            max-width: 500px;
+        }
+        .logo {
+            font-size: 2.5em;
+            margin-bottom: 20px;
+            font-weight: bold;
+        }
+        .message {
+            font-size: 1.2em;
+            margin-bottom: 30px;
+            line-height: 1.6;
+        }
+        .button {
+            background: #4CAF50;
+            color: white;
+            padding: 15px 30px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1.1em;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+            transition: background 0.3s;
+        }
+        .button:hover {
+            background: #45a049;
+        }
+        .countdown {
+            font-size: 0.9em;
+            margin-top: 20px;
+            opacity: 0.8;
+        }
+        .spinner {
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-top: 3px solid white;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="logo">🍞 Planning Boulangerie</div>
+        <div class="message">
+            <strong>Connexion sécurisée requise</strong><br>
+            Pour votre sécurité, veuillez utiliser la version HTTPS de notre site.
+        </div>
+        
+        <div class="spinner"></div>
+        
+        <a href="https://www.filmara.fr/plan/" class="button" id="redirectBtn">
+            🔒 Accéder en HTTPS
+        </a>
+        
+        <div class="countdown" id="countdown">
+            Redirection automatique dans <span id="timer">5</span> secondes...
+        </div>
+    </div>
+
+    <script>
+        // Redirection automatique
+        let countdown = 5;
+        const timerElement = document.getElementById('timer');
+        const redirectBtn = document.getElementById('redirectBtn');
+        
+        const updateTimer = () => {
+            timerElement.textContent = countdown;
+            if (countdown <= 0) {
+                window.location.href = 'https://www.filmara.fr/plan/';
+            }
+            countdown--;
+        };
+        
+        // Mise à jour du timer toutes les secondes
+        const interval = setInterval(updateTimer, 1000);
+        
+        // Redirection immédiate si l'utilisateur clique
+        redirectBtn.addEventListener('click', () => {
+            clearInterval(interval);
+            window.location.href = 'https://www.filmara.fr/plan/';
+        });
+        
+        // Redirection immédiate si l'utilisateur appuie sur Entrée
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                clearInterval(interval);
+                window.location.href = 'https://www.filmara.fr/plan/';
+            }
+        });
+    </script>
+</body>
+</html>

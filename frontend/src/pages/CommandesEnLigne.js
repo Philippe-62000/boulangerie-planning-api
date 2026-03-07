@@ -15,6 +15,9 @@ const CommandesEnLigne = () => {
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [newLinkUrl, setNewLinkUrl] = useState('');
   const [newLinkClass, setNewLinkClass] = useState('');
+  const [editingLink, setEditingLink] = useState(null);
+  const [editLinkUrl, setEditLinkUrl] = useState('');
+  const [editLinkClass, setEditLinkClass] = useState('');
   const [showMonthlySummary, setShowMonthlySummary] = useState(false);
   const [monthlySummary, setMonthlySummary] = useState(null);
   const [summaryMonth, setSummaryMonth] = useState(new Date().getMonth() + 1);
@@ -154,6 +157,34 @@ const CommandesEnLigne = () => {
     }
   };
 
+  const handleEditLink = (link) => {
+    setEditingLink(link._id);
+    setEditLinkUrl(link.spreadsheetUrl || '');
+    setEditLinkClass(link.className || '');
+  };
+
+  const handleSaveEditLink = async (e) => {
+    e.preventDefault();
+    if (!editingLink) return;
+    try {
+      await api.put(`/online-orders/links/${editingLink}`, {
+        className: editLinkClass.trim(),
+        spreadsheetUrl: editLinkUrl.trim()
+      });
+      toast.success('Lien modifié');
+      setEditingLink(null);
+      loadLinks();
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Erreur lors de la modification');
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setEditingLink(null);
+    setEditLinkUrl('');
+    setEditLinkClass('');
+  };
+
   const handleDeleteLink = async (id) => {
     if (!window.confirm('Supprimer ce lien ?')) return;
     try {
@@ -171,15 +202,16 @@ const CommandesEnLigne = () => {
     const dateStr = now.toLocaleDateString('fr-FR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
     const timeStr = now.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
     const ordersByClass = {};
+    let globalIdx = 0;
     orders.forEach(o => {
       const c = o.className || 'Classe';
       if (!ordersByClass[c]) ordersByClass[c] = [];
-      ordersByClass[c].push(o);
+      ordersByClass[c].push({ ...o, _num: ++globalIdx });
     });
     const labelsHtml = Object.entries(ordersByClass).flatMap(([cls, items]) =>
       items.map(o => `
         <div class="label">
-          <div class="label-meta">${dateStr} - ${timeStr}</div>
+          <div class="label-meta">#${o._num}/${orders.length} - ${dateStr} - ${timeStr}</div>
           <div class="label-class">${cls}</div>
           <div class="label-name">${o.name || '-'}</div>
           <div class="label-order">${o.order || '-'}</div>
@@ -207,10 +239,10 @@ const CommandesEnLigne = () => {
             break-inside: avoid;
             page-break-inside: avoid;
           }
-          .label-meta { font-size: 8px; color: #666; margin-bottom: 4px; }
-          .label-class { font-weight: bold; margin-bottom: 6px; font-size: 11px; }
-          .label-name { font-size: 12px; margin-bottom: 4px; }
-          .label-order { font-size: 10px; }
+          .label-meta { font-size: 10px; color: #666; margin-bottom: 4px; }
+          .label-class { font-weight: bold; margin-bottom: 6px; font-size: 13px; }
+          .label-name { font-size: 14px; margin-bottom: 4px; }
+          .label-order { font-size: 12px; }
         </style>
       </head>
       <body>
@@ -305,6 +337,7 @@ const CommandesEnLigne = () => {
               <table>
                 <thead>
                   <tr>
+                    <th className="w-12">N°</th>
                     <th>Jour</th>
                     <th>Nom</th>
                     <th>Commande</th>
@@ -313,6 +346,7 @@ const CommandesEnLigne = () => {
                 <tbody>
                   {items.map((o, i) => (
                     <tr key={`${o.name}-${i}`}>
+                      <td className="font-bold">{i + 1}</td>
                       <td>{o.day}</td>
                       <td>{o.name}</td>
                       <td>{o.order}</td>
@@ -347,12 +381,38 @@ const CommandesEnLigne = () => {
             <ul className="links-list">
               {links.map((l) => (
                 <li key={l._id}>
-                  <span className="link-class">{l.className}</span>
-                  <a href={l.spreadsheetUrl} target="_blank" rel="noopener noreferrer">Ouvrir</a>
-                  <button type="button" className="btn btn-sm" onClick={() => handleSyncTabs(l._id)} title="Synchroniser les onglets (Mars, Avril...)">
-                    Sync onglets
-                  </button>
-                  <button type="button" className="btn-delete" onClick={() => handleDeleteLink(l._id)}>Supprimer</button>
+                  {editingLink === l._id ? (
+                    <form onSubmit={handleSaveEditLink} className="link-edit-form">
+                      <input
+                        type="url"
+                        placeholder="URL Google Sheet"
+                        value={editLinkUrl}
+                        onChange={(e) => setEditLinkUrl(e.target.value)}
+                        required
+                      />
+                      <input
+                        type="text"
+                        placeholder="Nom de la classe"
+                        value={editLinkClass}
+                        onChange={(e) => setEditLinkClass(e.target.value)}
+                        required
+                      />
+                      <button type="submit" className="btn btn-primary btn-sm">Enregistrer</button>
+                      <button type="button" className="btn btn-secondary btn-sm" onClick={handleCancelEdit}>Annuler</button>
+                    </form>
+                  ) : (
+                    <>
+                      <span className="link-class">{l.className}</span>
+                      <a href={l.spreadsheetUrl} target="_blank" rel="noopener noreferrer">Ouvrir</a>
+                      <button type="button" className="btn btn-sm" onClick={() => handleEditLink(l)} title="Modifier le nom ou l'URL">
+                        Modifier
+                      </button>
+                      <button type="button" className="btn btn-sm" onClick={() => handleSyncTabs(l._id)} title="Synchroniser les onglets (Mars, Avril...)">
+                        Sync onglets
+                      </button>
+                      <button type="button" className="btn-delete" onClick={() => handleDeleteLink(l._id)}>Supprimer</button>
+                    </>
+                  )}
                 </li>
               ))}
             </ul>

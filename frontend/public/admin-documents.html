@@ -411,6 +411,17 @@
                 </div>
             </div>
 
+            <!-- Fiches orphelines : fichiers sur le NAS sans lien en base -->
+            <div class="upload-section">
+                <h2>🔗 Fiches Orphelines</h2>
+                <p>Fichiers présents sur le NAS dont le lien de téléchargement a été supprimé. Vous pouvez les réassocier à un salarié.</p>
+                <button class="btn btn-secondary" onclick="loadOrphanedDocuments()">🔍 Rechercher les fiches orphelines</button>
+                
+                <div id="orphanedList" class="file-list" style="display: none; margin-top: 15px;">
+                    <div id="orphanedContent"></div>
+                </div>
+            </div>
+
             <!-- Liste des documents existants -->
             <div class="upload-section">
                 <h2>📋 Documents Existants</h2>
@@ -562,6 +573,99 @@
             } catch (error) {
                 console.error('Erreur chargement employés:', error);
                 showAlert('Erreur lors du chargement des employés', 'danger');
+            }
+        }
+
+        // Charger les fiches orphelines (fichiers sur NAS sans lien en base)
+        async function loadOrphanedDocuments() {
+            const container = document.getElementById('orphanedList');
+            const content = document.getElementById('orphanedContent');
+            container.style.display = 'block';
+            content.innerHTML = '<div class="loading"><div class="spinner"></div><p>Recherche des fiches orphelines sur le NAS...</p></div>';
+
+            try {
+                const response = await fetch(`${API_URL}/documents/orphaned`);
+                const data = await response.json();
+
+                if (!data.success) {
+                    content.innerHTML = `<p style="color: #dc3545;">Erreur: ${data.message || 'Impossible de charger les fiches orphelines'}</p>`;
+                    return;
+                }
+
+                const { orphanedFiles, totalOnNas, totalInDb, orphanedCount } = data.data;
+
+                if (orphanedCount === 0) {
+                    content.innerHTML = `<p style="color: #28a745;">✅ Aucune fiche orpheline. Tous les fichiers sur le NAS (${totalOnNas}) ont un lien en base.</p>`;
+                    return;
+                }
+
+                let html = `<p><strong>${orphanedCount} fichier(s) orphelin(s)</strong> trouvé(s) sur le NAS (${totalOnNas} fichiers au total, ${totalInDb} en base).</p>`;
+                html += '<p>Réassociez chaque fichier à un salarié pour rétablir le lien de téléchargement :</p>';
+                html += '<div style="margin-top: 15px;">';
+
+                const employeesResponse = await fetch(`${API_URL}/employees`);
+                const employeesData = await employeesResponse.json();
+                const employees = employeesData.success && employeesData.data ? employeesData.data : [];
+
+                orphanedFiles.forEach((file, index) => {
+                    const selectId = `orphanEmployee_${index}`;
+                    const titleId = `orphanTitle_${index}`;
+                    const safeFilePath = (file.filePath || '').replace(/"/g, '&quot;');
+                    html += `
+                        <div class="file-item" style="margin-bottom: 15px; padding: 15px; background: #fff3cd; border-radius: 8px; border: 1px solid #ffeaa7;">
+                            <div style="margin-bottom: 10px;">
+                                <strong>📄 ${(file.fileName || '').replace(/</g, '&lt;')}</strong>
+                                <span style="color: #6c757d; font-size: 0.9rem;"> (${(file.filePath || '').replace(/</g, '&lt;')})</span>
+                            </div>
+                            <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
+                                <select id="${selectId}" style="padding: 8px; min-width: 200px;">
+                                    <option value="">Sélectionner un salarié</option>
+                                    ${employees.map(emp => `<option value="${emp._id}">${emp.name} - ${emp.role}</option>`).join('')}
+                                </select>
+                                <input type="text" id="${titleId}" placeholder="Titre (ex: Fiche de paie Janvier 2025)" style="padding: 8px; min-width: 200px;">
+                                <button class="btn btn-secondary" data-filepath="${safeFilePath}" data-select="${selectId}" data-title="${titleId}" onclick="reassociateOrphanFromButton(this)">🔗 Réassocier</button>
+                            </div>
+                        </div>
+                    `;
+                });
+                html += '</div>';
+                content.innerHTML = html;
+            } catch (error) {
+                console.error('Erreur chargement fiches orphelines:', error);
+                content.innerHTML = `<p style="color: #dc3545;">Erreur: ${error.message}</p>`;
+            }
+        }
+
+        function reassociateOrphanFromButton(btn) {
+            const filePath = btn.getAttribute('data-filepath') || '';
+            const selectId = btn.getAttribute('data-select') || '';
+            const titleId = btn.getAttribute('data-title') || '';
+            reassociateOrphan(filePath, selectId, titleId);
+        }
+
+        async function reassociateOrphan(filePath, selectId, titleId) {
+            const employeeId = document.getElementById(selectId)?.value;
+            const title = document.getElementById(titleId)?.value;
+            if (!employeeId || !title) {
+                showAlert('Veuillez sélectionner un salarié et saisir un titre', 'danger');
+                return;
+            }
+            try {
+                const response = await fetch(`${API_URL}/documents/reassociate`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ filePath, employeeId, title })
+                });
+                const data = await response.json();
+                if (data.success) {
+                    showAlert('Document réassocié avec succès !', 'success');
+                    loadOrphanedDocuments();
+                    loadDocuments();
+                } else {
+                    showAlert(data.message || 'Erreur lors de la réassociation', 'danger');
+                }
+            } catch (error) {
+                showAlert('Erreur: ' + error.message, 'danger');
             }
         }
 

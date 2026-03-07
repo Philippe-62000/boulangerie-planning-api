@@ -77,6 +77,12 @@ router.get('/general', documentController.getGeneralDocuments);
 // GET /api/documents/stats - Statistiques des documents (admin seulement)
 router.get('/stats', documentController.getDocumentStats);
 
+// GET /api/documents/orphaned - Lister les fiches orphelines sur le NAS (admin seulement)
+router.get('/orphaned', documentController.getOrphanedDocuments);
+
+// POST /api/documents/reassociate - Réassocier un fichier orphelin à un employé (admin seulement)
+router.post('/reassociate', documentController.reassociateOrphanedDocument);
+
 // GET /api/documents/:id/download - Télécharger un document (AVANT personal pour éviter les conflits)
 router.get('/:id/download', documentController.downloadDocument);
 
