@@ -169,6 +169,36 @@
             background: #dc3545;
         }
 
+        .btn-filter {
+            background: #e9ecef;
+            color: #495057;
+        }
+        .btn-filter:hover {
+            background: #dee2e6;
+        }
+        .btn-filter.active {
+            background: #667eea;
+            color: white;
+        }
+
+        .employee-section {
+            margin-bottom: 25px;
+            border: 1px solid #dee2e6;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        .employee-section-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 12px 20px;
+            font-weight: 600;
+            font-size: 1.1rem;
+        }
+        .employee-section-body {
+            padding: 15px;
+            background: #f8f9fa;
+        }
+
         .alert {
             padding: 15px;
             border-radius: 8px;
@@ -425,7 +455,12 @@
             <!-- Liste des documents existants -->
             <div class="upload-section">
                 <h2>📋 Documents Existants</h2>
-                <button class="btn btn-secondary" onclick="loadDocuments()">🔄 Actualiser la liste</button>
+                <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-bottom: 15px;">
+                    <button class="btn btn-secondary" onclick="loadDocuments()">🔄 Actualiser la liste</button>
+                    <span style="color: #666; margin: 0 10px;">Vue :</span>
+                    <button class="btn btn-filter active" id="filterAll" onclick="setDocumentsFilter('all')">👤 Tous par salarié</button>
+                    <button class="btn btn-filter" id="filterLastUpload" onclick="setDocumentsFilter('lastUpload')">📤 Dernier upload</button>
+                </div>
                 
                 <div id="documentsList" class="file-list">
                     <div class="loading">
@@ -439,6 +474,7 @@
 
     <script>
     const API_URL = 'https://boulangerie-planning-api-4-pbfy.onrender.com/api';
+    let documentsFilter = 'all'; // 'all' = tous par salarié, 'lastUpload' = dernier upload uniquement
 
         // Charger les employés au démarrage
         document.addEventListener('DOMContentLoaded', async () => {
@@ -446,6 +482,13 @@
             await loadDocuments();
             setupFileUploads();
         });
+
+        function setDocumentsFilter(filter) {
+            documentsFilter = filter;
+            document.querySelectorAll('.btn-filter').forEach(btn => btn.classList.remove('active'));
+            document.getElementById(filter === 'all' ? 'filterAll' : 'filterLastUpload').classList.add('active');
+            loadDocuments();
+        }
 
         // Configuration des zones de drop
         function setupFileUploads() {
@@ -732,60 +775,79 @@
                     html += '<p>Aucun document général trouvé.</p>';
                 }
 
-                // Charger les documents personnels
+                // Charger les documents personnels (tous en une requête, groupés par salarié)
                 html += '<h3 style="margin-top: 30px;">👤 Documents Personnels</h3>';
                 
                 try {
-                    // Récupérer tous les employés
-                    const employeesResponse = await fetch(`${API_URL}/employees`);
-                    const employeesData = await employeesResponse.json();
+                    const allPersonalResponse = await fetch(`${API_URL}/documents/all-personal`);
+                    const allPersonalData = await allPersonalResponse.json();
                     
-                    let personalDocsFound = false;
+                    let personalDocs = [];
+                    if (allPersonalData.success && allPersonalData.data) {
+                        personalDocs = allPersonalData.data;
+                    }
                     
-                    if (employeesData.success && employeesData.data) {
-                        // Pour chaque employé, récupérer ses documents personnels
-                        for (const employee of employeesData.data) {
-                            try {
-                                const personalResponse = await fetch(`${API_URL}/documents/personal/${employee._id}`);
-                                const personalData = await personalResponse.json();
+                    // Filtre "Dernier upload" : documents uploadés dans les 2 min autour du plus récent
+                    if (documentsFilter === 'lastUpload' && personalDocs.length > 0) {
+                        const maxDate = new Date(Math.max(...personalDocs.map(d => new Date(d.uploadDate).getTime())));
+                        const cutoffMs = 2 * 60 * 1000; // 2 minutes
+                        personalDocs = personalDocs.filter(d => (maxDate - new Date(d.uploadDate)) < cutoffMs);
+                        html += `<p style="color: #667eea; margin-bottom: 15px;"><strong>📤 Vue "Dernier upload"</strong> : ${personalDocs.length} document(s) du dernier batch (${formatDate(maxDate)})</p>`;
+                    }
+                    
+                    // Grouper par salarié
+                    const byEmployee = {};
+                    personalDocs.forEach(doc => {
+                        const empId = doc.employeeId?._id || doc.employeeId;
+                        const empName = doc.employeeId?.name || 'Salarié inconnu';
+                        const empRole = doc.employeeId?.role || '';
+                        const key = empId || 'unknown';
+                        if (!byEmployee[key]) byEmployee[key] = { name: empName, role: empRole, docs: [] };
+                        byEmployee[key].docs.push(doc);
+                    });
+                    
+                    // Trier les salariés par nom
+                    const sortedEmployees = Object.entries(byEmployee).sort((a, b) => 
+                        (a[1].name || '').localeCompare(b[1].name || '')
+                    );
+                    
+                    if (sortedEmployees.length > 0) {
+                        sortedEmployees.forEach(([empId, { name, role, docs }]) => {
+                            html += `
+                                <div class="employee-section">
+                                    <div class="employee-section-header">👤 ${name}${role ? ' - ' + role : ''} (${docs.length} document${docs.length > 1 ? 's' : ''})</div>
+                                    <div class="employee-section-body">
+                            `;
+                            docs.forEach(doc => {
+                                const hasBeenDownloaded = doc.downloadCount && doc.downloadCount > 0;
+                                const downloadInfo = hasBeenDownloaded 
+                                    ? `<span style="color: #28a745; font-weight: 600; margin-right: 10px;">✅ Téléchargé ${doc.downloadCount} fois${doc.lastDownloadDate ? ' (dernier: ' + formatDate(doc.lastDownloadDate) + ')' : ''}</span>`
+                                    : `<span style="color: #6c757d; font-weight: 500; margin-right: 10px;">⏳ Non téléchargé</span>`;
                                 
-                                if (personalData.success && personalData.data && personalData.data.length > 0) {
-                                    personalDocsFound = true;
-                                    personalData.data.forEach(doc => {
-                                        // Vérifier si le document a été téléchargé
-                                        const hasBeenDownloaded = doc.downloadCount && doc.downloadCount > 0;
-                                        const downloadInfo = hasBeenDownloaded 
-                                            ? `<span style="color: #28a745; font-weight: 600; margin-right: 10px;">✅ Téléchargé ${doc.downloadCount} fois${doc.lastDownloadDate ? ' (dernier: ' + formatDate(doc.lastDownloadDate) + ')' : ''}</span>`
-                                            : `<span style="color: #6c757d; font-weight: 500; margin-right: 10px;">⏳ Non téléchargé</span>`;
-                                        
-                                        html += `
-                                            <div class="file-item">
-                                                <div class="file-info">
-                                                    <div class="file-icon">📄</div>
-                                                    <div class="file-details">
-                                                        <h4>${doc.title}</h4>
-                                                        <p><strong>Salarié:</strong> ${employee.name} | Catégorie: ${doc.category} | Taille: ${formatFileSize(doc.fileSize)} | Upload: ${formatDate(doc.uploadDate)}</p>
-                                                    </div>
-                                                </div>
-                                                <div class="file-actions">
-                                                    ${downloadInfo}
-                                                    <button class="btn btn-danger" onclick="deleteDocument('${doc._id}')">🗑️ Supprimer</button>
-                                                </div>
+                                html += `
+                                    <div class="file-item">
+                                        <div class="file-info">
+                                            <div class="file-icon">📄</div>
+                                            <div class="file-details">
+                                                <h4>${(doc.title || '').replace(/</g, '&lt;')}</h4>
+                                                <p>Catégorie: ${doc.category} | Taille: ${formatFileSize(doc.fileSize)} | Upload: ${formatDate(doc.uploadDate)}</p>
                                             </div>
-                                        `;
-                                    });
-                                }
-                            } catch (error) {
-                                console.error(`Erreur chargement documents pour ${employee.name}:`, error);
-                            }
-                        }
+                                        </div>
+                                        <div class="file-actions">
+                                            ${downloadInfo}
+                                            <button class="btn btn-danger" onclick="deleteDocument('${doc._id}')">🗑️ Supprimer</button>
+                                        </div>
+                                    </div>
+                                `;
+                            });
+                            html += '</div></div>';
+                        });
+                    } else {
+                        html += `<p>${documentsFilter === 'lastUpload' ? 'Aucun document dans le dernier upload.' : 'Aucun document personnel trouvé.'}</p>`;
                     }
-                    
-                    if (!personalDocsFound) {
-                        html += '<p>Aucun document personnel trouvé.</p>';
-                    }
+
                 } catch (error) {
-                    console.error('Erreur chargement employés:', error);
+                    console.error('Erreur chargement documents personnels:', error);
                     html += '<p>Erreur lors du chargement des documents personnels.</p>';
                 }
 

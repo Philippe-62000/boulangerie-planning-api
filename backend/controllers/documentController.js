@@ -45,6 +45,31 @@ exports.getGeneralDocuments = async (req, res) => {
   }
 };
 
+// Récupérer TOUS les documents personnels (admin) - pour affichage groupé par salarié
+exports.getAllPersonalDocuments = async (req, res) => {
+  try {
+    console.log('📋 Récupération de tous les documents personnels (admin)');
+    
+    const documents = await Document.find({ type: 'personal' })
+      .populate('employeeId', 'name role')
+      .sort({ uploadDate: -1 });
+    
+    console.log(`✅ ${documents.length} documents personnels récupérés`);
+    
+    res.json({
+      success: true,
+      data: documents
+    });
+  } catch (error) {
+    console.error('❌ Erreur lors de la récupération des documents personnels:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erreur lors de la récupération des documents personnels',
+      error: error.message
+    });
+  }
+};
+
 // Récupérer les documents personnels d'un employé
 exports.getPersonalDocuments = async (req, res) => {
   try {
