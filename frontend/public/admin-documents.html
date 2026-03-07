@@ -775,16 +775,33 @@
                     html += '<p>Aucun document général trouvé.</p>';
                 }
 
-                // Charger les documents personnels (tous en une requête, groupés par salarié)
+                // Charger les documents personnels (all-personal si dispo, sinon fallback par employé)
                 html += '<h3 style="margin-top: 30px;">👤 Documents Personnels</h3>';
                 
                 try {
-                    const allPersonalResponse = await fetch(`${API_URL}/documents/all-personal`);
-                    const allPersonalData = await allPersonalResponse.json();
-                    
                     let personalDocs = [];
-                    if (allPersonalData.success && allPersonalData.data) {
-                        personalDocs = allPersonalData.data;
+                    const allPersonalResponse = await fetch(`${API_URL}/documents/all-personal`);
+                    
+                    if (allPersonalResponse.ok) {
+                        const allPersonalData = await allPersonalResponse.json();
+                        if (allPersonalData.success && allPersonalData.data) {
+                            personalDocs = allPersonalData.data;
+                        }
+                    } else if (allPersonalResponse.status === 404) {
+                        // Fallback: API pas encore mise à jour, récupérer par employé
+                        const employeesResponse = await fetch(`${API_URL}/employees`);
+                        const employeesData = await employeesResponse.json();
+                        if (employeesData.success && employeesData.data) {
+                            for (const emp of employeesData.data) {
+                                const r = await fetch(`${API_URL}/documents/personal/${emp._id}`);
+                                const d = await r.json();
+                                if (d.success && d.data) {
+                                    d.data.forEach(doc => {
+                                        personalDocs.push({ ...doc, employeeId: { _id: emp._id, name: emp.name, role: emp.role } });
+                                    });
+                                }
+                            }
+                        }
                     }
                     
                     // Filtre "Dernier upload" : documents uploadés dans les 2 min autour du plus récent
