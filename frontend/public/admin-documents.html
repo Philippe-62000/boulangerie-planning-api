@@ -628,6 +628,10 @@
 
             try {
                 const response = await fetch(`${API_URL}/documents/orphaned`);
+                if (response.status === 404) {
+                    content.innerHTML = `<p style="color: #856404; background: #fff3cd; padding: 15px; border-radius: 8px;">⚠️ L'API backend n'a pas encore été mise à jour. La fonction "Fiches orphelines" nécessite le déploiement des dernières modifications sur Render (branche main).<br><br>En attendant, vous pouvez réassocier les fiches manuellement via l'upload.</p>`;
+                    return;
+                }
                 const data = await response.json();
 
                 if (!data.success) {
