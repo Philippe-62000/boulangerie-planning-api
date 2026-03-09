@@ -1,0 +1,23 @@
+REM Copiez ce fichier en mapping-202602.txt
+REM Ouvrez chaque PDF, notez le nom du salarie, completez puis sauvegardez.
+REM Format : numero=NOM  (le numero = chiffre dans le nom du fichier, ex: _4.pdf -> 4)
+REM
+1=DUCHATEAU
+2=LEGRAND
+3=GOSSE
+4=GREBERT
+5=CASTIER
+6=DERMENGHEM
+7=BOGAERT
+8=HENON
+9=BERGEMAN
+10=MOLAND
+11=MANTEL
+12=LECHERF
+13=FORET
+14=PAUTREMAT
+15=
+16=
+17=
+18=
+19=

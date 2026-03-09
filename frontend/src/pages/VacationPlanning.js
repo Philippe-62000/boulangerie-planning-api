@@ -301,15 +301,15 @@ const VacationPlanning = () => {
                                   // Si pas de congé, ne pas afficher
                                   if (!vacation) return null;
                                   
-                                  // Extraire les initiales (prénom + nom)
+                                  // Extraire les initiales : 1 lettre prénom + 2 lettres nom (pour éviter les doublons)
                                   const nameParts = employee.name.split(' ');
                                   let initials = '';
                                   if (nameParts.length >= 2) {
-                                    // Premier caractère du prénom + premier caractère du nom
-                                    initials = nameParts[0].charAt(0).toUpperCase() + nameParts[nameParts.length - 1].charAt(0).toUpperCase();
+                                    const prenom = nameParts[0].charAt(0).toUpperCase();
+                                    const nom = nameParts[nameParts.length - 1].substring(0, 2).toUpperCase();
+                                    initials = prenom + nom;
                                   } else if (nameParts.length === 1) {
-                                    // Si un seul mot, prendre les 2 premiers caractères
-                                    initials = nameParts[0].substring(0, 2).toUpperCase();
+                                    initials = nameParts[0].substring(0, 3).toUpperCase();
                                   }
                                   
                                   const startDate = new Date(vacation.startDate);

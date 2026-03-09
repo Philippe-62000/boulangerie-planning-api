@@ -1094,7 +1094,11 @@
     </div>
 
     <script>
-        const API_URL = 'https://boulangerie-planning-api-4-pbfy.onrender.com/api';
+        // API dynamique : /lon = Longuenesse (api-3), /plan = Arras (api-4-pbfy)
+        const API_URL = (window.location.pathname || '').startsWith('/lon')
+            ? 'https://boulangerie-planning-api-3.onrender.com/api'
+            : 'https://boulangerie-planning-api-4-pbfy.onrender.com/api';
+        const BASE_PATH = (window.location.pathname || '').startsWith('/lon') ? '/lon' : '/plan';
         let currentEmployee = null;
 
         // Vérifier l'authentification au chargement
@@ -1211,7 +1215,7 @@
         }
 
         function redirectToLogin() {
-            window.location.href = '/plan/salarie-connexion.html';
+            window.location.href = BASE_PATH + '/salarie-connexion.html';
         }
 
         function logout() {
@@ -1828,7 +1832,7 @@
                     // Déconnexion automatique après 2 secondes
                     setTimeout(() => {
                         localStorage.removeItem('employeeToken');
-                        window.location.href = '/plan/salarie-connexion.html';
+                        window.location.href = BASE_PATH + '/salarie-connexion.html';
                     }, 2000);
                     
                 } else {

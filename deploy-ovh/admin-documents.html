@@ -169,6 +169,36 @@
             background: #dc3545;
         }
 
+        .btn-filter {
+            background: #e9ecef;
+            color: #495057;
+        }
+        .btn-filter:hover {
+            background: #dee2e6;
+        }
+        .btn-filter.active {
+            background: #667eea;
+            color: white;
+        }
+
+        .employee-section {
+            margin-bottom: 25px;
+            border: 1px solid #dee2e6;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        .employee-section-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 12px 20px;
+            font-weight: 600;
+            font-size: 1.1rem;
+        }
+        .employee-section-body {
+            padding: 15px;
+            background: #f8f9fa;
+        }
+
         .alert {
             padding: 15px;
             border-radius: 8px;
@@ -411,10 +441,26 @@
                 </div>
             </div>
 
+            <!-- Fiches orphelines : fichiers sur le NAS sans lien en base -->
+            <div class="upload-section">
+                <h2>🔗 Fiches Orphelines</h2>
+                <p>Fichiers présents sur le NAS dont le lien de téléchargement a été supprimé. Vous pouvez les réassocier à un salarié.</p>
+                <button class="btn btn-secondary" onclick="loadOrphanedDocuments()">🔍 Rechercher les fiches orphelines</button>
+                
+                <div id="orphanedList" class="file-list" style="display: none; margin-top: 15px;">
+                    <div id="orphanedContent"></div>
+                </div>
+            </div>
+
             <!-- Liste des documents existants -->
             <div class="upload-section">
                 <h2>📋 Documents Existants</h2>
-                <button class="btn btn-secondary" onclick="loadDocuments()">🔄 Actualiser la liste</button>
+                <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-bottom: 15px;">
+                    <button class="btn btn-secondary" onclick="loadDocuments()">🔄 Actualiser la liste</button>
+                    <span style="color: #666; margin: 0 10px;">Vue :</span>
+                    <button class="btn btn-filter active" id="filterAll" onclick="setDocumentsFilter('all')">👤 Tous par salarié</button>
+                    <button class="btn btn-filter" id="filterLastUpload" onclick="setDocumentsFilter('lastUpload')">📤 Dernier upload</button>
+                </div>
                 
                 <div id="documentsList" class="file-list">
                     <div class="loading">
@@ -427,7 +473,11 @@
     </div>
 
     <script>
-    const API_URL = 'https://boulangerie-planning-api-4-pbfy.onrender.com/api';
+    // API dynamique : /lon = Longuenesse (api-3), /plan = Arras (api-4-pbfy)
+    const API_URL = (window.location.pathname || '').startsWith('/lon')
+        ? 'https://boulangerie-planning-api-3.onrender.com/api'
+        : 'https://boulangerie-planning-api-4-pbfy.onrender.com/api';
+    let documentsFilter = 'all'; // 'all' = tous par salarié, 'lastUpload' = dernier upload uniquement
 
         // Charger les employés au démarrage
         document.addEventListener('DOMContentLoaded', async () => {
@@ -435,6 +485,13 @@
             await loadDocuments();
             setupFileUploads();
         });
+
+        function setDocumentsFilter(filter) {
+            documentsFilter = filter;
+            document.querySelectorAll('.btn-filter').forEach(btn => btn.classList.remove('active'));
+            document.getElementById(filter === 'all' ? 'filterAll' : 'filterLastUpload').classList.add('active');
+            loadDocuments();
+        }
 
         // Configuration des zones de drop
         function setupFileUploads() {
@@ -565,6 +622,103 @@
             }
         }
 
+        // Charger les fiches orphelines (fichiers sur NAS sans lien en base)
+        async function loadOrphanedDocuments() {
+            const container = document.getElementById('orphanedList');
+            const content = document.getElementById('orphanedContent');
+            container.style.display = 'block';
+            content.innerHTML = '<div class="loading"><div class="spinner"></div><p>Recherche des fiches orphelines sur le NAS...</p></div>';
+
+            try {
+                const response = await fetch(`${API_URL}/documents/orphaned`);
+                if (response.status === 404) {
+                    content.innerHTML = `<p style="color: #856404; background: #fff3cd; padding: 15px; border-radius: 8px;">⚠️ L'API backend n'a pas encore été mise à jour. La fonction "Fiches orphelines" nécessite le déploiement des dernières modifications sur Render (branche main).<br><br>En attendant, vous pouvez réassocier les fiches manuellement via l'upload.</p>`;
+                    return;
+                }
+                const data = await response.json();
+
+                if (!data.success) {
+                    content.innerHTML = `<p style="color: #dc3545;">Erreur: ${data.message || 'Impossible de charger les fiches orphelines'}</p>`;
+                    return;
+                }
+
+                const { orphanedFiles, totalOnNas, totalInDb, orphanedCount } = data.data;
+
+                if (orphanedCount === 0) {
+                    content.innerHTML = `<p style="color: #28a745;">✅ Aucune fiche orpheline. Tous les fichiers sur le NAS (${totalOnNas}) ont un lien en base.</p>`;
+                    return;
+                }
+
+                let html = `<p><strong>${orphanedCount} fichier(s) orphelin(s)</strong> trouvé(s) sur le NAS (${totalOnNas} fichiers au total, ${totalInDb} en base).</p>`;
+                html += '<p>Réassociez chaque fichier à un salarié pour rétablir le lien de téléchargement :</p>';
+                html += '<div style="margin-top: 15px;">';
+
+                const employeesResponse = await fetch(`${API_URL}/employees`);
+                const employeesData = await employeesResponse.json();
+                const employees = employeesData.success && employeesData.data ? employeesData.data : [];
+
+                orphanedFiles.forEach((file, index) => {
+                    const selectId = `orphanEmployee_${index}`;
+                    const titleId = `orphanTitle_${index}`;
+                    const safeFilePath = (file.filePath || '').replace(/"/g, '&quot;');
+                    html += `
+                        <div class="file-item" style="margin-bottom: 15px; padding: 15px; background: #fff3cd; border-radius: 8px; border: 1px solid #ffeaa7;">
+                            <div style="margin-bottom: 10px;">
+                                <strong>📄 ${(file.fileName || '').replace(/</g, '&lt;')}</strong>
+                                <span style="color: #6c757d; font-size: 0.9rem;"> (${(file.filePath || '').replace(/</g, '&lt;')})</span>
+                            </div>
+                            <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
+                                <select id="${selectId}" style="padding: 8px; min-width: 200px;">
+                                    <option value="">Sélectionner un salarié</option>
+                                    ${employees.map(emp => `<option value="${emp._id}">${emp.name} - ${emp.role}</option>`).join('')}
+                                </select>
+                                <input type="text" id="${titleId}" placeholder="Titre (ex: Fiche de paie Janvier 2025)" style="padding: 8px; min-width: 200px;">
+                                <button class="btn btn-secondary" data-filepath="${safeFilePath}" data-select="${selectId}" data-title="${titleId}" onclick="reassociateOrphanFromButton(this)">🔗 Réassocier</button>
+                            </div>
+                        </div>
+                    `;
+                });
+                html += '</div>';
+                content.innerHTML = html;
+            } catch (error) {
+                console.error('Erreur chargement fiches orphelines:', error);
+                content.innerHTML = `<p style="color: #dc3545;">Erreur: ${error.message}</p>`;
+            }
+        }
+
+        function reassociateOrphanFromButton(btn) {
+            const filePath = btn.getAttribute('data-filepath') || '';
+            const selectId = btn.getAttribute('data-select') || '';
+            const titleId = btn.getAttribute('data-title') || '';
+            reassociateOrphan(filePath, selectId, titleId);
+        }
+
+        async function reassociateOrphan(filePath, selectId, titleId) {
+            const employeeId = document.getElementById(selectId)?.value;
+            const title = document.getElementById(titleId)?.value;
+            if (!employeeId || !title) {
+                showAlert('Veuillez sélectionner un salarié et saisir un titre', 'danger');
+                return;
+            }
+            try {
+                const response = await fetch(`${API_URL}/documents/reassociate`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ filePath, employeeId, title })
+                });
+                const data = await response.json();
+                if (data.success) {
+                    showAlert('Document réassocié avec succès !', 'success');
+                    loadOrphanedDocuments();
+                    loadDocuments();
+                } else {
+                    showAlert(data.message || 'Erreur lors de la réassociation', 'danger');
+                }
+            } catch (error) {
+                showAlert('Erreur: ' + error.message, 'danger');
+            }
+        }
+
         // Charger les documents existants
         async function loadDocuments() {
             const container = document.getElementById('documentsList');
@@ -628,60 +782,96 @@
                     html += '<p>Aucun document général trouvé.</p>';
                 }
 
-                // Charger les documents personnels
+                // Charger les documents personnels (all-personal si dispo, sinon fallback par employé)
                 html += '<h3 style="margin-top: 30px;">👤 Documents Personnels</h3>';
                 
                 try {
-                    // Récupérer tous les employés
-                    const employeesResponse = await fetch(`${API_URL}/employees`);
-                    const employeesData = await employeesResponse.json();
+                    let personalDocs = [];
+                    const allPersonalResponse = await fetch(`${API_URL}/documents/all-personal`);
                     
-                    let personalDocsFound = false;
-                    
-                    if (employeesData.success && employeesData.data) {
-                        // Pour chaque employé, récupérer ses documents personnels
-                        for (const employee of employeesData.data) {
-                            try {
-                                const personalResponse = await fetch(`${API_URL}/documents/personal/${employee._id}`);
-                                const personalData = await personalResponse.json();
-                                
-                                if (personalData.success && personalData.data && personalData.data.length > 0) {
-                                    personalDocsFound = true;
-                                    personalData.data.forEach(doc => {
-                                        // Vérifier si le document a été téléchargé
-                                        const hasBeenDownloaded = doc.downloadCount && doc.downloadCount > 0;
-                                        const downloadInfo = hasBeenDownloaded 
-                                            ? `<span style="color: #28a745; font-weight: 600; margin-right: 10px;">✅ Téléchargé ${doc.downloadCount} fois${doc.lastDownloadDate ? ' (dernier: ' + formatDate(doc.lastDownloadDate) + ')' : ''}</span>`
-                                            : `<span style="color: #6c757d; font-weight: 500; margin-right: 10px;">⏳ Non téléchargé</span>`;
-                                        
-                                        html += `
-                                            <div class="file-item">
-                                                <div class="file-info">
-                                                    <div class="file-icon">📄</div>
-                                                    <div class="file-details">
-                                                        <h4>${doc.title}</h4>
-                                                        <p><strong>Salarié:</strong> ${employee.name} | Catégorie: ${doc.category} | Taille: ${formatFileSize(doc.fileSize)} | Upload: ${formatDate(doc.uploadDate)}</p>
-                                                    </div>
-                                                </div>
-                                                <div class="file-actions">
-                                                    ${downloadInfo}
-                                                    <button class="btn btn-danger" onclick="deleteDocument('${doc._id}')">🗑️ Supprimer</button>
-                                                </div>
-                                            </div>
-                                        `;
+                    if (allPersonalResponse.ok) {
+                        const allPersonalData = await allPersonalResponse.json();
+                        if (allPersonalData.success && allPersonalData.data) {
+                            personalDocs = allPersonalData.data;
+                        }
+                    } else if (allPersonalResponse.status === 404) {
+                        // Fallback: API pas encore mise à jour, récupérer par employé
+                        const employeesResponse = await fetch(`${API_URL}/employees`);
+                        const employeesData = await employeesResponse.json();
+                        if (employeesData.success && employeesData.data) {
+                            for (const emp of employeesData.data) {
+                                const r = await fetch(`${API_URL}/documents/personal/${emp._id}`);
+                                const d = await r.json();
+                                if (d.success && d.data) {
+                                    d.data.forEach(doc => {
+                                        personalDocs.push({ ...doc, employeeId: { _id: emp._id, name: emp.name, role: emp.role } });
                                     });
                                 }
-                            } catch (error) {
-                                console.error(`Erreur chargement documents pour ${employee.name}:`, error);
                             }
                         }
                     }
                     
-                    if (!personalDocsFound) {
-                        html += '<p>Aucun document personnel trouvé.</p>';
+                    // Filtre "Dernier upload" : documents uploadés dans les 2 min autour du plus récent
+                    if (documentsFilter === 'lastUpload' && personalDocs.length > 0) {
+                        const maxDate = new Date(Math.max(...personalDocs.map(d => new Date(d.uploadDate).getTime())));
+                        const cutoffMs = 2 * 60 * 1000; // 2 minutes
+                        personalDocs = personalDocs.filter(d => (maxDate - new Date(d.uploadDate)) < cutoffMs);
+                        html += `<p style="color: #667eea; margin-bottom: 15px;"><strong>📤 Vue "Dernier upload"</strong> : ${personalDocs.length} document(s) du dernier batch (${formatDate(maxDate)})</p>`;
                     }
+                    
+                    // Grouper par salarié
+                    const byEmployee = {};
+                    personalDocs.forEach(doc => {
+                        const empId = doc.employeeId?._id || doc.employeeId;
+                        const empName = doc.employeeId?.name || 'Salarié inconnu';
+                        const empRole = doc.employeeId?.role || '';
+                        const key = empId || 'unknown';
+                        if (!byEmployee[key]) byEmployee[key] = { name: empName, role: empRole, docs: [] };
+                        byEmployee[key].docs.push(doc);
+                    });
+                    
+                    // Trier les salariés par nom
+                    const sortedEmployees = Object.entries(byEmployee).sort((a, b) => 
+                        (a[1].name || '').localeCompare(b[1].name || '')
+                    );
+                    
+                    if (sortedEmployees.length > 0) {
+                        sortedEmployees.forEach(([empId, { name, role, docs }]) => {
+                            html += `
+                                <div class="employee-section">
+                                    <div class="employee-section-header">👤 ${name}${role ? ' - ' + role : ''} (${docs.length} document${docs.length > 1 ? 's' : ''})</div>
+                                    <div class="employee-section-body">
+                            `;
+                            docs.forEach(doc => {
+                                const hasBeenDownloaded = doc.downloadCount && doc.downloadCount > 0;
+                                const downloadInfo = hasBeenDownloaded 
+                                    ? `<span style="color: #28a745; font-weight: 600; margin-right: 10px;">✅ Téléchargé ${doc.downloadCount} fois${doc.lastDownloadDate ? ' (dernier: ' + formatDate(doc.lastDownloadDate) + ')' : ''}</span>`
+                                    : `<span style="color: #6c757d; font-weight: 500; margin-right: 10px;">⏳ Non téléchargé</span>`;
+                                
+                                html += `
+                                    <div class="file-item">
+                                        <div class="file-info">
+                                            <div class="file-icon">📄</div>
+                                            <div class="file-details">
+                                                <h4>${(doc.title || '').replace(/</g, '&lt;')}</h4>
+                                                <p>Catégorie: ${doc.category} | Taille: ${formatFileSize(doc.fileSize)} | Upload: ${formatDate(doc.uploadDate)}</p>
+                                            </div>
+                                        </div>
+                                        <div class="file-actions">
+                                            ${downloadInfo}
+                                            <button class="btn btn-danger" onclick="deleteDocument('${doc._id}')">🗑️ Supprimer</button>
+                                        </div>
+                                    </div>
+                                `;
+                            });
+                            html += '</div></div>';
+                        });
+                    } else {
+                        html += `<p>${documentsFilter === 'lastUpload' ? 'Aucun document dans le dernier upload.' : 'Aucun document personnel trouvé.'}</p>`;
+                    }
+
                 } catch (error) {
-                    console.error('Erreur chargement employés:', error);
+                    console.error('Erreur chargement documents personnels:', error);
                     html += '<p>Erreur lors du chargement des documents personnels.</p>';
                 }
 
@@ -763,7 +953,12 @@
                         results.push({ file: file.name, status: 'success', message: 'Uploadé avec succès' });
                     } else {
                         errorCount++;
-                        results.push({ file: file.name, status: 'error', message: result.error || 'Erreur inconnue' });
+                        // Améliorer le message d'erreur
+                        let errorMessage = result.error || result.message || 'Erreur inconnue';
+                        if (!employeeId) {
+                            errorMessage = 'Employé non trouvé dans le nom du fichier. Veuillez uploader manuellement.';
+                        }
+                        results.push({ file: file.name, status: 'error', message: errorMessage });
                     }
                 } catch (error) {
                     errorCount++;
@@ -803,6 +998,11 @@
             }
         }
 
+        // Fonction pour normaliser les accents (enlever les accents pour la comparaison)
+        function normalizeString(str) {
+            return str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+        }
+
         // Deviner l'employé à partir du nom du fichier
         async function guessEmployeeFromFilename(filename) {
             try {
@@ -818,27 +1018,42 @@
                     // Supprimer le suffixe après le underscore (ex: _Protege)
                     const nameOnly = cleanedName.split('_')[0].trim();
                     
+                    // Normaliser le nom du fichier (sans accents, minuscules)
+                    const normalizedFilename = normalizeString(nameOnly);
+                    
                     // Rechercher par nom dans le fichier
                     for (const employee of data.data) {
-                        const employeeName = employee.name.toLowerCase();
-                        const nameParts = employeeName.split(' ').filter(part => part.length > 2);
-                        const filenameLower = nameOnly.toLowerCase();
+                        const employeeName = employee.name;
+                        // Normaliser le nom de l'employé aussi (sans accents)
+                        const normalizedEmployeeName = normalizeString(employeeName);
+                        
+                        // Diviser en mots (en gardant les mots de 2+ caractères)
+                        const nameParts = normalizedEmployeeName.split(' ').filter(part => part.length >= 2);
+                        const filenameParts = normalizedFilename.split(' ').filter(part => part.length >= 2);
                         
                         // Vérifier si tous les mots importants du nom de l'employé sont dans le nom du fichier
                         const allPartsMatch = nameParts.length > 0 && nameParts.every(part => 
-                            filenameLower.includes(part)
+                            normalizedFilename.includes(part)
                         );
                         
                         // Vérifier aussi si le nom du fichier contient suffisamment de mots du nom de l'employé
                         const matchingParts = nameParts.filter(part => 
-                            filenameLower.includes(part)
+                            normalizedFilename.includes(part)
                         );
                         
-                        // Si tous les mots correspondent OU au moins 2 mots correspondent
-                        if (allPartsMatch || matchingParts.length >= 2) {
+                        // Vérifier aussi dans l'autre sens : si les mots du fichier sont dans le nom de l'employé
+                        const reverseMatch = filenameParts.length > 0 && filenameParts.every(part =>
+                            normalizedEmployeeName.includes(part)
+                        );
+                        
+                        // Si tous les mots correspondent OU au moins 2 mots correspondent OU correspondance inverse
+                        if (allPartsMatch || matchingParts.length >= 2 || reverseMatch) {
+                            console.log(`✅ Employé trouvé: ${employee.name} pour fichier: ${filename}`);
                             return employee._id;
                         }
                     }
+                    
+                    console.warn(`⚠️ Aucun employé trouvé pour fichier: ${filename} (nom extrait: ${nameOnly})`);
                 }
             } catch (error) {
                 console.error('Erreur lors de la recherche d\'employé:', error);

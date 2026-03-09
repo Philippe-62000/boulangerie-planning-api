@@ -1,6 +1,7 @@
 const MenuPermissions = require('../models/MenuPermissions');
 
-// Créer les permissions par défaut au démarrage
+// Créer ou synchroniser les permissions au démarrage (comme fix-vacation-menu)
+// createDefaultPermissions utilise ensureMenuExists : ajoute les menus manquants sans supprimer les existants
 const initializePermissions = async () => {
   try {
     const count = await MenuPermissions.countDocuments();
@@ -9,7 +10,9 @@ const initializePermissions = async () => {
       await MenuPermissions.createDefaultPermissions();
       console.log('✅ Permissions par défaut créées');
     } else {
-      console.log(`📋 ${count} permissions trouvées`);
+      console.log(`📋 ${count} permissions trouvées - synchronisation des menus manquants...`);
+      await MenuPermissions.createDefaultPermissions();
+      console.log('✅ Menus synchronisés (nouveaux menus ajoutés si nécessaire)');
     }
   } catch (error) {
     console.error('❌ Erreur lors de l\'initialisation des permissions:', error);

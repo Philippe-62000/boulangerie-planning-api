@@ -473,7 +473,10 @@
     </div>
 
     <script>
-    const API_URL = 'https://boulangerie-planning-api-4-pbfy.onrender.com/api';
+    // API dynamique : /lon = Longuenesse (api-3), /plan = Arras (api-4-pbfy)
+    const API_URL = (window.location.pathname || '').startsWith('/lon')
+        ? 'https://boulangerie-planning-api-3.onrender.com/api'
+        : 'https://boulangerie-planning-api-4-pbfy.onrender.com/api';
     let documentsFilter = 'all'; // 'all' = tous par salarié, 'lastUpload' = dernier upload uniquement
 
         // Charger les employés au démarrage

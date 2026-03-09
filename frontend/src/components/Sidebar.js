@@ -13,6 +13,7 @@ const Sidebar = () => {
 
   // Menus regroupés sous "Social" (visible uniquement pour l'admin)
   const SOCIAL_MENU_ITEMS = [
+    { path: '/product-exchanges', label: 'Échanges entre boulangeries', icon: '🔄', menuId: 'product-exchanges' },
     { path: '/advance-requests', label: 'Demandes d\'Acompte', icon: '💰', menuId: 'advance-requests' },
     { path: '/vacation-management', label: 'Gestion des Congés', icon: '🏖️', menuId: 'vacation-management' },
     { path: '/sick-leave-management', label: 'Gestion des Arrêts Maladie', icon: '🏥', menuId: 'sick-leave-management' },
@@ -70,7 +71,7 @@ const Sidebar = () => {
 
   // Auto-expandre le menu Social quand on est sur une de ses pages
   useEffect(() => {
-    const socialPaths = ['advance-requests', 'vacation-management', 'sick-leave-management', 'mutuelle-management', 'primes'];
+    const socialPaths = ['advance-requests', 'vacation-management', 'sick-leave-management', 'mutuelle-management', 'primes', 'product-exchanges'];
     if (socialPaths.some(p => location.pathname.includes(p))) {
       setSocialMenuExpanded(true);
     }
@@ -131,7 +132,7 @@ const Sidebar = () => {
     { path: '/employee-dashboard', label: 'Mes Documents', icon: '📁', menuId: 'employee-dashboard' },
     { path: '/ambassadeur', label: 'Ambassadeur', icon: '⭐', menuId: 'ambassadeur' },
     { path: '/commandes-en-ligne', label: 'Commandes en ligne', icon: '🛒', menuId: 'commandes-en-ligne', longuenesseOnly: true },
-    { path: '/product-exchanges', label: 'Échanges', icon: '🔄', menuId: 'product-exchanges' }
+    { path: '/product-exchanges', label: 'Échanges entre boulangeries', icon: '🔄', menuId: 'product-exchanges' }
   ];
 
   const isLonguenesse = window.location.pathname.startsWith('/lon');

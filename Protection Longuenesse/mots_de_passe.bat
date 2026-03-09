@@ -1,5 +1,5 @@
 @echo off
-REM Définir les mots de passe pour chaque utilisateur
+REM Mots de passe par utilisateur
 set "pwd_DUCHATEAU=fK@mlls4Gy"
 set "pwd_LEGRAND=#aUF61Fgbw"
 set "pwd_GOSSE=ugAP61@8jT"

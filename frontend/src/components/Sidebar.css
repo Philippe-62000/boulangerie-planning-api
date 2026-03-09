@@ -8,6 +8,8 @@
   z-index: 1000;
   transition: all 0.3s ease;
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 .sidebar.collapsed {
@@ -111,6 +113,9 @@
 .sidebar-nav {
   padding: var(--spacing-4) 0;
   flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  min-height: 0;
 }
 
 .nav-item {

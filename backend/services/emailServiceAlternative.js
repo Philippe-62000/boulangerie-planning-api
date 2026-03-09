@@ -1659,7 +1659,7 @@ Cet email a été envoyé automatiquement, merci de ne pas y répondre.
 
       const duration = this.calculateDuration(vacationRequest.startDate, vacationRequest.endDate);
 
-      const htmlContent = this.replaceTemplateVariables(template.htmlContent, {
+      let htmlContent = this.replaceTemplateVariables(template.htmlContent, {
         employeeName: vacationRequest.employeeName,
         startDate: new Date(vacationRequest.startDate).toLocaleDateString('fr-FR'),
         endDate: new Date(vacationRequest.endDate).toLocaleDateString('fr-FR'),
@@ -1670,7 +1670,7 @@ Cet email a été envoyé automatiquement, merci de ne pas y répondre.
         validationDate: new Date(vacationRequest.validatedAt || Date.now()).toLocaleDateString('fr-FR')
       });
 
-      const textContent = this.replaceTemplateVariables(template.textContent, {
+      let textContent = this.replaceTemplateVariables(template.textContent, {
         employeeName: vacationRequest.employeeName,
         startDate: new Date(vacationRequest.startDate).toLocaleDateString('fr-FR'),
         endDate: new Date(vacationRequest.endDate).toLocaleDateString('fr-FR'),
@@ -1752,7 +1752,7 @@ Cet email a été envoyé automatiquement, merci de ne pas y répondre.
       
       const subject = `Congés validés - ${vacationRequest.employeeName}`;
       
-      const htmlContent = `
+      let htmlContent = `
         <!DOCTYPE html>
         <html>
         <head>
@@ -1805,7 +1805,7 @@ Cet email a été envoyé automatiquement, merci de ne pas y répondre.
         </html>
       `;
       
-      const textContent = `
+      let textContent = `
 Congés Validés
 
 Bonjour,

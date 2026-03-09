@@ -339,7 +339,11 @@
     </div>
 
     <script>
-        const API_URL = 'https://boulangerie-planning-api-4-pbfy.onrender.com/api';
+        // API dynamique : /lon = Longuenesse (api-3), /plan = Arras (api-4-pbfy)
+        const API_URL = (window.location.pathname || '').startsWith('/lon')
+            ? 'https://boulangerie-planning-api-3.onrender.com/api'
+            : 'https://boulangerie-planning-api-4-pbfy.onrender.com/api';
+        const BASE_PATH = (window.location.pathname || '').startsWith('/lon') ? '/lon' : '/plan';
         
         const loginForm = document.getElementById('loginForm');
         const loginBtn = document.getElementById('loginBtn');
@@ -504,7 +508,7 @@
                     
                     // Rediriger vers le dashboard après 1.5 secondes
                     setTimeout(() => {
-                        window.location.href = '/plan/employee-dashboard.html';
+                        window.location.href = BASE_PATH + '/employee-dashboard.html';
                     }, 1500);
                     
                     return true; // Succès
@@ -686,7 +690,7 @@
                 // Seulement rediriger si le token est explicitement valide
                 if (data.success && data.employee) {
                     // Token valide, rediriger vers le dashboard
-                    window.location.href = '/plan/employee-dashboard.html';
+                    window.location.href = BASE_PATH + '/employee-dashboard.html';
                 } else {
                     // Token invalide, nettoyer et rester sur la page de connexion
                     localStorage.removeItem('employeeToken');
