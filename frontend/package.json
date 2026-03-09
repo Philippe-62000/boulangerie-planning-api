@@ -18,7 +18,9 @@
     "build": "vite build",
     "preview": "vite preview",
     "test": "echo \"Error: no test specified\" && exit 1",
-    "deploy": "npm run build && echo 'Frontend build completed'"
+    "deploy": "npm run build && echo 'Frontend build completed'",
+    "build:lon": "vite build --base /lon/ --outDir ../deploy-frontend-lon",
+    "build:plan": "vite build --base /plan/ --outDir ../deploy-ovh"
   },
   "engines": {
     "node": ">=18.0.0"

@@ -6,9 +6,19 @@ import './Sidebar.css';
 
 const Sidebar = () => {
   const [isExpanded, setIsExpanded] = useState(false);
+  const [socialMenuExpanded, setSocialMenuExpanded] = useState(false);
   const [menuPermissions, setMenuPermissions] = useState([]);
   const location = useLocation();
   const { user, isAdmin, isEmployee } = useAuth();
+
+  // Menus regroupés sous "Social" (visible uniquement pour l'admin)
+  const SOCIAL_MENU_ITEMS = [
+    { path: '/advance-requests', label: 'Demandes d\'Acompte', icon: '💰', menuId: 'advance-requests' },
+    { path: '/vacation-management', label: 'Gestion des Congés', icon: '🏖️', menuId: 'vacation-management' },
+    { path: '/sick-leave-management', label: 'Gestion des Arrêts Maladie', icon: '🏥', menuId: 'sick-leave-management' },
+    { path: '/mutuelle-management', label: 'Gestion des Mutuelles', icon: '🏥', menuId: 'mutuelle-management' },
+    { path: '/primes', label: 'Primes', icon: '💰', menuId: 'primes' }
+  ];
 
   // Permissions par défaut en cas d'erreur API
   const getDefaultMenuPermissions = (role) => {
@@ -32,9 +42,9 @@ const Sidebar = () => {
         { menuId: 'ticket-restaurant', isVisibleToAdmin: true, isVisibleToEmployee: true },
         { menuId: 'advance-requests', isVisibleToAdmin: true, isVisibleToEmployee: false },
         { menuId: 'employee-dashboard', isVisibleToAdmin: false, isVisibleToEmployee: true },
-        { menuId: 'primes', isVisibleToAdmin: true, isVisibleToEmployee: false },
         { menuId: 'ambassadeur', isVisibleToAdmin: true, isVisibleToEmployee: false },
-        { menuId: 'commandes-en-ligne', isVisibleToAdmin: true, isVisibleToEmployee: true }
+        { menuId: 'commandes-en-ligne', isVisibleToAdmin: true, isVisibleToEmployee: true },
+        { menuId: 'product-exchanges', isVisibleToAdmin: true, isVisibleToEmployee: false }
       ];
     } else {
       return [
@@ -46,11 +56,25 @@ const Sidebar = () => {
         { menuId: 'km-expenses', isVisibleToAdmin: false, isVisibleToEmployee: true },
         { menuId: 'recup', isVisibleToAdmin: false, isVisibleToEmployee: true },
         { menuId: 'ticket-restaurant', isVisibleToAdmin: false, isVisibleToEmployee: true },
+        { menuId: 'advance-requests', isVisibleToAdmin: false, isVisibleToEmployee: false },
+        { menuId: 'vacation-management', isVisibleToAdmin: false, isVisibleToEmployee: false },
+        { menuId: 'sick-leave-management', isVisibleToAdmin: false, isVisibleToEmployee: false },
+        { menuId: 'mutuelle-management', isVisibleToAdmin: false, isVisibleToEmployee: false },
+        { menuId: 'primes', isVisibleToAdmin: false, isVisibleToEmployee: false },
         { menuId: 'ambassadeur', isVisibleToAdmin: false, isVisibleToEmployee: false },
-        { menuId: 'commandes-en-ligne', isVisibleToAdmin: false, isVisibleToEmployee: true }
+        { menuId: 'commandes-en-ligne', isVisibleToAdmin: false, isVisibleToEmployee: true },
+        { menuId: 'product-exchanges', isVisibleToAdmin: false, isVisibleToEmployee: false }
       ];
     }
   };
+
+  // Auto-expandre le menu Social quand on est sur une de ses pages
+  useEffect(() => {
+    const socialPaths = ['advance-requests', 'vacation-management', 'sick-leave-management', 'mutuelle-management', 'primes'];
+    if (socialPaths.some(p => location.pathname.includes(p))) {
+      setSocialMenuExpanded(true);
+    }
+  }, [location.pathname]);
 
   // Charger les permissions de menu selon le rôle utilisateur
   useEffect(() => {
@@ -90,7 +114,7 @@ const Sidebar = () => {
   }, [user]);
 
 
-  // Menu items avec permissions (tous en menus principaux)
+  // Menu items avec permissions (sans les items Social - regroupés séparément)
   const menuItems = [
     { path: '/dashboard', label: 'Tableau de bord', icon: '📊', menuId: 'dashboard' },
     { path: '/employees', label: 'Gestion des employés', icon: '👥', menuId: 'employees' },
@@ -101,74 +125,42 @@ const Sidebar = () => {
     { path: '/meal-expenses', label: 'Frais Repas', icon: '🍽️', menuId: 'meal-expenses' },
     { path: '/km-expenses', label: 'Frais KM', icon: '🚗', menuId: 'km-expenses' },
     { path: '/recup', label: 'Heures de récup', icon: '⏱️', menuId: 'recup' },
-    { path: '/primes', label: 'Primes', icon: '💰', menuId: 'primes' },
     { path: '/employee-status-print', label: 'Imprimer État', icon: '🖨️', menuId: 'employee-status-print' },
     { path: '/parameters', label: 'Paramètres', icon: '⚙️', menuId: 'parameters' },
-    { path: '/sick-leave-management', label: 'Gestion des Arrêts Maladie', icon: '🏥', menuId: 'sick-leave-management' },
-    { path: '/mutuelle-management', label: 'Gestion des Mutuelles', icon: '🏥', menuId: 'mutuelle-management' },
-    { path: '/vacation-management', label: 'Gestion des Congés', icon: '🏖️', menuId: 'vacation-management' },
     { path: '/ticket-restaurant', label: 'Ticket restaurant', icon: '🎫', menuId: 'ticket-restaurant' },
-    { path: '/advance-requests', label: 'Demandes d\'Acompte', icon: '💰', menuId: 'advance-requests' },
     { path: '/employee-dashboard', label: 'Mes Documents', icon: '📁', menuId: 'employee-dashboard' },
     { path: '/ambassadeur', label: 'Ambassadeur', icon: '⭐', menuId: 'ambassadeur' },
-    { path: '/commandes-en-ligne', label: 'Commandes en ligne', icon: '🛒', menuId: 'commandes-en-ligne', longuenesseOnly: true }
+    { path: '/commandes-en-ligne', label: 'Commandes en ligne', icon: '🛒', menuId: 'commandes-en-ligne', longuenesseOnly: true },
+    { path: '/product-exchanges', label: 'Échanges', icon: '🔄', menuId: 'product-exchanges' }
   ];
 
   const isLonguenesse = window.location.pathname.startsWith('/lon');
 
-  // Filtrer les menus selon les permissions (et Longuenesse pour certains items)
-  const getFilteredMenuItems = () => {
-    if (!user) {
-      console.log('⚠️ Pas d\'utilisateur connecté');
-      return [];
+  // Vérifier si un menu a la permission pour le rôle actuel (fallback sur défaut si absent de l'API)
+  const hasPermission = (menuId) => {
+    const permission = menuPermissions.find(p => p.menuId === menuId);
+    if (permission) {
+      return isAdmin() ? permission.isVisibleToAdmin : permission.isVisibleToEmployee;
     }
+    // Fallback : si l'API ne retourne pas ce menu (backend pas à jour), utiliser les défauts
+    const defaultPermission = getDefaultMenuPermissions(user?.role).find(p => p.menuId === menuId);
+    if (!defaultPermission) return false;
+    return isAdmin() ? defaultPermission.isVisibleToAdmin : defaultPermission.isVisibleToEmployee;
+  };
+
+  // Filtrer les menus principaux (sans les items Social)
+  const getFilteredMenuItems = () => {
+    if (!user) return [];
 
     let items = menuItems.filter(item => !(item.longuenesseOnly && !isLonguenesse));
-    
-    if (menuPermissions.length === 0) {
-      console.log('⚠️ Permissions vides, utilisation des permissions par défaut');
-      return items.filter(item => {
-        const defaultPermission = getDefaultMenuPermissions(user.role).find(p => p.menuId === item.menuId);
-        if (!defaultPermission) return false;
-        
-        if (isAdmin()) {
-          return defaultPermission.isVisibleToAdmin;
-        } else if (isEmployee()) {
-          return defaultPermission.isVisibleToEmployee;
-        }
-        return false;
-      });
-    }
 
-    console.log('🔍 Filtrage des menus pour:', user.role);
-    console.log('📋 Permissions disponibles:', menuPermissions);
-    console.log('👑 isAdmin():', isAdmin());
-    console.log('👤 isEmployee():', isEmployee());
+    return items.filter(item => hasPermission(item.menuId));
+  };
 
-    const filteredItems = menuItems.filter(item => {
-      const permission = menuPermissions.find(p => p.menuId === item.menuId);
-      console.log(`🔍 Menu ${item.menuId}:`, { permission, isAdmin: isAdmin(), isEmployee: isEmployee() });
-      
-      if (!permission) {
-        console.log(`❌ Pas de permission pour ${item.menuId}`);
-        return false;
-      }
-
-      if (isAdmin()) {
-        const visible = permission.isVisibleToAdmin;
-        console.log(`👑 Admin - ${item.menuId}: ${visible}`);
-        return visible;
-      } else if (isEmployee()) {
-        const visible = permission.isVisibleToEmployee;
-        console.log(`👤 Employee - ${item.menuId}: ${visible}`);
-        return visible;
-      }
-      return false;
-    });
-
-    console.log('✅ Menus filtrés:', filteredItems.map(item => item.menuId));
-
-    return filteredItems;
+  // Items du menu Social visibles pour le salarié (affichés individuellement, pas sous un parent)
+  const getSocialItemsForEmployee = () => {
+    if (!isEmployee()) return [];
+    return SOCIAL_MENU_ITEMS.filter(item => hasPermission(item.menuId));
   };
 
   const handleMouseEnter = () => {
@@ -205,6 +197,46 @@ const Sidebar = () => {
             key={item.path}
             to={item.path}
             className={`nav-item ${location.pathname === item.path ? 'active' : ''}`}
+          >
+            <span className="nav-icon">{item.icon}</span>
+            <span className="nav-label">{item.label}</span>
+          </Link>
+        ))}
+        {/* Menu Social - visible uniquement pour l'admin */}
+        {isAdmin() && (
+          <div className="nav-group social-menu">
+            <button
+              type="button"
+              className={`nav-item nav-group-toggle ${socialMenuExpanded ? 'expanded' : ''} ${SOCIAL_MENU_ITEMS.some(i => location.pathname.includes(i.path)) ? 'active' : ''}`}
+              onClick={() => setSocialMenuExpanded(!socialMenuExpanded)}
+              onMouseEnter={() => isExpanded && setSocialMenuExpanded(true)}
+            >
+              <span className="nav-icon">👥</span>
+              <span className="nav-label">Social</span>
+              <span className="nav-chevron">{socialMenuExpanded ? '▼' : '▶'}</span>
+            </button>
+            {socialMenuExpanded && isExpanded && (
+              <div className="nav-submenu">
+                {SOCIAL_MENU_ITEMS.map((item) => (
+                  <Link
+                    key={item.path}
+                    to={item.path}
+                    className={`nav-item nav-subitem ${location.pathname.includes(item.path) ? 'active' : ''}`}
+                  >
+                    <span className="nav-icon">{item.icon}</span>
+                    <span className="nav-label">{item.label}</span>
+                  </Link>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+        {/* Items Social pour les salariés (affichés individuellement selon permissions) */}
+        {getSocialItemsForEmployee().map((item) => (
+          <Link
+            key={item.path}
+            to={item.path}
+            className={`nav-item ${location.pathname.includes(item.path) ? 'active' : ''}`}
           >
             <span className="nav-icon">{item.icon}</span>
             <span className="nav-label">{item.label}</span>

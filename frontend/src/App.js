@@ -31,6 +31,7 @@ import Primes from './pages/Primes';
 import MutuelleManagement from './pages/MutuelleManagement';
 import Ambassadeur from './pages/Ambassadeur';
 import CommandesEnLigne from './pages/CommandesEnLigne';
+import ProductExchanges from './pages/ProductExchanges';
 
 const AppContent = () => {
   const { user } = useAuth();
@@ -159,6 +160,11 @@ const AppContent = () => {
             <Route path="/commandes-en-ligne" element={
               <ProtectedRoute>
                 <CommandesEnLigne />
+              </ProtectedRoute>
+            } />
+            <Route path="/product-exchanges" element={
+              <ProtectedRoute adminOnly={true}>
+                <ProductExchanges />
               </ProtectedRoute>
             } />
           </Routes>

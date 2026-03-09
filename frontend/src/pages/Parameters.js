@@ -452,7 +452,7 @@ const Parameters = () => {
   const fetchMenuPermissions = async () => {
     setLoadingPermissions(true);
     try {
-      const response = await api.get('/menu-permissions');
+      const response = await api.get('/menu-permissions/all');
       if (response.data.success) {
         setMenuPermissions(response.data.menuPermissions);
         console.log('📋 Permissions de menu chargées:', response.data.menuPermissions);
@@ -785,10 +785,9 @@ const Parameters = () => {
         <button 
           className="tab-button"
           onClick={() => {
-            // Détecter le basename depuis BASE_URL ou l'URL actuelle
-            const basename = import.meta.env.BASE_URL 
-              ? import.meta.env.BASE_URL.replace(/\/$/, '') // Enlever le slash final
-              : (window.location.pathname.startsWith('/lon') ? '/lon' : '/plan'); // Fallback
+            // Utiliser l'URL actuelle pour ouvrir la bonne page (Longuenesse /lon ou Arras /plan)
+            const path = window.location.pathname || '';
+            const basename = path.startsWith('/lon') ? '/lon' : '/plan';
             window.open(`${basename}/admin-documents.html`, '_blank');
           }}
         >
@@ -1027,6 +1026,13 @@ const Parameters = () => {
                         {permission.menuId === 'employee-status-print' && '🖨️'}
                         {permission.menuId === 'sick-leave-management' && '🏥'}
                         {permission.menuId === 'vacation-management' && '🏖️'}
+                        {permission.menuId === 'advance-requests' && '💰'}
+                        {permission.menuId === 'primes' && '💰'}
+                        {permission.menuId === 'ticket-restaurant' && '🎫'}
+                        {permission.menuId === 'mutuelle-management' && '🏥'}
+                        {permission.menuId === 'commandes-en-ligne' && '🛒'}
+                        {permission.menuId === 'product-exchanges' && '🔄'}
+                        {permission.menuId === 'employee-dashboard' && '📁'}
                         {permission.menuId === 'ambassadeur' && '⭐'}
                       </span>
                       {permission.menuName}
