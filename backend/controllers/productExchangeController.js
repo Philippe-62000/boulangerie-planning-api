@@ -176,6 +176,24 @@ const buildExchangesTableHtml = (exchanges, currentSiteName) => {
   return html;
 };
 
+// Calculer le solde valorisé avec un partenaire (positif = partenaire nous doit, négatif = nous devons au partenaire)
+const computeBalanceWithPartner = (exchanges, partnerId, currentSiteName) => {
+  let balance = 0;
+  exchanges.forEach(ex => {
+    const amount = ex.valorisedAmount ?? 0;
+    if (amount === 0) return;
+    const fromId = ex.fromPartnerId?._id?.toString() || ex.fromPartnerId?.toString() || null;
+    const toId = ex.toPartnerId?._id?.toString() || ex.toPartnerId?.toString() || null;
+    const partnerIdStr = partnerId?.toString?.() || partnerId;
+    if (fromId === partnerIdStr && !toId) {
+      balance -= amount; // Partenaire nous a prêté → nous lui devons
+    } else if (!fromId && toId === partnerIdStr) {
+      balance += amount; // Nous avons prêté au partenaire → il nous doit
+    }
+  });
+  return balance;
+};
+
 // Créer un échange et envoyer l'email au partenaire
 const createExchange = async (req, res) => {
   try {
@@ -300,11 +318,21 @@ const updateExchange = async (req, res) => {
       try {
         const exchangesWithPartner = await getExchangesWithPartner(partnerToNotify._id);
         const tableHtml = buildExchangesTableHtml(exchangesWithPartner, currentSiteName);
+        const balance = computeBalanceWithPartner(exchangesWithPartner, partnerToNotify._id, currentSiteName);
+        let soldeLine = '';
+        if (balance > 0) {
+          soldeLine = `<p><strong>Solde valorisé :</strong> Vous devez ${balance}€ à ${currentSiteName}.</p>`;
+        } else if (balance < 0) {
+          soldeLine = `<p><strong>Solde valorisé :</strong> ${currentSiteName} vous doit ${Math.abs(balance)}€.</p>`;
+        } else {
+          soldeLine = `<p><strong>Solde valorisé :</strong> À jour (0€).</p>`;
+        }
         const emailSubject = `[Échange] ${updates.join(' - ')} - ${currentSiteName}`;
         const htmlContent = `
           <h2>Mise à jour d'échange</h2>
           <p>Bonjour ${partnerToNotify.name},</p>
           <p>Un échange a été mis à jour : ${updates.join(', ')}.</p>
+          ${soldeLine}
           <p>Voici le récapitulatif des échanges passés avec vous :</p>
           ${tableHtml}
           <p>Cordialement,<br>${currentSiteName}</p>
