@@ -1,24 +1,32 @@
-# Redirection HTTP vers HTTPS
+# Redirection HTTP vers HTTPS - LONGUENESSE (/lon/)
 RewriteEngine On
+RewriteBase /lon/
 
-# Redirection de HTTP vers HTTPS
+# Redirection HTTP vers HTTPS (conserver /lon/)
 RewriteCond %{HTTPS} off
-RewriteRule ^(.*)$ https://www.filmara.fr/plan/$1 [R=301,L]
+RewriteRule ^(.*)$ https://www.filmara.fr/lon/$1 [R=301,L]
 
-# Redirection de filmara.fr vers www.filmara.fr
+# Redirection filmara.fr vers www (conserver le chemin)
 RewriteCond %{HTTP_HOST} ^filmara\.fr$ [NC]
-RewriteRule ^(.*)$ https://www.filmara.fr/plan/$1 [R=301,L]
+RewriteRule ^(.*)$ https://www.filmara.fr%{REQUEST_URI} [R=301,L]
 
-# Configuration pour React Router
+# Configuration pour React Router - SPA fallback
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
-RewriteRule . /plan/index.html [L]
+RewriteRule . /lon/index.html [L]
 
 # Headers de sécurité
 Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains"
 Header always set X-Content-Type-Options nosniff
 Header always set X-Frame-Options DENY
 Header always set X-XSS-Protection "1; mode=block"
+
+# Pas de cache pour index.html (toujours revalider)
+<Files "index.html">
+    Header set Cache-Control "no-cache, no-store, must-revalidate"
+    Header set Pragma "no-cache"
+    Header set Expires "0"
+</Files>
 
 # Cache pour les assets statiques
 <FilesMatch "\.(css|js|png|jpg|jpeg|gif|ico|svg)$">
