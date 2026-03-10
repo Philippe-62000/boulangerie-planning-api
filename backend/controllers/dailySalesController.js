@@ -382,6 +382,65 @@ exports.setWeeklyObjectives = async (req, res) => {
   }
 };
 
+// Obtenir les totaux mensuels par employé (cartes fid + promo) depuis les saisies quotidiennes
+exports.getMonthlyAggregatedByEmployee = async (req, res) => {
+  try {
+    const { month, year } = req.query;
+    const monthNum = parseInt(month, 10);
+    const yearNum = parseInt(year, 10);
+
+    if (!monthNum || monthNum < 1 || monthNum > 12 || !yearNum) {
+      return res.status(400).json({
+        success: false,
+        message: 'Paramètres month (1-12) et year requis'
+      });
+    }
+
+    const startDate = new Date(yearNum, monthNum - 1, 1);
+    startDate.setHours(0, 0, 0, 0);
+    const endDate = new Date(yearNum, monthNum, 0);
+    endDate.setHours(23, 59, 59, 999);
+
+    const aggregated = await DailySales.aggregate([
+      {
+        $match: {
+          date: { $gte: startDate, $lte: endDate }
+        }
+      },
+      {
+        $group: {
+          _id: '$employeeId',
+          nbCartesFid: { $sum: '$nbCartesFid' },
+          nbPromo: { $sum: '$nbPromo' }
+        }
+      }
+    ]);
+
+    const result = {};
+    aggregated.forEach((item) => {
+      const empId = item._id?.toString();
+      if (empId) {
+        result[empId] = {
+          nbCartesFid: item.nbCartesFid || 0,
+          nbPromo: item.nbPromo || 0
+        };
+      }
+    });
+
+    res.json({
+      success: true,
+      data: result
+    });
+  } catch (error) {
+    console.error('❌ Erreur agrégation mensuelle daily-sales:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erreur lors de la récupération',
+      error: error.message
+    });
+  }
+};
+
 // Obtenir les informations hebdomadaires pour une vendeuse donnée
 exports.getEmployeeInfoForDailySales = async (req, res) => {
   try {

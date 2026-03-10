@@ -124,6 +124,18 @@ const SalesStats = () => {
   });
   const [showEmployeeDetailModal, setShowEmployeeDetailModal] = useState(false);
   const [selectedEmployeeForDetail, setSelectedEmployeeForDetail] = useState(null);
+  const [showParamsModal, setShowParamsModal] = useState(false);
+  const [selectedTableEmployeeIds, setSelectedTableEmployeeIds] = useState(() => {
+    try {
+      const stored = localStorage.getItem('salesStats_selectedEmployees');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        return Array.isArray(parsed) ? parsed : [];
+      }
+    } catch (_) {}
+    return [];
+  });
+  const [monthlyDailySalesData, setMonthlyDailySalesData] = useState({});
 
   const vendeuses = useMemo(() => {
     return employees.filter(emp => VENDEUSE_ROLES.includes(emp.role));
@@ -682,14 +694,23 @@ const SalesStats = () => {
    //   }
    // }; // Non utilisé
 
-   // Sauvegarder les données
+   // Sauvegarder les données (fusionne les valeurs calculées cartes fid + promo depuis daily-sales)
    const saveSalesData = async () => {
     setLoading(true);
     try {
+      const mergedSalesData = {};
+      Object.keys(salesData).forEach(empId => {
+        const dailyAgg = monthlyDailySalesData[empId] || {};
+        mergedSalesData[empId] = {
+          ...salesData[empId],
+          nbCartesFid: dailyAgg.nbCartesFid ?? salesData[empId]?.nbCartesFid ?? 0,
+          nbPromo: dailyAgg.nbPromo ?? salesData[empId]?.nbPromo ?? 0
+        };
+      });
       const dataToSave = {
         month: parseInt(currentMonth),
         year: currentYear,
-        salesData: salesData
+        salesData: mergedSalesData
       };
 
       const response = await fetch(`${API_BASE_URL}/sales-stats`, {
@@ -797,6 +818,74 @@ const SalesStats = () => {
       loadMonthlyStats();
     }
   }, [currentYear, loadMonthlyStats]);
+
+  // Charger les totaux mensuels cartes fid + promo depuis daily-sales (page standalone)
+  const loadMonthlyDailySalesData = useCallback(async () => {
+    if (!currentMonth || !currentYear) return;
+    try {
+      const url = new URL(`${API_BASE_URL}/daily-sales/monthly`);
+      url.searchParams.set('month', parseInt(currentMonth, 10));
+      url.searchParams.set('year', currentYear);
+      const response = await fetch(url.toString());
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success && data.data) {
+          setMonthlyDailySalesData(data.data);
+        } else {
+          setMonthlyDailySalesData({});
+        }
+      } else {
+        setMonthlyDailySalesData({});
+      }
+    } catch (error) {
+      console.error('Erreur chargement données mensuelles daily-sales:', error);
+      setMonthlyDailySalesData({});
+    }
+  }, [currentMonth, currentYear]);
+
+  useEffect(() => {
+    loadMonthlyDailySalesData();
+  }, [loadMonthlyDailySalesData]);
+
+  // Employés à afficher dans le tableau (filtrés par paramètres)
+  const tableEmployees = useMemo(() => {
+    if (!selectedTableEmployeeIds.length) {
+      return employees;
+    }
+    const idSet = new Set(selectedTableEmployeeIds);
+    const filtered = employees.filter(emp => idSet.has(emp._id));
+    return filtered.length > 0 ? filtered : employees;
+  }, [employees, selectedTableEmployeeIds]);
+
+  const saveSelectedTableEmployees = useCallback((ids) => {
+    setSelectedTableEmployeeIds(ids);
+    try {
+      localStorage.setItem('salesStats_selectedEmployees', JSON.stringify(ids));
+    } catch (_) {}
+  }, []);
+
+  const toggleTableEmployeeSelection = (employeeId) => {
+    setSelectedTableEmployeeIds(prev => {
+      const currentIds = prev.length === 0 ? employees.map(e => e._id) : prev;
+      const isCurrentlySelected = currentIds.includes(employeeId);
+      const next = isCurrentlySelected
+        ? currentIds.filter(id => id !== employeeId)
+        : [...currentIds, employeeId];
+      try {
+        localStorage.setItem('salesStats_selectedEmployees', JSON.stringify(next));
+      } catch (_) {}
+      return next;
+    });
+  };
+
+  const selectAllTableEmployees = () => {
+    const allIds = employees.map(emp => emp._id);
+    saveSelectedTableEmployees(allIds);
+  };
+
+  const clearTableEmployeeSelection = () => {
+    saveSelectedTableEmployees([]);
+  };
 
   // Charger les données de la période actuelle au montage et au changement de période
   useEffect(() => {
@@ -1239,7 +1328,27 @@ const SalesStats = () => {
 
         {/* Formulaire de saisie */}
         <div className="sales-form-section">
-          <h2>📝 Saisie des données mensuelles</h2>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px', flexWrap: 'wrap' }}>
+            <h2 style={{ margin: 0 }}>📝 Saisie des données mensuelles</h2>
+            <button
+              type="button"
+              onClick={() => setShowParamsModal(true)}
+              className="params-button"
+              title="Choisir les salariés à afficher dans le tableau"
+              style={{
+                padding: '8px 16px',
+                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                color: 'white',
+                border: 'none',
+                borderRadius: '8px',
+                cursor: 'pointer',
+                fontWeight: '600',
+                fontSize: '0.95rem'
+              }}
+            >
+              ⚙️ Paramètres
+            </button>
+          </div>
           <div className="sales-form">
             <table className="sales-form-table">
               <thead>
@@ -1248,8 +1357,8 @@ const SalesStats = () => {
                   <th>CA Net HT</th>
                   <th>Nb Clients</th>
                   <th>Panier Moyen</th>
-                  <th>Nb Promo</th>
-                  <th>Nb Cartes Fid</th>
+                  <th title="Calculé depuis les saisies quotidiennes (page standalone)">Nb Promo *</th>
+                  <th title="Calculé depuis les saisies quotidiennes (page standalone)">Nb Cartes Fid *</th>
                                      <th>Nb Avis +</th>
                    <th>Nb Avis -</th>
                    <th>Score</th>
@@ -1258,8 +1367,11 @@ const SalesStats = () => {
                </thead>
                <tbody>
                  {(() => {
-                   console.log('🔍 Rendu tableau SalesStats - employés:', employees.length, employees);
-                   return Array.isArray(employees) && employees.length > 0 ? employees.map(emp => (
+                   return tableEmployees.length > 0 ? tableEmployees.map(emp => {
+                     const dailyAgg = monthlyDailySalesData[emp._id] || {};
+                     const nbCartesFidCalc = dailyAgg.nbCartesFid ?? 0;
+                     const nbPromoCalc = dailyAgg.nbPromo ?? 0;
+                     return (
                    <tr key={emp._id}>
                      <td className="employee-name">{emp.name}</td>
                      <td>
@@ -1292,22 +1404,22 @@ const SalesStats = () => {
                        />
                      </td>
                      <td>
-                       <input
-                         type="number"
-                         value={salesData[emp._id]?.nbPromo || 0}
-                         onChange={(e) => updateSalesData(emp._id, 'nbPromo', e.target.value)}
-                         placeholder="0"
-                         min="0"
-                       />
+                       <span
+                         className="calculated-value"
+                         title="Calculé depuis les saisies quotidiennes (page standalone)"
+                         style={{ display: 'inline-block', padding: '8px', minWidth: '50px', fontWeight: 600 }}
+                       >
+                         {nbPromoCalc}
+                       </span>
                      </td>
                      <td>
-                       <input
-                         type="number"
-                         value={salesData[emp._id]?.nbCartesFid || 0}
-                         onChange={(e) => updateSalesData(emp._id, 'nbCartesFid', e.target.value)}
-                         placeholder="0"
-                         min="0"
-                       />
+                       <span
+                         className="calculated-value"
+                         title="Calculé depuis les saisies quotidiennes (page standalone)"
+                         style={{ display: 'inline-block', padding: '8px', minWidth: '50px', fontWeight: 600 }}
+                       >
+                         {nbCartesFidCalc}
+                       </span>
                      </td>
                      <td>
                        <input
@@ -1328,7 +1440,11 @@ const SalesStats = () => {
                        />
                      </td>
                      <td className="score-cell">
-                       <strong>{calculateScore(salesData[emp._id] || {}).toFixed(0)}</strong>
+                       <strong>{calculateScore({
+                         ...(salesData[emp._id] || {}),
+                         nbCartesFid: nbCartesFidCalc,
+                         nbPromo: nbPromoCalc
+                       }).toFixed(0)}</strong>
                      </td>
                      <td className="actions-cell">
                        <button
@@ -1365,6 +1481,9 @@ const SalesStats = () => {
                  })()}
                </tbody>
             </table>
+            <p style={{ marginTop: '8px', fontSize: '0.85rem', color: '#666' }}>
+              * Nb Promo et Nb Cartes Fid : calculés automatiquement depuis les saisies de la page quotidienne (standalone).
+            </p>
             
                          <div className="form-actions">
                <button 
@@ -1724,6 +1843,136 @@ const SalesStats = () => {
                 style={{
                   padding: '0.5rem 1.5rem',
                   backgroundColor: '#6c757d',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: 'pointer'
+                }}
+              >
+                Fermer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Paramètres - sélection des salariés à afficher */}
+      {showParamsModal && (
+        <div
+          className="modal-overlay"
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            zIndex: 1000
+          }}
+          onClick={() => setShowParamsModal(false)}
+        >
+          <div
+            className="modal-content"
+            style={{
+              backgroundColor: 'white',
+              padding: '2rem',
+              borderRadius: '8px',
+              maxWidth: '500px',
+              width: '90%',
+              maxHeight: '80vh',
+              overflow: 'auto'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+              <h2>⚙️ Salariés à afficher</h2>
+              <button
+                onClick={() => setShowParamsModal(false)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  fontSize: '2rem',
+                  cursor: 'pointer',
+                  color: '#666'
+                }}
+              >
+                ×
+              </button>
+            </div>
+            <p style={{ marginBottom: '1rem', color: '#666', fontSize: '0.95rem' }}>
+              Cochez les salariés à afficher dans le tableau de saisie. Si aucun n'est sélectionné, tous sont affichés.
+            </p>
+            <div style={{ display: 'flex', gap: '8px', marginBottom: '1rem' }}>
+              <button
+                type="button"
+                onClick={selectAllTableEmployees}
+                style={{
+                  padding: '8px 16px',
+                  background: '#f0f0f0',
+                  border: '1px solid #ccc',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontWeight: 600
+                }}
+              >
+                Tout sélectionner
+              </button>
+              <button
+                type="button"
+                onClick={clearTableEmployeeSelection}
+                style={{
+                  padding: '8px 16px',
+                  background: '#f0f0f0',
+                  border: '1px solid #ccc',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontWeight: 600
+                }}
+              >
+                Tout désélectionner
+              </button>
+            </div>
+            <div style={{ maxHeight: '300px', overflowY: 'auto', border: '1px solid #eee', borderRadius: '8px', padding: '12px' }}>
+              {employees.length === 0 ? (
+                <p style={{ color: '#666' }}>Aucun salarié disponible</p>
+              ) : (
+                employees.map((emp) => {
+                  const isSelected = selectedTableEmployeeIds.length === 0 || selectedTableEmployeeIds.includes(emp._id);
+                  return (
+                    <label
+                      key={emp._id}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '10px',
+                        padding: '8px 0',
+                        cursor: 'pointer',
+                        borderBottom: '1px solid #f0f0f0'
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={() => toggleTableEmployeeSelection(emp._id)}
+                      />
+                      <span>{emp.name}</span>
+                      {emp.role && (
+                        <span style={{ color: '#888', fontSize: '0.9rem' }}>({emp.role})</span>
+                      )}
+                    </label>
+                  );
+                })
+              )}
+            </div>
+            <div style={{ marginTop: '1.5rem', textAlign: 'right' }}>
+              <button
+                onClick={() => setShowParamsModal(false)}
+                style={{
+                  padding: '0.5rem 1.5rem',
+                  backgroundColor: '#667eea',
                   color: 'white',
                   border: 'none',
                   borderRadius: '4px',

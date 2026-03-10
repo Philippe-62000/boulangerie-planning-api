@@ -7,6 +7,7 @@ router.post('/submit', dailySalesController.submitDailySales);
 
 // Routes pour les stats hebdomadaires (nécessitent une authentification)
 router.get('/weekly', dailySalesController.getWeeklyStats);
+router.get('/monthly', dailySalesController.getMonthlyAggregatedByEmployee);
 router.get('/objectives', dailySalesController.getWeeklyObjectives);
 router.post('/objectives', dailySalesController.setWeeklyObjectives);
 router.get('/employee/:saleCode', dailySalesController.getEmployeeInfoForDailySales);
