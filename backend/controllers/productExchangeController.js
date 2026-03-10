@@ -148,11 +148,14 @@ const buildExchangesTableHtml = (exchanges, currentSiteName) => {
           <th>Soldé</th>
           <th>Facturé</th>
           <th>Payé</th>
+          <th>Valorisé le</th>
+          <th>Montant</th>
         </tr>
       </thead>
       <tbody>
   `;
   exchanges.forEach(ex => {
+    const valorisedStr = ex.valorisedAmount != null ? `${ex.valorisedAmount}€` : '-';
     html += `
       <tr>
         <td>${formatDate(ex.date)}</td>
@@ -164,6 +167,8 @@ const buildExchangesTableHtml = (exchanges, currentSiteName) => {
         <td>${formatDate(ex.settledAt)}</td>
         <td>${formatDate(ex.invoicedAt)}</td>
         <td>${formatDate(ex.paidAt)}</td>
+        <td>${formatDate(ex.valorisedAt)}</td>
+        <td>${valorisedStr}</td>
       </tr>
     `;
   });
@@ -243,29 +248,47 @@ const updateExchange = async (req, res) => {
       .populate('toPartnerId', 'name email');
     if (!exchange) return res.status(404).json({ success: false, error: 'Échange non trouvé' });
 
-    const { settledAt, invoicedAt, paidAt } = req.body;
+    const { settledAt, invoicedAt, paidAt, valorisedAt, valorisedAmount } = req.body;
     const currentSiteName = getCurrentSiteName();
     const updates = [];
+
+    // Format date sans slash pour éviter encodage HTML (&#x2F;) dans le sujet email
+    const formatDateForEmail = (d) => {
+      if (!d) return '';
+      const date = new Date(d);
+      const day = String(date.getDate()).padStart(2, '0');
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const year = date.getFullYear();
+      return `${day}-${month}-${year}`;
+    };
 
     if (settledAt !== undefined) {
       exchange.settledAt = settledAt ? new Date(settledAt) : null;
       if (exchange.settledAt && !exchange.emailSentOnSettled) {
         exchange.emailSentOnSettled = true;
-        updates.push(`Soldé le ${new Date(settledAt).toLocaleDateString('fr-FR')}`);
+        updates.push(`Soldé le ${formatDateForEmail(settledAt)}`);
       }
     }
     if (invoicedAt !== undefined) {
       exchange.invoicedAt = invoicedAt ? new Date(invoicedAt) : null;
       if (exchange.invoicedAt && !exchange.emailSentOnInvoiced) {
         exchange.emailSentOnInvoiced = true;
-        updates.push(`Facturé le ${new Date(invoicedAt).toLocaleDateString('fr-FR')}`);
+        updates.push(`Facturé le ${formatDateForEmail(invoicedAt)}`);
       }
     }
     if (paidAt !== undefined) {
       exchange.paidAt = paidAt ? new Date(paidAt) : null;
       if (exchange.paidAt && !exchange.emailSentOnPaid) {
         exchange.emailSentOnPaid = true;
-        updates.push(`Payé le ${new Date(paidAt).toLocaleDateString('fr-FR')}`);
+        updates.push(`Payé le ${formatDateForEmail(paidAt)}`);
+      }
+    }
+    if (valorisedAt !== undefined || valorisedAmount !== undefined) {
+      if (valorisedAt !== undefined) exchange.valorisedAt = valorisedAt ? new Date(valorisedAt) : null;
+      if (valorisedAmount !== undefined) exchange.valorisedAmount = valorisedAmount != null && valorisedAmount !== '' ? Number(valorisedAmount) : null;
+      if (exchange.valorisedAt && exchange.valorisedAmount != null && !exchange.emailSentOnValorised) {
+        exchange.emailSentOnValorised = true;
+        updates.push(`Valorisé ${exchange.valorisedAmount}€ le ${formatDateForEmail(exchange.valorisedAt)}`);
       }
     }
 

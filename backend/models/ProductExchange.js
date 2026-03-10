@@ -51,11 +51,22 @@ const productExchangeSchema = new mongoose.Schema({
     default: null,
     comment: 'Date de paiement'
   },
+  valorisedAt: {
+    type: Date,
+    default: null,
+    comment: 'Date de valorisation (montant en €)'
+  },
+  valorisedAmount: {
+    type: Number,
+    default: null,
+    comment: 'Montant valorisé en euros (positif = prêt du site actuel vers le partenaire)'
+  },
   // Pour tracer les envois d'emails (éviter doublons)
   emailSentOnCreate: { type: Boolean, default: false },
   emailSentOnSettled: { type: Boolean, default: false },
   emailSentOnInvoiced: { type: Boolean, default: false },
-  emailSentOnPaid: { type: Boolean, default: false }
+  emailSentOnPaid: { type: Boolean, default: false },
+  emailSentOnValorised: { type: Boolean, default: false }
 }, {
   timestamps: true
 });

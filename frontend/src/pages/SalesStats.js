@@ -127,6 +127,22 @@ const SalesStats = () => {
   const [showEmployeeDetailModal, setShowEmployeeDetailModal] = useState(false);
   const [selectedEmployeeForDetail, setSelectedEmployeeForDetail] = useState(null);
   const [showParamsModal, setShowParamsModal] = useState(false);
+  const [showScoreModal, setShowScoreModal] = useState(false);
+  const [scoreCoefficients, setScoreCoefficients] = useState(() => {
+    try {
+      const stored = localStorage.getItem('salesStats_scoreCoefficients');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        return {
+          cartesFid: parsed.cartesFid ?? 500,
+          promo: parsed.promo ?? 800,
+          avisPositifs: parsed.avisPositifs ?? 100,
+          avisNegatifs: parsed.avisNegatifs ?? 300
+        };
+      }
+    } catch (_) {}
+    return { cartesFid: 500, promo: 800, avisPositifs: 100, avisNegatifs: 300 };
+  });
   const [selectedTableEmployeeIds, setSelectedTableEmployeeIds] = useState(() => {
     try {
       const stored = localStorage.getItem('salesStats_selectedEmployees');
@@ -673,9 +689,19 @@ const SalesStats = () => {
     }));
   };
 
-  // Calculer le score d'un employé
+  // Calculer le score d'un employé (coefficients modifiables via le bouton Score)
   const calculateScore = (data) => {
-    return data.caNetHt + (data.nbCartesFid * 500) + (data.nbAvisPositifs * 100) - (data.nbAvisNegatifs * 300);
+    const c = scoreCoefficients;
+    return (data.caNetHt || 0)
+      + ((data.nbCartesFid || 0) * c.cartesFid)
+      + ((data.nbPromo || 0) * c.promo)
+      + ((data.nbAvisPositifs || 0) * c.avisPositifs)
+      - ((data.nbAvisNegatifs || 0) * c.avisNegatifs);
+  };
+
+  const handleSaveScoreCoefficients = () => {
+    localStorage.setItem('salesStats_scoreCoefficients', JSON.stringify(scoreCoefficients));
+    setShowScoreModal(false);
   };
 
 
@@ -1449,6 +1475,23 @@ const SalesStats = () => {
             </button>
             <button
               type="button"
+              onClick={() => setShowScoreModal(true)}
+              title="Modifier les coefficients du calcul du score"
+              style={{
+                padding: '8px 16px',
+                background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+                color: 'white',
+                border: 'none',
+                borderRadius: '8px',
+                cursor: 'pointer',
+                fontWeight: '600',
+                fontSize: '0.95rem'
+              }}
+            >
+              📊 Score
+            </button>
+            <button
+              type="button"
               onClick={() => handlePrintSaisie()}
               className="print-button"
               style={{
@@ -1600,6 +1643,9 @@ const SalesStats = () => {
             </table>
             <p style={{ marginTop: '8px', fontSize: '0.85rem', color: '#666' }}>
               * Nb Promo et Nb Cartes Fid : calculés automatiquement depuis les saisies de la page quotidienne (standalone).
+            </p>
+            <p style={{ marginTop: '8px', fontSize: '0.9rem', fontWeight: 600, color: '#333' }}>
+              Formule du score : Score = CA Net HT + (Nb Cartes Fid × {scoreCoefficients.cartesFid}) + (Nb Promo × {scoreCoefficients.promo}) + (Nb Avis + × {scoreCoefficients.avisPositifs}) − (Nb Avis − × {scoreCoefficients.avisNegatifs})
             </p>
             
                          <div className="form-actions">
@@ -2108,6 +2154,128 @@ const SalesStats = () => {
                 }}
               >
                 Fermer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Score - coefficients du calcul */}
+      {showScoreModal && (
+        <div
+          className="modal-overlay"
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            zIndex: 1000
+          }}
+          onClick={() => setShowScoreModal(false)}
+        >
+          <div
+            className="modal-content"
+            style={{
+              backgroundColor: 'white',
+              padding: '2rem',
+              borderRadius: '8px',
+              maxWidth: '420px',
+              width: '90%'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+              <h2>📊 Coefficients du score</h2>
+              <button
+                onClick={() => setShowScoreModal(false)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  fontSize: '2rem',
+                  cursor: 'pointer',
+                  color: '#666'
+                }}
+              >
+                ×
+              </button>
+            </div>
+            <p style={{ marginBottom: '1rem', color: '#666', fontSize: '0.9rem' }}>
+              Formule : Score = CA Net HT + (Nb Cartes Fid × X) + (Nb Promo × X) + (Nb Avis + × X) − (Nb Avis − × X)
+            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <label style={{ minWidth: '140px', fontWeight: 600 }}>Nb Cartes Fid ×</label>
+                <input
+                  type="number"
+                  min="0"
+                  value={scoreCoefficients.cartesFid}
+                  onChange={(e) => setScoreCoefficients(c => ({ ...c, cartesFid: Number(e.target.value) || 0 }))}
+                  style={{ padding: '8px 12px', borderRadius: '6px', border: '1px solid #ccc', width: '100px' }}
+                />
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <label style={{ minWidth: '140px', fontWeight: 600 }}>Nb Promo ×</label>
+                <input
+                  type="number"
+                  min="0"
+                  value={scoreCoefficients.promo}
+                  onChange={(e) => setScoreCoefficients(c => ({ ...c, promo: Number(e.target.value) || 0 }))}
+                  style={{ padding: '8px 12px', borderRadius: '6px', border: '1px solid #ccc', width: '100px' }}
+                />
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <label style={{ minWidth: '140px', fontWeight: 600 }}>Nb Avis + ×</label>
+                <input
+                  type="number"
+                  min="0"
+                  value={scoreCoefficients.avisPositifs}
+                  onChange={(e) => setScoreCoefficients(c => ({ ...c, avisPositifs: Number(e.target.value) || 0 }))}
+                  style={{ padding: '8px 12px', borderRadius: '6px', border: '1px solid #ccc', width: '100px' }}
+                />
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <label style={{ minWidth: '140px', fontWeight: 600 }}>Nb Avis − ×</label>
+                <input
+                  type="number"
+                  min="0"
+                  value={scoreCoefficients.avisNegatifs}
+                  onChange={(e) => setScoreCoefficients(c => ({ ...c, avisNegatifs: Number(e.target.value) || 0 }))}
+                  style={{ padding: '8px 12px', borderRadius: '6px', border: '1px solid #ccc', width: '100px' }}
+                />
+              </div>
+            </div>
+            <div style={{ marginTop: '1.5rem', display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+              <button
+                onClick={() => setShowScoreModal(false)}
+                style={{
+                  padding: '0.5rem 1.5rem',
+                  backgroundColor: '#6c757d',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: 'pointer'
+                }}
+              >
+                Annuler
+              </button>
+              <button
+                onClick={handleSaveScoreCoefficients}
+                style={{
+                  padding: '0.5rem 1.5rem',
+                  backgroundColor: '#f59e0b',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  fontWeight: 600
+                }}
+              >
+                Enregistrer
               </button>
             </div>
           </div>

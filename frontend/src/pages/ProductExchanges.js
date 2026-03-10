@@ -27,7 +27,9 @@ const ProductExchanges = () => {
   const [exchangeEditForm, setExchangeEditForm] = useState({
     settledAt: '',
     invoicedAt: '',
-    paidAt: ''
+    paidAt: '',
+    valorisedAt: '',
+    valorisedAmount: ''
   });
 
   const isLonguenesse = window.location.pathname.startsWith('/lon');
@@ -157,11 +159,13 @@ const ProductExchanges = () => {
       if (exchangeEditForm.settledAt) updates.settledAt = exchangeEditForm.settledAt;
       if (exchangeEditForm.invoicedAt) updates.invoicedAt = exchangeEditForm.invoicedAt;
       if (exchangeEditForm.paidAt) updates.paidAt = exchangeEditForm.paidAt;
+      if (exchangeEditForm.valorisedAt) updates.valorisedAt = exchangeEditForm.valorisedAt;
+      if (exchangeEditForm.valorisedAmount !== '' && exchangeEditForm.valorisedAmount != null) updates.valorisedAmount = Number(exchangeEditForm.valorisedAmount);
       await api.put(`/product-exchanges/${editingExchange._id}`, updates);
       toast.success('Échange mis à jour - Email envoyé au partenaire');
       setShowExchangeModal(false);
       setEditingExchange(null);
-      setExchangeEditForm({ settledAt: '', invoicedAt: '', paidAt: '' });
+      setExchangeEditForm({ settledAt: '', invoicedAt: '', paidAt: '', valorisedAt: '', valorisedAmount: '' });
       fetchExchanges();
     } catch (err) {
       toast.error(err.response?.data?.error || 'Erreur mise à jour');
@@ -173,7 +177,9 @@ const ProductExchanges = () => {
     setExchangeEditForm({
       settledAt: ex.settledAt ? ex.settledAt.split('T')[0] : '',
       invoicedAt: ex.invoicedAt ? ex.invoicedAt.split('T')[0] : '',
-      paidAt: ex.paidAt ? ex.paidAt.split('T')[0] : ''
+      paidAt: ex.paidAt ? ex.paidAt.split('T')[0] : '',
+      valorisedAt: ex.valorisedAt ? ex.valorisedAt.split('T')[0] : '',
+      valorisedAmount: ex.valorisedAmount != null ? ex.valorisedAmount : ''
     });
     setShowExchangeModal(true);
   };
@@ -190,6 +196,28 @@ const ProductExchanges = () => {
   };
 
   const formatDate = (d) => d ? new Date(d).toLocaleDateString('fr-FR') : '-';
+
+  // Calcul du solde par partenaire : positif = le partenaire nous doit, négatif = nous devons au partenaire
+  const getBalanceByPartner = () => {
+    const balances = {};
+    partners.forEach(p => { balances[p._id] = { name: p.name, balance: 0 }; });
+    exchanges.forEach(ex => {
+      const amount = ex.valorisedAmount ?? 0;
+      if (amount === 0) return;
+      const fromId = ex.fromPartnerId?._id || null;
+      const toId = ex.toPartnerId?._id || null;
+      // Site actuel = pas de partenaire (null). On compare avec les IDs des partenaires.
+      if (fromId && !toId) {
+        // Partenaire nous a prêté (De partenaire → À nous)
+        balances[fromId].balance -= amount;
+      } else if (!fromId && toId) {
+        // Nous avons prêté au partenaire (De nous → À partenaire)
+        balances[toId].balance += amount;
+      }
+    });
+    return Object.entries(balances).filter(([, v]) => v.balance !== 0).map(([id, v]) => ({ partnerId: id, ...v }));
+  };
+  const partnerBalances = getBalanceByPartner();
 
   const optionsForFromTo = [
     { value: '', label: currentSite.name },
@@ -248,12 +276,14 @@ const ProductExchanges = () => {
                   <th>Soldé</th>
                   <th>Facturé</th>
                   <th>Payé</th>
+                  <th>Valorisé le</th>
+                  <th>Montant</th>
                   <th>Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {exchanges.length === 0 ? (
-                  <tr><td colSpan="10" className="empty">Aucun échange</td></tr>
+                  <tr><td colSpan="12" className="empty">Aucun échange</td></tr>
                 ) : (
                   exchanges.map(ex => (
                     <tr key={ex._id}>
@@ -266,8 +296,10 @@ const ProductExchanges = () => {
                       <td>{formatDate(ex.settledAt)}</td>
                       <td>{formatDate(ex.invoicedAt)}</td>
                       <td>{formatDate(ex.paidAt)}</td>
+                      <td>{formatDate(ex.valorisedAt)}</td>
+                      <td>{ex.valorisedAmount != null ? `${ex.valorisedAmount}€` : '-'}</td>
                       <td>
-                        <button className="btn-sm btn-edit" onClick={() => handleOpenEditExchange(ex)} title="Modifier">✏️</button>
+                        <button className="btn-sm btn-edit" onClick={() => handleOpenEditExchange(ex)} title="Modifier / Valoriser">✏️</button>
                         <button className="btn-sm btn-delete" onClick={() => handleDeleteExchange(ex._id)} title="Supprimer">🗑️</button>
                       </td>
                     </tr>
@@ -276,6 +308,32 @@ const ProductExchanges = () => {
               </tbody>
             </table>
           </div>
+          {partnerBalances.length > 0 && (
+            <div className="card" style={{ marginTop: '1.5rem', padding: '1rem 1.5rem' }}>
+              <h3 style={{ margin: '0 0 1rem' }}>💰 Comptes de valorisation par partenaire</h3>
+              <p style={{ fontSize: '0.9rem', color: '#666', marginBottom: '1rem' }}>
+                Solde positif = le partenaire nous doit. Solde négatif = nous devons au partenaire.
+              </p>
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>Partenaire</th>
+                    <th>Solde</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {partnerBalances.map(({ partnerId, name, balance }) => (
+                    <tr key={partnerId}>
+                      <td>{name}</td>
+                      <td style={{ fontWeight: 600, color: balance > 0 ? '#16a34a' : balance < 0 ? '#dc2626' : '#666' }}>
+                        {balance > 0 ? `${name} nous doit ${balance}€` : `Nous devons ${Math.abs(balance)}€ à ${name}`}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       )}
 
@@ -344,7 +402,7 @@ const ProductExchanges = () => {
           <div className="modal modal-large" onClick={e => e.stopPropagation()}>
             {editingExchange ? (
               <>
-                <h3>Modifier l'échange - Soldé / Facturé / Payé</h3>
+                <h3>Modifier l'échange - Soldé / Facturé / Payé / Valoriser</h3>
                 <p className="exchange-summary">{editingExchange.productName} ({editingExchange.quantity}) - {formatDate(editingExchange.date)}</p>
                 <div className="form-row">
                   <div className="form-group">
@@ -360,6 +418,17 @@ const ProductExchanges = () => {
                     <input type="date" value={exchangeEditForm.paidAt} onChange={e => setExchangeEditForm({ ...exchangeEditForm, paidAt: e.target.value })} />
                   </div>
                 </div>
+                <div className="form-row">
+                  <div className="form-group">
+                    <label>Valorisé le</label>
+                    <input type="date" value={exchangeEditForm.valorisedAt} onChange={e => setExchangeEditForm({ ...exchangeEditForm, valorisedAt: e.target.value })} />
+                  </div>
+                  <div className="form-group">
+                    <label>Montant (€)</label>
+                    <input type="number" step="0.01" min="0" value={exchangeEditForm.valorisedAmount} onChange={e => setExchangeEditForm({ ...exchangeEditForm, valorisedAmount: e.target.value })} placeholder="52" />
+                  </div>
+                </div>
+                <p className="help-text">Valorisé X€ = le site « De » a prêté X€ au site « À ». Ex: Longuenesse→Arras 52€ = Arras doit 52€ à Longuenesse.</p>
                 <div className="modal-actions">
                   <button className="btn btn-secondary" onClick={() => setShowExchangeModal(false)}>Annuler</button>
                   <button className="btn btn-primary" onClick={handleUpdateExchange}>Enregistrer</button>

@@ -10,10 +10,12 @@ const Sidebar = () => {
   const [menuPermissions, setMenuPermissions] = useState([]);
   const location = useLocation();
   const { user, isAdmin, isEmployee } = useAuth();
+  const isLonguenesse = window.location.pathname.startsWith('/lon');
 
   // Menus regroupés sous "Social" (visible uniquement pour l'admin)
+  // Note: product-exchanges est exclu du sous-menu Social pour Longuenesse (déjà dans le menu principal)
   const SOCIAL_MENU_ITEMS = [
-    { path: '/product-exchanges', label: 'Échanges entre boulangeries', icon: '🔄', menuId: 'product-exchanges' },
+    ...(isLonguenesse ? [] : [{ path: '/product-exchanges', label: 'Échanges entre boulangeries', icon: '🔄', menuId: 'product-exchanges' }]),
     { path: '/advance-requests', label: 'Demandes d\'Acompte', icon: '💰', menuId: 'advance-requests' },
     { path: '/vacation-management', label: 'Gestion des Congés', icon: '🏖️', menuId: 'vacation-management' },
     { path: '/sick-leave-management', label: 'Gestion des Arrêts Maladie', icon: '🏥', menuId: 'sick-leave-management' },
@@ -134,8 +136,6 @@ const Sidebar = () => {
     { path: '/commandes-en-ligne', label: 'Commandes en ligne', icon: '🛒', menuId: 'commandes-en-ligne', longuenesseOnly: true },
     { path: '/product-exchanges', label: 'Échanges entre boulangeries', icon: '🔄', menuId: 'product-exchanges' }
   ];
-
-  const isLonguenesse = window.location.pathname.startsWith('/lon');
 
   // Vérifier si un menu a la permission pour le rôle actuel (fallback sur défaut si absent de l'API)
   const hasPermission = (menuId) => {

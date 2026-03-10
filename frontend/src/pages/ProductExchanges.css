@@ -139,36 +139,61 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1000;
+  z-index: 10000;
 }
 
-.modal {
+/* Contenu du modal - évite conflit avec index.css .modal (opacity:0) */
+.product-exchanges .modal-overlay .modal {
+  opacity: 1;
+  visibility: visible;
+  position: relative;
+  width: auto;
+  height: auto;
+  top: auto;
+  left: auto;
+  right: auto;
+  bottom: auto;
+}
+
+.product-exchanges .modal-overlay .modal {
   background: var(--white);
-  padding: var(--spacing-8);
+  padding: var(--spacing-10);
   border-radius: var(--border-radius-lg);
   max-width: 480px;
   width: 90%;
   box-shadow: var(--shadow-lg);
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-6);
 }
 
-.modal.modal-large {
+.product-exchanges .modal-overlay .modal.modal-large {
   max-width: 560px;
 }
 
-.modal h3 {
-  margin: 0 0 var(--spacing-6);
+.product-exchanges .modal-overlay .modal h3 {
+  margin: 0;
   font-size: var(--font-size-xl);
 }
 
-.form-group {
-  margin-bottom: var(--spacing-4);
+.product-exchanges .modal-overlay .form-group {
+  margin-bottom: var(--spacing-5);
+}
+
+.product-exchanges .modal-overlay .form-group:last-of-type {
+  margin-bottom: 0;
 }
 
 .form-group label {
   display: block;
-  margin-bottom: var(--spacing-2);
+  margin-bottom: var(--spacing-3);
   font-weight: 500;
   opacity: 0.9;
+}
+
+.form-group input,
+.form-group select {
+  margin-top: var(--spacing-1);
 }
 
 .form-group input,
@@ -200,9 +225,9 @@
   margin: 0 0 var(--spacing-6);
 }
 
-.modal-actions {
+.product-exchanges .modal-overlay .modal-actions {
   display: flex;
-  gap: var(--spacing-3);
+  gap: var(--spacing-4);
   justify-content: flex-end;
   margin-top: var(--spacing-6);
   padding-top: var(--spacing-6);
