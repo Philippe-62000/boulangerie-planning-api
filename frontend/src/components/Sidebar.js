@@ -14,9 +14,8 @@ const Sidebar = () => {
   const isLonguenesse = window.location.pathname.startsWith('/lon');
 
   // Menus regroupés sous "Social" (visible uniquement pour l'admin)
-  // Note: product-exchanges est exclu du sous-menu Social pour Longuenesse (déjà dans le menu principal)
+  // Note: product-exchanges est dans le menu principal pour Longuenesse et Arras (pas dans Social)
   const SOCIAL_MENU_ITEMS = [
-    ...(isLonguenesse ? [] : [{ path: '/product-exchanges', label: 'Échanges entre boulangeries', icon: '🔄', menuId: 'product-exchanges' }]),
     { path: '/advance-requests', label: 'Demandes d\'Acompte', icon: '💰', menuId: 'advance-requests' },
     { path: '/vacation-management', label: 'Gestion des Congés', icon: '🏖️', menuId: 'vacation-management' },
     { path: '/sick-leave-management', label: 'Gestion des Arrêts Maladie', icon: '🏥', menuId: 'sick-leave-management' },
