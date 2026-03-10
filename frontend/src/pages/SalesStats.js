@@ -1471,7 +1471,8 @@ const SalesStats = () => {
                        </button>
                      </td>
                    </tr>
-                 )) : (
+                 );
+                 }) : (
                    <tr>
                      <td colSpan="10" style={{textAlign: 'center', padding: '20px'}}>
                        Aucun employé trouvé
