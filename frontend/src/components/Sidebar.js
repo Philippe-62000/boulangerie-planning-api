@@ -5,7 +5,8 @@ import { getApiUrl } from '../config/apiConfig';
 import './Sidebar.css';
 
 const Sidebar = () => {
-  const [isExpanded, setIsExpanded] = useState(false);
+  // Étendu par défaut sur desktop (largeur > 768px) pour éviter que le menu semble "disparaître" au refresh
+  const [isExpanded, setIsExpanded] = useState(() => typeof window !== 'undefined' && window.innerWidth > 768);
   const [socialMenuExpanded, setSocialMenuExpanded] = useState(false);
   const [menuPermissions, setMenuPermissions] = useState([]);
   const location = useLocation();

@@ -34,8 +34,16 @@ import CommandesEnLigne from './pages/CommandesEnLigne';
 import ProductExchanges from './pages/ProductExchanges';
 
 const AppContent = () => {
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
 
+  // Éviter le flash Login au refresh : attendre le chargement du user depuis localStorage
+  if (loading) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', fontSize: '1.2rem', color: '#666' }}>
+        Chargement...
+      </div>
+    );
+  }
   if (!user) {
     return <Login />;
   }
