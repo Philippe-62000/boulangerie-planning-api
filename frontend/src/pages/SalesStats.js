@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import './SalesStats.css';
 
 const WEEK_DAYS = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
@@ -101,6 +101,8 @@ const SalesStats = () => {
   const [salesData, setSalesData] = useState({});
   const [currentMonth, setCurrentMonth] = useState('');
   const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
+  const [inputMonth, setInputMonth] = useState('');
+  const [inputYear, setInputYear] = useState(new Date().getFullYear());
   const [monthlyStats, setMonthlyStats] = useState({});
   const [loading, setLoading] = useState(false);
   
@@ -136,6 +138,8 @@ const SalesStats = () => {
     return [];
   });
   const [monthlyDailySalesData, setMonthlyDailySalesData] = useState({});
+  const printSaisieRef = useRef(null);
+  const printClassementRef = useRef(null);
 
   const vendeuses = useMemo(() => {
     return employees.filter(emp => VENDEUSE_ROLES.includes(emp.role));
@@ -241,6 +245,8 @@ const SalesStats = () => {
     const year = now.getFullYear();
     setCurrentMonth(month);
     setCurrentYear(year);
+    setInputMonth(month);
+    setInputYear(year);
     const { start } = getWeekRangeFromDate(now);
     setSelectedWeekStart(formatDateForInput(start));
   }, []);
@@ -707,9 +713,11 @@ const SalesStats = () => {
           nbPromo: dailyAgg.nbPromo ?? salesData[empId]?.nbPromo ?? 0
         };
       });
+      const month = inputMonth || currentMonth;
+      const year = inputYear || currentYear;
       const dataToSave = {
-        month: parseInt(currentMonth),
-        year: currentYear,
+        month: parseInt(month),
+        year: year,
         salesData: mergedSalesData
       };
 
@@ -745,10 +753,13 @@ const SalesStats = () => {
     }
   };
 
-  // Charger les données de vente pour la période actuelle
+  // Charger les données de vente pour la période actuelle (mois de saisie)
   const loadSalesDataForPeriod = useCallback(async () => {
+    const month = inputMonth || currentMonth;
+    const year = inputYear || currentYear;
+    if (!month || !year) return;
     try {
-      const response = await fetch(`${API_BASE_URL}/sales-stats/period/${currentMonth}/${currentYear}`);
+      const response = await fetch(`${API_BASE_URL}/sales-stats/period/${month}/${year}`);
       if (response.ok) {
         const data = await response.json();
         if (data.success && data.data && data.data.salesData) {
@@ -788,14 +799,16 @@ const SalesStats = () => {
     } catch (error) {
       console.error('Erreur lors du chargement des données de la période:', error);
     }
-  }, [currentMonth, currentYear]);
+  }, [inputMonth, inputYear, currentMonth, currentYear, employees]);
 
-  // Charger les données de la période actuelle au montage
+  // Charger les données de la période actuelle au montage et au changement de mois de saisie
   useEffect(() => {
-    if (employees.length > 0 && currentMonth && currentYear) {
+    const month = inputMonth || currentMonth;
+    const year = inputYear || currentYear;
+    if (employees.length > 0 && month && year) {
       loadSalesDataForPeriod();
     }
-  }, [employees, currentMonth, currentYear, loadSalesDataForPeriod]);
+  }, [employees, inputMonth, inputYear, currentMonth, currentYear, loadSalesDataForPeriod]);
 
   // Charger les statistiques mensuelles
   const loadMonthlyStats = useCallback(async () => {
@@ -821,11 +834,13 @@ const SalesStats = () => {
 
   // Charger les totaux mensuels cartes fid + promo depuis daily-sales (page standalone)
   const loadMonthlyDailySalesData = useCallback(async () => {
-    if (!currentMonth || !currentYear) return;
+    const month = inputMonth || currentMonth;
+    const year = inputYear || currentYear;
+    if (!month || !year) return;
     try {
       const url = new URL(`${API_BASE_URL}/daily-sales/monthly`);
-      url.searchParams.set('month', parseInt(currentMonth, 10));
-      url.searchParams.set('year', currentYear);
+      url.searchParams.set('month', parseInt(month, 10));
+      url.searchParams.set('year', year);
       const response = await fetch(url.toString());
       if (response.ok) {
         const data = await response.json();
@@ -841,7 +856,7 @@ const SalesStats = () => {
       console.error('Erreur chargement données mensuelles daily-sales:', error);
       setMonthlyDailySalesData({});
     }
-  }, [currentMonth, currentYear]);
+  }, [inputMonth, inputYear, currentMonth, currentYear]);
 
   useEffect(() => {
     loadMonthlyDailySalesData();
@@ -887,6 +902,77 @@ const SalesStats = () => {
     saveSelectedTableEmployees([]);
   };
 
+  const handlePrintSaisie = () => {
+    const el = printSaisieRef.current;
+    if (!el) {
+      window.print();
+      return;
+    }
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      alert('Veuillez autoriser les pop-ups pour imprimer.');
+      return;
+    }
+    const month = inputMonth || currentMonth;
+    const year = inputYear || currentYear;
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html><head><meta charset="utf-8"><title>Saisie données mensuelles - ${getMonthName(month)} ${year}</title>
+      <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        table { border-collapse: collapse; width: 100%; }
+        th, td { border: 1px solid #333; padding: 8px; text-align: left; }
+        th { background: #667eea; color: white; }
+        h2 { margin-bottom: 15px; }
+      </style></head><body>
+      <h2>📝 Saisie des données mensuelles - ${getMonthName(month)} ${year}</h2>
+      ${el.querySelector('.sales-form') ? el.querySelector('.sales-form').outerHTML : el.innerHTML}
+      </body></html>
+    `);
+    printWindow.document.close();
+    printWindow.focus();
+    setTimeout(() => {
+      printWindow.print();
+      printWindow.close();
+    }, 250);
+  };
+
+  const handlePrintClassement = () => {
+    const el = printClassementRef.current;
+    if (!el) {
+      window.print();
+      return;
+    }
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      alert('Veuillez autoriser les pop-ups pour imprimer.');
+      return;
+    }
+    const month = inputMonth || currentMonth;
+    const year = inputYear || currentYear;
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html><head><meta charset="utf-8"><title>Classement vendeuses - ${getMonthName(month)} ${year}</title>
+      <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        table { border-collapse: collapse; width: 100%; }
+        th, td { border: 1px solid #333; padding: 8px; text-align: left; }
+        th { background: #667eea; color: white; }
+        h2 { margin-bottom: 15px; }
+        .top-three { background: #fff3cd; }
+      </style></head><body>
+      <h2>🏆 Classement des Vendeuses - ${getMonthName(month)} ${year}</h2>
+      ${el.querySelector('.ranking-table') ? el.querySelector('.ranking-table').outerHTML : el.innerHTML}
+      </body></html>
+    `);
+    printWindow.document.close();
+    printWindow.focus();
+    setTimeout(() => {
+      printWindow.print();
+      printWindow.close();
+    }, 250);
+  };
+
   // Charger les données de la période actuelle au montage et au changement de période
   useEffect(() => {
     if (currentMonth && currentYear) {
@@ -901,11 +987,12 @@ const SalesStats = () => {
 
   // Obtenir le nom du mois
   const getMonthName = (month) => {
+    if (!month) return '';
     const months = [
       'Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin',
       'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'
     ];
-    return months[parseInt(month) - 1];
+    return months[parseInt(month, 10) - 1] || '';
   };
 
   // Générer la liste des années pour les sélecteurs
@@ -920,36 +1007,26 @@ const SalesStats = () => {
     <div className="sales-stats-container">
       <div className="sales-stats-header">
         <h1>📊 Statistiques de Vente</h1>
-                 <div className="period-selector">
-           <select 
-             value={currentMonth} 
-             onChange={(e) => setCurrentMonth(e.target.value)}
-             className="month-select"
-           >
-             {Array.from({length: 12}, (_, i) => (
-               <option key={i + 1} value={String(i + 1).padStart(2, '0')}>
-                 {getMonthName(String(i + 1).padStart(2, '0'))}
-               </option>
-             ))}
-           </select>
-           <select 
-             value={currentYear} 
-             onChange={(e) => setCurrentYear(parseInt(e.target.value))}
-             className="year-select"
-           >
-             {generateYearOptions()}
-           </select>
-           <button 
-             onClick={() => {
-               setSalesData({});
-               loadSalesDataForPeriod();
-             }}
-             className="refresh-button"
-             title="Actualiser les données du mois sélectionné"
-           >
-             🔄 Actualiser
-           </button>
-         </div>
+        <div className="period-selector">
+          <select 
+            value={currentYear} 
+            onChange={(e) => setCurrentYear(parseInt(e.target.value))}
+            className="year-select"
+            title="Année pour la comparaison 12 mois"
+          >
+            {generateYearOptions()}
+          </select>
+          <button 
+            onClick={() => {
+              setSalesData({});
+              loadSalesDataForPeriod();
+            }}
+            className="refresh-button"
+            title="Actualiser les données du mois de saisie"
+          >
+            🔄 Actualiser
+          </button>
+        </div>
       </div>
 
       <div className="sales-stats-content">
@@ -1327,9 +1404,31 @@ const SalesStats = () => {
         </div>
 
         {/* Formulaire de saisie */}
-        <div className="sales-form-section">
+        <div className="sales-form-section" ref={printSaisieRef}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px', flexWrap: 'wrap' }}>
             <h2 style={{ margin: 0 }}>📝 Saisie des données mensuelles</h2>
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+              <label style={{ fontWeight: 600 }}>Mois :</label>
+              <select
+                value={inputMonth}
+                onChange={(e) => setInputMonth(e.target.value)}
+                style={{ padding: '8px 12px', borderRadius: '8px', border: '2px solid #667eea' }}
+              >
+                {Array.from({length: 12}, (_, i) => (
+                  <option key={i + 1} value={String(i + 1).padStart(2, '0')}>
+                    {getMonthName(String(i + 1).padStart(2, '0'))}
+                  </option>
+                ))}
+              </select>
+              <label style={{ fontWeight: 600 }}>Année :</label>
+              <select
+                value={inputYear}
+                onChange={(e) => setInputYear(parseInt(e.target.value))}
+                style={{ padding: '8px 12px', borderRadius: '8px', border: '2px solid #667eea' }}
+              >
+                {generateYearOptions()}
+              </select>
+            </div>
             <button
               type="button"
               onClick={() => setShowParamsModal(true)}
@@ -1347,6 +1446,23 @@ const SalesStats = () => {
               }}
             >
               ⚙️ Paramètres
+            </button>
+            <button
+              type="button"
+              onClick={() => handlePrintSaisie()}
+              className="print-button"
+              style={{
+                padding: '8px 16px',
+                background: '#28a745',
+                color: 'white',
+                border: 'none',
+                borderRadius: '8px',
+                cursor: 'pointer',
+                fontWeight: '600',
+                fontSize: '0.95rem'
+              }}
+            >
+              🖨️ Imprimer
             </button>
           </div>
           <div className="sales-form">
@@ -1498,36 +1614,28 @@ const SalesStats = () => {
           </div>
         </div>
 
-                 {/* Classement des vendeuses */}
-         <div className="ranking-section">
+                 {/* Classement des vendeuses - mêmes colonnes et salariés que la saisie */}
+         <div className="ranking-section" ref={printClassementRef}>
            <h2>🏆 Classement des Vendeuses</h2>
            <div className="ranking-header">
-             <div className="ranking-selectors">
-               <div className="selector-group">
-                 <label>Mois :</label>
-                 <select 
-                   value={currentMonth} 
-                   onChange={(e) => setCurrentMonth(e.target.value)}
-                   className="month-select-ranking"
-                 >
-                   {Array.from({length: 12}, (_, i) => (
-                     <option key={i + 1} value={String(i + 1).padStart(2, '0')}>
-                       {getMonthName(String(i + 1).padStart(2, '0'))}
-                     </option>
-                   ))}
-                 </select>
-               </div>
-               <div className="selector-group">
-                 <label>Année :</label>
-                 <select 
-                   value={currentYear} 
-                   onChange={(e) => setCurrentYear(parseInt(e.target.value))}
-                   className="year-select-ranking"
-                 >
-                   {generateYearOptions()}
-                 </select>
-               </div>
-             </div>
+             <p style={{ margin: '0 0 10px 0', color: '#666' }}>
+               Mois affiché : <strong>{getMonthName(inputMonth || currentMonth)} {inputYear || currentYear}</strong> (identique à la saisie)
+             </p>
+             <button
+               type="button"
+               onClick={() => handlePrintClassement()}
+               style={{
+                 padding: '8px 16px',
+                 background: '#28a745',
+                 color: 'white',
+                 border: 'none',
+                 borderRadius: '8px',
+                 cursor: 'pointer',
+                 fontWeight: '600'
+               }}
+             >
+               🖨️ Imprimer
+             </button>
            </div>
            <div className="ranking-table">
              <table>
@@ -1537,25 +1645,37 @@ const SalesStats = () => {
                    <th>Vendeuse</th>
                    <th>Score</th>
                    <th>CA Net HT</th>
+                   <th>Nb Clients</th>
+                   <th>Panier Moyen</th>
+                   <th>Nb Promo</th>
                    <th>Cartes Fid</th>
                    <th>Avis +</th>
                    <th>Avis -</th>
                  </tr>
                </thead>
                <tbody>
-                 {employees
+                 {tableEmployees
                    .map(emp => {
-                     const data = salesData[emp._id] || {};
-                     const score = calculateScore(data);
-                     return { emp, data, score };
+                     const baseData = salesData[emp._id] || {};
+                     const dailyAgg = monthlyDailySalesData[emp._id] || {};
+                     const mergedData = {
+                       ...baseData,
+                       nbCartesFid: dailyAgg.nbCartesFid ?? baseData.nbCartesFid ?? 0,
+                       nbPromo: dailyAgg.nbPromo ?? baseData.nbPromo ?? 0
+                     };
+                     const score = calculateScore(mergedData);
+                     return { emp, data: mergedData, score };
                    })
-                   .sort((a, b) => b.score - a.score) // Trier par score décroissant
+                   .sort((a, b) => b.score - a.score)
                    .map(({ emp, data, score }, index) => (
                      <tr key={emp._id} className={index < 3 ? 'top-three' : ''}>
                        <td className="rank">#{index + 1}</td>
                        <td className="employee-name">{emp.name}</td>
                        <td className="score"><strong>{score.toFixed(0)}</strong></td>
                        <td>{data.caNetHt || 0}€</td>
+                       <td>{data.nbClients || 0}</td>
+                       <td>{(data.panierMoyen || 0).toFixed(2)}€</td>
+                       <td>{data.nbPromo || 0}</td>
                        <td>{data.nbCartesFid || 0}</td>
                        <td className="positive">{data.nbAvisPositifs || 0}</td>
                        <td className="negative">{data.nbAvisNegatifs || 0}</td>
@@ -1564,32 +1684,39 @@ const SalesStats = () => {
                </tbody>
              </table>
              
-             {/* Total annuel */}
+             {/* Total du mois */}
              <div className="annual-total">
-               <h3>📊 Total Année {currentYear}</h3>
+               <h3>📊 Total {getMonthName(inputMonth || currentMonth)} {inputYear || currentYear}</h3>
                <div className="total-stats">
                  <div className="total-item">
                    <span className="total-label">CA Total :</span>
                    <span className="total-value">
-                     {employees.reduce((sum, emp) => sum + (salesData[emp._id]?.caNetHt || 0), 0).toFixed(2)}€
+                     {tableEmployees.reduce((sum, emp) => {
+                       const d = salesData[emp._id] || {};
+                       return sum + (d.caNetHt || 0);
+                     }, 0).toFixed(2)}€
                    </span>
                  </div>
                  <div className="total-item">
                    <span className="total-label">Cartes Fid Total :</span>
                    <span className="total-value">
-                     {employees.reduce((sum, emp) => sum + (salesData[emp._id]?.nbCartesFid || 0), 0)}
+                     {tableEmployees.reduce((sum, emp) => {
+                       const d = salesData[emp._id] || {};
+                       const agg = monthlyDailySalesData[emp._id] || {};
+                       return sum + (agg.nbCartesFid ?? d.nbCartesFid ?? 0);
+                     }, 0)}
                    </span>
                  </div>
                  <div className="total-item">
                    <span className="total-label">Avis + Total :</span>
                    <span className="total-value positive">
-                     {employees.reduce((sum, emp) => sum + (salesData[emp._id]?.nbAvisPositifs || 0), 0)}
+                     {tableEmployees.reduce((sum, emp) => sum + (salesData[emp._id]?.nbAvisPositifs || 0), 0)}
                    </span>
                  </div>
                  <div className="total-item">
                    <span className="total-label">Avis - Total :</span>
                    <span className="total-value negative">
-                     {employees.reduce((sum, emp) => sum + (salesData[emp._id]?.nbAvisNegatifs || 0), 0)}
+                     {tableEmployees.reduce((sum, emp) => sum + (salesData[emp._id]?.nbAvisNegatifs || 0), 0)}
                    </span>
                  </div>
                </div>
