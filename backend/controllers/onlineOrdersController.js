@@ -5,6 +5,31 @@ const googleOAuthController = require('./googleOAuthController');
 
 const MONTH_NAMES = ['Janvier', 'Fevrier', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Aout', 'Septembre', 'Octobre', 'Novembre', 'Decembre'];
 
+// Cache en mémoire pour réduire les appels API (quota: 60 req/min/user)
+const SHEET_CACHE_TTL_MS = 90 * 1000; // 90 secondes
+const sheetCache = new Map(); // clé -> { data, expiresAt }
+
+function getCachedSheetData(cacheKey) {
+  const entry = sheetCache.get(cacheKey);
+  if (!entry || Date.now() > entry.expiresAt) return null;
+  return entry.data;
+}
+
+function setCachedSheetData(cacheKey, data) {
+  sheetCache.set(cacheKey, { data, expiresAt: Date.now() + SHEET_CACHE_TTL_MS });
+  // Nettoyage périodique des entrées expirées (éviter fuite mémoire)
+  if (sheetCache.size > 100) {
+    const now = Date.now();
+    for (const [k, v] of sheetCache.entries()) {
+      if (now > v.expiresAt) sheetCache.delete(k);
+    }
+  }
+}
+
+function delay(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
 // Extraire l'ID du spreadsheet depuis une URL Google Sheets
 function extractSpreadsheetId(url) {
   const match = url.match(/\/d\/([a-zA-Z0-9-_]+)/);
@@ -204,8 +229,12 @@ async function getAuthenticatedClient(city) {
   return oauth2Client;
 }
 
-// Récupérer les données d'un Google Sheet via l'API OAuth
+// Récupérer les données d'un Google Sheet via l'API OAuth (avec cache pour respecter le quota)
 async function fetchSheetData(spreadsheetId, rangeOrGid, city) {
+  const cacheKey = `${city}:${spreadsheetId}:${String(rangeOrGid || '')}`;
+  const cached = getCachedSheetData(cacheKey);
+  if (cached) return cached;
+
   const auth = await getAuthenticatedClient(city);
   const sheets = google.sheets({ version: 'v4', auth });
   const spreadsheet = await sheets.spreadsheets.get({ spreadsheetId });
@@ -230,7 +259,9 @@ async function fetchSheetData(spreadsheetId, rangeOrGid, city) {
   const sheetTitle = targetSheet.properties.title;
   const range = `${sheetTitle}!A:Z`;
   const response = await sheets.spreadsheets.values.get({ spreadsheetId, range });
-  return { values: response.data.values || [], sheetTitle };
+  const result = { values: response.data.values || [], sheetTitle };
+  setCachedSheetData(cacheKey, result);
+  return result;
 }
 
 // Vérifier si une cellule ressemble à une date (DD/MM/YYYY ou similaire)
@@ -362,7 +393,9 @@ async function getOrdersForDay(req, res) {
     const monthName = MONTH_NAMES[targetMonth - 1];
     const links = await OnlineOrderLink.find({ city }).sort({ order: 1 });
     const allOrders = [];
-    for (const link of links) {
+    for (let i = 0; i < links.length; i++) {
+      if (i > 0) await delay(800); // Espacement pour respecter le quota API (60 req/min)
+      const link = links[i];
       try {
         const { values } = await fetchSheetData(link.spreadsheetId, link.monthGids?.[monthName] || monthName, city);
         const className = values[0]?.[0] || link.className;
@@ -399,7 +432,9 @@ async function getMonthlySummary(req, res) {
     const links = await OnlineOrderLink.find({ city }).sort({ order: 1 });
     const byClass = {};
     let total = 0;
-    for (const link of links) {
+    for (let i = 0; i < links.length; i++) {
+      if (i > 0) await delay(800); // Espacement pour respecter le quota API (60 req/min)
+      const link = links[i];
       try {
         const { values } = await fetchSheetData(link.spreadsheetId, link.monthGids?.[monthName] || monthName, city);
         const className = values[0]?.[0] || link.className;
