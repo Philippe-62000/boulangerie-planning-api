@@ -113,6 +113,12 @@
   gap: 24px;
 }
 
+.commandes-en-ligne .no-orders-msg {
+  color: #6b7280;
+  margin: 0 0 16px 0;
+  font-size: 14px;
+}
+
 .commandes-en-ligne .order-block {
   background: #fff;
   border: 1px solid #e5e7eb;

@@ -258,8 +258,12 @@ const CommandesEnLigne = () => {
     }, 250);
   };
 
+  // Grouper les commandes par classe, en incluant TOUS les liens configurés (même vides)
   const ordersByClass = {};
-  orders.forEach(o => {
+  links.forEach((l) => {
+    ordersByClass[l.className] = [];
+  });
+  orders.forEach((o) => {
     const c = o.className || 'Classe';
     if (!ordersByClass[c]) ordersByClass[c] = [];
     ordersByClass[c].push(o);
@@ -309,28 +313,25 @@ const CommandesEnLigne = () => {
 
       {loading || loadingOrders ? (
         <div className="loading">Chargement…</div>
-      ) : orders.length === 0 ? (
+      ) : !googleConnected ? (
         <div className="empty-state">
-          {!googleConnected ? (
-            <>
-              <p>Connectez votre compte Google pour accéder aux feuilles partagées par l'école.</p>
-              <button type="button" className="btn btn-google" onClick={handleConnectGoogle}>
-                Connecter Google
-              </button>
-            </>
-          ) : links.length === 0 ? (
-            <>
-              <p>Aucun lien configuré.</p>
-              <button type="button" className="btn btn-primary" onClick={() => setShowLinksModal(true)}>
-                Ajouter des liens
-              </button>
-            </>
-          ) : (
-            <p>Aucune commande pour le {selectedDate}.</p>
-          )}
+          <p>Connectez votre compte Google pour accéder aux feuilles partagées par l'école.</p>
+          <button type="button" className="btn btn-google" onClick={handleConnectGoogle}>
+            Connecter Google
+          </button>
+        </div>
+      ) : links.length === 0 ? (
+        <div className="empty-state">
+          <p>Aucun lien configuré.</p>
+          <button type="button" className="btn btn-primary" onClick={() => setShowLinksModal(true)}>
+            Ajouter des liens
+          </button>
         </div>
       ) : (
         <div ref={printRef} className="orders-grid">
+          {orders.length === 0 && (
+            <p className="no-orders-msg">Aucune commande pour le {selectedDate}.</p>
+          )}
           {Object.entries(ordersByClass).map(([cls, items]) => (
             <div key={cls} className="order-block">
               <h3>{cls}</h3>

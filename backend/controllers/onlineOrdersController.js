@@ -264,12 +264,21 @@ async function fetchSheetData(spreadsheetId, rangeOrGid, city) {
   return result;
 }
 
-// Vérifier si une cellule ressemble à une date (DD/MM/YYYY ou similaire)
+// Vérifier si une cellule ressemble à une date (DD/MM/YYYY, DD/MM, 5 mars, etc.)
 function looksLikeDate(str) {
   if (!str || typeof str !== 'string') return false;
   const s = String(str).trim();
   if (!s) return false;
-  return /^\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}$/.test(s) || /^\d{4}-\d{1,2}-\d{1,2}$/.test(s);
+  // DD/MM/YYYY ou DD-MM-YYYY
+  if (/^\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}$/.test(s)) return true;
+  // YYYY-MM-DD
+  if (/^\d{4}-\d{1,2}-\d{1,2}$/.test(s)) return true;
+  // DD/MM ou DD-MM (sans année - fréquent dans les feuilles mensuelles)
+  if (/^\d{1,2}[\/\-]\d{1,2}$/.test(s)) return true;
+  // "5 mars", "05 mars", "5 mars 2026"
+  const dayMonth = s.match(/^(\d{1,2})\s+(janvier|fevrier|février|mars|avril|mai|juin|juillet|aout|août|septembre|octobre|novembre|decembre|décembre)(?:\s+(\d{2,4}))?$/i);
+  if (dayMonth) return true;
+  return false;
 }
 
 // Parser les lignes du sheet en commandes
@@ -334,11 +343,12 @@ function parseOrdersFromSheet(values, defaultClassName) {
   return orders;
 }
 
-// Parser une date au format DD/MM/YYYY, DD/MM/YYYY HHhMM, YYYY-MM-DD, ou nombre série Excel
-function parseDateFromCell(str) {
+// Parser une date au format DD/MM/YYYY, DD/MM, 5 mars, YYYY-MM-DD, ou nombre série Excel
+function parseDateFromCell(str, defaultYear) {
   if (str === undefined || str === null) return null;
   const s = String(str).trim();
   if (!s) return null;
+  const year = defaultYear || new Date().getFullYear();
   const iso = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
   if (iso) {
     return { day: parseInt(iso[3], 10), month: parseInt(iso[2], 10), year: parseInt(iso[1], 10) };
@@ -347,9 +357,24 @@ function parseDateFromCell(str) {
   if (eu) {
     const day = parseInt(eu[1], 10);
     const month = parseInt(eu[2], 10);
-    let year = parseInt(eu[3], 10);
-    if (year < 100) year += 2000;
-    return { day, month, year };
+    const y = parseInt(eu[3], 10);
+    const yr = isNaN(y) ? year : (y < 100 ? y + 2000 : y);
+    return { day, month, year: yr };
+  }
+  // DD/MM ou DD-MM (sans année)
+  const dm = s.match(/^(\d{1,2})[\/\-](\d{1,2})$/);
+  if (dm) {
+    return { day: parseInt(dm[1], 10), month: parseInt(dm[2], 10), year };
+  }
+  // "5 mars", "05 mars 2026"
+  const fr = s.match(/^(\d{1,2})\s+(janvier|fevrier|février|mars|avril|mai|juin|juillet|aout|août|septembre|octobre|novembre|decembre|décembre)(?:\s+(\d{2,4}))?$/i);
+  if (fr) {
+    const monthMap = { janvier: 1, fevrier: 2, février: 2, mars: 3, avril: 4, mai: 5, juin: 6, juillet: 7, aout: 8, août: 8, septembre: 9, octobre: 10, novembre: 11, decembre: 12, décembre: 12 };
+    const m = monthMap[fr[2].toLowerCase()];
+    if (m) {
+      const yr = fr[3] ? (parseInt(fr[3], 10) < 100 ? parseInt(fr[3], 10) + 2000 : parseInt(fr[3], 10)) : year;
+      return { day: parseInt(fr[1], 10), month: m, year: yr };
+    }
   }
   const num = parseFloat(s);
   if (!isNaN(num) && num > 40000) {
@@ -362,7 +387,7 @@ function parseDateFromCell(str) {
 // Filtrer les commandes pour une date donnée (jour + mois + année)
 function filterOrdersForDay(orders, targetDay, targetMonth, targetYear) {
   return orders.filter(o => {
-    const parsed = parseDateFromCell(o.rawDate || o.day);
+    const parsed = parseDateFromCell(o.rawDate || o.day, targetYear);
     if (parsed) {
       return parsed.day === targetDay && parsed.month === targetMonth && parsed.year === targetYear;
     }
