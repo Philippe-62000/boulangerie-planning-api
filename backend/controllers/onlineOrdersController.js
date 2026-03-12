@@ -354,12 +354,17 @@ async function fetchSheetData(spreadsheetId, rangeOrGid, city) {
       const gridResponse = await sheets.spreadsheets.get({
         spreadsheetId,
         includeGridData: true,
-        fields: 'sheets(properties(sheetId),data(rowData(values(userEnteredValue))))'
+        fields: 'sheets(properties(sheetId),data(rowData(values(userEnteredValue,formattedValue))))'
       });
       const sheet = (gridResponse.data.sheets || []).find(s => String(s.properties?.sheetId) === String(sheetId));
       if (sheet?.data?.[0]?.rowData) {
         values = sheet.data[0].rowData.map(row => (row.values || []).map(c => {
           const v = c?.userEnteredValue;
+          const formatted = c?.formattedValue;
+          // Préférer formattedValue pour les dates (ex: "12/03/2026" vs "44932") afin que looksLikeDate et filterOrdersForDay fonctionnent
+          if (formatted != null && String(formatted).trim()) {
+            return String(formatted).trim();
+          }
           return String(v?.stringValue ?? (v?.numberValue ?? v?.formulaValue ?? '') ?? '');
         }));
       }
@@ -372,9 +377,9 @@ async function fetchSheetData(spreadsheetId, rangeOrGid, city) {
   return result;
 }
 
-// Vérifier si une cellule ressemble à une date (DD/MM/YYYY, DD/MM, 5 mars, etc.)
+// Vérifier si une cellule ressemble à une date (DD/MM/YYYY, DD/MM, 5 mars, nombre série Excel, etc.)
 function looksLikeDate(str) {
-  if (!str || typeof str !== 'string') return false;
+  if (str === undefined || str === null) return false;
   const s = String(str).trim();
   if (!s) return false;
   // DD/MM/YYYY ou DD-MM-YYYY
@@ -386,6 +391,9 @@ function looksLikeDate(str) {
   // "5 mars", "05 mars", "5 mars 2026"
   const dayMonth = s.match(/^(\d{1,2})\s+(janvier|fevrier|février|mars|avril|mai|juin|juillet|aout|août|septembre|octobre|novembre|decembre|décembre)(?:\s+(\d{2,4}))?$/i);
   if (dayMonth) return true;
+  // Nombre série Excel/Sheets (dates stockées comme nombre)
+  const num = parseFloat(s);
+  if (!isNaN(num) && num > 40000 && num < 50000) return true;
   return false;
 }
 
