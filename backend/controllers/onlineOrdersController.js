@@ -79,7 +79,11 @@ function matchSheetTitleToMonth(title) {
   for (const monthName of MONTH_NAMES) {
     if (titleLower === monthName.toLowerCase()) return monthName;
   }
-  // Correspondance via aliases (priorité aux correspondances les plus longues pour éviter Mars vs Mar)
+  // Cas spécial : "Mars Avril" ou "Mars " = onglet Mars (priorité au premier mois)
+  if (titleLower.startsWith('mars')) {
+    return 'Mars';
+  }
+  // Correspondance via aliases (priorité aux correspondances les plus longues)
   let bestMatch = null;
   let bestLen = 0;
   for (const [monthName, aliases] of Object.entries(MONTH_ALIASES)) {
@@ -114,6 +118,11 @@ async function fetchMonthGidsFromTabs(spreadsheetId, city) {
     if (matched) {
       monthGids[matched] = sheetId;
     }
+  }
+  // Fallback pour TP EC Jeudi : Mars = gid 466543188 si non trouvé
+  if (!monthGids.Mars && spreadsheetId === '12ziNmTVtEaswdW8hjk3XOUyF4vhSf-JkrQZiEqD5Pv4') {
+    const marsSheet = sheetsList.find(s => String(s?.properties?.sheetId ?? s?.sheetId ?? '') === '466543188');
+    if (marsSheet) monthGids.Mars = '466543188';
   }
   return monthGids;
 }
@@ -323,9 +332,16 @@ async function fetchSheetData(spreadsheetId, rangeOrGid, city) {
     }
   }
   if (!targetSheet) {
+    // Fallback pour TP EC Jeudi (spreadsheet connu) : Mars = gid 466543188
+    const KNOWN_MARS_GIDS = { '12ziNmTVtEaswdW8hjk3XOUyF4vhSf-JkrQZiEqD5Pv4': '466543188' };
+    if (rangeOrGid === 'Mars' && KNOWN_MARS_GIDS[spreadsheetId]) {
+      targetSheet = sheetsList.find(s => String(s.properties?.sheetId) === KNOWN_MARS_GIDS[spreadsheetId]);
+    }
+  }
+  if (!targetSheet) {
     targetSheet = sheetsList[0];
   }
-  const sheetTitle = targetSheet.properties.title;
+  const sheetTitle = (targetSheet?.properties?.title || 'Sheet1').trim();
   const range = `${sheetTitle}!A:Z`;
   const response = await sheets.spreadsheets.values.get({ spreadsheetId, range });
   const result = { values: response.data.values || [], sheetTitle };
