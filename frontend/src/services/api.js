@@ -55,7 +55,9 @@ api.interceptors.response.use(
         window.location.href = loginPath;
       }
     } else if (error.response?.status >= 500) {
-      console.error('Erreur serveur:', error.response.data);
+      const errData = error.response.data;
+      const errMsg = typeof errData?.error === 'string' ? errData.error : (errData?.message || JSON.stringify(errData));
+      console.error('Erreur serveur:', errMsg);
     } else if (!error.response) {
       console.warn('⚠️ Pas de réponse du serveur - Render peut être en mode sleep');
     }

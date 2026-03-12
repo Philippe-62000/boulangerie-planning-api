@@ -153,7 +153,8 @@ const CommandesEnLigne = () => {
       toast.success('Onglets synchronisés (Mars, Avril, etc.)');
       loadLinks();
     } catch (err) {
-      toast.error(err.response?.data?.error || 'Erreur lors de la synchronisation');
+      const errMsg = err.response?.data?.error || err.response?.data?.message || err.message || 'Erreur lors de la synchronisation';
+      toast.error(errMsg);
     }
   };
 

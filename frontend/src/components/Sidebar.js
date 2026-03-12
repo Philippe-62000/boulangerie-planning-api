@@ -137,16 +137,16 @@ const Sidebar = () => {
     { path: '/product-exchanges', label: 'Échanges entre boulangeries', icon: '🔄', menuId: 'product-exchanges' }
   ];
 
-  // Vérifier si un menu a la permission pour le rôle actuel (fallback sur défaut si absent de l'API)
+  // Vérifier si un menu a la permission pour le rôle actuel
+  // L'API retourne uniquement les menus visibles pour le rôle : si un menu n'est pas dans la liste, il est masqué
   const hasPermission = (menuId) => {
     const permission = menuPermissions.find(p => p.menuId === menuId);
     if (permission) {
       return isAdmin() ? permission.isVisibleToAdmin : permission.isVisibleToEmployee;
     }
-    // Fallback : si l'API ne retourne pas ce menu (backend pas à jour), utiliser les défauts
-    const defaultPermission = getDefaultMenuPermissions(user?.role).find(p => p.menuId === menuId);
-    if (!defaultPermission) return false;
-    return isAdmin() ? defaultPermission.isVisibleToAdmin : defaultPermission.isVisibleToEmployee;
+    // Menu absent de la réponse API = non visible (l'API filtre par rôle : isVisibleToAdmin/isVisibleToEmployee)
+    // Ne pas utiliser les défauts car ils afficheraient des menus que l'admin a désactivés pour les salariés
+    return false;
   };
 
   // Filtrer les menus principaux (sans les items Social)

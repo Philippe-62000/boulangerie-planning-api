@@ -5,6 +5,22 @@ const googleOAuthController = require('./googleOAuthController');
 
 const MONTH_NAMES = ['Janvier', 'Fevrier', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Aout', 'Septembre', 'Octobre', 'Novembre', 'Decembre'];
 
+// Alias pour matcher les onglets avec des noms variés (ex: "March" en anglais, "Mar", "03 - Mars")
+const MONTH_ALIASES = {
+  'Janvier': ['janvier', 'january', 'jan'],
+  'Fevrier': ['fevrier', 'février', 'february', 'feb'],
+  'Mars': ['mars', 'march'],
+  'Avril': ['avril', 'april', 'avr'],
+  'Mai': ['mai', 'may'],
+  'Juin': ['juin', 'june'],
+  'Juillet': ['juillet', 'july', 'juil'],
+  'Aout': ['aout', 'août', 'august', 'aug'],
+  'Septembre': ['septembre', 'september', 'sept'],
+  'Octobre': ['octobre', 'october', 'oct'],
+  'Novembre': ['novembre', 'november', 'nov'],
+  'Decembre': ['decembre', 'décembre', 'december', 'dec']
+};
+
 // Cache en mémoire pour réduire les appels API (quota: 60 req/min/user)
 const SHEET_CACHE_TTL_MS = 90 * 1000; // 90 secondes
 const sheetCache = new Map(); // clé -> { data, expiresAt }
@@ -54,32 +70,52 @@ async function getLinks(req, res) {
   }
 }
 
-// Récupérer les monthGids en mappant les onglets nommés par mois (Mars, Avril, etc.)
-async function fetchMonthGidsFromTabs(spreadsheetId, city) {
-  try {
-    const auth = await getAuthenticatedClient(city);
-    const sheets = google.sheets({ version: 'v4', auth });
-    const spreadsheet = await sheets.spreadsheets.get({ spreadsheetId });
-    const sheetsList = spreadsheet.data.sheets || [];
-    const monthGids = {};
-    const monthNamesLower = MONTH_NAMES.map(m => m.toLowerCase());
-    for (const s of sheetsList) {
-      const title = (s.properties?.title || '').trim();
-      const titleLower = title.toLowerCase();
-      const sheetId = String(s.properties?.sheetId || '');
-      if (!sheetId) continue;
-      const exactMatch = MONTH_NAMES.find(m => m.toLowerCase() === titleLower);
-      const partialMatch = MONTH_NAMES.find(m => titleLower.includes(m.toLowerCase()));
-      const matched = exactMatch || partialMatch;
-      if (matched) {
-        monthGids[matched] = sheetId;
+// Trouver le mois correspondant à un titre d'onglet (avec aliases pour Mars/March, etc.)
+function matchSheetTitleToMonth(title) {
+  if (!title || typeof title !== 'string') return null;
+  const titleLower = title.toLowerCase().trim();
+  if (!titleLower) return null;
+  // Correspondance exacte d'abord
+  for (const monthName of MONTH_NAMES) {
+    if (titleLower === monthName.toLowerCase()) return monthName;
+  }
+  // Correspondance via aliases (priorité aux correspondances les plus longues pour éviter Mars vs Mar)
+  let bestMatch = null;
+  let bestLen = 0;
+  for (const [monthName, aliases] of Object.entries(MONTH_ALIASES)) {
+    for (const alias of aliases) {
+      if (titleLower === alias || titleLower.includes(alias)) {
+        if (alias.length > bestLen) {
+          bestLen = alias.length;
+          bestMatch = monthName;
+        }
       }
     }
-    return monthGids;
-  } catch (err) {
-    console.error('fetchMonthGidsFromTabs:', err.message);
-    return {};
   }
+  return bestMatch;
+}
+
+// Récupérer les monthGids en mappant les onglets nommés par mois (Mars, Avril, etc.)
+async function fetchMonthGidsFromTabs(spreadsheetId, city) {
+  const auth = await getAuthenticatedClient(city);
+  const sheets = google.sheets({ version: 'v4', auth });
+  const response = await sheets.spreadsheets.get({
+    spreadsheetId,
+    fields: 'sheets(properties(sheetId,title))' // Réduit la taille de la réponse (recommandé pour Render)
+  });
+  const sheetsList = response?.data?.sheets || response?.sheets || [];
+  const monthGids = {};
+  for (const s of sheetsList) {
+    const props = s?.properties || s;
+    const title = String(props?.title || '').trim();
+    const sheetId = String(props?.sheetId ?? '').trim();
+    if (!sheetId) continue;
+    const matched = matchSheetTitleToMonth(title);
+    if (matched) {
+      monthGids[matched] = sheetId;
+    }
+  }
+  return monthGids;
 }
 
 // Ajouter un lien
@@ -165,7 +201,27 @@ async function syncLinkTabs(req, res) {
     if (!link) {
       return res.status(404).json({ success: false, error: 'Lien non trouvé' });
     }
-    const monthGids = await fetchMonthGidsFromTabs(link.spreadsheetId, city);
+    let monthGids = {};
+    try {
+      monthGids = await fetchMonthGidsFromTabs(link.spreadsheetId, city);
+    } catch (fetchErr) {
+      const msg = fetchErr.message || fetchErr.error || String(fetchErr);
+      const errCode = fetchErr.code || fetchErr.status;
+      if (msg.includes('non connecté') || msg.includes('Connecter Google') || msg.includes('refresh_token') || msg.includes('invalid_grant')) {
+        return res.status(401).json({ success: false, error: msg || 'Compte Google non connecté. Cliquez sur "Connecter Google" pour autoriser l\'accès aux feuilles.' });
+      }
+      if (msg.includes('non configurée') || msg.includes('GOOGLE_CLIENT')) {
+        return res.status(503).json({ success: false, error: msg });
+      }
+      if (errCode === 404 || msg.includes('Unable to parse range') || msg.includes('not found') || msg.includes('404')) {
+        return res.status(404).json({ success: false, error: 'Feuille Google non trouvée ou accès refusé. Vérifiez que la feuille est partagée avec le compte Google connecté.' });
+      }
+      if (msg.includes('rateLimitExceeded') || msg.includes('RESOURCE_EXHAUSTED') || msg.includes('429')) {
+        return res.status(429).json({ success: false, error: 'Quota Google dépassé. Réessayez dans quelques minutes.' });
+      }
+      console.error('Erreur fetchMonthGidsFromTabs:', fetchErr.message, fetchErr.stack);
+      return res.status(500).json({ success: false, error: msg || 'Erreur lors de la récupération des onglets Google.' });
+    }
     if (Object.keys(monthGids).length > 0) {
       link.monthGids = monthGids;
     } else {
@@ -244,13 +300,26 @@ async function fetchSheetData(spreadsheetId, rangeOrGid, city) {
     targetSheet = sheetsList.find(s => String(s.properties.sheetId) === rangeOrGid);
   } else if (typeof rangeOrGid === 'string') {
     const search = rangeOrGid.toLowerCase().trim();
+    // Correspondance exacte
     targetSheet = sheetsList.find(s =>
       s.properties.title && s.properties.title.toLowerCase().trim() === search
     );
     if (!targetSheet) {
+      // Correspondance partielle (ex: "Mars" trouve "Mars 2026")
       targetSheet = sheetsList.find(s =>
         s.properties.title && s.properties.title.toLowerCase().includes(search)
       );
+    }
+    if (!targetSheet && MONTH_NAMES.includes(rangeOrGid)) {
+      // Recherche via aliases (ex: "Mars" -> onglet "March")
+      const aliases = MONTH_ALIASES[rangeOrGid] || [];
+      for (const alias of aliases) {
+        targetSheet = sheetsList.find(s => {
+          const t = (s.properties?.title || '').toLowerCase();
+          return t === alias || t.includes(alias);
+        });
+        if (targetSheet) break;
+      }
     }
   }
   if (!targetSheet) {
