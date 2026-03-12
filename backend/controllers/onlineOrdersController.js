@@ -342,10 +342,19 @@ async function fetchSheetData(spreadsheetId, rangeOrGid, city) {
     targetSheet = sheetsList[0];
   }
   const sheetTitle = (targetSheet?.properties?.title || 'Sheet1').trim();
-  // Guillemets simples requis pour les noms d'onglets (évite "Unable to parse range")
-  const escapedTitle = sheetTitle.replace(/'/g, "''");
-  const range = `'${escapedTitle}'!A:Z`;
-  const response = await sheets.spreadsheets.values.get({ spreadsheetId, range });
+  const escapedTitle = String(sheetTitle).replace(/'/g, "''");
+  const rangeWithQuotes = `'${escapedTitle}'!A1:Z1000`;
+  const rangeNoQuotes = `${sheetTitle}!A1:Z1000`;
+  let response;
+  try {
+    response = await sheets.spreadsheets.values.get({ spreadsheetId, range: rangeWithQuotes });
+  } catch (err) {
+    if (err.message?.includes('Unable to parse range')) {
+      response = await sheets.spreadsheets.values.get({ spreadsheetId, range: rangeNoQuotes });
+    } else {
+      throw err;
+    }
+  }
   const result = { values: response.data.values || [], sheetTitle };
   setCachedSheetData(cacheKey, result);
   return result;
