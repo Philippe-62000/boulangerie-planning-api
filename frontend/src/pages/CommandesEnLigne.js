@@ -259,11 +259,8 @@ const CommandesEnLigne = () => {
     }, 250);
   };
 
-  // Grouper les commandes par classe, en incluant TOUS les liens configurés (même vides)
+  // Grouper les commandes par classe (n'afficher que les classes avec commandes)
   const ordersByClass = {};
-  links.forEach((l) => {
-    ordersByClass[l.className] = [];
-  });
   orders.forEach((o) => {
     const c = o.className || 'Classe';
     if (!ordersByClass[c]) ordersByClass[c] = [];
@@ -445,7 +442,7 @@ const CommandesEnLigne = () => {
                 <h3>{monthlySummary.monthName} {monthlySummary.year}</h3>
                 <table>
                   <tbody>
-                    {Object.entries(monthlySummary.byClass || {}).map(([cls, count]) => (
+                    {Object.entries(monthlySummary.byClass || {}).filter(([, count]) => count > 0).map(([cls, count]) => (
                       <tr key={cls}>
                         <td>{cls}</td>
                         <td>{count}</td>

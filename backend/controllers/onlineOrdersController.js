@@ -503,11 +503,17 @@ async function getOrdersForDay(req, res) {
     const monthName = MONTH_NAMES[targetMonth - 1];
     const links = await OnlineOrderLink.find({ city }).sort({ order: 1 });
     const allOrders = [];
+    // TP EC Jeudi : Mars utilise toujours le gid 466543188 (onglet Mars)
+    const TP_EC_JEUDI_MARS_GID = { '12ziNmTVtEaswdW8hjk3XOUyF4vhSf-JkrQZiEqD5Pv4': '466543188' };
     for (let i = 0; i < links.length; i++) {
       if (i > 0) await delay(800); // Espacement pour respecter le quota API (60 req/min)
       const link = links[i];
       try {
-        const { values } = await fetchSheetData(link.spreadsheetId, link.monthGids?.[monthName] || monthName, city);
+        let sheetRef = link.monthGids?.[monthName] || monthName;
+        if (monthName === 'Mars' && TP_EC_JEUDI_MARS_GID[link.spreadsheetId]) {
+          sheetRef = TP_EC_JEUDI_MARS_GID[link.spreadsheetId];
+        }
+        const { values } = await fetchSheetData(link.spreadsheetId, sheetRef, city);
         const className = values[0]?.[0] || link.className;
         const orders = parseOrdersFromSheet(values, className);
         const dayOrders = filterOrdersForDay(orders, targetDay, targetMonth, targetYear);
@@ -542,11 +548,16 @@ async function getMonthlySummary(req, res) {
     const links = await OnlineOrderLink.find({ city }).sort({ order: 1 });
     const byClass = {};
     let total = 0;
+    const TP_EC_JEUDI_MARS_GID = { '12ziNmTVtEaswdW8hjk3XOUyF4vhSf-JkrQZiEqD5Pv4': '466543188' };
     for (let i = 0; i < links.length; i++) {
       if (i > 0) await delay(800); // Espacement pour respecter le quota API (60 req/min)
       const link = links[i];
       try {
-        const { values } = await fetchSheetData(link.spreadsheetId, link.monthGids?.[monthName] || monthName, city);
+        let sheetRef = link.monthGids?.[monthName] || monthName;
+        if (monthName === 'Mars' && TP_EC_JEUDI_MARS_GID[link.spreadsheetId]) {
+          sheetRef = TP_EC_JEUDI_MARS_GID[link.spreadsheetId];
+        }
+        const { values } = await fetchSheetData(link.spreadsheetId, sheetRef, city);
         const className = values[0]?.[0] || link.className;
         const orders = parseOrdersFromSheet(values, className);
         const count = orders.filter(o => o.day || o.name || o.order).length;
