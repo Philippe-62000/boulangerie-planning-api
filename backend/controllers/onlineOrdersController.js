@@ -342,20 +342,32 @@ async function fetchSheetData(spreadsheetId, rangeOrGid, city) {
     targetSheet = sheetsList[0];
   }
   const sheetTitle = (targetSheet?.properties?.title || 'Sheet1').trim();
+  const sheetId = targetSheet?.properties?.sheetId;
   const escapedTitle = String(sheetTitle).replace(/'/g, "''");
   const rangeWithQuotes = `'${escapedTitle}'!A1:Z1000`;
-  const rangeNoQuotes = `${sheetTitle}!A1:Z1000`;
-  let response;
+  let values = [];
   try {
-    response = await sheets.spreadsheets.values.get({ spreadsheetId, range: rangeWithQuotes });
+    const response = await sheets.spreadsheets.values.get({ spreadsheetId, range: rangeWithQuotes });
+    values = response.data.values || [];
   } catch (err) {
-    if (err.message?.includes('Unable to parse range')) {
-      response = await sheets.spreadsheets.values.get({ spreadsheetId, range: rangeNoQuotes });
+    if (err.message?.includes('Unable to parse range') && sheetId != null) {
+      const gridResponse = await sheets.spreadsheets.get({
+        spreadsheetId,
+        includeGridData: true,
+        fields: 'sheets(properties(sheetId),data(rowData(values(userEnteredValue))))'
+      });
+      const sheet = (gridResponse.data.sheets || []).find(s => String(s.properties?.sheetId) === String(sheetId));
+      if (sheet?.data?.[0]?.rowData) {
+        values = sheet.data[0].rowData.map(row => (row.values || []).map(c => {
+          const v = c?.userEnteredValue;
+          return String(v?.stringValue ?? (v?.numberValue ?? v?.formulaValue ?? '') ?? '');
+        }));
+      }
     } else {
       throw err;
     }
   }
-  const result = { values: response.data.values || [], sheetTitle };
+  const result = { values, sheetTitle };
   setCachedSheetData(cacheKey, result);
   return result;
 }
