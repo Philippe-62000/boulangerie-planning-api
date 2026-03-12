@@ -342,7 +342,9 @@ async function fetchSheetData(spreadsheetId, rangeOrGid, city) {
     targetSheet = sheetsList[0];
   }
   const sheetTitle = (targetSheet?.properties?.title || 'Sheet1').trim();
-  const range = `${sheetTitle}!A:Z`;
+  // Guillemets simples requis pour les noms d'onglets (évite "Unable to parse range")
+  const escapedTitle = sheetTitle.replace(/'/g, "''");
+  const range = `'${escapedTitle}'!A:Z`;
   const response = await sheets.spreadsheets.values.get({ spreadsheetId, range });
   const result = { values: response.data.values || [], sheetTitle };
   setCachedSheetData(cacheKey, result);
