@@ -171,7 +171,7 @@ const AppContent = () => {
               </ProtectedRoute>
             } />
             <Route path="/product-exchanges" element={
-              <ProtectedRoute adminOnly={true}>
+              <ProtectedRoute>
                 <ProductExchanges />
               </ProtectedRoute>
             } />

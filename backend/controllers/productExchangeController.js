@@ -136,20 +136,20 @@ const buildExchangesTableHtml = (exchanges, currentSiteName) => {
   const getToName = (ex) => ex.toPartnerId ? ex.toPartnerId.name : currentSiteName;
 
   let html = `
-    <table border="1" cellpadding="8" cellspacing="0" style="border-collapse: collapse; width: 100%;">
+    <table border="1" cellpadding="8" cellspacing="0" style="border-collapse: collapse; width: 100%; color: #333333;">
       <thead>
         <tr style="background: #f0f0f0;">
-          <th>Date</th>
-          <th>Produit</th>
-          <th>Qté</th>
-          <th>Détail</th>
-          <th>De</th>
-          <th>À</th>
-          <th>Soldé</th>
-          <th>Facturé</th>
-          <th>Payé</th>
-          <th>Valorisé le</th>
-          <th>Montant</th>
+          <th style="color: #333333;">Date</th>
+          <th style="color: #333333;">Produit</th>
+          <th style="color: #333333;">Qté</th>
+          <th style="color: #333333;">Détail</th>
+          <th style="color: #333333;">De</th>
+          <th style="color: #333333;">À</th>
+          <th style="color: #333333;">Soldé</th>
+          <th style="color: #333333;">Facturé</th>
+          <th style="color: #333333;">Payé</th>
+          <th style="color: #333333;">Valorisé le</th>
+          <th style="color: #333333;">Montant</th>
         </tr>
       </thead>
       <tbody>
@@ -158,17 +158,17 @@ const buildExchangesTableHtml = (exchanges, currentSiteName) => {
     const valorisedStr = ex.valorisedAmount != null ? `${ex.valorisedAmount}€` : '-';
     html += `
       <tr>
-        <td>${formatDate(ex.date)}</td>
-        <td>${ex.productName}</td>
-        <td>${ex.quantity}</td>
-        <td>${ex.detail || '-'}</td>
-        <td>${getFromName(ex)}</td>
-        <td>${getToName(ex)}</td>
-        <td>${formatDate(ex.settledAt)}</td>
-        <td>${formatDate(ex.invoicedAt)}</td>
-        <td>${formatDate(ex.paidAt)}</td>
-        <td>${formatDate(ex.valorisedAt)}</td>
-        <td>${valorisedStr}</td>
+        <td style="color: #333333;">${formatDate(ex.date)}</td>
+        <td style="color: #333333;">${ex.productName}</td>
+        <td style="color: #333333;">${ex.quantity}</td>
+        <td style="color: #333333;">${ex.detail || '-'}</td>
+        <td style="color: #333333;">${getFromName(ex)}</td>
+        <td style="color: #333333;">${getToName(ex)}</td>
+        <td style="color: #333333;">${formatDate(ex.settledAt)}</td>
+        <td style="color: #333333;">${formatDate(ex.invoicedAt)}</td>
+        <td style="color: #333333;">${formatDate(ex.paidAt)}</td>
+        <td style="color: #333333;">${formatDate(ex.valorisedAt)}</td>
+        <td style="color: #333333;">${valorisedStr}</td>
       </tr>
     `;
   });
@@ -229,21 +229,38 @@ const createExchange = async (req, res) => {
         const fromName = fromId ? (await ExchangePartner.findById(fromId))?.name : currentSiteName;
         const toName = toId ? (await ExchangePartner.findById(toId))?.name : currentSiteName;
         const subject = `[Échange] Nouvelle demande - ${productName} - ${currentSiteName}`;
+        const dateStr = new Date(date).toLocaleDateString('fr-FR');
+        const textContent = `Nouvelle demande d'échange de produits
+
+Bonjour,
+
+Une nouvelle demande d'échange a été enregistrée :
+- Date : ${dateStr}
+- Produit : ${productName}
+- Quantité : ${quantity}
+- Détail : ${detail || '-'}
+- De : ${fromName}
+- À : ${toName}
+
+Cordialement,
+${currentSiteName}`;
         const htmlContent = `
-          <h2>Nouvelle demande d'échange de produits</h2>
-          <p>Bonjour,</p>
-          <p>Une nouvelle demande d'échange a été enregistrée :</p>
-          <ul>
-            <li><strong>Date :</strong> ${new Date(date).toLocaleDateString('fr-FR')}</li>
-            <li><strong>Produit :</strong> ${productName}</li>
-            <li><strong>Quantité :</strong> ${quantity}</li>
-            <li><strong>Détail :</strong> ${detail || '-'}</li>
-            <li><strong>De :</strong> ${fromName}</li>
-            <li><strong>À :</strong> ${toName}</li>
-          </ul>
-          <p>Cordialement,<br>${currentSiteName}</p>
+          <div style="color: #333333; background-color: #ffffff; font-family: Arial, sans-serif; font-size: 14px; line-height: 1.5;">
+            <h2 style="color: #333333;">Nouvelle demande d'échange de produits</h2>
+            <p>Bonjour,</p>
+            <p>Une nouvelle demande d'échange a été enregistrée :</p>
+            <ul>
+              <li><strong>Date :</strong> ${dateStr}</li>
+              <li><strong>Produit :</strong> ${productName}</li>
+              <li><strong>Quantité :</strong> ${quantity}</li>
+              <li><strong>Détail :</strong> ${detail || '-'}</li>
+              <li><strong>De :</strong> ${fromName}</li>
+              <li><strong>À :</strong> ${toName}</li>
+            </ul>
+            <p>Cordialement,<br>${currentSiteName}</p>
+          </div>
         `;
-        await emailService.sendEmail(partnerToNotify.email, subject, htmlContent);
+        await emailService.sendEmail(partnerToNotify.email, subject, htmlContent, textContent);
         exchange.emailSentOnCreate = true;
         await exchange.save();
       } catch (emailErr) {
@@ -328,16 +345,34 @@ const updateExchange = async (req, res) => {
           soldeLine = `<p><strong>Solde valorisé :</strong> À jour (0€).</p>`;
         }
         const emailSubject = `[Échange] ${updates.join(' - ')} - ${currentSiteName}`;
+        const soldeText = balance > 0
+          ? `Solde valorisé : Vous devez ${balance}€ à ${currentSiteName}.`
+          : balance < 0
+            ? `Solde valorisé : ${currentSiteName} vous doit ${Math.abs(balance)}€.`
+            : 'Solde valorisé : À jour (0€).';
+        const textContent = `Mise à jour d'échange
+
+Bonjour ${partnerToNotify.name},
+
+Un échange a été mis à jour : ${updates.join(', ')}.
+${soldeText}
+
+Voici le récapitulatif des échanges passés avec vous (voir email HTML pour le tableau).
+
+Cordialement,
+${currentSiteName}`;
         const htmlContent = `
-          <h2>Mise à jour d'échange</h2>
-          <p>Bonjour ${partnerToNotify.name},</p>
-          <p>Un échange a été mis à jour : ${updates.join(', ')}.</p>
-          ${soldeLine}
-          <p>Voici le récapitulatif des échanges passés avec vous :</p>
-          ${tableHtml}
-          <p>Cordialement,<br>${currentSiteName}</p>
+          <div style="color: #333333; background-color: #ffffff; font-family: Arial, sans-serif; font-size: 14px; line-height: 1.5;">
+            <h2 style="color: #333333;">Mise à jour d'échange</h2>
+            <p>Bonjour ${partnerToNotify.name},</p>
+            <p>Un échange a été mis à jour : ${updates.join(', ')}.</p>
+            ${soldeLine}
+            <p>Voici le récapitulatif des échanges passés avec vous :</p>
+            ${tableHtml}
+            <p>Cordialement,<br>${currentSiteName}</p>
+          </div>
         `;
-        await emailService.sendEmail(partnerEmail, emailSubject, htmlContent);
+        await emailService.sendEmail(partnerEmail, emailSubject, htmlContent, textContent);
       } catch (emailErr) {
         console.error('❌ Erreur envoi email mise à jour échange:', emailErr);
       }
