@@ -15,8 +15,11 @@ const MESSAGE_TARGET_ROLES = [
   'manager',
   'responsable'
 ];
-import { getApiUrl } from '../config/apiConfig';
+import { getApiUrl, getTokenStorageSuffix } from '../config/apiConfig';
 const API_BASE_URL = getApiUrl();
+
+// Suffixe pour isoler les préférences par ville (Longuenesse vs Arras)
+const STORAGE_SUFFIX = getTokenStorageSuffix();
 const createFullWeekPresence = () => {
   const presence = {};
   WEEK_DAYS.forEach((jour) => {
@@ -130,7 +133,7 @@ const SalesStats = () => {
   const [showScoreModal, setShowScoreModal] = useState(false);
   const [scoreCoefficients, setScoreCoefficients] = useState(() => {
     try {
-      const stored = localStorage.getItem('salesStats_scoreCoefficients');
+      const stored = localStorage.getItem(`salesStats_scoreCoefficients${STORAGE_SUFFIX}`);
       if (stored) {
         const parsed = JSON.parse(stored);
         return {
@@ -145,7 +148,7 @@ const SalesStats = () => {
   });
   const [selectedTableEmployeeIds, setSelectedTableEmployeeIds] = useState(() => {
     try {
-      const stored = localStorage.getItem('salesStats_selectedEmployees');
+      const stored = localStorage.getItem(`salesStats_selectedEmployees${STORAGE_SUFFIX}`);
       if (stored) {
         const parsed = JSON.parse(stored);
         return Array.isArray(parsed) ? parsed : [];
@@ -700,7 +703,7 @@ const SalesStats = () => {
   };
 
   const handleSaveScoreCoefficients = () => {
-    localStorage.setItem('salesStats_scoreCoefficients', JSON.stringify(scoreCoefficients));
+    localStorage.setItem(`salesStats_scoreCoefficients${STORAGE_SUFFIX}`, JSON.stringify(scoreCoefficients));
     setShowScoreModal(false);
   };
 
@@ -901,7 +904,7 @@ const SalesStats = () => {
   const saveSelectedTableEmployees = useCallback((ids) => {
     setSelectedTableEmployeeIds(ids);
     try {
-      localStorage.setItem('salesStats_selectedEmployees', JSON.stringify(ids));
+      localStorage.setItem(`salesStats_selectedEmployees${STORAGE_SUFFIX}`, JSON.stringify(ids));
     } catch (_) {}
   }, []);
 
@@ -913,7 +916,7 @@ const SalesStats = () => {
         ? currentIds.filter(id => id !== employeeId)
         : [...currentIds, employeeId];
       try {
-        localStorage.setItem('salesStats_selectedEmployees', JSON.stringify(next));
+        localStorage.setItem(`salesStats_selectedEmployees${STORAGE_SUFFIX}`, JSON.stringify(next));
       } catch (_) {}
       return next;
     });
