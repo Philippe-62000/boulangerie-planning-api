@@ -303,7 +303,7 @@ const ResponsableKmExpenses = () => {
         <div className="modal-overlay" onClick={() => setShowParamsModal(false)}>
           <div className="modal-content" onClick={e => e.stopPropagation()}>
             <h3>⚙️ Paramètres péage</h3>
-            <p className="modal-hint">Définissez les noms des péages d'entrée et de sortie pour reconnaître les trajets professionnels dans l'import PDF.</p>
+            <p className="modal-hint">Définissez les noms des péages d'entrée et de sortie pour reconnaître les trajets professionnels. Le matching est flexible : "Béthune" ou "BETHUNE" reconnaîtront les codes type 25007026A266BETHUNE.</p>
             <div className="modal-form">
               <label>
                 Entrée Péage :

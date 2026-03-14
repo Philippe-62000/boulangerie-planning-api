@@ -29,9 +29,33 @@ function matchesPeage(extracted, configured) {
 }
 
 /**
+ * Découpe une chaîne concaténée au format Bip&Go (ex: 25007026A266BETHUNE25007024A264AIRE SUR LA LYS)
+ * Chaque gare commence par 8 chiffres (code gantt). Supporte aussi 25007983GARE FORFAITAIRE.
+ * @returns {{ entry: string, exit: string } | null}
+ */
+function splitConcatenatedGantts(concatenated) {
+  if (!concatenated || typeof concatenated !== 'string') return null;
+  // Enlever les montants/km collés à la fin (ex: 12,802,330,00 %33,3)
+  const cleaned = concatenated.replace(/\d+[,.]\d[\d,.\s%]*$/g, '').trim();
+  // Pattern: 8 chiffres + reste jusqu'au prochain bloc 8 chiffres ou fin
+  const ganttPattern = /\d{8}[A-Z0-9\s]+?(?=\d{8}|$)/g;
+  const matches = cleaned.match(ganttPattern);
+  if (!matches) return null;
+  // Enlever montants/km éventuellement collés à la fin de chaque gantt
+  const trimmed = matches.map(m => m.replace(/\d+[,.]\d[\d,.\s%]*$/, '').trim()).filter(Boolean);
+  if (trimmed.length >= 2) {
+    return { entry: trimmed[0], exit: trimmed[1] };
+  }
+  if (trimmed.length === 1) {
+    return { entry: trimmed[0], exit: '' };
+  }
+  return null;
+}
+
+/**
  * Extrait les transactions depuis le texte PDF
  * Format typique: Date | Entrée | Sortie | Tarif
- * Ex: 01/12/2025  BETHUNE  AIRE SUR LA LYS  2,80
+ * Format Bip&Go concaténé: Date 25007026A266BETHUNE25007024A264AIRE SUR LA LYS  12,80  2,33
  * @returns {{ transactions: Array<{day, month, year, entry, exit, amountTTC}>, totalTTC: number }}
  */
 function extractTransactions(text, expectedMonth, expectedYear) {
@@ -69,7 +93,15 @@ function extractTransactions(text, expectedMonth, expectedYear) {
       exit = filtered.slice(1, -1).join(' '); // tout entre entrée et montant = sortie
       if (filtered.length === 2) exit = filtered[1];
     } else if (filtered.length === 1) {
-      entry = filtered[0];
+      const part = filtered[0];
+      // Format Bip&Go concaténé: 25007026A266BETHUNE25007024A264AIRE SUR LA LYS
+      const split = splitConcatenatedGantts(part);
+      if (split) {
+        entry = split.entry;
+        exit = split.exit;
+      } else {
+        entry = part;
+      }
     }
 
     transactions.push({ day, month, year, entry, exit, amountTTC });
