@@ -205,9 +205,11 @@ app.use('*', (req, res) => {
 });
 
 const PORT = config.PORT;
-app.listen(PORT, () => {
+// Render requiert l'écoute sur 0.0.0.0 pour détecter le port (pas localhost)
+const HOST = process.env.HOST || '0.0.0.0';
+app.listen(PORT, HOST, () => {
   console.log(`🚀 ${config.APP_NAME} v${config.APP_VERSION}`);
-  console.log(`📡 Serveur démarré sur le port ${PORT}`);
+  console.log(`📡 Serveur démarré sur ${HOST}:${PORT}`);
   console.log(`🌍 Environnement: ${config.NODE_ENV}`);
   console.log(`🔗 URL: http://localhost:${PORT}`);
 });
