@@ -8,7 +8,10 @@ const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 *
 router.get('/trip-types', responsableKmController.getTripTypes);
 router.get('/expense', responsableKmController.getExpense);
 router.post('/expense', responsableKmController.saveExpense);
+router.get('/peage-params', responsableKmController.getPeageParams);
+router.post('/peage-params', responsableKmController.savePeageParams);
 router.post('/import-pdf', upload.single('file'), responsableKmController.importPdf);
+router.post('/confirm-import-pdf', responsableKmController.confirmImportPdf);
 router.get('/taux-km', responsableKmController.getTauxKm);
 router.post('/taux-km', responsableKmController.saveTauxKm);
 

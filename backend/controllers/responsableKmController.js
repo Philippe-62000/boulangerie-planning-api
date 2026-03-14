@@ -161,6 +161,57 @@ exports.saveExpense = async (req, res) => {
   }
 };
 
+async function getPeageParams(site) {
+  const [entree, sortie] = await Promise.all([
+    Parameter.findOne({ name: `peageEntree_${site}` }),
+    Parameter.findOne({ name: `peageSortie_${site}` })
+  ]);
+  return {
+    entreePeage: entree?.stringValue || '',
+    sortiePeage: sortie?.stringValue || ''
+  };
+}
+
+exports.getPeageParams = async (req, res) => {
+  try {
+    const { site } = req.query;
+    if (!site || !['longuenesse', 'arras'].includes(site)) {
+      return res.status(400).json({ error: 'Site requis (longuenesse ou arras)' });
+    }
+    const params = await getPeageParams(site);
+    res.json({ success: true, data: params });
+  } catch (error) {
+    console.error('Erreur getPeageParams:', error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+exports.savePeageParams = async (req, res) => {
+  try {
+    const { site, entreePeage, sortiePeage } = req.body;
+    if (!site || !['longuenesse', 'arras'].includes(site)) {
+      return res.status(400).json({ error: 'Site requis (longuenesse ou arras)' });
+    }
+    await Promise.all([
+      Parameter.findOneAndUpdate(
+        { name: `peageEntree_${site}` },
+        { name: `peageEntree_${site}`, stringValue: String(entreePeage || '').trim(), updatedAt: new Date() },
+        { new: true, upsert: true }
+      ),
+      Parameter.findOneAndUpdate(
+        { name: `peageSortie_${site}` },
+        { name: `peageSortie_${site}`, stringValue: String(sortiePeage || '').trim(), updatedAt: new Date() },
+        { new: true, upsert: true }
+      )
+    ]);
+    res.json({ success: true, data: { entreePeage: String(entreePeage || '').trim(), sortiePeage: String(sortiePeage || '').trim() } });
+  } catch (error) {
+    console.error('Erreur savePeageParams:', error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+/** Parse le PDF et retourne les données pour réconciliation (sans importer) */
 exports.importPdf = async (req, res) => {
   try {
     if (!req.file || !req.file.buffer) {
@@ -173,28 +224,86 @@ exports.importPdf = async (req, res) => {
     const m = parseInt(month, 10);
     const y = parseInt(year, 10);
 
-    const { dates, amountTTC } = await parseBipGoPdf(req.file.buffer, m, y);
+    const peageParams = await getPeageParams(site);
+    const result = await parseBipGoPdf(
+      req.file.buffer,
+      m,
+      y,
+      peageParams.entreePeage,
+      peageParams.sortiePeage
+    );
 
     const tollType = await ResponsableTripType.findOne({ site, isToll: true });
     if (!tollType) {
       return res.json({
         success: true,
-        data: { dates, amountTTC, message: 'Dates et montant extraits. Type Péage non trouvé.' }
+        data: {
+          ...result,
+          message: 'Données extraites. Type Péage non trouvé. Configurez les paramètres Entrée/Sortie.'
+        }
       });
     }
 
+    res.json({
+      success: true,
+      data: {
+        allerCount: result.allerCount,
+        allerRetourCount: result.allerRetourCount,
+        recognizedDays: result.recognizedDays || result.dates?.map(d => ({ day: d, count: 1 })) || [],
+        unmatched: result.unmatched,
+        totalTTC: result.totalTTC,
+        dates: result.dates,
+        amountTTC: result.amountTTC,
+        tollTypeId: tollType._id.toString(),
+        legacyMode: result.legacyMode,
+        message: `${result.allerCount} aller, ${result.allerRetourCount} aller-retour reconnus. ${result.unmatched.length} non reconnus.`
+      }
+    });
+  } catch (error) {
+    console.error('Erreur importPdf:', error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+/** Applique l'import après réconciliation utilisateur */
+exports.confirmImportPdf = async (req, res) => {
+  try {
+    const { site, month, year, tollEntries, tollAmountTTC, refusedUnmatched } = req.body;
+    if (!site || !month || !year) {
+      return res.status(400).json({ error: 'Site, mois et année requis' });
+    }
+    const m = parseInt(month, 10);
+    const y = parseInt(year, 10);
+
+    const tollType = await ResponsableTripType.findOne({ site, isToll: true });
+    if (!tollType) {
+      return res.status(400).json({ error: 'Type Péage non trouvé' });
+    }
+
+    const entries = Array.isArray(tollEntries)
+      ? tollEntries.map(e => ({
+          tripTypeId: tollType._id,
+          day: parseInt(e.day, 10),
+          count: parseInt(e.count, 10) || 1
+        }))
+      : [];
+
+    const amountTTC = parseFloat(tollAmountTTC) || 0;
+    const amountHT = Math.round(amountTTC / 1.2 * 100) / 100;
+
     const expense = await ResponsableKmExpense.findOne({ site, month: m, year: y });
-    const existingEntries = expense ? expense.entries.filter(e => e.tripTypeId.toString() !== tollType._id.toString()) : [];
-    const tollEntries = dates.map(day => ({ tripTypeId: tollType._id, day, count: 1 }));
+    const existingEntries = expense
+      ? expense.entries.filter(e => e.tripTypeId.toString() !== tollType._id.toString())
+      : [];
 
     const update = {
       site,
       month: m,
       year: y,
-      entries: [...existingEntries, ...tollEntries],
+      entries: [...existingEntries, ...entries],
       tollAmountTTC: amountTTC,
-      tollAmountHT: Math.round(amountTTC / 1.2 * 100) / 100,
-      pdfImportedDates: dates
+      tollAmountHT: amountHT,
+      pdfImportedDates: entries.map(e => e.day)
     };
 
     await ResponsableKmExpense.findOneAndUpdate(
@@ -203,12 +312,18 @@ exports.importPdf = async (req, res) => {
       { new: true, upsert: true }
     );
 
+    const deducted = Array.isArray(refusedUnmatched)
+      ? refusedUnmatched.reduce((s, u) => s + (parseFloat(u.amountTTC) || 0), 0)
+      : 0;
+
     res.json({
       success: true,
-      data: { dates, amountTTC, message: `${dates.length} dates importées, montant TTC: ${amountTTC} €` }
+      data: {
+        message: `Import appliqué. ${entries.length} jour(s) avec péage.${deducted > 0 ? ` Voyages déduits: ${deducted.toFixed(2)} €` : ''}`
+      }
     });
   } catch (error) {
-    console.error('Erreur importPdf:', error);
+    console.error('Erreur confirmImportPdf:', error);
     res.status(500).json({ error: error.message });
   }
 };

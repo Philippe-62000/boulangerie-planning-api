@@ -20,6 +20,18 @@ const ResponsableKmExpenses = () => {
   const [importing, setImporting] = useState(false);
   const fileInputRef = useRef(null);
 
+  // Modal Paramètres péage
+  const [showParamsModal, setShowParamsModal] = useState(false);
+  const [entreePeage, setEntreePeage] = useState('');
+  const [sortiePeage, setSortiePeage] = useState('');
+  const [savingParams, setSavingParams] = useState(false);
+
+  // Modal réconciliation import
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [importData, setImportData] = useState(null);
+  const [refusedIndexes, setRefusedIndexes] = useState(new Set());
+  const [confirmingImport, setConfirmingImport] = useState(false);
+
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
@@ -45,17 +57,38 @@ const ResponsableKmExpenses = () => {
     }
   }, [site, month, year]);
 
+  const fetchPeageParams = useCallback(async () => {
+    try {
+      const res = await api.get(`/responsable-km/peage-params?site=${site}`);
+      const d = res.data?.data;
+      if (d) {
+        setEntreePeage(d.entreePeage || '');
+        setSortiePeage(d.sortiePeage || '');
+      }
+    } catch (e) {
+      console.warn('Paramètres péage:', e);
+    }
+  }, [site]);
+
   useEffect(() => {
     fetchData();
   }, [fetchData]);
 
-  const handleToggle = (tripTypeId, day) => {
+  useEffect(() => {
+    if (showParamsModal) fetchPeageParams();
+  }, [showParamsModal, fetchPeageParams]);
+
+  const handleToggle = (tripTypeId, day, isToll = false) => {
     const key = tripTypeId.toString();
     setGrid(prev => {
       const next = { ...prev };
       if (!next[key]) next[key] = {};
       const current = next[key][day] || 0;
-      next[key] = { ...next[key], [day]: current ? 0 : 1 };
+      if (isToll) {
+        next[key] = { ...next[key], [day]: current >= 2 ? 0 : current + 1 };
+      } else {
+        next[key] = { ...next[key], [day]: current ? 0 : 1 };
+      }
       return next;
     });
   };
@@ -68,6 +101,19 @@ const ResponsableKmExpenses = () => {
       toast.success('Taux km sauvegardé');
     } catch (e) {
       toast.error('Erreur sauvegarde taux');
+    }
+  };
+
+  const savePeageParams = async () => {
+    setSavingParams(true);
+    try {
+      await api.post('/responsable-km/peage-params', { site, entreePeage, sortiePeage });
+      toast.success('Paramètres péage sauvegardés');
+      setShowParamsModal(false);
+    } catch (e) {
+      toast.error('Erreur sauvegarde paramètres');
+    } finally {
+      setSavingParams(false);
     }
   };
 
@@ -106,15 +152,64 @@ const ResponsableKmExpenses = () => {
       formData.append('month', month);
       formData.append('year', year);
       const res = await api.post('/responsable-km/import-pdf', formData);
-      toast.success(res.data?.data?.message || 'Import réussi');
-      setTollAmountTTC(res.data?.data?.amountTTC || 0);
-      setTollAmountHT(Math.round((res.data?.data?.amountTTC || 0) / 1.2 * 100) / 100);
-      fetchData();
+      const data = res.data?.data;
+      setImportData(data);
+      setRefusedIndexes(new Set());
+      setShowImportModal(true);
     } catch (error) {
       toast.error(error.response?.data?.error || 'Erreur import PDF');
     } finally {
       setImporting(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
+  const toggleRefuse = (idx) => {
+    setRefusedIndexes(prev => {
+      const next = new Set(prev);
+      if (next.has(idx)) next.delete(idx);
+      else next.add(idx);
+      return next;
+    });
+  };
+
+  const applyImport = async () => {
+    if (!importData) return;
+    setConfirmingImport(true);
+    try {
+      const refusedUnmatched = (importData.unmatched || [])
+        .filter((_, i) => refusedIndexes.has(i))
+        .map(u => ({ day: u.day, entry: u.entry, exit: u.exit, amountTTC: u.amountTTC || 0 }));
+
+      const toImport = (importData.unmatched || [])
+        .filter((_, i) => !refusedIndexes.has(i));
+
+      const tollEntriesFromUnmatched = toImport.map(u => ({ day: u.day, count: 1 }));
+      const tollEntriesFromRecognized = (importData.recognizedDays || []).map(r => ({ day: r.day, count: r.count || 1 }));
+      const tollEntries = [...tollEntriesFromRecognized, ...tollEntriesFromUnmatched];
+
+      const deducted = refusedUnmatched.reduce((s, u) => s + (parseFloat(u.amountTTC) || 0), 0);
+      const tollAmountToSave = (importData.totalTTC || 0) - deducted;
+
+      await api.post('/responsable-km/confirm-import-pdf', {
+        site,
+        month,
+        year,
+        tollEntries,
+        tollAmountTTC: tollAmountToSave,
+        refusedUnmatched
+      });
+
+      toast.success(importData.message || 'Import appliqué');
+      setShowImportModal(false);
+      setImportData(null);
+      setTollAmountTTC(tollAmountToSave);
+      setTollAmountHT(Math.round(tollAmountToSave / 1.2 * 100) / 100);
+      fetchData();
+    } catch (error) {
+      toast.error(error.response?.data?.error || 'Erreur lors de l\'application');
+    } finally {
+      setConfirmingImport(false);
     }
   };
 
@@ -175,6 +270,13 @@ const ResponsableKmExpenses = () => {
               className="taux-input"
             />
           </label>
+          <button
+            type="button"
+            className="btn btn-outline"
+            onClick={() => setShowParamsModal(true)}
+          >
+            ⚙️ Paramètres
+          </button>
           <input
             ref={fileInputRef}
             type="file"
@@ -195,6 +297,102 @@ const ResponsableKmExpenses = () => {
           </button>
         </div>
       </div>
+
+      {/* Modal Paramètres */}
+      {showParamsModal && (
+        <div className="modal-overlay" onClick={() => setShowParamsModal(false)}>
+          <div className="modal-content" onClick={e => e.stopPropagation()}>
+            <h3>⚙️ Paramètres péage</h3>
+            <p className="modal-hint">Définissez les noms des péages d'entrée et de sortie pour reconnaître les trajets professionnels dans l'import PDF.</p>
+            <div className="modal-form">
+              <label>
+                Entrée Péage :
+                <input
+                  type="text"
+                  value={entreePeage}
+                  onChange={e => setEntreePeage(e.target.value)}
+                  placeholder="ex: BETHUNE"
+                />
+              </label>
+              <label>
+                Sortie Péage :
+                <input
+                  type="text"
+                  value={sortiePeage}
+                  onChange={e => setSortiePeage(e.target.value)}
+                  placeholder="ex: AIRE SUR LA LYS"
+                />
+              </label>
+            </div>
+            <div className="modal-actions">
+              <button className="btn btn-outline" onClick={() => setShowParamsModal(false)}>Annuler</button>
+              <button className="btn btn-success" onClick={savePeageParams} disabled={savingParams}>
+                {savingParams ? 'Sauvegarde...' : 'Enregistrer'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Réconciliation Import */}
+      {showImportModal && importData && (
+        <div className="modal-overlay" onClick={() => setShowImportModal(false)}>
+          <div className="modal-content modal-import" onClick={e => e.stopPropagation()}>
+            <h3>📄 Réconciliation import PDF</h3>
+            <div className="import-summary">
+              <p><strong>Reconnus :</strong> {importData.allerCount || 0} aller, {importData.allerRetourCount || 0} aller-retour</p>
+              <p><strong>Total facture :</strong> {importData.totalTTC?.toFixed(2) || '0'} €</p>
+            </div>
+            {importData.unmatched && importData.unmatched.length > 0 && (
+              <div className="import-unmatched">
+                <h4>Trajets non reconnus (entrée/sortie ≠ paramètres)</h4>
+                <p className="modal-hint">Cochez "Refuser l'import" pour les déplacements personnels. Le montant sera déduit du péage total.</p>
+                <table className="unmatched-table">
+                  <thead>
+                    <tr>
+                      <th>Jour</th>
+                      <th>Entrée</th>
+                      <th>Sortie</th>
+                      <th>Montant</th>
+                      <th>Refuser l'import</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {importData.unmatched.map((u, idx) => (
+                      <tr key={idx}>
+                        <td>{u.day}</td>
+                        <td>{u.entry || '–'}</td>
+                        <td>{u.exit || '–'}</td>
+                        <td>{u.amountTTC ? `${u.amountTTC.toFixed(2)} €` : '–'}</td>
+                        <td>
+                          <input
+                            type="checkbox"
+                            checked={refusedIndexes.has(idx)}
+                            onChange={() => toggleRefuse(idx)}
+                          />
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                {refusedIndexes.size > 0 && (
+                  <p className="voyage-deducted">
+                    Voyage(s) déduit(s) : {importData.unmatched
+                      .filter((_, i) => refusedIndexes.has(i))
+                      .reduce((s, u) => s + (parseFloat(u.amountTTC) || 0), 0).toFixed(2)} €
+                  </p>
+                )}
+              </div>
+            )}
+            <div className="modal-actions">
+              <button className="btn btn-outline" onClick={() => setShowImportModal(false)}>Annuler</button>
+              <button className="btn btn-success" onClick={applyImport} disabled={confirmingImport}>
+                {confirmingImport ? 'Application...' : 'Appliquer l\'import'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="peage-section card">
         <h3>Péage autoroute</h3>
@@ -234,7 +432,7 @@ const ResponsableKmExpenses = () => {
                         <input
                           type="checkbox"
                           checked={checked}
-                          onChange={() => handleToggle(t._id, d)}
+                          onChange={() => handleToggle(t._id, d, false)}
                         />
                       </td>
                     );
@@ -253,14 +451,16 @@ const ResponsableKmExpenses = () => {
                   <td className="km-cell">–</td>
                   {Array.from({ length: daysInMonth }, (_, i) => {
                     const d = i + 1;
-                    const checked = !!(days[d]);
+                    const cellCount = days[d] || 0;
                     return (
                       <td key={d} className="day-cell">
                         <input
                           type="checkbox"
-                          checked={checked}
-                          onChange={() => handleToggle(t._id, d)}
+                          checked={cellCount > 0}
+                          onChange={() => handleToggle(t._id, d, true)}
+                          title={cellCount === 2 ? 'Aller-retour (2 passages)' : cellCount === 1 ? 'Aller (1 passage)' : 'Cliquer pour ajouter'}
                         />
+                        {cellCount === 2 && <span className="toll-badge">2</span>}
                       </td>
                     );
                   })}

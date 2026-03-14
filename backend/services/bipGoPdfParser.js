@@ -1,56 +1,209 @@
 /**
- * Parse Bip&Go PDF facture autoroute pour extraire les dates et le montant TTC
+ * Parse Bip&Go PDF facture autoroute pour extraire les transactions (date, entrée, sortie, montant)
+ * et le montant total TTC
  */
 const pdfParse = require('pdf-parse');
 
 /**
- * Extrait les dates (jours du mois) et le montant TTC depuis un buffer PDF Bip&Go
+ * Normalise un nom de péage pour la comparaison (minuscules, sans accents, sans espaces multiples)
+ */
+function normalizePeageName(str) {
+  if (!str || typeof str !== 'string') return '';
+  return str
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/**
+ * Vérifie si une entrée/sortie correspond au paramètre (comparaison partielle)
+ */
+function matchesPeage(extracted, configured) {
+  if (!configured) return false;
+  const nExt = normalizePeageName(extracted);
+  const nConf = normalizePeageName(configured);
+  if (!nExt || !nConf) return false;
+  return nExt.includes(nConf) || nConf.includes(nExt);
+}
+
+/**
+ * Extrait les transactions depuis le texte PDF
+ * Format typique: Date | Entrée | Sortie | Tarif
+ * Ex: 01/12/2025  BETHUNE  AIRE SUR LA LYS  2,80
+ * @returns {{ transactions: Array<{day, month, year, entry, exit, amountTTC}>, totalTTC: number }}
+ */
+function extractTransactions(text, expectedMonth, expectedYear) {
+  const transactions = [];
+  const lines = text.split(/\r?\n/);
+  const dateRegex = /(\d{2})\/(\d{2})\/(\d{4})/;
+
+  for (const line of lines) {
+    const dateMatch = line.match(dateRegex);
+    if (!dateMatch) continue;
+
+    const day = parseInt(dateMatch[1], 10);
+    const month = parseInt(dateMatch[2], 10);
+    const year = parseInt(dateMatch[3], 10);
+
+    if (month !== expectedMonth || year !== expectedYear || day < 1 || day > 31) continue;
+
+    // Montant: dernier nombre format X,XX ou X.XX
+    const amountMatches = line.match(/([\d\s]+[,.]\d{2})\s*€?/g);
+    let amountTTC = 0;
+    if (amountMatches && amountMatches.length > 0) {
+      const lastAmount = amountMatches[amountMatches.length - 1];
+      amountTTC = parseFloat(lastAmount.replace(/\s/g, '').replace(',', '.')) || 0;
+    }
+
+    // Entrée/Sortie: colonnes séparées par | ou 2+ espaces
+    let entry = '';
+    let exit = '';
+    const withoutDate = line.replace(dateMatch[0], '').trim();
+    const parts = withoutDate.split(/\s*\|\s*|\s{2,}|\t/).map(p => p.trim()).filter(p => p.length > 0);
+    // Retirer le montant des parts
+    const filtered = parts.filter(p => !/^[\d\s,.]+\s*€?$/.test(p));
+    if (filtered.length >= 2) {
+      entry = filtered[0];
+      exit = filtered.slice(1, -1).join(' '); // tout entre entrée et montant = sortie
+      if (filtered.length === 2) exit = filtered[1];
+    } else if (filtered.length === 1) {
+      entry = filtered[0];
+    }
+
+    transactions.push({ day, month, year, entry, exit, amountTTC });
+  }
+
+  // Montant total depuis "NET A PAYER"
+  let totalTTC = 0;
+  const totalMatch = text.match(/NET\s*A\s*PAYER\s*([\d\s,]+)\s*€/i);
+  if (totalMatch) {
+    totalTTC = parseFloat(totalMatch[1].replace(/\s/g, '').replace(',', '.')) || 0;
+  }
+  if (totalTTC === 0 && transactions.length > 0) {
+    totalTTC = transactions.reduce((s, t) => s + t.amountTTC, 0);
+  }
+
+  return { transactions, totalTTC };
+}
+
+/**
+ * Parse Bip&Go PDF et retourne les données structurées pour la réconciliation
  * @param {Buffer} buffer - Contenu du fichier PDF
  * @param {number} expectedMonth - Mois attendu (1-12)
  * @param {number} expectedYear - Année attendue
- * @returns {{ dates: number[], amountTTC: number, rawText: string }}
+ * @param {string} entreePeage - Nom du péage d'entrée configuré (ex: "BETHUNE")
+ * @param {string} sortiePeage - Nom du péage de sortie configuré (ex: "AIRE SUR LA LYS")
+ * @returns {{
+ *   allerCount: number,
+ *   allerRetourCount: number,
+ *   unmatched: Array<{day, entry, exit, amountTTC, refuserImport?: boolean}>,
+ *   totalTTC: number,
+ *   dates: number[],
+ *   amountTTC: number,
+ *   rawText: string
+ * }}
  */
-async function parseBipGoPdf(buffer, expectedMonth, expectedYear) {
+async function parseBipGoPdf(buffer, expectedMonth, expectedYear, entreePeage = '', sortiePeage = '') {
   const data = await pdfParse(buffer);
   const text = data.text || '';
 
-  const dates = [];
-  const dateRegex = /(\d{2})\/(\d{2})\/(\d{4})/g;
-  let match;
+  const { transactions, totalTTC } = extractTransactions(text, expectedMonth, expectedYear);
 
-  while ((match = dateRegex.exec(text)) !== null) {
-    const day = parseInt(match[1], 10);
-    const month = parseInt(match[2], 10);
-    const year = parseInt(match[3], 10);
-
-    if (month === expectedMonth && year === expectedYear && day >= 1 && day <= 31) {
-      if (!dates.includes(day)) {
+  // Fallback: si pas de transactions structurées, utiliser l'ancienne logique (dates simples)
+  if (transactions.length === 0) {
+    const dates = [];
+    const dateRegex = /(\d{2})\/(\d{2})\/(\d{4})/g;
+    let match;
+    while ((match = dateRegex.exec(text)) !== null) {
+      const day = parseInt(match[1], 10);
+      const month = parseInt(match[2], 10);
+      const year = parseInt(match[3], 10);
+      if (month === expectedMonth && year === expectedYear && day >= 1 && day <= 31 && !dates.includes(day)) {
         dates.push(day);
       }
     }
+    dates.sort((a, b) => a - b);
+    return {
+      allerCount: 0,
+      allerRetourCount: 0,
+      recognizedDays: dates.map(d => ({ day: d, count: 1 })),
+      unmatched: dates.map(d => ({ day: d, entry: '', exit: '', amountTTC: 0 })),
+      totalTTC,
+      dates,
+      amountTTC: totalTTC,
+      rawText: text.substring(0, 500),
+      legacyMode: true
+    };
   }
 
-  dates.sort((a, b) => a - b);
-
-  let amountTTC = 0;
-  const amountRegex = /NET\s*A\s*PAYER\s*([\d\s,]+)\s*€/i;
-  const amountMatch = text.match(amountRegex);
-  if (amountMatch) {
-    amountTTC = parseFloat(amountMatch[1].replace(/\s/g, '').replace(',', '.')) || 0;
+  // Grouper par jour
+  const byDay = {};
+  for (const t of transactions) {
+    if (!byDay[t.day]) byDay[t.day] = [];
+    byDay[t.day].push(t);
   }
-  if (amountTTC === 0) {
-    const altRegex = /([\d\s,]+)\s*€\s*$/m;
-    const lines = text.split('\n');
-    for (let i = lines.length - 1; i >= 0; i--) {
-      const m = lines[i].match(/([\d\s,]+)\s*€/);
-      if (m) {
-        amountTTC = parseFloat(m[1].replace(/\s/g, '').replace(',', '.')) || 0;
-        if (amountTTC > 0 && amountTTC < 1000) break;
+
+  let allerCount = 0;
+  let allerRetourCount = 0;
+  const unmatched = [];
+
+  const hasConfig = entreePeage && sortiePeage;
+  const recognizedDays = []; // [{ day, count }] count=1 aller, count=2 aller-retour
+
+  for (const [dayStr, dayTx] of Object.entries(byDay)) {
+    const day = parseInt(dayStr, 10);
+    const dayAmount = dayTx.reduce((s, t) => s + t.amountTTC, 0);
+
+    if (!hasConfig) {
+      unmatched.push({ day, entry: dayTx[0]?.entry || '', exit: dayTx[0]?.exit || '', amountTTC: dayAmount });
+      continue;
+    }
+
+    let aller = 0;
+    let retour = 0;
+
+    for (const t of dayTx) {
+      const entryMatch = matchesPeage(t.entry, entreePeage);
+      const exitMatch = matchesPeage(t.exit, sortiePeage);
+      const entryMatchSortie = matchesPeage(t.entry, sortiePeage);
+      const exitMatchEntree = matchesPeage(t.exit, entreePeage);
+
+      if (entryMatch && exitMatch) {
+        aller++;
+      } else if (entryMatchSortie && exitMatchEntree) {
+        retour++;
+      } else {
+        unmatched.push({ day, entry: t.entry, exit: t.exit, amountTTC: t.amountTTC });
       }
+    }
+
+    if (aller > 0 || retour > 0) {
+      const roundTrips = Math.min(aller, retour);
+      const oneWay = Math.max(0, aller - roundTrips) + Math.max(0, retour - roundTrips);
+      allerRetourCount += roundTrips;
+      allerCount += oneWay;
+      const count = roundTrips * 2 + oneWay;
+      recognizedDays.push({ day, count });
+    } else if (dayTx.length > 0) {
+      unmatched.push({ day, entry: dayTx.map(t => t.entry).join(' / '), exit: dayTx.map(t => t.exit).join(' / '), amountTTC: dayAmount });
     }
   }
 
-  return { dates, amountTTC, rawText: text.substring(0, 500) };
+  recognizedDays.sort((a, b) => a.day - b.day);
+  const dates = recognizedDays.map(d => d.day);
+
+  return {
+    allerCount,
+    allerRetourCount,
+    recognizedDays,
+    unmatched,
+    totalTTC,
+    dates,
+    amountTTC: totalTTC,
+    rawText: text.substring(0, 500)
+  };
 }
 
-module.exports = { parseBipGoPdf };
+module.exports = { parseBipGoPdf, normalizePeageName, matchesPeage, extractTransactions };

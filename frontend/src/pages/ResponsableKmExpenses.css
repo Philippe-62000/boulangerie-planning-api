@@ -165,6 +165,22 @@
   background: #fff8e1;
 }
 
+.responsable-km-table .toll-row .day-cell {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+}
+
+.responsable-km-table .toll-badge {
+  font-size: 0.65rem;
+  background: #ffc107;
+  color: #333;
+  padding: 0 3px;
+  border-radius: 3px;
+}
+
 .responsable-km .summary {
   margin-top: 1rem;
   padding: 1rem;
@@ -199,4 +215,104 @@
 @keyframes fadeIn {
   from { opacity: 0; }
   to { opacity: 1; }
+}
+
+/* Modal */
+.responsable-km .modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.responsable-km .modal-content {
+  background: white;
+  border-radius: 8px;
+  padding: 1.5rem;
+  max-width: 500px;
+  width: 90%;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.responsable-km .modal-content h3 {
+  margin: 0 0 1rem 0;
+}
+
+.responsable-km .modal-hint {
+  font-size: 0.85rem;
+  color: #666;
+  margin-bottom: 1rem;
+}
+
+.responsable-km .modal-form label {
+  display: block;
+  margin-bottom: 1rem;
+}
+
+.responsable-km .modal-form input[type="text"] {
+  width: 100%;
+  padding: 0.5rem;
+  margin-top: 0.25rem;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+}
+
+.responsable-km .modal-actions {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: flex-end;
+  margin-top: 1.5rem;
+}
+
+/* Modal import */
+.responsable-km .modal-import {
+  max-width: 700px;
+}
+
+.responsable-km .import-summary {
+  margin-bottom: 1rem;
+}
+
+.responsable-km .import-summary p {
+  margin: 0.25rem 0;
+}
+
+.responsable-km .import-unmatched {
+  margin: 1rem 0;
+}
+
+.responsable-km .import-unmatched h4 {
+  margin: 0 0 0.5rem 0;
+  font-size: 1rem;
+}
+
+.responsable-km .unmatched-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+  margin-top: 0.5rem;
+}
+
+.responsable-km .unmatched-table th,
+.responsable-km .unmatched-table td {
+  padding: 0.4rem;
+  border: 1px solid #e0e0e0;
+  text-align: left;
+}
+
+.responsable-km .unmatched-table th {
+  background: #f8f9fa;
+}
+
+.responsable-km .voyage-deducted {
+  margin-top: 0.5rem;
+  font-weight: 600;
+  color: #856404;
 }

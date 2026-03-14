@@ -23,6 +23,11 @@ api.interceptors.request.use(
       console.warn('⚠️ Aucun token trouvé dans localStorage pour:', config.url);
     }
     
+    // FormData : ne pas imposer Content-Type pour laisser le navigateur ajouter multipart/form-data + boundary
+    if (config.data instanceof FormData) {
+      delete config.headers['Content-Type'];
+    }
+    
     return config;
   },
   (error) => {

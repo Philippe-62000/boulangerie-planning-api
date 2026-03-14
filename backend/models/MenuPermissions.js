@@ -265,67 +265,27 @@ menuPermissionsSchema.statics.createDefaultPermissions = async function() {
         order = 0
       } = menuConfig;
 
-      const existing = await this.findOne({ menuId });
-      if (!existing) {
-        await this.create({
-          menuId,
-          menuName,
-          menuPath,
-          isVisibleToAdmin,
-          isVisibleToEmployee,
-          requiredPermissions,
-          order
-        });
+      // findOneAndUpdate + upsert évite la condition de concurrence (E11000 duplicate key)
+      // quand menuPermissionsController ET server.js appellent createDefaultPermissions en parallèle
+      const result = await this.findOneAndUpdate(
+        { menuId },
+        {
+          $set: {
+            menuName,
+            menuPath,
+            isVisibleToAdmin,
+            isVisibleToEmployee,
+            requiredPermissions,
+            order,
+            isActive: true
+          }
+        },
+        { upsert: true, new: true, rawResult: true }
+      );
+      if (result.lastErrorObject?.upserted) {
         console.log(`✅ Menu ${menuId} créé`);
-      } else {
-        const existingPermissions = existing.requiredPermissions || [];
-        const desiredPermissions = requiredPermissions || [];
-        const permissionsChanged =
-          existingPermissions.length !== desiredPermissions.length ||
-          !desiredPermissions.every(permission => existingPermissions.includes(permission));
-
-        let hasChanges = false;
-
-        if (existing.menuName !== menuName) {
-          existing.menuName = menuName;
-          hasChanges = true;
-        }
-        if (existing.menuPath !== menuPath) {
-          existing.menuPath = menuPath;
-          hasChanges = true;
-        }
-        if (existing.order !== order) {
-          existing.order = order;
-          hasChanges = true;
-        }
-        if (permissionsChanged) {
-          existing.requiredPermissions = desiredPermissions;
-          hasChanges = true;
-        }
-        if (existing.isActive !== true) {
-          existing.isActive = true;
-          hasChanges = true;
-        }
-        if (existing.isVisibleToAdmin !== isVisibleToAdmin) {
-          existing.isVisibleToAdmin = isVisibleToAdmin;
-          hasChanges = true;
-        }
-        const legacyRecupVisibilityFix =
-          menuId === 'recup' &&
-          Array.isArray(existingPermissions) &&
-          existingPermissions.includes('manage_employees');
-        if (
-          (typeof existing.isVisibleToEmployee !== 'boolean' ||
-            (legacyRecupVisibilityFix && existing.isVisibleToEmployee !== isVisibleToEmployee))
-        ) {
-          existing.isVisibleToEmployee = isVisibleToEmployee;
-          hasChanges = true;
-        }
-
-        if (hasChanges) {
-          await existing.save();
-          console.log(`🔄 Menu ${menuId} mis à jour`);
-        }
+      } else if (result.value) {
+        console.log(`🔄 Menu ${menuId} synchronisé`);
       }
     };
 
