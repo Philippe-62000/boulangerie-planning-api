@@ -3,7 +3,7 @@ const AmbassadorClient = require('../models/AmbassadorClient');
 const Employee = require('../models/Employee');
 const Parameter = require('../models/Parameters');
 const smsService = require('../services/smsService');
-const XLSX = require('xlsx');
+const XLSX = require('@e965/xlsx');
 
 // Enrichir les clients avec les noms vendeuses (quand seul saleCode est stocké)
 const enrichClientsWithNames = async (clients) => {
