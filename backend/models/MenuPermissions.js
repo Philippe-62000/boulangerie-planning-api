@@ -242,6 +242,15 @@ menuPermissionsSchema.statics.createDefaultPermissions = async function() {
         isVisibleToEmployee: false,
         requiredPermissions: ['manage_employees'],
         order: 18
+      },
+      {
+        menuId: 'frais-km-responsable',
+        menuName: 'Frais KM Responsable',
+        menuPath: '/frais-km-responsable',
+        isVisibleToAdmin: true,
+        isVisibleToEmployee: false,
+        requiredPermissions: ['manage_parameters'],
+        order: 19
       }
     ];
 

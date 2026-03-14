@@ -47,7 +47,8 @@ const Sidebar = () => {
         { menuId: 'employee-dashboard', isVisibleToAdmin: false, isVisibleToEmployee: true },
         { menuId: 'ambassadeur', isVisibleToAdmin: true, isVisibleToEmployee: false },
         { menuId: 'commandes-en-ligne', isVisibleToAdmin: true, isVisibleToEmployee: true },
-        { menuId: 'product-exchanges', isVisibleToAdmin: true, isVisibleToEmployee: false }
+        { menuId: 'product-exchanges', isVisibleToAdmin: true, isVisibleToEmployee: false },
+        { menuId: 'frais-km-responsable', isVisibleToAdmin: true, isVisibleToEmployee: false }
       ];
     } else {
       return [
@@ -66,7 +67,8 @@ const Sidebar = () => {
         { menuId: 'primes', isVisibleToAdmin: false, isVisibleToEmployee: false },
         { menuId: 'ambassadeur', isVisibleToAdmin: false, isVisibleToEmployee: false },
         { menuId: 'commandes-en-ligne', isVisibleToAdmin: false, isVisibleToEmployee: true },
-        { menuId: 'product-exchanges', isVisibleToAdmin: false, isVisibleToEmployee: false }
+        { menuId: 'product-exchanges', isVisibleToAdmin: false, isVisibleToEmployee: false },
+        { menuId: 'frais-km-responsable', isVisibleToAdmin: false, isVisibleToEmployee: false }
       ];
     }
   };
@@ -134,7 +136,8 @@ const Sidebar = () => {
     { path: '/employee-dashboard', label: 'Mes Documents', icon: '📁', menuId: 'employee-dashboard' },
     { path: '/ambassadeur', label: 'Ambassadeur', icon: '⭐', menuId: 'ambassadeur' },
     { path: '/commandes-en-ligne', label: 'Commandes en ligne', icon: '🛒', menuId: 'commandes-en-ligne', longuenesseOnly: true },
-    { path: '/product-exchanges', label: 'Échanges entre boulangeries', icon: '🔄', menuId: 'product-exchanges' }
+    { path: '/product-exchanges', label: 'Échanges entre boulangeries', icon: '🔄', menuId: 'product-exchanges' },
+    { path: '/frais-km-responsable', label: 'Frais KM Responsable', icon: '🚗', menuId: 'frais-km-responsable' }
   ];
 
   // Vérifier si un menu a la permission pour le rôle actuel

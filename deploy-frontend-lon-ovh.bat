@@ -6,23 +6,24 @@ echo.
 
 echo 1. Construction du frontend avec Vite pour /lon...
 cd frontend
-set VITE_API_URL=https://boulangerie-planning-api-3.onrender.com/api
-call npm run build -- --base=/lon/
+call npm run build:lon
 if %errorlevel% neq 0 (
     echo ERREUR: Echec de la construction du frontend
+    cd ..
     pause
     exit /b 1
 )
 cd ..
 
 echo.
-echo 2. Copie des fichiers vers le dossier de déploiement...
-if not exist "deploy-frontend-lon" mkdir "deploy-frontend-lon"
+echo 2. Vérification du dossier de déploiement...
+if not exist "deploy-frontend-lon" (
+    echo ERREUR: deploy-frontend-lon non créé par le build
+    pause
+    exit /b 1
+)
 
-echo    - Copie des fichiers...
-xcopy "frontend\build\*" "deploy-frontend-lon\" /E /I /Y
-
-echo    - Création du .htaccess pour /lon/...
+echo    - Création/mise à jour du .htaccess pour /lon/...
 echo RewriteEngine On > deploy-frontend-lon\.htaccess
 echo RewriteBase /lon/ >> deploy-frontend-lon\.htaccess
 echo RewriteCond %%{REQUEST_FILENAME} !-f >> deploy-frontend-lon\.htaccess

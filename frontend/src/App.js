@@ -32,6 +32,7 @@ import MutuelleManagement from './pages/MutuelleManagement';
 import Ambassadeur from './pages/Ambassadeur';
 import CommandesEnLigne from './pages/CommandesEnLigne';
 import ProductExchanges from './pages/ProductExchanges';
+import ResponsableKmExpenses from './pages/ResponsableKmExpenses';
 
 const AppContent = () => {
   const { user, loading } = useAuth();
@@ -173,6 +174,11 @@ const AppContent = () => {
             <Route path="/product-exchanges" element={
               <ProtectedRoute>
                 <ProductExchanges />
+              </ProtectedRoute>
+            } />
+            <Route path="/frais-km-responsable" element={
+              <ProtectedRoute adminOnly={true}>
+                <ResponsableKmExpenses />
               </ProtectedRoute>
             } />
           </Routes>

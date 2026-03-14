@@ -157,6 +157,7 @@ app.use('/api/recup-hours', require('./routes/recupHours'));
 app.use('/api/ambassadors', require('./routes/ambassadors'));
 app.use('/api/online-orders', require('./routes/onlineOrders'));
 app.use('/api/product-exchanges', require('./routes/productExchanges'));
+app.use('/api/responsable-km', require('./routes/responsableKm'));
 
 // Route de santé pour vérifier que l'API fonctionne
 app.get('/health', (req, res) => {

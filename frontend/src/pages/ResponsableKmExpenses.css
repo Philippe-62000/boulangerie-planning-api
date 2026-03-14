@@ -1,0 +1,202 @@
+.responsable-km {
+  padding: 1.5rem;
+}
+
+.responsable-km .page-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.responsable-km .page-header h2 {
+  margin: 0;
+  font-size: 1.5rem;
+}
+
+.responsable-km .header-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.responsable-km .form-control {
+  padding: 0.4rem 0.6rem;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 0.9rem;
+}
+
+.responsable-km .taux-km-label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.responsable-km .taux-input {
+  width: 70px;
+  padding: 0.4rem;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+}
+
+.responsable-km .btn {
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+.responsable-km .btn-success {
+  background: #28a745;
+  color: white;
+}
+
+.responsable-km .btn-success:hover:not(:disabled) {
+  background: #218838;
+}
+
+.responsable-km .btn-outline {
+  background: white;
+  border: 1px solid #007bff;
+  color: #007bff;
+}
+
+.responsable-km .btn-outline:hover:not(:disabled) {
+  background: #007bff;
+  color: white;
+}
+
+.responsable-km .peage-section {
+  margin-bottom: 1rem;
+  padding: 1rem;
+}
+
+.responsable-km .peage-section h3 {
+  margin: 0 0 0.75rem 0;
+  font-size: 1.1rem;
+}
+
+.responsable-km .peage-fields {
+  display: flex;
+  gap: 1.5rem;
+}
+
+.responsable-km .peage-fields input {
+  width: 90px;
+  padding: 0.4rem;
+  margin-left: 0.25rem;
+}
+
+.responsable-km .table-container {
+  overflow-x: auto;
+  padding: 0.5rem;
+}
+
+.responsable-km-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+
+.responsable-km-table th,
+.responsable-km-table td {
+  padding: 0.35rem;
+  border: 1px solid #e0e0e0;
+  text-align: center;
+}
+
+.responsable-km-table th {
+  background: #f8f9fa;
+  font-weight: 600;
+}
+
+.responsable-km-table .trip-col {
+  min-width: 180px;
+  text-align: left;
+  position: sticky;
+  left: 0;
+  background: #f8f9fa;
+  z-index: 2;
+}
+
+.responsable-km-table .km-col {
+  min-width: 50px;
+}
+
+.responsable-km-table .day-col {
+  min-width: 32px;
+  max-width: 36px;
+  font-size: 0.75rem;
+}
+
+.responsable-km-table .total-col {
+  min-width: 70px;
+  background: #e3f2fd;
+  font-weight: 600;
+}
+
+.responsable-km-table .trip-cell {
+  text-align: left;
+  position: sticky;
+  left: 0;
+  background: white;
+  z-index: 1;
+}
+
+.responsable-km-table .km-cell {
+  font-weight: 500;
+}
+
+.responsable-km-table .day-cell input[type="checkbox"] {
+  cursor: pointer;
+  width: 16px;
+  height: 16px;
+}
+
+.responsable-km-table .toll-row {
+  background: #fff8e1;
+}
+
+.responsable-km-table .toll-row .trip-cell {
+  background: #fff8e1;
+}
+
+.responsable-km .summary {
+  margin-top: 1rem;
+  padding: 1rem;
+}
+
+.responsable-km .summary h3 {
+  margin: 0 0 0.75rem 0;
+}
+
+.responsable-km .summary p {
+  margin: 0.35rem 0;
+}
+
+.loading {
+  width: 40px;
+  height: 40px;
+  border: 4px solid #f3f3f3;
+  border-top: 4px solid #007bff;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin: 0 auto 1rem;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.fade-in {
+  animation: fadeIn 0.3s ease-in;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
