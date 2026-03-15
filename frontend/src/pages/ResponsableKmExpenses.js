@@ -167,7 +167,9 @@ const ResponsableKmExpenses = () => {
   const handleDeleteTripType = async (tripTypeId) => {
     if (!window.confirm('Supprimer cette ligne à partir de ce mois ? Les données des mois passés seront conservées.')) return;
     try {
-      await api.delete(`/responsable-km/trip-types/${tripTypeId}?month=${month}&year=${year}`);
+      const m = month || new Date().getMonth() + 1;
+      const y = year || new Date().getFullYear();
+      await api.delete(`/responsable-km/trip-types/${tripTypeId}`, { params: { month: m, year: y } });
       toast.success('Ligne supprimée à partir de ce mois');
       fetchData();
     } catch (e) {

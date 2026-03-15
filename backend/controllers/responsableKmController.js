@@ -536,21 +536,26 @@ exports.updateTripType = async (req, res) => {
 exports.deleteTripType = async (req, res) => {
   try {
     const { tripTypeId } = req.params;
-    const { month, year } = req.query;
+    const month = req.query.month ?? req.body?.month;
+    const year = req.query.year ?? req.body?.year;
     if (!tripTypeId) {
       return res.status(400).json({ error: 'tripTypeId requis' });
-    }
-    const m = parseInt(month, 10);
-    const y = parseInt(year, 10);
-    if (!m || !y || m < 1 || m > 12) {
-      return res.status(400).json({ error: 'Mois et année requis pour la suppression' });
     }
 
     const existing = await ResponsableTripType.findById(tripTypeId);
     if (!existing) return res.status(404).json({ error: 'Type de trajet non trouvé' });
 
-    if (!existing.name || !existing.name.startsWith('peage-import-')) {
+    const isPeageImport = (existing.name && existing.name.startsWith('peage-import-')) ||
+      (existing.isKmPerDay && (existing.importDays?.length > 0 || existing.importMonth));
+    if (!isPeageImport) {
       return res.status(400).json({ error: 'Seules les lignes créées par import péage peuvent être supprimées' });
+    }
+
+    const now = new Date();
+    const m = (parseInt(month, 10) || now.getMonth() + 1);
+    const y = parseInt(year, 10) || now.getFullYear();
+    if (m < 1 || m > 12 || y < 2020 || y > 2030) {
+      return res.status(400).json({ error: `Mois/année invalides: month=${month}, year=${year}` });
     }
 
     await ResponsableTripType.findByIdAndUpdate(tripTypeId, {
