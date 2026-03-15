@@ -152,6 +152,9 @@ const Sidebar = () => {
   // Vérifier si un menu a la permission pour le rôle actuel
   // L'API retourne uniquement les menus visibles pour le rôle : si un menu n'est pas dans la liste, il est masqué
   const hasPermission = (menuId) => {
+    // Frais KM Responsable : toujours visible pour admin sur Longuenesse et Arras
+    if (menuId === 'frais-km-responsable' && isAdmin()) return true;
+
     const permission = menuPermissions.find(p => p.menuId === menuId);
     if (permission) {
       return isAdmin() ? permission.isVisibleToAdmin : permission.isVisibleToEmployee;
