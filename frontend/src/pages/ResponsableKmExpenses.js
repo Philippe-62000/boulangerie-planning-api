@@ -114,10 +114,8 @@ const ResponsableKmExpenses = () => {
     });
   };
 
-  const handleDiversKmChange = (day, value) => {
-    const diversType = tripTypes.find(t => t.name === 'divers');
-    if (!diversType) return;
-    const key = toKey(diversType._id);
+  const handleKmPerDayChange = (tripTypeId, day, value) => {
+    const key = toKey(tripTypeId);
     const v = parseFloat(value) || 0;
     setGrid(prev => {
       const next = { ...prev };
@@ -125,6 +123,12 @@ const ResponsableKmExpenses = () => {
       next[key] = { ...next[key], [day]: v };
       return next;
     });
+  };
+
+  const handleDiversKmChange = (day, value) => {
+    const diversType = tripTypes.find(t => t.name === 'divers');
+    if (!diversType) return;
+    handleKmPerDayChange(diversType._id, day, value);
   };
 
   const handlePrint = () => {
@@ -285,23 +289,23 @@ const ResponsableKmExpenses = () => {
       const toImport = (importData.unmatched || [])
         .filter((_, i) => !refusedIndexes.has(i));
 
-      const tollEntriesFromUnmatched = toImport.map(u => ({ day: u.day, count: 1 }));
       const tollEntriesFromRecognized = (importData.recognizedDays || []).map(r => ({ day: r.day, count: r.count || 1 }));
-      const tollEntries = [...tollEntriesFromRecognized, ...tollEntriesFromUnmatched];
+      const tollEntries = tollEntriesFromRecognized;
 
       const deducted = refusedUnmatched.reduce((s, u) => s + (parseFloat(u.amountTTC) || 0), 0);
       const tollAmountToSave = roundEuro((importTotalTTC || importData.totalTTC || 0) - deducted);
 
-      await api.post('/responsable-km/confirm-import-pdf', {
+      const res = await api.post('/responsable-km/confirm-import-pdf', {
         site,
         month,
         year,
         tollEntries,
         tollAmountTTC: tollAmountToSave,
-        refusedUnmatched
+        refusedUnmatched,
+        unmatchedToImport: toImport.map(u => ({ day: u.day, entry: u.entry, exit: u.exit, amountTTC: u.amountTTC }))
       });
 
-      toast.success(importData.message || 'Import appliqué');
+      toast.success(res.data?.data?.message || 'Import appliqué');
       setShowImportModal(false);
       setImportData(null);
       setTollAmountTTC(tollAmountToSave);
@@ -320,15 +324,15 @@ const ResponsableKmExpenses = () => {
     tripTypes.forEach(t => {
       const key = t._id.toString();
       const days = grid[key] || {};
-      const isDivers = t.name === 'divers';
+      const isKmPerDay = t.name === 'divers' || t.isKmPerDay;
       let km;
-      if (isDivers) {
+      if (isKmPerDay) {
         km = Object.values(days).reduce((s, v) => s + (parseFloat(v) || 0), 0);
       } else {
         const count = Object.values(days).reduce((s, v) => s + (v || 0), 0);
         km = count * (t.km || 0);
       }
-      byType[key] = { count: isDivers ? '-' : Object.values(days).reduce((s, v) => s + (v || 0), 0), km };
+      byType[key] = { count: isKmPerDay ? '-' : Object.values(days).reduce((s, v) => s + (v || 0), 0), km };
       totalKm += km;
     });
     const totalEuros = totalKm * tauxKm;
@@ -539,9 +543,9 @@ const ResponsableKmExpenses = () => {
                 return (
                   <>
                     {refusedIndexes.size > 0 && (
-                      <p className="import-deducted"><strong>Péages refusés :</strong> {refusedAmount.toFixed(2)} €</p>
+                      <p className="import-deducted"><strong>Péages refusés (TTC) :</strong> {refusedAmount.toFixed(2)} €</p>
                     )}
-                    <p className="import-net"><strong>Péage à déclarer :</strong> {netAmount.toFixed(2)} €</p>
+                    <p className="import-net"><strong>Péage à déclarer (TTC) :</strong> {netAmount.toFixed(2)} €</p>
                   </>
                 );
               })()}
@@ -549,14 +553,14 @@ const ResponsableKmExpenses = () => {
             {importData.unmatched && importData.unmatched.length > 0 && (
               <div className="import-unmatched">
                 <h4>Trajets non reconnus (entrée/sortie ≠ paramètres)</h4>
-                <p className="modal-hint">Cochez "Refuser l'import" pour les déplacements personnels. Le montant sera déduit du péage total.</p>
+                <p className="modal-hint">Cochez "Refuser l'import" pour les déplacements personnels. Le montant TTC sera déduit du péage total. Les trajets non refusés créeront une ligne dans le tableau pour saisir les km à la date du déplacement.</p>
                 <table className="unmatched-table">
                   <thead>
                     <tr>
                       <th>Jour</th>
                       <th>Entrée</th>
                       <th>Sortie</th>
-                      <th>Montant</th>
+                      <th>Montant TTC</th>
                       <th>Refuser l'import</th>
                     </tr>
                   </thead>
@@ -580,7 +584,7 @@ const ResponsableKmExpenses = () => {
                 </table>
                 {refusedIndexes.size > 0 && (
                   <p className="voyage-deducted">
-                    Voyage(s) déduit(s) : {importData.unmatched
+                    Voyage(s) déduit(s) (TTC) : {importData.unmatched
                       .filter((_, i) => refusedIndexes.has(i))
                       .reduce((s, u) => s + (parseFloat(u.amountTTC) || 0), 0).toFixed(2)} €
                   </p>
@@ -621,12 +625,12 @@ const ResponsableKmExpenses = () => {
             {tripTypes.map(t => {
               const key = t._id.toString();
               const days = grid[key] || {};
-              const isDivers = t.name === 'divers';
-              const km = isDivers
+              const isKmPerDay = t.name === 'divers' || t.isKmPerDay;
+              const km = isKmPerDay
                 ? Object.values(days).reduce((s, v) => s + (parseFloat(v) || 0), 0)
                 : Object.values(days).reduce((s, v) => s + (v || 0), 0) * (t.km || 0);
               return (
-                <tr key={t._id} className={[t.isBoulangerie && 'boulangerie-row', isDivers && 'divers-row'].filter(Boolean).join(' ')}>
+                <tr key={t._id} className={[t.isBoulangerie && 'boulangerie-row', isKmPerDay && 'divers-row', t.isKmPerDay && t.name !== 'divers' && 'peage-import-row'].filter(Boolean).join(' ')}>
                   <td className="trip-cell" onClick={e => e.stopPropagation()}>
                     <input
                       type="text"
@@ -641,7 +645,7 @@ const ResponsableKmExpenses = () => {
                     />
                   </td>
                   <td className="km-cell" onClick={e => e.stopPropagation()}>
-                    {!isDivers && (
+                    {!isKmPerDay && (
                       <input
                         type="number"
                         step="0.1"
@@ -659,11 +663,11 @@ const ResponsableKmExpenses = () => {
                         autoComplete="off"
                       />
                     )}
-                    {isDivers && <span className="divers-km-label">–</span>}
+                    {isKmPerDay && <span className="divers-km-label">–</span>}
                   </td>
                   {Array.from({ length: daysInMonth }, (_, i) => {
                     const d = i + 1;
-                    if (isDivers) {
+                    if (isKmPerDay) {
                       const kmVal = days[d] || 0;
                       return (
                         <td key={d} className="day-cell" onClick={e => e.stopPropagation()}>
@@ -672,7 +676,7 @@ const ResponsableKmExpenses = () => {
                             step="0.1"
                             min="0"
                             value={kmVal}
-                            onChange={e => handleDiversKmChange(d, e.target.value)}
+                            onChange={e => handleKmPerDayChange(t._id, d, e.target.value)}
                             className="divers-day-input"
                             placeholder="0"
                           />

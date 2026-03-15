@@ -1,8 +1,12 @@
 /**
  * Parse Bip&Go PDF facture autoroute pour extraire les transactions (date, entrée, sortie, montant)
  * et le montant total TTC
+ * Note: Les montants par ligne dans le PDF Bip&Go sont en HT ; on les convertit en TTC (TVA 20%)
  */
 const pdfParse = require('pdf-parse');
+
+const TVA_TAUX = 1.2; // TVA 20% : TTC = HT * 1.2
+const roundEuro = (n) => Math.round((Number(n) || 0) * 100) / 100;
 
 /**
  * Normalise un nom de péage pour la comparaison (minuscules, sans accents, sans espaces multiples)
@@ -73,12 +77,13 @@ function extractTransactions(text, expectedMonth, expectedYear) {
 
     if (month !== expectedMonth || year !== expectedYear || day < 1 || day > 31) continue;
 
-    // Montant: dernier nombre format X,XX ou X.XX
+    // Montant: dernier nombre format X,XX ou X.XX (PDF Bip&Go = HT, on convertit en TTC)
     const amountMatches = line.match(/([\d\s]+[,.]\d{2})\s*€?/g);
     let amountTTC = 0;
     if (amountMatches && amountMatches.length > 0) {
       const lastAmount = amountMatches[amountMatches.length - 1];
-      amountTTC = parseFloat(lastAmount.replace(/\s/g, '').replace(',', '.')) || 0;
+      const amountHT = parseFloat(lastAmount.replace(/\s/g, '').replace(',', '.')) || 0;
+      amountTTC = roundEuro(amountHT * TVA_TAUX);
     }
 
     // Entrée/Sortie: colonnes séparées par | ou 2+ espaces

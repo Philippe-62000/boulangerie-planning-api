@@ -403,6 +403,15 @@
   background: #f5f5f5;
 }
 
+/* Ligne péage import (à renseigner km) */
+.responsable-km-table .peage-import-row {
+  background: #fff8f0;
+  border-left: 3px solid #e67e22;
+}
+.responsable-km-table .peage-import-row .trip-cell {
+  background: #fff8f0;
+}
+
 .responsable-km-table .divers-row .trip-cell {
   background: #f5f5f5;
 }

@@ -330,10 +330,22 @@ exports.importPdf = async (req, res) => {
   }
 };
 
+/** Extrait un libellé lisible d'une entrée/sortie de péage (ex: "25003087A48VOREPPE BARRIERE" → "VOREPPE BARRIERE") */
+function extractPeageDisplayName(entry, exit) {
+  const clean = (s) => {
+    if (!s || typeof s !== 'string') return '';
+    return s.replace(/^\d{8}[A-Z0-9]*\s*/, '').replace(/\d+[,.]\d[\d,.\s%]*$/g, '').trim().substring(0, 60);
+  };
+  const e = clean(entry);
+  const s = clean(exit);
+  if (e && s) return `${e} → ${s}`;
+  return e || s || (entry || '').substring(0, 60);
+}
+
 /** Applique l'import après réconciliation utilisateur */
 exports.confirmImportPdf = async (req, res) => {
   try {
-    const { site, month, year, tollEntries, tollAmountTTC, refusedUnmatched } = req.body;
+    const { site, month, year, tollEntries, tollAmountTTC, refusedUnmatched, unmatchedToImport } = req.body;
     if (!site || !month || !year) {
       return res.status(400).json({ error: 'Site, mois et année requis' });
     }
@@ -357,6 +369,34 @@ exports.confirmImportPdf = async (req, res) => {
         const retourCount = roundTrips;
         if (allerCount > 0) entries.push({ tripTypeId: allerType._id, day, count: allerCount });
         if (retourCount > 0) entries.push({ tripTypeId: retourType._id, day, count: retourCount });
+      }
+    }
+
+    // Créer une ligne par entrée/sortie non reconnue (non refusée) pour saisie manuelle des km
+    const createdRows = [];
+    if (Array.isArray(unmatchedToImport) && unmatchedToImport.length > 0) {
+      const seen = new Set();
+      const maxOrder = await ResponsableTripType.findOne({ site }).sort({ order: -1 }).select('order').lean();
+      let nextOrder = (maxOrder?.order ?? 12) + 1;
+
+      for (const u of unmatchedToImport) {
+        const key = `${(u.entry || '').trim()}|${(u.exit || '').trim()}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+
+        const displayName = extractPeageDisplayName(u.entry, u.exit);
+        if (!displayName) continue;
+
+        const name = `peage-import-${nextOrder}-${Date.now().toString(36)}`;
+        const newType = await ResponsableTripType.create({
+          site,
+          name,
+          displayName,
+          km: 0,
+          order: nextOrder++,
+          isKmPerDay: true
+        });
+        createdRows.push(displayName);
       }
     }
 
@@ -391,11 +431,15 @@ exports.confirmImportPdf = async (req, res) => {
       ? refusedUnmatched.reduce((s, u) => s + (parseFloat(u.amountTTC) || 0), 0)
       : 0;
 
+    let message = `Import appliqué. ${entries.length} trajet(s) Aller/Retour.`;
+    if (createdRows.length > 0) {
+      message += ` ${createdRows.length} ligne(s) créée(s) pour saisie km : ${createdRows.join(', ')}.`;
+    }
+    if (deducted > 0) message += ` Voyages déduits: ${deducted.toFixed(2)} €`;
+
     res.json({
       success: true,
-      data: {
-        message: `Import appliqué. ${entries.length} trajet(s) Aller/Retour.${deducted > 0 ? ` Voyages déduits: ${deducted.toFixed(2)} €` : ''}`
-      }
+      data: { message }
     });
   } catch (error) {
     console.error('Erreur confirmImportPdf:', error);
