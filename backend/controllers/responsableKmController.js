@@ -536,7 +536,7 @@ exports.updateTripType = async (req, res) => {
 exports.deleteTripType = async (req, res) => {
   try {
     const { tripTypeId } = req.params;
-    const { month, year } = req.body;
+    const { month, year } = req.query;
     if (!tripTypeId) {
       return res.status(400).json({ error: 'tripTypeId requis' });
     }
