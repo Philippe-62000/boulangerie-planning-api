@@ -40,6 +40,10 @@ const responsableTripTypeSchema = new mongoose.Schema({
     type: [Number],
     default: []
   },
+  importMonth: { type: Number, min: 1, max: 12 },
+  importYear: { type: Number, min: 2020, max: 2030 },
+  deletedFromMonth: { type: Number, min: 1, max: 12 },
+  deletedFromYear: { type: Number, min: 2020, max: 2030 },
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now }
 });

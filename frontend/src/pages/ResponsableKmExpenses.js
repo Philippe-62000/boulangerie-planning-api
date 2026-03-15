@@ -165,10 +165,10 @@ const ResponsableKmExpenses = () => {
   };
 
   const handleDeleteTripType = async (tripTypeId) => {
-    if (!window.confirm('Supprimer cette ligne de déplacement ?')) return;
+    if (!window.confirm('Supprimer cette ligne à partir de ce mois ? Les données des mois passés seront conservées.')) return;
     try {
-      await api.delete(`/responsable-km/trip-types/${tripTypeId}`);
-      toast.success('Ligne supprimée');
+      await api.delete(`/responsable-km/trip-types/${tripTypeId}`, { data: { month, year } });
+      toast.success('Ligne supprimée à partir de ce mois');
       fetchData();
     } catch (e) {
       toast.error(e.response?.data?.error || 'Erreur lors de la suppression');
@@ -692,7 +692,8 @@ const ResponsableKmExpenses = () => {
                     const d = i + 1;
                     if (isKmPerDay) {
                       const kmVal = days[d] || 0;
-                      const isImportDay = Array.isArray(t.importDays) && t.importDays.includes(d);
+                      const isSameMonthAsImport = t.importMonth === month && t.importYear === year;
+                      const isImportDay = isSameMonthAsImport && Array.isArray(t.importDays) && t.importDays.includes(d);
                       return (
                         <td key={d} className={`day-cell ${isImportDay ? 'peage-import-day-cell' : ''}`} onClick={e => e.stopPropagation()}>
                           <input

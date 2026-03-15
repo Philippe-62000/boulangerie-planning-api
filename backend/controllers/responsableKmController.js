@@ -122,7 +122,14 @@ exports.getExpense = async (req, res) => {
       const obj = t.toObject();
       if (t.isBoulangerie) obj.km = peageParams.kmBoulangerie;
       return obj;
-    }).filter(t => !t.isToll);
+    }).filter(t => {
+      if (t.isToll) return false;
+      if (t.deletedFromMonth && t.deletedFromYear) {
+        if (y > t.deletedFromYear) return false;
+        if (y === t.deletedFromYear && m >= t.deletedFromMonth) return false;
+      }
+      return true;
+    });
 
     const daysInMonth = new Date(y, m, 0).getDate();
     const grid = {};
@@ -398,7 +405,9 @@ exports.confirmImportPdf = async (req, res) => {
           km: 0,
           order: nextOrder++,
           isKmPerDay: true,
-          importDays: days.sort((a, b) => a - b)
+          importDays: days.sort((a, b) => a - b),
+          importMonth: m,
+          importYear: y
         });
         createdRows.push(displayName);
       }
@@ -527,9 +536,16 @@ exports.updateTripType = async (req, res) => {
 exports.deleteTripType = async (req, res) => {
   try {
     const { tripTypeId } = req.params;
+    const { month, year } = req.body;
     if (!tripTypeId) {
       return res.status(400).json({ error: 'tripTypeId requis' });
     }
+    const m = parseInt(month, 10);
+    const y = parseInt(year, 10);
+    if (!m || !y || m < 1 || m > 12) {
+      return res.status(400).json({ error: 'Mois et année requis pour la suppression' });
+    }
+
     const existing = await ResponsableTripType.findById(tripTypeId);
     if (!existing) return res.status(404).json({ error: 'Type de trajet non trouvé' });
 
@@ -537,14 +553,26 @@ exports.deleteTripType = async (req, res) => {
       return res.status(400).json({ error: 'Seules les lignes créées par import péage peuvent être supprimées' });
     }
 
-    const idStr = existing._id.toString();
-    await ResponsableKmExpense.updateMany(
-      { site: existing.site },
-      { $pull: { entries: { tripTypeId: existing._id } } }
-    );
-    await ResponsableTripType.findByIdAndDelete(tripTypeId);
+    await ResponsableTripType.findByIdAndUpdate(tripTypeId, {
+      deletedFromMonth: m,
+      deletedFromYear: y,
+      updatedAt: new Date()
+    });
 
-    res.json({ success: true, data: { message: 'Ligne supprimée' } });
+    const expensesToUpdate = await ResponsableKmExpense.find({
+      site: existing.site,
+      $or: [
+        { year: { $gt: y } },
+        { year: y, month: { $gte: m } }
+      ]
+    });
+
+    for (const exp of expensesToUpdate) {
+      const filtered = exp.entries.filter(e => e.tripTypeId.toString() !== existing._id.toString());
+      await ResponsableKmExpense.updateOne({ _id: exp._id }, { $set: { entries: filtered } });
+    }
+
+    res.json({ success: true, data: { message: 'Ligne supprimée à partir de ce mois (données passées conservées)' } });
   } catch (error) {
     console.error('Erreur deleteTripType:', error);
     res.status(500).json({ error: error.message });
