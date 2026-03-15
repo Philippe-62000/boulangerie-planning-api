@@ -218,9 +218,8 @@ async function parseBipGoPdf(buffer, expectedMonth, expectedYear, entreePeage = 
       allerCount += oneWay;
       const count = roundTrips * 2 + oneWay;
       recognizedDays.push({ day, count });
-    } else if (dayTx.length > 0) {
-      unmatched.push({ day, entry: dayTx.map(t => t.entry).join(' / '), exit: dayTx.map(t => t.exit).join(' / '), amountTTC: dayAmount });
     }
+    // Ne pas ajouter de ligne "combinée" : les transactions non reconnues sont déjà ajoutées une par une dans la boucle ci-dessus
   }
 
   recognizedDays.sort((a, b) => a.day - b.day);
