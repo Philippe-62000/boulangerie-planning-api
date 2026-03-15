@@ -182,11 +182,6 @@ const AppContent = () => {
                 <ResponsableKmExpenses />
               </ProtectedRoute>
             } />
-            <Route path="/deplacement-standalone" element={
-              <ProtectedRoute>
-                <DeplacementStandalone />
-              </ProtectedRoute>
-            } />
           </Routes>
         </main>
       </div>
@@ -222,6 +217,8 @@ function App() {
         <Routes>
           <Route path="/ambassadeur-standalone" element={<AmbassadeurStandaloneRedirect />} />
           <Route path="/login" element={<Login />} />
+          <Route path="/deplacement-standalone" element={<DeplacementStandalone />} />
+          <Route path="/deplacement-standalone.html" element={<DeplacementStandalone />} />
           <Route path="/*" element={<AppContent />} />
         </Routes>
     </Router>

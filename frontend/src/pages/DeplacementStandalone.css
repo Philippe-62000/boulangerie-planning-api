@@ -42,6 +42,33 @@
   margin-bottom: 20px;
 }
 
+.deplacement-form .form-group-checkbox {
+  padding: 12px 0;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.deplacement-form .checkbox-label {
+  display: flex !important;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.deplacement-form .checkbox-label input[type="checkbox"] {
+  width: 20px;
+  height: 20px;
+  cursor: pointer;
+  accent-color: #667eea;
+}
+
+.deplacement-form .checkbox-hint {
+  margin: 6px 0 0 30px;
+  font-size: 0.85rem;
+  color: #666;
+  font-weight: normal;
+}
+
 .deplacement-form label {
   display: block;
   margin-bottom: 8px;

@@ -1,0 +1,6 @@
+# Version minimale - à tester si la version complète échoue
+# Renommer en .htaccess pour tester
+RewriteEngine On
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule . /lon/index.html [L]

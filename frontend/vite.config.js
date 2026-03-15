@@ -35,6 +35,10 @@ export default defineConfig({
     assetsDir: 'static',
     sourcemap: true,
     rollupOptions: {
+      input: {
+        main: path.resolve(__dirname, 'index.html'),
+        'deplacement-standalone': path.resolve(__dirname, 'deplacement-standalone.html'),
+      },
       output: {
         // Conserver la structure des noms de fichiers pour compatibilité
         entryFileNames: 'static/js/[name].[hash].js',

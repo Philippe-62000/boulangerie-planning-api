@@ -14,12 +14,18 @@ const DeplacementStandalone = () => {
   const [apiUrl, setApiUrl] = useState(baseApi);
   const [tripTypes, setTripTypes] = useState([]);
   const [diversPresets, setDiversPresets] = useState([]);
+  const [nonEnregistre, setNonEnregistre] = useState(false);
+  const [selectedDeplacementId, setSelectedDeplacementId] = useState('');
   const [fromId, setFromId] = useState('');
   const [toId, setToId] = useState('');
   const [diversDetail, setDiversDetail] = useState('');
   const [diversKm, setDiversKm] = useState('');
   const [diversPresetId, setDiversPresetId] = useState('');
   const [comment, setComment] = useState('');
+  const [displacementDate, setDisplacementDate] = useState(() => {
+    const d = new Date();
+    return d.toISOString().slice(0, 10);
+  });
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
@@ -28,6 +34,7 @@ const DeplacementStandalone = () => {
   useEffect(() => {
     if (site) {
       setApiUrl(API_URLS[site] || baseApi);
+      setSelectedDeplacementId('');
       setFromId('');
       setToId('');
       setDiversDetail('');
@@ -59,7 +66,10 @@ const DeplacementStandalone = () => {
   }, [site]);
 
   const toOptions = tripTypes.filter(t => !t.isToll);
+  const selectedDeplacement = nonEnregistre ? null : tripTypes.find(t => (t._id || '').toString() === (selectedDeplacementId || '').toString());
+  const isSelectedDivers = selectedDeplacement?.name === 'divers';
   const isToDivers = toId && tripTypes.find(t => t._id === toId || t._id?.toString?.() === toId)?.name === 'divers';
+  const isDivers = nonEnregistre ? isToDivers : isSelectedDivers;
 
   const handleDiversPresetChange = (presetId) => {
     setDiversPresetId(presetId);
@@ -75,12 +85,13 @@ const DeplacementStandalone = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!site || !toId) {
-      setMessage('Sélectionnez le site et la destination (Pour)');
+    const toIdFinal = nonEnregistre ? toId : selectedDeplacementId;
+    if (!site || !toIdFinal) {
+      setMessage(nonEnregistre ? 'Sélectionnez le site et la destination (Pour)' : 'Sélectionnez le site et le déplacement');
       setMessageType('error');
       return;
     }
-    if (isToDivers && !diversDetail.trim()) {
+    if (isDivers && !diversDetail.trim()) {
       setMessage('Précisez le détail pour Divers');
       setMessageType('error');
       return;
@@ -88,25 +99,26 @@ const DeplacementStandalone = () => {
     setSaving(true);
     setMessage('');
     try {
-      const now = new Date();
+      const d = displacementDate ? new Date(displacementDate) : new Date();
       const token = getStoredToken();
-      const res = await axios.post(
+      await axios.post(
         `${API_URLS[site] || apiUrl}/responsable-km/log-displacement`,
         {
           site,
-          month: now.getMonth() + 1,
-          year: now.getFullYear(),
-          day: now.getDate(),
-          fromTripTypeId: fromId || undefined,
-          toTripTypeId: toId,
-          diversDetail: isToDivers ? diversDetail.trim() : '',
-          diversKm: isToDivers && diversKm !== '' ? parseFloat(diversKm) : undefined,
+          month: d.getMonth() + 1,
+          year: d.getFullYear(),
+          day: d.getDate(),
+          fromTripTypeId: nonEnregistre ? (fromId || undefined) : undefined,
+          toTripTypeId: toIdFinal,
+          diversDetail: isDivers ? diversDetail.trim() : '',
+          diversKm: isDivers && diversKm !== '' ? parseFloat(diversKm) : undefined,
           comment: comment.trim() || undefined
         },
         { headers: token ? { Authorization: `Bearer ${token}` } : {} }
       );
       setMessage('Déplacement enregistré !');
       setMessageType('success');
+      setSelectedDeplacementId('');
       setFromId('');
       setToId('');
       setDiversDetail('');
@@ -149,44 +161,100 @@ const DeplacementStandalone = () => {
           {site && !loading && (
             <>
               <div className="form-group">
-                <label>De (où partez-vous ?)</label>
-                <select
-                  value={fromId}
-                  onChange={e => setFromId(e.target.value)}
+                <label>Date du déplacement</label>
+                <input
+                  type="date"
+                  value={displacementDate}
+                  onChange={e => setDisplacementDate(e.target.value)}
                   className="form-control"
-                >
-                  <option value="">– Choisir –</option>
-                  {toOptions.map(t => (
-                    <option key={t._id} value={t._id}>
-                      {t.displayName}
-                    </option>
-                  ))}
-                </select>
+                />
               </div>
 
-              <div className="form-group">
-                <label>Pour (où allez-vous ?)</label>
-                <select
-                  value={toId}
-                  onChange={e => {
-                    setToId(e.target.value);
-                    setDiversPresetId('');
-                    setDiversDetail('');
-                    setDiversKm('');
-                  }}
-                  required
-                  className="form-control"
-                >
-                  <option value="">– Choisir –</option>
-                  {toOptions.map(t => (
-                    <option key={t._id} value={t._id}>
-                      {t.displayName}
-                    </option>
-                  ))}
-                </select>
+              <div className="form-group form-group-checkbox">
+                <label className="checkbox-label">
+                  <input
+                    type="checkbox"
+                    checked={nonEnregistre}
+                    onChange={e => {
+                      setNonEnregistre(e.target.checked);
+                      setSelectedDeplacementId('');
+                      setFromId('');
+                      setToId('');
+                      setDiversDetail('');
+                      setDiversKm('');
+                      setDiversPresetId('');
+                    }}
+                  />
+                  <span>Déplacement non enregistré</span>
+                </label>
+                <p className="checkbox-hint">Cochez pour saisir un déplacement De/Pour personnalisé</p>
               </div>
 
-              {isToDivers && (
+              {!nonEnregistre ? (
+                <div className="form-group">
+                  <label>Quel déplacement ?</label>
+                  <select
+                    value={selectedDeplacementId}
+                    onChange={e => {
+                      setSelectedDeplacementId(e.target.value);
+                      setDiversPresetId('');
+                      setDiversDetail('');
+                      setDiversKm('');
+                    }}
+                    required
+                    className="form-control"
+                  >
+                    <option value="">– Choisir –</option>
+                    {toOptions.map(t => (
+                      <option key={t._id} value={t._id}>
+                        {t.displayName} {t.km != null ? `(${t.km} km)` : ''}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              ) : (
+                <>
+                  <div className="form-group">
+                    <label>De (où partez-vous ?)</label>
+                    <select
+                      value={fromId}
+                      onChange={e => setFromId(e.target.value)}
+                      className="form-control"
+                    >
+                      <option value="">– Choisir –</option>
+                      {toOptions.map(t => (
+                        <option key={t._id} value={t._id}>
+                          {t.displayName}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="form-group">
+                    <label>Pour (où allez-vous ?)</label>
+                    <select
+                      value={toId}
+                      onChange={e => {
+                        setToId(e.target.value);
+                        setDiversPresetId('');
+                        setDiversDetail('');
+                        setDiversKm('');
+                      }}
+                      required
+                      className="form-control"
+                    >
+                      <option value="">– Choisir –</option>
+                      {toOptions.map(t => (
+                        <option key={t._id} value={t._id}>
+                          {t.displayName}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </>
+              )}
+
+              {isDivers && (
                 <>
                   <div className="form-group">
                     <label>Divers existant ou nouveau</label>

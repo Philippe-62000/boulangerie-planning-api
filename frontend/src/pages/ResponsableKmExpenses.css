@@ -343,6 +343,21 @@
   color: #856404;
 }
 
+.responsable-km .import-total-input {
+  width: 90px;
+  padding: 4px 8px;
+  font-size: 1rem;
+  border: 2px solid #667eea;
+  border-radius: 6px;
+  margin: 0 4px;
+}
+
+.responsable-km .import-original {
+  font-size: 0.9rem;
+  color: #666;
+  margin-left: 4px;
+}
+
 .responsable-km .import-net {
   font-weight: 600;
   color: #155724;

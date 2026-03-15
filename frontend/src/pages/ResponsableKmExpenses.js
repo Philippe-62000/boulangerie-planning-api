@@ -5,6 +5,8 @@ import './ResponsableKmExpenses.css';
 
 const MONTHS = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
 
+const roundEuro = (n) => Math.round((Number(n) || 0) * 100) / 100;
+
 const ResponsableKmExpenses = () => {
   const site = window.location.pathname.startsWith('/lon') ? 'longuenesse' : 'arras';
   const [month, setMonth] = useState(new Date().getMonth() + 1);
@@ -32,6 +34,7 @@ const ResponsableKmExpenses = () => {
   // Modal réconciliation import
   const [showImportModal, setShowImportModal] = useState(false);
   const [importData, setImportData] = useState(null);
+  const [importTotalTTC, setImportTotalTTC] = useState(0);
   const [refusedIndexes, setRefusedIndexes] = useState(new Set());
   const [confirmingImport, setConfirmingImport] = useState(false);
 
@@ -55,8 +58,8 @@ const ResponsableKmExpenses = () => {
         setTripTypes(d.tripTypes || []);
         setEditingTrip({});
         setGrid(d.grid || {});
-        setTollAmountTTC(d.tollAmountTTC || 0);
-        setTollAmountHT(d.tollAmountHT || 0);
+        setTollAmountTTC(roundEuro(d.tollAmountTTC || 0));
+        setTollAmountHT(roundEuro(d.tollAmountHT || 0));
         setDiversComments(d.diversComments || '');
         setDaysInMonth(d.daysInMonth || new Date(year, month, 0).getDate());
       }
@@ -251,6 +254,7 @@ const ResponsableKmExpenses = () => {
       const res = await api.post('/responsable-km/import-pdf', formData);
       const data = res.data?.data;
       setImportData(data);
+      setImportTotalTTC(roundEuro(data?.totalTTC || 0));
       setRefusedIndexes(new Set());
       setShowImportModal(true);
     } catch (error) {
@@ -286,7 +290,7 @@ const ResponsableKmExpenses = () => {
       const tollEntries = [...tollEntriesFromRecognized, ...tollEntriesFromUnmatched];
 
       const deducted = refusedUnmatched.reduce((s, u) => s + (parseFloat(u.amountTTC) || 0), 0);
-      const tollAmountToSave = (importData.totalTTC || 0) - deducted;
+      const tollAmountToSave = roundEuro((importTotalTTC || importData.totalTTC || 0) - deducted);
 
       await api.post('/responsable-km/confirm-import-pdf', {
         site,
@@ -301,7 +305,7 @@ const ResponsableKmExpenses = () => {
       setShowImportModal(false);
       setImportData(null);
       setTollAmountTTC(tollAmountToSave);
-      setTollAmountHT(Math.round(tollAmountToSave / 1.2 * 100) / 100);
+      setTollAmountHT(roundEuro(tollAmountToSave / 1.2));
       fetchData();
     } catch (error) {
       toast.error(error.response?.data?.error || 'Erreur lors de l\'application');
@@ -403,7 +407,7 @@ const ResponsableKmExpenses = () => {
           <button type="button" className="btn btn-outline" onClick={handlePrint}>
             🖨️ Imprimer
           </button>
-          <a href={`${basePath}/deplacement-standalone`} className="btn btn-outline" target="_blank" rel="noopener noreferrer">
+          <a href={`${basePath}/deplacement-standalone.html`} className="btn btn-outline" target="_blank" rel="noopener noreferrer">
             📱 Saisie mobile
           </a>
           {pendingDisplacements > 0 && (
@@ -513,10 +517,25 @@ const ResponsableKmExpenses = () => {
             <h3>📄 Réconciliation import PDF</h3>
             <div className="import-summary">
               <p><strong>Reconnus :</strong> {importData.allerCount || 0} aller, {importData.allerRetourCount || 0} aller-retour</p>
-              <p><strong>Total facture (import) :</strong> {importData.totalTTC?.toFixed(2) || '0'} €</p>
+              <p>
+                <strong>Total facture TTC :</strong>{' '}
+                <input
+                  type="number"
+                  step="0.01"
+                  value={importTotalTTC}
+                  onChange={e => setImportTotalTTC(roundEuro(parseFloat(e.target.value) || 0))}
+                  className="import-total-input"
+                  title="Corrigez si le PDF n'a pas extrait le bon montant"
+                />
+                {' €'}
+                {importData.totalTTC != null && Math.abs(roundEuro(importData.totalTTC) - importTotalTTC) > 0.01 && (
+                  <span className="import-original"> (PDF: {importData.totalTTC?.toFixed(2)} €)</span>
+                )}
+              </p>
               {(() => {
+                const totalFacture = importTotalTTC || importData.totalTTC || 0;
                 const refusedAmount = (importData.unmatched || []).filter((_, i) => refusedIndexes.has(i)).reduce((s, u) => s + (parseFloat(u.amountTTC) || 0), 0);
-                const netAmount = (importData.totalTTC || 0) - refusedAmount;
+                const netAmount = roundEuro(totalFacture - refusedAmount);
                 return (
                   <>
                     {refusedIndexes.size > 0 && (
@@ -581,8 +600,8 @@ const ResponsableKmExpenses = () => {
       <div className="peage-section card">
         <h3>Péage autoroute</h3>
         <div className="peage-fields">
-          <label>TTC : <input type="number" step="0.01" value={tollAmountTTC} onChange={e => setTollAmountTTC(parseFloat(e.target.value) || 0)} /> €</label>
-          <label>HT : <input type="number" step="0.01" value={tollAmountHT} onChange={e => setTollAmountHT(parseFloat(e.target.value) || 0)} /> €</label>
+          <label>TTC : <input type="number" step="0.01" value={roundEuro(tollAmountTTC)} onChange={e => setTollAmountTTC(roundEuro(parseFloat(e.target.value) || 0))} /> €</label>
+          <label>HT : <input type="number" step="0.01" value={roundEuro(tollAmountHT)} onChange={e => setTollAmountHT(roundEuro(parseFloat(e.target.value) || 0))} /> €</label>
         </div>
       </div>
 
@@ -697,8 +716,8 @@ const ResponsableKmExpenses = () => {
         <h3>Récapitulatif</h3>
         <p><strong>Total KM :</strong> {totalKm} km</p>
         <p><strong>Montant KM :</strong> {totalEuros.toFixed(2)} € (à {tauxKm} €/km)</p>
-        <p><strong>Péage TTC :</strong> {tollAmountTTC.toFixed(2)} €</p>
-        <p><strong>Total à déclarer :</strong> {(totalEuros + tollAmountTTC).toFixed(2)} €</p>
+        <p><strong>Péage TTC :</strong> {roundEuro(tollAmountTTC).toFixed(2)} €</p>
+        <p><strong>Total à déclarer :</strong> {roundEuro(totalEuros + tollAmountTTC).toFixed(2)} €</p>
       </div>
     </div>
   );

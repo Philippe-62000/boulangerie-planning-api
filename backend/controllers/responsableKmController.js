@@ -5,6 +5,8 @@ const DiversPreset = require('../models/DiversPreset');
 const Parameter = require('../models/Parameters');
 const { parseBipGoPdf } = require('../services/bipGoPdfParser');
 
+const roundEuro = (n) => Math.round((Number(n) || 0) * 100) / 100;
+
 const DEFAULT_TRIP_TYPES_LONGUENESSE = [
   { name: 'aller-boulangerie', displayName: 'Aller boulangerie', km: 50, order: 0, isBoulangerie: true },
   { name: 'retour-boulangerie', displayName: 'Retour boulangerie', km: 50, order: 1, isBoulangerie: true },
@@ -148,8 +150,8 @@ exports.getExpense = async (req, res) => {
         year: y,
         tripTypes: types,
         grid,
-        tollAmountTTC: expense?.tollAmountTTC ?? 0,
-        tollAmountHT: expense?.tollAmountHT ?? 0,
+        tollAmountTTC: roundEuro(expense?.tollAmountTTC ?? 0),
+        tollAmountHT: roundEuro(expense?.tollAmountHT ?? 0),
         pdfImportedDates: expense?.pdfImportedDates ?? [],
         diversComments: expense?.diversComments ?? '',
         tauxKm,
@@ -191,8 +193,8 @@ exports.saveExpense = async (req, res) => {
       month: m,
       year: y,
       entries,
-      tollAmountTTC: parseFloat(tollAmountTTC) || 0,
-      tollAmountHT: parseFloat(tollAmountHT) || 0,
+      tollAmountTTC: roundEuro(tollAmountTTC),
+      tollAmountHT: roundEuro(tollAmountHT),
       pdfImportedDates: Array.isArray(pdfImportedDates) ? pdfImportedDates.map(d => parseInt(d, 10)).filter(d => d >= 1 && d <= 31) : [],
       diversComments: String(diversComments || '').trim()
     };
@@ -358,8 +360,8 @@ exports.confirmImportPdf = async (req, res) => {
       }
     }
 
-    const amountTTC = parseFloat(tollAmountTTC) || 0;
-    const amountHT = Math.round(amountTTC / 1.2 * 100) / 100;
+    const amountTTC = roundEuro(tollAmountTTC);
+    const amountHT = roundEuro(amountTTC / 1.2);
 
     const expense = await ResponsableKmExpense.findOne({ site, month: m, year: y });
     const existingEntries = expense
@@ -613,8 +615,8 @@ exports.integrateDisplacements = async (req, res) => {
       month: m,
       year: y,
       entries,
-      tollAmountTTC: expense?.tollAmountTTC ?? 0,
-      tollAmountHT: expense?.tollAmountHT ?? 0,
+      tollAmountTTC: roundEuro(expense?.tollAmountTTC ?? 0),
+      tollAmountHT: roundEuro(expense?.tollAmountHT ?? 0),
       pdfImportedDates: expense?.pdfImportedDates ?? [],
       diversComments: expense?.diversComments ?? ''
     };

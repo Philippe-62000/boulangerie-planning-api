@@ -280,7 +280,7 @@ menuPermissionsSchema.statics.createDefaultPermissions = async function() {
             isActive: true
           }
         },
-        { upsert: true, new: true, rawResult: true }
+        { upsert: true, new: true, includeResultMetadata: true }
       );
       if (result.lastErrorObject?.upserted) {
         console.log(`✅ Menu ${menuId} créé`);

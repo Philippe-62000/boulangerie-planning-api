@@ -101,11 +101,20 @@ const Sidebar = () => {
         
         const data = await response.json();
         
-        if (data.success) {
-          setMenuPermissions(data.menuPermissions);
-          console.log('📋 Permissions de menu chargées:', data.menuPermissions);
+        if (data.success && data.menuPermissions?.length > 0) {
+          const defaults = getDefaultMenuPermissions(user.role);
+          const apiPerms = data.menuPermissions;
+          const menuIdsFromApi = new Set(apiPerms.map(p => p.menuId));
+          const merged = [...apiPerms];
+          for (const def of defaults) {
+            if (!menuIdsFromApi.has(def.menuId)) {
+              merged.push(def);
+            }
+          }
+          setMenuPermissions(merged);
+          console.log('📋 Permissions de menu chargées:', merged.length, 'menus');
         } else {
-          console.warn('⚠️ Erreur API, utilisation des permissions par défaut');
+          console.warn('⚠️ Erreur API ou liste vide, utilisation des permissions par défaut');
           setMenuPermissions(getDefaultMenuPermissions(user.role));
         }
       } catch (error) {
