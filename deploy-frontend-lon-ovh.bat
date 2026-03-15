@@ -25,7 +25,6 @@ if not exist "deploy-frontend-lon" (
 
 echo    - Création/mise à jour du .htaccess pour /lon/...
 echo RewriteEngine On > deploy-frontend-lon\.htaccess
-echo RewriteBase /lon/ >> deploy-frontend-lon\.htaccess
 echo RewriteCond %%{REQUEST_FILENAME} !-f >> deploy-frontend-lon\.htaccess
 echo RewriteCond %%{REQUEST_FILENAME} !-d >> deploy-frontend-lon\.htaccess
 echo RewriteRule . /lon/index.html [L] >> deploy-frontend-lon\.htaccess

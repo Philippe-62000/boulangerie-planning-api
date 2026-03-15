@@ -4,18 +4,19 @@ const Parameter = require('../models/Parameters');
 const { parseBipGoPdf } = require('../services/bipGoPdfParser');
 
 const DEFAULT_TRIP_TYPES_LONGUENESSE = [
-  { name: 'boulangerie-l', displayName: 'Boulangerie L', km: 96, order: 1 },
-  { name: 'boulangerie-promocash', displayName: 'Boulangerie L via Promocash', km: 104.3, order: 2 },
-  { name: 'tgt-cash', displayName: 'TGT Cash', km: 11.4, order: 3 },
-  { name: 'ca-saint-omer', displayName: 'CA Saint Omer', km: 6, order: 4 },
-  { name: 'lidl-l', displayName: 'Lidl L', km: 1.8, order: 5 },
-  { name: 'auchan-l', displayName: 'Auchan L', km: 5.2, order: 6 },
-  { name: 'laverie-saint-omer', displayName: 'Laverie Saint Omer', km: 7.2, order: 7 },
-  { name: 'ville-longuenesse', displayName: 'Ville de Longuenesse', km: 2.6, order: 8 },
-  { name: 'entrepot-lidl', displayName: 'Entrepot Lidl Tournée', km: 26, order: 9 },
-  { name: 'metro-calais', displayName: 'Métro Calais/Boulogne', km: 90, order: 10 },
-  { name: 'divers', displayName: 'Divers', km: 0, order: 11 },
-  { name: 'peage', displayName: 'Péage autoroute', km: 0, isToll: true, order: 12 }
+  { name: 'aller-boulangerie', displayName: 'Aller boulangerie', km: 50, order: 0, isBoulangerie: true },
+  { name: 'retour-boulangerie', displayName: 'Retour boulangerie', km: 50, order: 1, isBoulangerie: true },
+  { name: 'boulangerie-l', displayName: 'Boulangerie L', km: 96, order: 2 },
+  { name: 'boulangerie-promocash', displayName: 'Boulangerie L via Promocash', km: 104.3, order: 3 },
+  { name: 'tgt-cash', displayName: 'TGT Cash', km: 11.4, order: 4 },
+  { name: 'ca-saint-omer', displayName: 'CA Saint Omer', km: 6, order: 5 },
+  { name: 'lidl-l', displayName: 'Lidl L', km: 1.8, order: 6 },
+  { name: 'auchan-l', displayName: 'Auchan L', km: 5.2, order: 7 },
+  { name: 'laverie-saint-omer', displayName: 'Laverie Saint Omer', km: 7.2, order: 8 },
+  { name: 'ville-longuenesse', displayName: 'Ville de Longuenesse', km: 2.6, order: 9 },
+  { name: 'entrepot-lidl', displayName: 'Entrepot Lidl Tournée', km: 26, order: 10 },
+  { name: 'metro-calais', displayName: 'Métro Calais/Boulogne', km: 90, order: 11 },
+  { name: 'divers', displayName: 'Divers', km: 0, order: 12 }
 ];
 
 async function getTauxKm(site, year) {
@@ -51,6 +52,41 @@ exports.getTripTypes = async (req, res) => {
   }
 };
 
+async function migratePeageToAllerRetour(site) {
+  const peageType = await ResponsableTripType.findOne({ site, isToll: true });
+  const allerType = await ResponsableTripType.findOne({ site, name: 'aller-boulangerie' });
+  const retourType = await ResponsableTripType.findOne({ site, name: 'retour-boulangerie' });
+  if (!peageType || allerType || retourType) return;
+  const kmBoulangerie = (await getPeageParams(site)).kmBoulangerie;
+  const [aller, retour] = await ResponsableTripType.insertMany([
+    { name: 'aller-boulangerie', displayName: 'Aller boulangerie', km: kmBoulangerie, site, order: 0, isBoulangerie: true },
+    { name: 'retour-boulangerie', displayName: 'Retour boulangerie', km: kmBoulangerie, site, order: 1, isBoulangerie: true }
+  ]);
+  await ResponsableTripType.updateMany(
+    { site, _id: { $nin: [aller._id, retour._id] } },
+    [{ $set: { order: { $add: ['$order', 2] } } }]
+  );
+  const expenses = await ResponsableKmExpense.find({ site });
+  for (const exp of expenses) {
+    const newEntries = [];
+    for (const e of exp.entries) {
+      if (e.tripTypeId.toString() !== peageType._id.toString()) {
+        newEntries.push(e);
+        continue;
+      }
+      const count = e.count || 1;
+      const roundTrips = Math.floor(count / 2);
+      const oneWay = count % 2;
+      const allerCount = roundTrips + (oneWay > 0 ? 1 : 0);
+      const retourCount = roundTrips;
+      if (allerCount > 0) newEntries.push({ tripTypeId: aller._id, day: e.day, count: allerCount });
+      if (retourCount > 0) newEntries.push({ tripTypeId: retour._id, day: e.day, count: retourCount });
+    }
+    await ResponsableKmExpense.updateOne({ _id: exp._id }, { $set: { entries: newEntries } });
+  }
+  await ResponsableTripType.deleteOne({ _id: peageType._id });
+}
+
 exports.getExpense = async (req, res) => {
   try {
     const { site, month, year } = req.query;
@@ -64,16 +100,25 @@ exports.getExpense = async (req, res) => {
       return res.status(400).json({ error: 'Site invalide' });
     }
 
-    const [expense, tripTypes, tauxKm] = await Promise.all([
+    let types = await ResponsableTripType.find({ site }).sort({ order: 1 });
+    if (types.length === 0) {
+      await ensureTripTypes(site);
+      types = await ResponsableTripType.find({ site }).sort({ order: 1 });
+    }
+    await migratePeageToAllerRetour(site);
+    types = await ResponsableTripType.find({ site }).sort({ order: 1 });
+
+    const [expense, tauxKm, peageParams] = await Promise.all([
       ResponsableKmExpense.findOne({ site, month: m, year: y }),
-      ResponsableTripType.find({ site }).sort({ order: 1 }),
-      getTauxKm(site, y)
+      getTauxKm(site, y),
+      getPeageParams(site)
     ]);
 
-    if (tripTypes.length === 0) {
-      await ensureTripTypes(site);
-    }
-    const types = await ResponsableTripType.find({ site }).sort({ order: 1 });
+    types = types.map(t => {
+      const obj = t.toObject();
+      if (t.isBoulangerie) obj.km = peageParams.kmBoulangerie;
+      return obj;
+    }).filter(t => !t.isToll);
 
     const daysInMonth = new Date(y, m, 0).getDate();
     const grid = {};
@@ -162,13 +207,15 @@ exports.saveExpense = async (req, res) => {
 };
 
 async function getPeageParams(site) {
-  const [entree, sortie] = await Promise.all([
+  const [entree, sortie, kmBoul] = await Promise.all([
     Parameter.findOne({ name: `peageEntree_${site}` }),
-    Parameter.findOne({ name: `peageSortie_${site}` })
+    Parameter.findOne({ name: `peageSortie_${site}` }),
+    Parameter.findOne({ name: `kmBoulangerie_${site}` })
   ]);
   return {
     entreePeage: entree?.stringValue || '',
-    sortiePeage: sortie?.stringValue || ''
+    sortiePeage: sortie?.stringValue || '',
+    kmBoulangerie: kmBoul?.kmValue ?? 50
   };
 }
 
@@ -188,7 +235,7 @@ exports.getPeageParams = async (req, res) => {
 
 exports.savePeageParams = async (req, res) => {
   try {
-    const { site, entreePeage, sortiePeage } = req.body;
+    const { site, entreePeage, sortiePeage, kmBoulangerie } = req.body;
     if (!site || !['longuenesse', 'arras'].includes(site)) {
       return res.status(400).json({ error: 'Site requis (longuenesse ou arras)' });
     }
@@ -202,9 +249,19 @@ exports.savePeageParams = async (req, res) => {
         { name: `peageSortie_${site}` },
         { name: `peageSortie_${site}`, stringValue: String(sortiePeage || '').trim(), updatedAt: new Date() },
         { new: true, upsert: true }
+      ),
+      Parameter.findOneAndUpdate(
+        { name: `kmBoulangerie_${site}` },
+        { name: `kmBoulangerie_${site}`, kmValue: parseFloat(kmBoulangerie) || 50, updatedAt: new Date() },
+        { new: true, upsert: true }
       )
     ]);
-    res.json({ success: true, data: { entreePeage: String(entreePeage || '').trim(), sortiePeage: String(sortiePeage || '').trim() } });
+    const km = parseFloat(kmBoulangerie) || 50;
+    await ResponsableTripType.updateMany(
+      { site, isBoulangerie: true },
+      { $set: { km, updatedAt: new Date() } }
+    );
+    res.json({ success: true, data: { entreePeage: String(entreePeage || '').trim(), sortiePeage: String(sortiePeage || '').trim(), kmBoulangerie: km } });
   } catch (error) {
     console.error('Erreur savePeageParams:', error);
     res.status(500).json({ error: error.message });
@@ -233,13 +290,14 @@ exports.importPdf = async (req, res) => {
       peageParams.sortiePeage
     );
 
-    const tollType = await ResponsableTripType.findOne({ site, isToll: true });
-    if (!tollType) {
+    const allerType = await ResponsableTripType.findOne({ site, name: 'aller-boulangerie' });
+    const retourType = await ResponsableTripType.findOne({ site, name: 'retour-boulangerie' });
+    if (!allerType || !retourType) {
       return res.json({
         success: true,
         data: {
           ...result,
-          message: 'Données extraites. Type Péage non trouvé. Configurez les paramètres Entrée/Sortie.'
+          message: 'Données extraites. Types Aller/Retour boulangerie non trouvés. Configurez les paramètres.'
         }
       });
     }
@@ -254,7 +312,8 @@ exports.importPdf = async (req, res) => {
         totalTTC: result.totalTTC,
         dates: result.dates,
         amountTTC: result.amountTTC,
-        tollTypeId: tollType._id.toString(),
+        allerTypeId: allerType._id.toString(),
+        retourTypeId: retourType._id.toString(),
         legacyMode: result.legacyMode,
         message: `${result.allerCount} aller, ${result.allerRetourCount} aller-retour reconnus. ${result.unmatched.length} non reconnus.`
       }
@@ -275,25 +334,35 @@ exports.confirmImportPdf = async (req, res) => {
     const m = parseInt(month, 10);
     const y = parseInt(year, 10);
 
-    const tollType = await ResponsableTripType.findOne({ site, isToll: true });
-    if (!tollType) {
-      return res.status(400).json({ error: 'Type Péage non trouvé' });
+    const allerType = await ResponsableTripType.findOne({ site, name: 'aller-boulangerie' });
+    const retourType = await ResponsableTripType.findOne({ site, name: 'retour-boulangerie' });
+    if (!allerType || !retourType) {
+      return res.status(400).json({ error: 'Types Aller/Retour boulangerie non trouvés' });
     }
 
-    const entries = Array.isArray(tollEntries)
-      ? tollEntries.map(e => ({
-          tripTypeId: tollType._id,
-          day: parseInt(e.day, 10),
-          count: parseInt(e.count, 10) || 1
-        }))
-      : [];
+    const entries = [];
+    if (Array.isArray(tollEntries)) {
+      for (const e of tollEntries) {
+        const day = parseInt(e.day, 10);
+        const count = parseInt(e.count, 10) || 1;
+        const roundTrips = Math.floor(count / 2);
+        const oneWay = count % 2;
+        const allerCount = roundTrips + (oneWay > 0 ? 1 : 0);
+        const retourCount = roundTrips;
+        if (allerCount > 0) entries.push({ tripTypeId: allerType._id, day, count: allerCount });
+        if (retourCount > 0) entries.push({ tripTypeId: retourType._id, day, count: retourCount });
+      }
+    }
 
     const amountTTC = parseFloat(tollAmountTTC) || 0;
     const amountHT = Math.round(amountTTC / 1.2 * 100) / 100;
 
     const expense = await ResponsableKmExpense.findOne({ site, month: m, year: y });
     const existingEntries = expense
-      ? expense.entries.filter(e => e.tripTypeId.toString() !== tollType._id.toString())
+      ? expense.entries.filter(e => {
+          const id = e.tripTypeId.toString();
+          return id !== allerType._id.toString() && id !== retourType._id.toString();
+        })
       : [];
 
     const update = {
@@ -303,7 +372,7 @@ exports.confirmImportPdf = async (req, res) => {
       entries: [...existingEntries, ...entries],
       tollAmountTTC: amountTTC,
       tollAmountHT: amountHT,
-      pdfImportedDates: entries.map(e => e.day)
+      pdfImportedDates: [...new Set(entries.map(e => e.day))]
     };
 
     await ResponsableKmExpense.findOneAndUpdate(
@@ -319,7 +388,7 @@ exports.confirmImportPdf = async (req, res) => {
     res.json({
       success: true,
       data: {
-        message: `Import appliqué. ${entries.length} jour(s) avec péage.${deducted > 0 ? ` Voyages déduits: ${deducted.toFixed(2)} €` : ''}`
+        message: `Import appliqué. ${entries.length} trajet(s) Aller/Retour.${deducted > 0 ? ` Voyages déduits: ${deducted.toFixed(2)} €` : ''}`
       }
     });
   } catch (error) {
@@ -357,6 +426,42 @@ exports.saveTauxKm = async (req, res) => {
     res.json({ success: true, data: { tauxKm: param.kmValue } });
   } catch (error) {
     console.error('Erreur saveTauxKm:', error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+exports.updateTripType = async (req, res) => {
+  try {
+    const { tripTypeId } = req.params;
+    const { displayName, km } = req.body;
+    if (!tripTypeId) {
+      return res.status(400).json({ error: 'tripTypeId requis' });
+    }
+    const existing = await ResponsableTripType.findById(tripTypeId);
+    if (!existing) return res.status(404).json({ error: 'Type de trajet non trouvé' });
+
+    const update = { updatedAt: new Date() };
+    if (displayName !== undefined) update.displayName = String(displayName).trim();
+    if (km !== undefined) {
+      const v = parseFloat(km);
+      if (isNaN(v) || v < 0) return res.status(400).json({ error: 'Km invalide' });
+      update.km = v;
+      if (existing.isBoulangerie) {
+        await Parameter.findOneAndUpdate(
+          { name: `kmBoulangerie_${existing.site}` },
+          { name: `kmBoulangerie_${existing.site}`, kmValue: v, updatedAt: new Date() },
+          { new: true, upsert: true }
+        );
+        await ResponsableTripType.updateMany(
+          { site: existing.site, isBoulangerie: true },
+          { $set: { km: v, updatedAt: new Date() } }
+        );
+      }
+    }
+    const tripType = await ResponsableTripType.findByIdAndUpdate(tripTypeId, { $set: update }, { new: true });
+    res.json({ success: true, data: tripType });
+  } catch (error) {
+    console.error('Erreur updateTripType:', error);
     res.status(500).json({ error: error.message });
   }
 };

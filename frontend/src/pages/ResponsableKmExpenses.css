@@ -157,28 +157,41 @@
   height: 16px;
 }
 
-.responsable-km-table .toll-row {
-  background: #fff8e1;
+.responsable-km-table .boulangerie-row {
+  background: #e8f5e9;
 }
 
-.responsable-km-table .toll-row .trip-cell {
-  background: #fff8e1;
+.responsable-km-table .boulangerie-row .trip-cell {
+  background: #e8f5e9;
 }
 
-.responsable-km-table .toll-row .day-cell {
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 2px;
+.responsable-km-table .trip-name-input {
+  width: 100%;
+  min-width: 120px;
+  padding: 0.25rem 0.4rem;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  background: white;
 }
 
-.responsable-km-table .toll-badge {
-  font-size: 0.65rem;
-  background: #ffc107;
-  color: #333;
-  padding: 0 3px;
-  border-radius: 3px;
+.responsable-km-table .trip-name-input:focus {
+  border-color: #007bff;
+  outline: none;
+}
+
+.responsable-km-table .km-input {
+  width: 60px;
+  padding: 0.25rem 0.4rem;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  text-align: center;
+}
+
+.responsable-km-table .km-input:focus {
+  border-color: #007bff;
+  outline: none;
 }
 
 .responsable-km .summary {

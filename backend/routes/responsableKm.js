@@ -14,5 +14,6 @@ router.post('/import-pdf', upload.single('file'), responsableKmController.import
 router.post('/confirm-import-pdf', responsableKmController.confirmImportPdf);
 router.get('/taux-km', responsableKmController.getTauxKm);
 router.post('/taux-km', responsableKmController.saveTauxKm);
+router.patch('/trip-types/:tripTypeId', responsableKmController.updateTripType);
 
 module.exports = router;

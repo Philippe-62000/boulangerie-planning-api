@@ -10,6 +10,7 @@ const ResponsableKmExpenses = () => {
   const [month, setMonth] = useState(new Date().getMonth() + 1);
   const [year, setYear] = useState(new Date().getFullYear());
   const [tripTypes, setTripTypes] = useState([]);
+  const [editingTrip, setEditingTrip] = useState({}); // { id: { displayName?, km? } }
   const [grid, setGrid] = useState({});
   const [tollAmountTTC, setTollAmountTTC] = useState(0);
   const [tollAmountHT, setTollAmountHT] = useState(0);
@@ -24,6 +25,7 @@ const ResponsableKmExpenses = () => {
   const [showParamsModal, setShowParamsModal] = useState(false);
   const [entreePeage, setEntreePeage] = useState('');
   const [sortiePeage, setSortiePeage] = useState('');
+  const [kmBoulangerie, setKmBoulangerie] = useState(50);
   const [savingParams, setSavingParams] = useState(false);
 
   // Modal réconciliation import
@@ -43,6 +45,7 @@ const ResponsableKmExpenses = () => {
       const t = tauxRes.data?.data;
       if (d) {
         setTripTypes(d.tripTypes || []);
+        setEditingTrip({});
         setGrid(d.grid || {});
         setTollAmountTTC(d.tollAmountTTC || 0);
         setTollAmountHT(d.tollAmountHT || 0);
@@ -64,6 +67,7 @@ const ResponsableKmExpenses = () => {
       if (d) {
         setEntreePeage(d.entreePeage || '');
         setSortiePeage(d.sortiePeage || '');
+        setKmBoulangerie(d.kmBoulangerie ?? 50);
       }
     } catch (e) {
       console.warn('Paramètres péage:', e);
@@ -78,19 +82,40 @@ const ResponsableKmExpenses = () => {
     if (showParamsModal) fetchPeageParams();
   }, [showParamsModal, fetchPeageParams]);
 
-  const handleToggle = (tripTypeId, day, isToll = false) => {
+  const handleToggle = (tripTypeId, day) => {
     const key = tripTypeId.toString();
     setGrid(prev => {
       const next = { ...prev };
       if (!next[key]) next[key] = {};
       const current = next[key][day] || 0;
-      if (isToll) {
-        next[key] = { ...next[key], [day]: current >= 2 ? 0 : current + 1 };
-      } else {
-        next[key] = { ...next[key], [day]: current ? 0 : 1 };
-      }
+      next[key] = { ...next[key], [day]: current ? 0 : 1 };
       return next;
     });
+  };
+
+  const handleUpdateTripType = async (tripTypeId, field, value) => {
+    try {
+      const id = tripTypeId?.toString?.() || tripTypeId;
+      const payload = field === 'displayName' ? { displayName: value } : { km: parseFloat(value) || 0 };
+      await api.patch(`/responsable-km/trip-types/${id}`, payload);
+      setEditingTrip(prev => { const n = { ...prev }; delete n[id]; return n; });
+      toast.success('Modification enregistrée');
+      fetchData();
+    } catch (e) {
+      toast.error('Erreur lors de la modification');
+    }
+  };
+
+  const getDisplayValue = (t, field) => {
+    const key = t._id?.toString?.() || t._id;
+    const ed = editingTrip[key];
+    if (ed && ed[field] !== undefined) return ed[field];
+    return t[field];
+  };
+
+  const setEditingValue = (tripId, field, value) => {
+    const key = tripId?.toString?.() || tripId;
+    setEditingTrip(prev => ({ ...prev, [key]: { ...prev[key], [field]: value } }));
   };
 
   const handleTauxChange = async (value) => {
@@ -107,9 +132,10 @@ const ResponsableKmExpenses = () => {
   const savePeageParams = async () => {
     setSavingParams(true);
     try {
-      await api.post('/responsable-km/peage-params', { site, entreePeage, sortiePeage });
+      await api.post('/responsable-km/peage-params', { site, entreePeage, sortiePeage, kmBoulangerie });
       toast.success('Paramètres péage sauvegardés');
       setShowParamsModal(false);
+      fetchData();
     } catch (e) {
       toast.error('Erreur sauvegarde paramètres');
     } finally {
@@ -223,7 +249,7 @@ const ResponsableKmExpenses = () => {
       Object.values(days).forEach(v => { count += v || 0; });
       const km = count * (t.km || 0);
       byType[key] = { count, km };
-      if (!t.isToll) totalKm += km;
+      totalKm += km;
     });
     const totalEuros = totalKm * tauxKm;
     return { totalKm, totalEuros, byType };
@@ -303,7 +329,7 @@ const ResponsableKmExpenses = () => {
         <div className="modal-overlay" onClick={() => setShowParamsModal(false)}>
           <div className="modal-content" onClick={e => e.stopPropagation()}>
             <h3>⚙️ Paramètres péage</h3>
-            <p className="modal-hint">Définissez les noms des péages d'entrée et de sortie pour reconnaître les trajets professionnels. Le matching est flexible : "Béthune" ou "BETHUNE" reconnaîtront les codes type 25007026A266BETHUNE.</p>
+            <p className="modal-hint">Définissez les noms des péages d'entrée et de sortie pour reconnaître les trajets professionnels. Aller = entrée→sortie, Retour = sortie→entrée. Le km définit la distance par trajet (aller ou retour).</p>
             <div className="modal-form">
               <label>
                 Entrée Péage :
@@ -321,6 +347,17 @@ const ResponsableKmExpenses = () => {
                   value={sortiePeage}
                   onChange={e => setSortiePeage(e.target.value)}
                   placeholder="ex: AIRE SUR LA LYS"
+                />
+              </label>
+              <label>
+                Km (par trajet aller/retour) :
+                <input
+                  type="number"
+                  step="0.1"
+                  min="0"
+                  value={kmBoulangerie}
+                  onChange={e => setKmBoulangerie(parseFloat(e.target.value) || 50)}
+                  placeholder="ex: 50"
                 />
               </label>
             </div>
@@ -415,15 +452,39 @@ const ResponsableKmExpenses = () => {
             </tr>
           </thead>
           <tbody>
-            {tripTypes.filter(t => !t.isToll).map(t => {
+            {tripTypes.map(t => {
               const key = t._id.toString();
               const days = grid[key] || {};
               const count = Object.values(days).reduce((s, v) => s + (v || 0), 0);
               const km = count * (t.km || 0);
               return (
-                <tr key={t._id}>
-                  <td className="trip-cell">{t.displayName}</td>
-                  <td className="km-cell">{t.km}</td>
+                <tr key={t._id} className={t.isBoulangerie ? 'boulangerie-row' : ''}>
+                  <td className="trip-cell">
+                    <input
+                      type="text"
+                      value={getDisplayValue(t, 'displayName')}
+                      onChange={e => setEditingValue(t._id, 'displayName', e.target.value)}
+                      onBlur={e => {
+                        const v = e.target.value.trim();
+                        if (v && v !== t.displayName) handleUpdateTripType(t._id, 'displayName', v);
+                      }}
+                      className="trip-name-input"
+                    />
+                  </td>
+                  <td className="km-cell">
+                    <input
+                      type="number"
+                      step="0.1"
+                      min="0"
+                      value={getDisplayValue(t, 'km')}
+                      onChange={e => setEditingValue(t._id, 'km', e.target.value === '' ? '' : parseFloat(e.target.value) || 0)}
+                      onBlur={e => {
+                        const v = parseFloat(e.target.value) || 0;
+                        if (!isNaN(v) && v !== t.km) handleUpdateTripType(t._id, 'km', v);
+                      }}
+                      className="km-input"
+                    />
+                  </td>
                   {Array.from({ length: daysInMonth }, (_, i) => {
                     const d = i + 1;
                     const checked = !!(days[d]);
@@ -432,39 +493,12 @@ const ResponsableKmExpenses = () => {
                         <input
                           type="checkbox"
                           checked={checked}
-                          onChange={() => handleToggle(t._id, d, false)}
+                          onChange={() => handleToggle(t._id, d)}
                         />
                       </td>
                     );
                   })}
                   <td className="total-cell">{km} km</td>
-                </tr>
-              );
-            })}
-            {tripTypes.filter(t => t.isToll).map(t => {
-              const key = t._id.toString();
-              const days = grid[key] || {};
-              const count = Object.values(days).reduce((s, v) => s + (v || 0), 0);
-              return (
-                <tr key={t._id} className="toll-row">
-                  <td className="trip-cell">{t.displayName}</td>
-                  <td className="km-cell">–</td>
-                  {Array.from({ length: daysInMonth }, (_, i) => {
-                    const d = i + 1;
-                    const cellCount = days[d] || 0;
-                    return (
-                      <td key={d} className="day-cell">
-                        <input
-                          type="checkbox"
-                          checked={cellCount > 0}
-                          onChange={() => handleToggle(t._id, d, true)}
-                          title={cellCount === 2 ? 'Aller-retour (2 passages)' : cellCount === 1 ? 'Aller (1 passage)' : 'Cliquer pour ajouter'}
-                        />
-                        {cellCount === 2 && <span className="toll-badge">2</span>}
-                      </td>
-                    );
-                  })}
-                  <td className="total-cell">{count} passage(s)</td>
                 </tr>
               );
             })}
