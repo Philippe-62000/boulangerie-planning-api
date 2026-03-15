@@ -36,6 +36,10 @@ const responsableTripTypeSchema = new mongoose.Schema({
     type: Boolean,
     default: false
   },
+  importDays: {
+    type: [Number],
+    default: []
+  },
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now }
 });

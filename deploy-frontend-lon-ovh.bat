@@ -23,11 +23,20 @@ if not exist "deploy-frontend-lon" (
     exit /b 1
 )
 
-echo    - Création/mise à jour du .htaccess pour /lon/...
-echo RewriteEngine On > deploy-frontend-lon\.htaccess
-echo RewriteCond %%{REQUEST_FILENAME} !-f >> deploy-frontend-lon\.htaccess
-echo RewriteCond %%{REQUEST_FILENAME} !-d >> deploy-frontend-lon\.htaccess
-echo RewriteRule . /lon/index.html [L] >> deploy-frontend-lon\.htaccess
+echo    - Copie du .htaccess pour /lon/...
+if exist "deploy-frontend-lon\.htaccess-lon-template" (
+    copy /Y "deploy-frontend-lon\.htaccess-lon-template" "deploy-frontend-lon\.htaccess" >nul
+    echo ✅ .htaccess copié
+) else if exist "deploy-frontend-lon\.htaccess.template" (
+    copy /Y "deploy-frontend-lon\.htaccess.template" "deploy-frontend-lon\.htaccess" >nul
+    echo ✅ .htaccess copié
+) else (
+    echo RewriteEngine On > deploy-frontend-lon\.htaccess
+    echo RewriteCond %%{REQUEST_FILENAME} !-f >> deploy-frontend-lon\.htaccess
+    echo RewriteCond %%{REQUEST_FILENAME} !-d >> deploy-frontend-lon\.htaccess
+    echo RewriteRule . /lon/index.html [L] >> deploy-frontend-lon\.htaccess
+    echo ⚠️ .htaccess minimal créé (template non trouvé)
+)
 
 echo    - Remplacement des URLs API et chemins /plan/ vers /lon/ dans les fichiers HTML...
 echo    (Remplacement de api-4-pbfy vers api-3 et /plan/ vers /lon/)

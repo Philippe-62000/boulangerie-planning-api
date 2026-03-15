@@ -164,6 +164,17 @@ const ResponsableKmExpenses = () => {
     }
   };
 
+  const handleDeleteTripType = async (tripTypeId) => {
+    if (!window.confirm('Supprimer cette ligne de déplacement ?')) return;
+    try {
+      await api.delete(`/responsable-km/trip-types/${tripTypeId}`);
+      toast.success('Ligne supprimée');
+      fetchData();
+    } catch (e) {
+      toast.error(e.response?.data?.error || 'Erreur lors de la suppression');
+    }
+  };
+
   const getDisplayValue = (t, field) => {
     const key = toKey(t._id);
     const ed = editingTrip[key];
@@ -632,17 +643,29 @@ const ResponsableKmExpenses = () => {
               return (
                 <tr key={t._id} className={[t.isBoulangerie && 'boulangerie-row', isKmPerDay && 'divers-row', t.isKmPerDay && t.name !== 'divers' && 'peage-import-row'].filter(Boolean).join(' ')}>
                   <td className="trip-cell" onClick={e => e.stopPropagation()}>
-                    <input
-                      type="text"
-                      value={getDisplayValue(t, 'displayName')}
-                      onChange={e => setEditingValue(t._id, 'displayName', e.target.value)}
-                      onBlur={e => {
-                        const v = e.target.value.trim();
-                        if (v && v !== (t.displayName || '')) handleUpdateTripType(t._id, 'displayName', v);
-                      }}
-                      className="trip-name-input"
-                      autoComplete="off"
-                    />
+                    <span className="trip-cell-content">
+                      <input
+                        type="text"
+                        value={getDisplayValue(t, 'displayName')}
+                        onChange={e => setEditingValue(t._id, 'displayName', e.target.value)}
+                        onBlur={e => {
+                          const v = e.target.value.trim();
+                          if (v && v !== (t.displayName || '')) handleUpdateTripType(t._id, 'displayName', v);
+                        }}
+                        className="trip-name-input"
+                        autoComplete="off"
+                      />
+                      {t.name && t.name.startsWith('peage-import-') && (
+                        <button
+                          type="button"
+                          className="btn-delete-row"
+                          onClick={() => handleDeleteTripType(t._id)}
+                          title="Supprimer cette ligne"
+                        >
+                          ✕
+                        </button>
+                      )}
+                    </span>
                   </td>
                   <td className="km-cell" onClick={e => e.stopPropagation()}>
                     {!isKmPerDay && (
@@ -669,16 +692,18 @@ const ResponsableKmExpenses = () => {
                     const d = i + 1;
                     if (isKmPerDay) {
                       const kmVal = days[d] || 0;
+                      const isImportDay = Array.isArray(t.importDays) && t.importDays.includes(d);
                       return (
-                        <td key={d} className="day-cell" onClick={e => e.stopPropagation()}>
+                        <td key={d} className={`day-cell ${isImportDay ? 'peage-import-day-cell' : ''}`} onClick={e => e.stopPropagation()}>
                           <input
                             type="number"
                             step="0.1"
                             min="0"
                             value={kmVal}
                             onChange={e => handleKmPerDayChange(t._id, d, e.target.value)}
-                            className="divers-day-input"
+                            className={`divers-day-input ${isImportDay ? 'peage-import-day-input' : ''}`}
                             placeholder="0"
+                            title={isImportDay ? `Jour ${d} : passage facturé sur la feuille import` : ''}
                           />
                         </td>
                       );

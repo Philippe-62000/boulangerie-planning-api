@@ -15,6 +15,7 @@ router.post('/confirm-import-pdf', responsableKmController.confirmImportPdf);
 router.get('/taux-km', responsableKmController.getTauxKm);
 router.post('/taux-km', responsableKmController.saveTauxKm);
 router.patch('/trip-types/:tripTypeId', responsableKmController.updateTripType);
+router.delete('/trip-types/:tripTypeId', responsableKmController.deleteTripType);
 router.get('/divers-presets', responsableKmController.getDiversPresets);
 router.post('/divers-presets', responsableKmController.saveDiversPreset);
 router.post('/log-displacement', responsableKmController.logDisplacement);

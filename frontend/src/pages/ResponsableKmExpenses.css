@@ -412,6 +412,50 @@
   background: #fff8f0;
 }
 
+/* Cellule rouge : jour facturé sur la feuille import */
+.responsable-km-table .peage-import-day-cell {
+  background: #ffe6e6 !important;
+}
+.responsable-km-table .peage-import-day-input {
+  border-color: #c0392b;
+  background: #fff5f5;
+}
+.responsable-km-table .peage-import-day-input:focus {
+  border-color: #e74c3c;
+  box-shadow: 0 0 0 2px rgba(231, 76, 60, 0.2);
+}
+
+/* Bouton supprimer ligne */
+.responsable-km-table .trip-cell-content {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.responsable-km-table .trip-cell-content .trip-name-input {
+  flex: 1;
+  min-width: 0;
+}
+.responsable-km-table .btn-delete-row {
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid #dc3545;
+  background: #fff;
+  color: #dc3545;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.responsable-km-table .btn-delete-row:hover {
+  background: #dc3545;
+  color: #fff;
+}
+
 .responsable-km-table .divers-row .trip-cell {
   background: #f5f5f5;
 }

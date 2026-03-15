@@ -375,26 +375,30 @@ exports.confirmImportPdf = async (req, res) => {
     // Créer une ligne par entrée/sortie non reconnue (non refusée) pour saisie manuelle des km
     const createdRows = [];
     if (Array.isArray(unmatchedToImport) && unmatchedToImport.length > 0) {
-      const seen = new Set();
+      const byKey = {};
+      for (const u of unmatchedToImport) {
+        const key = `${(u.entry || '').trim()}|${(u.exit || '').trim()}`;
+        if (!byKey[key]) byKey[key] = { entry: u.entry, exit: u.exit, days: [] };
+        const day = parseInt(u.day, 10);
+        if (day >= 1 && day <= 31 && !byKey[key].days.includes(day)) byKey[key].days.push(day);
+      }
+
       const maxOrder = await ResponsableTripType.findOne({ site }).sort({ order: -1 }).select('order').lean();
       let nextOrder = (maxOrder?.order ?? 12) + 1;
 
-      for (const u of unmatchedToImport) {
-        const key = `${(u.entry || '').trim()}|${(u.exit || '').trim()}`;
-        if (seen.has(key)) continue;
-        seen.add(key);
-
-        const displayName = extractPeageDisplayName(u.entry, u.exit);
+      for (const { entry, exit, days } of Object.values(byKey)) {
+        const displayName = extractPeageDisplayName(entry, exit);
         if (!displayName) continue;
 
         const name = `peage-import-${nextOrder}-${Date.now().toString(36)}`;
-        const newType = await ResponsableTripType.create({
+        await ResponsableTripType.create({
           site,
           name,
           displayName,
           km: 0,
           order: nextOrder++,
-          isKmPerDay: true
+          isKmPerDay: true,
+          importDays: days.sort((a, b) => a - b)
         });
         createdRows.push(displayName);
       }
@@ -516,6 +520,33 @@ exports.updateTripType = async (req, res) => {
     res.json({ success: true, data: tripType });
   } catch (error) {
     console.error('Erreur updateTripType:', error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+exports.deleteTripType = async (req, res) => {
+  try {
+    const { tripTypeId } = req.params;
+    if (!tripTypeId) {
+      return res.status(400).json({ error: 'tripTypeId requis' });
+    }
+    const existing = await ResponsableTripType.findById(tripTypeId);
+    if (!existing) return res.status(404).json({ error: 'Type de trajet non trouvé' });
+
+    if (!existing.name || !existing.name.startsWith('peage-import-')) {
+      return res.status(400).json({ error: 'Seules les lignes créées par import péage peuvent être supprimées' });
+    }
+
+    const idStr = existing._id.toString();
+    await ResponsableKmExpense.updateMany(
+      { site: existing.site },
+      { $pull: { entries: { tripTypeId: existing._id } } }
+    );
+    await ResponsableTripType.findByIdAndDelete(tripTypeId);
+
+    res.json({ success: true, data: { message: 'Ligne supprimée' } });
+  } catch (error) {
+    console.error('Erreur deleteTripType:', error);
     res.status(500).json({ error: error.message });
   }
 };
