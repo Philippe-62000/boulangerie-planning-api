@@ -1,5 +1,7 @@
 const ResponsableTripType = require('../models/ResponsableTripType');
 const ResponsableKmExpense = require('../models/ResponsableKmExpense');
+const ResponsableDisplacementLog = require('../models/ResponsableDisplacementLog');
+const DiversPreset = require('../models/DiversPreset');
 const Parameter = require('../models/Parameters');
 const { parseBipGoPdf } = require('../services/bipGoPdfParser');
 
@@ -133,7 +135,7 @@ exports.getExpense = async (req, res) => {
       expense.entries.forEach(e => {
         const key = e.tripTypeId.toString();
         if (grid[key] !== undefined) {
-          grid[key][e.day] = e.count || 1;
+          grid[key][e.day] = e.count ?? 1;
         }
       });
     }
@@ -149,6 +151,7 @@ exports.getExpense = async (req, res) => {
         tollAmountTTC: expense?.tollAmountTTC ?? 0,
         tollAmountHT: expense?.tollAmountHT ?? 0,
         pdfImportedDates: expense?.pdfImportedDates ?? [],
+        diversComments: expense?.diversComments ?? '',
         tauxKm,
         daysInMonth
       }
@@ -161,7 +164,7 @@ exports.getExpense = async (req, res) => {
 
 exports.saveExpense = async (req, res) => {
   try {
-    const { site, month, year, grid, tollAmountTTC, tollAmountHT, pdfImportedDates } = req.body;
+    const { site, month, year, grid, tollAmountTTC, tollAmountHT, pdfImportedDates, diversComments } = req.body;
     if (!site || !month || !year) {
       return res.status(400).json({ error: 'Site, mois et année requis' });
     }
@@ -172,9 +175,9 @@ exports.saveExpense = async (req, res) => {
     if (grid && typeof grid === 'object') {
       for (const [tripTypeId, days] of Object.entries(grid)) {
         if (days && typeof days === 'object') {
-          for (const [dayStr, count] of Object.entries(days)) {
+          for (const [dayStr, val] of Object.entries(days)) {
             const day = parseInt(dayStr, 10);
-            const c = parseInt(count, 10) || 0;
+            const c = parseFloat(val) || 0;
             if (day >= 1 && day <= 31 && c > 0) {
               entries.push({ tripTypeId, day, count: c });
             }
@@ -190,7 +193,8 @@ exports.saveExpense = async (req, res) => {
       entries,
       tollAmountTTC: parseFloat(tollAmountTTC) || 0,
       tollAmountHT: parseFloat(tollAmountHT) || 0,
-      pdfImportedDates: Array.isArray(pdfImportedDates) ? pdfImportedDates.map(d => parseInt(d, 10)).filter(d => d >= 1 && d <= 31) : []
+      pdfImportedDates: Array.isArray(pdfImportedDates) ? pdfImportedDates.map(d => parseInt(d, 10)).filter(d => d >= 1 && d <= 31) : [],
+      diversComments: String(diversComments || '').trim()
     };
 
     const expense = await ResponsableKmExpense.findOneAndUpdate(
@@ -441,7 +445,11 @@ exports.updateTripType = async (req, res) => {
     if (!existing) return res.status(404).json({ error: 'Type de trajet non trouvé' });
 
     const update = { updatedAt: new Date() };
-    if (displayName !== undefined) update.displayName = String(displayName).trim();
+    if (displayName !== undefined) {
+      const trimmed = String(displayName || '').trim();
+      if (!trimmed) return res.status(400).json({ error: 'Le nom du déplacement ne peut pas être vide' });
+      update.displayName = trimmed;
+    }
     if (km !== undefined) {
       const v = parseFloat(km);
       if (isNaN(v) || v < 0) return res.status(400).json({ error: 'Km invalide' });
@@ -462,6 +470,162 @@ exports.updateTripType = async (req, res) => {
     res.json({ success: true, data: tripType });
   } catch (error) {
     console.error('Erreur updateTripType:', error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// --- Divers Presets ---
+exports.getDiversPresets = async (req, res) => {
+  try {
+    const { site } = req.query;
+    if (!site || !['longuenesse', 'arras'].includes(site)) {
+      return res.status(400).json({ error: 'Site requis' });
+    }
+    const presets = await DiversPreset.find({ site }).sort({ order: 1, name: 1 });
+    res.json({ success: true, data: presets });
+  } catch (error) {
+    console.error('Erreur getDiversPresets:', error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+exports.saveDiversPreset = async (req, res) => {
+  try {
+    const { site, name, km, _id } = req.body;
+    if (!site || !name) {
+      return res.status(400).json({ error: 'Site et nom requis' });
+    }
+    const update = { site, name: String(name).trim(), updatedAt: new Date() };
+    if (km !== undefined) update.km = parseFloat(km) >= 0 ? parseFloat(km) : null;
+    const preset = await DiversPreset.findOneAndUpdate(
+      _id ? { _id, site } : { site, name: update.name },
+      { $set: update },
+      { new: true, upsert: true }
+    );
+    res.json({ success: true, data: preset });
+  } catch (error) {
+    console.error('Erreur saveDiversPreset:', error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// --- Displacement Log (mobile) ---
+exports.logDisplacement = async (req, res) => {
+  try {
+    const { site, month, year, day, fromTripTypeId, toTripTypeId, diversDetail, diversKm, comment } = req.body;
+    if (!site || !toTripTypeId) {
+      return res.status(400).json({ error: 'Site et destination (Pour) requis' });
+    }
+    const now = new Date();
+    const m = month || now.getMonth() + 1;
+    const y = year || now.getFullYear();
+    const d = day || now.getDate();
+    const log = await ResponsableDisplacementLog.create({
+      site,
+      month: m,
+      year: y,
+      day: d,
+      fromTripTypeId: fromTripTypeId || null,
+      toTripTypeId,
+      diversDetail: String(diversDetail || '').trim(),
+      diversKm: diversKm !== undefined && diversKm !== '' ? parseFloat(diversKm) : null,
+      comment: String(comment || '').trim()
+    });
+    res.json({ success: true, data: log });
+  } catch (error) {
+    console.error('Erreur logDisplacement:', error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+exports.getPendingDisplacements = async (req, res) => {
+  try {
+    const { site, month, year } = req.query;
+    if (!site || !month || !year) {
+      return res.status(400).json({ error: 'Site, mois et année requis' });
+    }
+    const logs = await ResponsableDisplacementLog.find({
+      site,
+      month: parseInt(month, 10),
+      year: parseInt(year, 10),
+      integrated: false
+    }).sort({ day: 1, createdAt: 1 }).populate('fromTripTypeId toTripTypeId', 'displayName name km');
+    res.json({ success: true, data: logs });
+  } catch (error) {
+    console.error('Erreur getPendingDisplacements:', error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+exports.integrateDisplacements = async (req, res) => {
+  try {
+    const { site, month, year } = req.body;
+    if (!site || !month || !year) {
+      return res.status(400).json({ error: 'Site, mois et année requis' });
+    }
+    const m = parseInt(month, 10);
+    const y = parseInt(year, 10);
+    const logs = await ResponsableDisplacementLog.find({
+      site,
+      month: m,
+      year: y,
+      integrated: false
+    });
+    const diversType = await ResponsableTripType.findOne({ site, name: 'divers' });
+    let expense = await ResponsableKmExpense.findOne({ site, month: m, year: y });
+    const daysInMonth = new Date(y, m, 0).getDate();
+    const grid = {};
+    const types = await ResponsableTripType.find({ site }).sort({ order: 1 });
+    types.forEach(t => {
+      grid[t._id.toString()] = {};
+      for (let d = 1; d <= daysInMonth; d++) grid[t._id.toString()][d] = 0;
+    });
+    if (expense) {
+      expense.entries.forEach(e => {
+        const key = e.tripTypeId.toString();
+        if (grid[key] !== undefined) grid[key][e.day] = e.count ?? 1;
+      });
+    }
+    for (const log of logs) {
+      const toObj = log.toTripTypeId;
+      const toId = (toObj && toObj._id ? toObj._id : log.toTripTypeId).toString();
+      if (!grid[toId]) continue;
+      const isDivers = (toObj && toObj.name === 'divers') || (diversType && toId === diversType._id.toString());
+      const addVal = isDivers ? (log.diversKm || 0) : 1;
+      if (addVal > 0) {
+        grid[toId][log.day] = (grid[toId][log.day] || 0) + addVal;
+      }
+      log.integrated = true;
+      await log.save();
+    }
+    const entries = [];
+    for (const [tripTypeId, days] of Object.entries(grid)) {
+      for (const [dayStr, val] of Object.entries(days)) {
+        const day = parseInt(dayStr, 10);
+        const c = parseFloat(val) || 0;
+        if (day >= 1 && day <= 31 && c > 0) {
+          entries.push({ tripTypeId, day, count: c });
+        }
+      }
+    }
+    const update = {
+      site,
+      month: m,
+      year: y,
+      entries,
+      tollAmountTTC: expense?.tollAmountTTC ?? 0,
+      tollAmountHT: expense?.tollAmountHT ?? 0,
+      pdfImportedDates: expense?.pdfImportedDates ?? [],
+      diversComments: expense?.diversComments ?? ''
+    };
+    await ResponsableKmExpense.findOneAndUpdate(
+      { site, month: m, year: y },
+      update,
+      { new: true, upsert: true }
+    );
+    res.json({ success: true, data: { integrated: logs.length, message: `${logs.length} déplacement(s) intégré(s)` } });
+  } catch (error) {
+    console.error('Erreur integrateDisplacements:', error);
     res.status(500).json({ error: error.message });
   }
 };

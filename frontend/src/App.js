@@ -33,6 +33,7 @@ import Ambassadeur from './pages/Ambassadeur';
 import CommandesEnLigne from './pages/CommandesEnLigne';
 import ProductExchanges from './pages/ProductExchanges';
 import ResponsableKmExpenses from './pages/ResponsableKmExpenses';
+import DeplacementStandalone from './pages/DeplacementStandalone';
 
 const AppContent = () => {
   const { user, loading } = useAuth();
@@ -179,6 +180,11 @@ const AppContent = () => {
             <Route path="/frais-km-responsable" element={
               <ProtectedRoute adminOnly={true}>
                 <ResponsableKmExpenses />
+              </ProtectedRoute>
+            } />
+            <Route path="/deplacement-standalone" element={
+              <ProtectedRoute>
+                <DeplacementStandalone />
               </ProtectedRoute>
             } />
           </Routes>

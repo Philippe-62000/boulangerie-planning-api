@@ -31,6 +31,7 @@ const responsableKmExpenseSchema = new mongoose.Schema({
   tollAmountTTC: { type: Number, default: 0, min: 0 },
   tollAmountHT: { type: Number, default: 0, min: 0 },
   pdfImportedDates: [{ type: Number, min: 1, max: 31 }],
+  diversComments: { type: String, default: '' },
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now }
 });

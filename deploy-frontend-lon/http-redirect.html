@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
@@ -80,7 +80,7 @@
         
         <div class="spinner"></div>
         
-        <a href="https://www.filmara.fr/plan/" class="button" id="redirectBtn">
+        <a href="https://www.filmara.fr/lon/" class="button" id="redirectBtn">
             🔒 Accéder en HTTPS
         </a>
         
@@ -98,7 +98,7 @@
         const updateTimer = () => {
             timerElement.textContent = countdown;
             if (countdown <= 0) {
-                window.location.href = 'https://www.filmara.fr/plan/';
+                window.location.href = 'https://www.filmara.fr/lon/';
             }
             countdown--;
         };
@@ -109,14 +109,14 @@
         // Redirection immédiate si l'utilisateur clique
         redirectBtn.addEventListener('click', () => {
             clearInterval(interval);
-            window.location.href = 'https://www.filmara.fr/plan/';
+            window.location.href = 'https://www.filmara.fr/lon/';
         });
         
         // Redirection immédiate si l'utilisateur appuie sur Entrée
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Enter') {
                 clearInterval(interval);
-                window.location.href = 'https://www.filmara.fr/plan/';
+                window.location.href = 'https://www.filmara.fr/lon/';
             }
         });
     </script>

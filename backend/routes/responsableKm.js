@@ -15,5 +15,10 @@ router.post('/confirm-import-pdf', responsableKmController.confirmImportPdf);
 router.get('/taux-km', responsableKmController.getTauxKm);
 router.post('/taux-km', responsableKmController.saveTauxKm);
 router.patch('/trip-types/:tripTypeId', responsableKmController.updateTripType);
+router.get('/divers-presets', responsableKmController.getDiversPresets);
+router.post('/divers-presets', responsableKmController.saveDiversPreset);
+router.post('/log-displacement', responsableKmController.logDisplacement);
+router.get('/pending-displacements', responsableKmController.getPendingDisplacements);
+router.post('/integrate-displacements', responsableKmController.integrateDisplacements);
 
 module.exports = router;

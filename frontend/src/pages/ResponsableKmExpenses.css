@@ -111,7 +111,8 @@
 
 .responsable-km-table th {
   background: #f8f9fa;
-  font-weight: 600;
+  font-weight: 700;
+  text-align: center;
 }
 
 .responsable-km-table .trip-col {
@@ -121,6 +122,10 @@
   left: 0;
   background: #f8f9fa;
   z-index: 2;
+}
+
+.responsable-km-table thead .trip-col {
+  text-align: center;
 }
 
 .responsable-km-table .km-col {
@@ -277,6 +282,43 @@
   border-radius: 4px;
 }
 
+.responsable-km .divers-presets-section {
+  margin-top: 1.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid #eee;
+}
+
+.responsable-km .divers-presets-section h4 {
+  margin: 0 0 0.5rem 0;
+  font-size: 1rem;
+}
+
+.responsable-km .divers-preset-row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.responsable-km .divers-preset-row .preset-name {
+  flex: 1;
+  padding: 0.4rem;
+}
+
+.responsable-km .divers-preset-row .preset-km {
+  width: 70px;
+  padding: 0.4rem;
+}
+
+.responsable-km .divers-preset-row.divers-add {
+  margin-top: 0.75rem;
+}
+
+.responsable-km .btn-sm {
+  padding: 0.35rem 0.75rem;
+  font-size: 0.85rem;
+}
+
 .responsable-km .modal-actions {
   display: flex;
   gap: 0.75rem;
@@ -295,6 +337,17 @@
 
 .responsable-km .import-summary p {
   margin: 0.25rem 0;
+}
+
+.responsable-km .import-deducted {
+  color: #856404;
+}
+
+.responsable-km .import-net {
+  font-weight: 600;
+  color: #155724;
+  margin-top: 0.5rem;
+  font-size: 1.05rem;
 }
 
 .responsable-km .import-unmatched {
@@ -328,4 +381,129 @@
   margin-top: 0.5rem;
   font-weight: 600;
   color: #856404;
+}
+
+/* Ligne Divers */
+.responsable-km-table .divers-row {
+  background: #f5f5f5;
+}
+
+.responsable-km-table .divers-row .trip-cell {
+  background: #f5f5f5;
+}
+
+.responsable-km-table .divers-day-input {
+  width: 42px;
+  padding: 0.2rem 0.3rem;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  text-align: center;
+}
+
+.responsable-km-table .divers-day-input:focus {
+  border-color: #007bff;
+  outline: none;
+}
+
+.responsable-km-table .divers-km-label {
+  color: #999;
+}
+
+.responsable-km .divers-comments-section {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid #e0e0e0;
+}
+
+.responsable-km .divers-comments-section label {
+  display: block;
+}
+
+.responsable-km .divers-comments-section strong {
+  display: block;
+  margin-bottom: 0.5rem;
+}
+
+.responsable-km .divers-comments-input {
+  width: 100%;
+  padding: 0.5rem;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 0.9rem;
+  font-family: inherit;
+  resize: vertical;
+}
+
+/* Impression paysage */
+@media print {
+  @page {
+    size: landscape;
+    margin: 1cm;
+  }
+
+  body * {
+    visibility: hidden;
+  }
+
+  .responsable-km,
+  .responsable-km * {
+    visibility: visible;
+  }
+
+  .responsable-km {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    padding: 0;
+  }
+
+  .responsable-km .header-actions {
+    display: none !important;
+  }
+
+  .responsable-km .page-header h2 {
+    margin-bottom: 0.5rem;
+  }
+
+  .responsable-km .print-period {
+    display: block !important;
+    font-size: 1rem;
+    margin-bottom: 1rem;
+  }
+
+  .modal-overlay,
+  .loading {
+    display: none !important;
+  }
+
+  .responsable-km .page-header {
+    margin-bottom: 0.5rem;
+  }
+
+  .responsable-km-table .trip-name-input,
+  .responsable-km-table .km-input,
+  .responsable-km-table .divers-day-input,
+  .responsable-km .divers-comments-input {
+    border: 1px solid #ccc;
+    background: white;
+  }
+
+  .responsable-km .peage-fields input {
+    border: 1px solid #ccc;
+  }
+
+  .responsable-km .table-container {
+    overflow: visible;
+  }
+
+  .responsable-km-table {
+    font-size: 0.75rem;
+  }
+
+  .responsable-km-table th,
+  .responsable-km-table td {
+    padding: 0.25rem;
+  }
 }

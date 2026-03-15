@@ -14,6 +14,7 @@ const ResponsableKmExpenses = () => {
   const [grid, setGrid] = useState({});
   const [tollAmountTTC, setTollAmountTTC] = useState(0);
   const [tollAmountHT, setTollAmountHT] = useState(0);
+  const [diversComments, setDiversComments] = useState('');
   const [tauxKm, setTauxKm] = useState(0.47);
   const [daysInMonth, setDaysInMonth] = useState(31);
   const [loading, setLoading] = useState(true);
@@ -34,13 +35,20 @@ const ResponsableKmExpenses = () => {
   const [refusedIndexes, setRefusedIndexes] = useState(new Set());
   const [confirmingImport, setConfirmingImport] = useState(false);
 
+  // Déplacements en attente (mobile)
+  const [pendingDisplacements, setPendingDisplacements] = useState(0);
+  const [integrating, setIntegrating] = useState(false);
+
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const [expenseRes, tauxRes] = await Promise.all([
+      const [expenseRes, tauxRes, pendingRes] = await Promise.all([
         api.get(`/responsable-km/expense?site=${site}&month=${month}&year=${year}`),
-        api.get(`/responsable-km/taux-km?site=${site}&year=${year}`)
+        api.get(`/responsable-km/taux-km?site=${site}&year=${year}`),
+        api.get(`/responsable-km/pending-displacements?site=${site}&month=${month}&year=${year}`).catch(() => ({ data: { data: [] } }))
       ]);
+      const pending = pendingRes.data?.data || [];
+      setPendingDisplacements(pending.length);
       const d = expenseRes.data?.data;
       const t = tauxRes.data?.data;
       if (d) {
@@ -49,6 +57,7 @@ const ResponsableKmExpenses = () => {
         setGrid(d.grid || {});
         setTollAmountTTC(d.tollAmountTTC || 0);
         setTollAmountHT(d.tollAmountHT || 0);
+        setDiversComments(d.diversComments || '');
         setDaysInMonth(d.daysInMonth || new Date(year, month, 0).getDate());
       }
       if (t?.tauxKm !== undefined) setTauxKm(t.tauxKm);
@@ -78,12 +87,21 @@ const ResponsableKmExpenses = () => {
     fetchData();
   }, [fetchData]);
 
+  const [diversPresets, setDiversPresets] = useState([]);
+  const [newDiversName, setNewDiversName] = useState('');
+  const [newDiversKm, setNewDiversKm] = useState('');
+
   useEffect(() => {
-    if (showParamsModal) fetchPeageParams();
-  }, [showParamsModal, fetchPeageParams]);
+    if (showParamsModal) {
+      fetchPeageParams();
+      api.get(`/responsable-km/divers-presets?site=${site}`).then(r => setDiversPresets(r.data?.data || [])).catch(() => {});
+    }
+  }, [showParamsModal, fetchPeageParams, site]);
+
+  const toKey = (id) => (id && typeof id === 'object' && typeof id.toString === 'function') ? id.toString() : String(id ?? '');
 
   const handleToggle = (tripTypeId, day) => {
-    const key = tripTypeId.toString();
+    const key = toKey(tripTypeId);
     setGrid(prev => {
       const next = { ...prev };
       if (!next[key]) next[key] = {};
@@ -93,28 +111,62 @@ const ResponsableKmExpenses = () => {
     });
   };
 
-  const handleUpdateTripType = async (tripTypeId, field, value) => {
+  const handleDiversKmChange = (day, value) => {
+    const diversType = tripTypes.find(t => t.name === 'divers');
+    if (!diversType) return;
+    const key = toKey(diversType._id);
+    const v = parseFloat(value) || 0;
+    setGrid(prev => {
+      const next = { ...prev };
+      if (!next[key]) next[key] = {};
+      next[key] = { ...next[key], [day]: v };
+      return next;
+    });
+  };
+
+  const handlePrint = () => {
+    window.print();
+  };
+
+  const handleIntegrateDisplacements = async () => {
+    if (pendingDisplacements === 0) return;
+    setIntegrating(true);
     try {
-      const id = tripTypeId?.toString?.() || tripTypeId;
-      const payload = field === 'displayName' ? { displayName: value } : { km: parseFloat(value) || 0 };
+      await api.post('/responsable-km/integrate-displacements', { site, month, year });
+      toast.success('Déplacements intégrés');
+      fetchData();
+    } catch (e) {
+      toast.error(e.response?.data?.error || 'Erreur intégration');
+    } finally {
+      setIntegrating(false);
+    }
+  };
+
+  const basePath = window.location.pathname.startsWith('/lon') ? '/lon' : '/plan';
+
+  const handleUpdateTripType = async (tripTypeId, field, value) => {
+    const id = toKey(tripTypeId);
+    try {
+      const payload = field === 'displayName' ? { displayName: String(value || '').trim() } : { km: parseFloat(value) || 0 };
       await api.patch(`/responsable-km/trip-types/${id}`, payload);
       setEditingTrip(prev => { const n = { ...prev }; delete n[id]; return n; });
       toast.success('Modification enregistrée');
       fetchData();
     } catch (e) {
-      toast.error('Erreur lors de la modification');
+      toast.error(e.response?.data?.error || 'Erreur lors de la modification');
     }
   };
 
   const getDisplayValue = (t, field) => {
-    const key = t._id?.toString?.() || t._id;
+    const key = toKey(t._id);
     const ed = editingTrip[key];
     if (ed && ed[field] !== undefined) return ed[field];
-    return t[field];
+    const val = t[field];
+    return val !== undefined && val !== null ? val : (field === 'km' ? 0 : '');
   };
 
   const setEditingValue = (tripId, field, value) => {
-    const key = tripId?.toString?.() || tripId;
+    const key = toKey(tripId);
     setEditingTrip(prev => ({ ...prev, [key]: { ...prev[key], [field]: value } }));
   };
 
@@ -143,6 +195,24 @@ const ResponsableKmExpenses = () => {
     }
   };
 
+  const saveDiversPreset = async (preset) => {
+    try {
+      await api.post('/responsable-km/divers-presets', { site, ...preset });
+      toast.success('Divers enregistré');
+      const r = await api.get(`/responsable-km/divers-presets?site=${site}`);
+      setDiversPresets(r.data?.data || []);
+    } catch (e) {
+      toast.error('Erreur sauvegarde');
+    }
+  };
+
+  const addNewDiversPreset = () => {
+    if (!newDiversName.trim()) return;
+    saveDiversPreset({ name: newDiversName.trim(), km: newDiversKm ? parseFloat(newDiversKm) : null });
+    setNewDiversName('');
+    setNewDiversKm('');
+  };
+
   const saveExpense = async () => {
     setSaving(true);
     try {
@@ -153,7 +223,8 @@ const ResponsableKmExpenses = () => {
         grid,
         tollAmountTTC,
         tollAmountHT,
-        pdfImportedDates: []
+        pdfImportedDates: [],
+        diversComments
       });
       toast.success('Frais KM sauvegardés');
       fetchData();
@@ -245,10 +316,15 @@ const ResponsableKmExpenses = () => {
     tripTypes.forEach(t => {
       const key = t._id.toString();
       const days = grid[key] || {};
-      let count = 0;
-      Object.values(days).forEach(v => { count += v || 0; });
-      const km = count * (t.km || 0);
-      byType[key] = { count, km };
+      const isDivers = t.name === 'divers';
+      let km;
+      if (isDivers) {
+        km = Object.values(days).reduce((s, v) => s + (parseFloat(v) || 0), 0);
+      } else {
+        const count = Object.values(days).reduce((s, v) => s + (v || 0), 0);
+        km = count * (t.km || 0);
+      }
+      byType[key] = { count: isDivers ? '-' : Object.values(days).reduce((s, v) => s + (v || 0), 0), km };
       totalKm += km;
     });
     const totalEuros = totalKm * tauxKm;
@@ -274,6 +350,9 @@ const ResponsableKmExpenses = () => {
     <div className="responsable-km fade-in">
       <div className="page-header">
         <h2>🚗 Frais KM Responsable – {site === 'longuenesse' ? 'Longuenesse' : 'Arras'}</h2>
+        <span className="print-period" style={{ display: 'none' }}>
+          {MONTHS[month - 1]} {year} – Taux : {tauxKm} €/km
+        </span>
         <div className="header-actions">
           <select value={month} onChange={e => setMonth(parseInt(e.target.value))} className="form-control">
             {MONTHS.map((m, i) => (
@@ -321,6 +400,22 @@ const ResponsableKmExpenses = () => {
           <button className="btn btn-success" onClick={saveExpense} disabled={saving}>
             {saving ? '💾 Sauvegarde...' : '💾 Sauvegarder'}
           </button>
+          <button type="button" className="btn btn-outline" onClick={handlePrint}>
+            🖨️ Imprimer
+          </button>
+          <a href={`${basePath}/deplacement-standalone`} className="btn btn-outline" target="_blank" rel="noopener noreferrer">
+            📱 Saisie mobile
+          </a>
+          {pendingDisplacements > 0 && (
+            <button
+              type="button"
+              className="btn btn-outline"
+              onClick={handleIntegrateDisplacements}
+              disabled={integrating}
+            >
+              {integrating ? '⏳ Intégration...' : `📥 Intégrer (${pendingDisplacements})`}
+            </button>
+          )}
         </div>
       </div>
 
@@ -361,6 +456,46 @@ const ResponsableKmExpenses = () => {
                 />
               </label>
             </div>
+            <div className="modal-form divers-presets-section">
+              <h4>Divers prédéfinis</h4>
+              <p className="modal-hint">Définissez des types de déplacements divers avec leur km (ou laissez vide pour « à définir »).</p>
+              {diversPresets.map(p => (
+                <div key={p._id} className="divers-preset-row">
+                  <input type="text" value={p.name} readOnly className="preset-name" />
+                  <input
+                    type="number"
+                    step="0.1"
+                    min="0"
+                    placeholder="km"
+                    defaultValue={p.km}
+                    onBlur={e => {
+                      const v = e.target.value;
+                      if (v !== String(p.km ?? '')) saveDiversPreset({ _id: p._id, name: p.name, km: v ? parseFloat(v) : null });
+                    }}
+                    className="preset-km"
+                  />
+                </div>
+              ))}
+              <div className="divers-preset-row divers-add">
+                <input
+                  type="text"
+                  value={newDiversName}
+                  onChange={e => setNewDiversName(e.target.value)}
+                  placeholder="Nouveau divers"
+                  className="preset-name"
+                />
+                <input
+                  type="number"
+                  step="0.1"
+                  min="0"
+                  value={newDiversKm}
+                  onChange={e => setNewDiversKm(e.target.value)}
+                  placeholder="km"
+                  className="preset-km"
+                />
+                <button type="button" className="btn btn-outline btn-sm" onClick={addNewDiversPreset}>Ajouter</button>
+              </div>
+            </div>
             <div className="modal-actions">
               <button className="btn btn-outline" onClick={() => setShowParamsModal(false)}>Annuler</button>
               <button className="btn btn-success" onClick={savePeageParams} disabled={savingParams}>
@@ -378,7 +513,19 @@ const ResponsableKmExpenses = () => {
             <h3>📄 Réconciliation import PDF</h3>
             <div className="import-summary">
               <p><strong>Reconnus :</strong> {importData.allerCount || 0} aller, {importData.allerRetourCount || 0} aller-retour</p>
-              <p><strong>Total facture :</strong> {importData.totalTTC?.toFixed(2) || '0'} €</p>
+              <p><strong>Total facture (import) :</strong> {importData.totalTTC?.toFixed(2) || '0'} €</p>
+              {(() => {
+                const refusedAmount = (importData.unmatched || []).filter((_, i) => refusedIndexes.has(i)).reduce((s, u) => s + (parseFloat(u.amountTTC) || 0), 0);
+                const netAmount = (importData.totalTTC || 0) - refusedAmount;
+                return (
+                  <>
+                    {refusedIndexes.size > 0 && (
+                      <p className="import-deducted"><strong>Péages refusés :</strong> {refusedAmount.toFixed(2)} €</p>
+                    )}
+                    <p className="import-net"><strong>Péage à déclarer :</strong> {netAmount.toFixed(2)} €</p>
+                  </>
+                );
+              })()}
             </div>
             {importData.unmatched && importData.unmatched.length > 0 && (
               <div className="import-unmatched">
@@ -439,7 +586,7 @@ const ResponsableKmExpenses = () => {
         </div>
       </div>
 
-      <div className="table-container card">
+      <div className="table-container card" id="km-table-print">
         <table className="responsable-km-table">
           <thead>
             <tr>
@@ -455,38 +602,64 @@ const ResponsableKmExpenses = () => {
             {tripTypes.map(t => {
               const key = t._id.toString();
               const days = grid[key] || {};
-              const count = Object.values(days).reduce((s, v) => s + (v || 0), 0);
-              const km = count * (t.km || 0);
+              const isDivers = t.name === 'divers';
+              const km = isDivers
+                ? Object.values(days).reduce((s, v) => s + (parseFloat(v) || 0), 0)
+                : Object.values(days).reduce((s, v) => s + (v || 0), 0) * (t.km || 0);
               return (
-                <tr key={t._id} className={t.isBoulangerie ? 'boulangerie-row' : ''}>
-                  <td className="trip-cell">
+                <tr key={t._id} className={[t.isBoulangerie && 'boulangerie-row', isDivers && 'divers-row'].filter(Boolean).join(' ')}>
+                  <td className="trip-cell" onClick={e => e.stopPropagation()}>
                     <input
                       type="text"
                       value={getDisplayValue(t, 'displayName')}
                       onChange={e => setEditingValue(t._id, 'displayName', e.target.value)}
                       onBlur={e => {
                         const v = e.target.value.trim();
-                        if (v && v !== t.displayName) handleUpdateTripType(t._id, 'displayName', v);
+                        if (v && v !== (t.displayName || '')) handleUpdateTripType(t._id, 'displayName', v);
                       }}
                       className="trip-name-input"
+                      autoComplete="off"
                     />
                   </td>
-                  <td className="km-cell">
-                    <input
-                      type="number"
-                      step="0.1"
-                      min="0"
-                      value={getDisplayValue(t, 'km')}
-                      onChange={e => setEditingValue(t._id, 'km', e.target.value === '' ? '' : parseFloat(e.target.value) || 0)}
-                      onBlur={e => {
-                        const v = parseFloat(e.target.value) || 0;
-                        if (!isNaN(v) && v !== t.km) handleUpdateTripType(t._id, 'km', v);
-                      }}
-                      className="km-input"
-                    />
+                  <td className="km-cell" onClick={e => e.stopPropagation()}>
+                    {!isDivers && (
+                      <input
+                        type="number"
+                        step="0.1"
+                        min="0"
+                        value={getDisplayValue(t, 'km')}
+                        onChange={e => {
+                          const raw = e.target.value;
+                          setEditingValue(t._id, 'km', raw === '' ? '' : (parseFloat(raw) || 0));
+                        }}
+                        onBlur={e => {
+                          const v = parseFloat(e.target.value);
+                          if (!isNaN(v) && v >= 0 && v !== (t.km ?? 0)) handleUpdateTripType(t._id, 'km', v);
+                        }}
+                        className="km-input"
+                        autoComplete="off"
+                      />
+                    )}
+                    {isDivers && <span className="divers-km-label">–</span>}
                   </td>
                   {Array.from({ length: daysInMonth }, (_, i) => {
                     const d = i + 1;
+                    if (isDivers) {
+                      const kmVal = days[d] || 0;
+                      return (
+                        <td key={d} className="day-cell" onClick={e => e.stopPropagation()}>
+                          <input
+                            type="number"
+                            step="0.1"
+                            min="0"
+                            value={kmVal}
+                            onChange={e => handleDiversKmChange(d, e.target.value)}
+                            className="divers-day-input"
+                            placeholder="0"
+                          />
+                        </td>
+                      );
+                    }
                     const checked = !!(days[d]);
                     return (
                       <td key={d} className="day-cell">
@@ -504,6 +677,20 @@ const ResponsableKmExpenses = () => {
             })}
           </tbody>
         </table>
+        {tripTypes.some(t => t.name === 'divers') && (
+          <div className="divers-comments-section">
+            <label>
+              <strong>Commentaire Divers :</strong>
+              <textarea
+                value={diversComments}
+                onChange={e => setDiversComments(e.target.value)}
+                placeholder="Détail des déplacements divers (ex: jour 5 = livraison client X, jour 12 = formation...)"
+                rows={3}
+                className="divers-comments-input"
+              />
+            </label>
+          </div>
+        )}
       </div>
 
       <div className="summary card">
