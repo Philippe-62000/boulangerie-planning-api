@@ -3,7 +3,7 @@ const multer = require('multer');
 const router = express.Router();
 const responsableKmController = require('../controllers/responsableKmController');
 
-const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 
 // Endpoint de diagnostic pour vérifier que les routes responsable-km sont chargées
 router.get('/health', (req, res) => {

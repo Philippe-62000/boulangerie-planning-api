@@ -361,6 +361,7 @@ function extractPeageDisplayName(entry, exit) {
 /** Applique l'import après réconciliation utilisateur */
 exports.confirmImportPdf = async (req, res) => {
   try {
+    console.log('📥 confirmImportPdf - req.file:', req.file ? { fieldname: req.file.fieldname, size: req.file.size, originalname: req.file.originalname, bufferLength: req.file.buffer?.length } : 'AUCUN FICHIER');
     let { site, month, year, tollEntries, tollAmountTTC, refusedUnmatched, unmatchedToImport } = req.body;
     if (typeof tollEntries === 'string') tollEntries = JSON.parse(tollEntries || '[]');
     if (typeof refusedUnmatched === 'string') refusedUnmatched = JSON.parse(refusedUnmatched || '[]');
@@ -437,6 +438,7 @@ exports.confirmImportPdf = async (req, res) => {
       : [];
 
     let tollPdfPath = '';
+    let tollPdfError = null;
     if (req.file && req.file.buffer && process.env.SFTP_PASSWORD) {
       try {
         const basePath = process.env.NAS_BASE_PATH || process.env.SFTP_BASE_PATH || '/n8n/uploads/documents';
@@ -446,8 +448,12 @@ exports.confirmImportPdf = async (req, res) => {
         tollPdfPath = remotePath;
         console.log('✅ Facture péage stockée sur NAS:', remotePath);
       } catch (err) {
+        tollPdfError = err.message;
         console.error('⚠️ Erreur stockage facture NAS:', err.message);
       }
+    } else if (!req.file || !req.file.buffer) {
+      tollPdfError = 'Fichier PDF non reçu. Sélectionnez le PDF puis cliquez sur "Appliquer l\'import".';
+      console.warn('⚠️ confirmImportPdf: pas de fichier reçu (req.file:', !!req.file, ', buffer:', req.file?.buffer?.length ?? 0, ')');
     }
 
     const update = {
@@ -479,7 +485,11 @@ exports.confirmImportPdf = async (req, res) => {
 
     res.json({
       success: true,
-      data: { message }
+      data: {
+        message,
+        tollPdfStored: !!tollPdfPath,
+        tollPdfError: tollPdfError || undefined
+      }
     });
   } catch (error) {
     console.error('Erreur confirmImportPdf:', error);

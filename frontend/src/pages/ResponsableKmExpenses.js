@@ -315,6 +315,7 @@ const ResponsableKmExpenses = () => {
       const tollAmountToSave = roundEuro((importTotalTTC || importData.totalTTC || 0) - deducted);
 
       const formData = new FormData();
+      if (importFile) formData.append('file', importFile);
       formData.append('site', site);
       formData.append('month', month);
       formData.append('year', year);
@@ -322,11 +323,14 @@ const ResponsableKmExpenses = () => {
       formData.append('tollAmountTTC', tollAmountToSave);
       formData.append('refusedUnmatched', JSON.stringify(refusedUnmatched));
       formData.append('unmatchedToImport', JSON.stringify(toImport.map(u => ({ day: u.day, entry: u.entry, exit: u.exit, amountTTC: u.amountTTC }))));
-      if (importFile) formData.append('file', importFile);
 
       const res = await api.post('/responsable-km/confirm-import-pdf', formData);
 
-      toast.success(res.data?.data?.message || 'Import appliqué');
+      const data = res.data?.data || {};
+      toast.success(data.message || 'Import appliqué');
+      if (!data.tollPdfStored && data.tollPdfError) {
+        toast.warning(data.tollPdfError);
+      }
       setShowImportModal(false);
       setImportData(null);
       setImportFile(null);
@@ -643,6 +647,15 @@ const ResponsableKmExpenses = () => {
                   </p>
                 )}
               </div>
+            )}
+            {importFile ? (
+              <p className="modal-hint" style={{ marginTop: '0.5rem', fontSize: '0.9em' }}>
+                📄 Fichier joint : {importFile.name} (la facture sera stockée sur le NAS)
+              </p>
+            ) : (
+              <p className="modal-hint" style={{ marginTop: '0.5rem', fontSize: '0.9em', color: '#c00' }}>
+                ⚠️ Aucun fichier PDF joint. Fermez et refaites l'import PDF pour stocker la facture.
+              </p>
             )}
             <div className="modal-actions">
               <button className="btn btn-outline" onClick={() => setShowImportModal(false)}>Annuler</button>
