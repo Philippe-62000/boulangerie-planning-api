@@ -158,7 +158,8 @@ app.use('/api/ambassadors', require('./routes/ambassadors'));
 app.use('/api/online-orders', require('./routes/onlineOrders'));
 app.use('/api/product-exchanges', require('./routes/productExchanges'));
 app.use('/api/responsable-km', require('./routes/responsableKm'));
-console.log('✅ Routes responsable-km montées (/api/responsable-km/*)');
+app.use('/api/meal-reservations', require('./routes/mealReservations'));
+console.log('✅ Routes meal-reservations montées (/api/meal-reservations/*)');
 
 // Route de santé pour vérifier que l'API fonctionne
 app.get('/health', (req, res) => {

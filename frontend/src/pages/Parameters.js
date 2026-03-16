@@ -1034,6 +1034,7 @@ const Parameters = () => {
                         {permission.menuId === 'product-exchanges' && '🔄'}
                         {permission.menuId === 'employee-dashboard' && '📁'}
                         {permission.menuId === 'ambassadeur' && '⭐'}
+                        {permission.menuId === 'plateaux-repas' && '🍽️'}
                       </span>
                       {permission.menuName}
                     </div>

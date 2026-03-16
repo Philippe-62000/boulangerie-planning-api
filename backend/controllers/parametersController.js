@@ -86,7 +86,8 @@ const getParameters = async (req, res) => {
       { name: 'alertStore', displayName: 'Alerte au Magasin', booleanValue: false, kmValue: -1 },
       { name: 'alertAdmin', displayName: 'Alerte à l\'Administrateur', booleanValue: false, kmValue: -1 },
       { name: 'enableEmployeeAdvanceRequest', displayName: 'Employés autorisés pour la demande d\'acompte', stringValue: '[]', kmValue: -1 },
-      { name: 'siteEnMaintenance', displayName: 'Site en maintenance', booleanValue: false, kmValue: -1 }
+      { name: 'siteEnMaintenance', displayName: 'Site en maintenance', booleanValue: false, kmValue: -1 },
+      { name: 'emailNotificationsPlateaux', displayName: 'Email notifications réservations plateaux', stringValue: '', kmValue: -1 }
     ];
     
     for (const requiredParam of requiredParams) {

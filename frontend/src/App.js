@@ -34,6 +34,8 @@ import CommandesEnLigne from './pages/CommandesEnLigne';
 import ProductExchanges from './pages/ProductExchanges';
 import ResponsableKmExpenses from './pages/ResponsableKmExpenses';
 import DeplacementStandalone from './pages/DeplacementStandalone';
+import PlateauxRepas from './pages/PlateauxRepas';
+import PlateauxRepasStandalone from './pages/PlateauxRepasStandalone';
 
 const AppContent = () => {
   const { user, loading } = useAuth();
@@ -182,6 +184,11 @@ const AppContent = () => {
                 <ResponsableKmExpenses />
               </ProtectedRoute>
             } />
+            <Route path="/plateaux-repas" element={
+              <ProtectedRoute>
+                <PlateauxRepas />
+              </ProtectedRoute>
+            } />
           </Routes>
         </main>
       </div>
@@ -219,6 +226,8 @@ function App() {
           <Route path="/login" element={<Login />} />
           <Route path="/deplacement-standalone" element={<DeplacementStandalone />} />
           <Route path="/deplacement-standalone.html" element={<DeplacementStandalone />} />
+          <Route path="/plateaux-repas-standalone" element={<PlateauxRepasStandalone />} />
+          <Route path="/plateaux-repas-standalone.html" element={<PlateauxRepasStandalone />} />
           <Route path="/*" element={<AppContent />} />
         </Routes>
     </Router>

@@ -38,6 +38,7 @@ export default defineConfig({
       input: {
         main: path.resolve(__dirname, 'index.html'),
         'deplacement-standalone': path.resolve(__dirname, 'deplacement-standalone.html'),
+        'plateaux-repas-standalone': path.resolve(__dirname, 'plateaux-repas-standalone.html'),
       },
       output: {
         // Conserver la structure des noms de fichiers pour compatibilité

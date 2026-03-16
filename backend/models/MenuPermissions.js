@@ -251,6 +251,15 @@ menuPermissionsSchema.statics.createDefaultPermissions = async function() {
         isVisibleToEmployee: false,
         requiredPermissions: ['manage_parameters'],
         order: 19
+      },
+      {
+        menuId: 'plateaux-repas',
+        menuName: 'Plateaux repas',
+        menuPath: '/plateaux-repas',
+        isVisibleToAdmin: true,
+        isVisibleToEmployee: false,
+        requiredPermissions: ['view_plateaux_repas'],
+        order: 20
       }
     ];
 

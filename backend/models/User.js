@@ -32,7 +32,8 @@ const userSchema = new mongoose.Schema({
       'manage_employees',
       'manage_parameters',
       'manage_planning',
-      'view_reports'
+      'view_reports',
+      'view_plateaux_repas'
     ]
   }],
   isActive: {
