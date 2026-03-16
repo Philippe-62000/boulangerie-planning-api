@@ -442,6 +442,13 @@ const ResponsableKmExpenses = () => {
           >
             {importing ? '⏳ Import...' : '📄 Import PDF Bip&Go'}
           </button>
+          {tollPdfPath ? (
+            <button type="button" className="btn btn-outline" onClick={downloadTollPdf} title="Télécharger la facture PDF importée">
+              📥 Télécharger facture
+            </button>
+          ) : (
+            <span className="toll-pdf-hint" title="La facture sera disponible après un import PDF (stockage NAS)">📄 Facture : non stockée</span>
+          )}
           <button className="btn btn-success" onClick={saveExpense} disabled={saving}>
             {saving ? '💾 Sauvegarde...' : '💾 Sauvegarder'}
           </button>
@@ -654,7 +661,7 @@ const ResponsableKmExpenses = () => {
           <label>HT : <input type="number" step="0.01" value={roundEuro(tollAmountHT)} onChange={e => setTollAmountHT(roundEuro(parseFloat(e.target.value) || 0))} /> €</label>
           {tollPdfPath && (
             <button type="button" className="btn btn-outline" onClick={downloadTollPdf} title="Télécharger la facture PDF">
-              📥 Voir / Télécharger facture
+              📥 Télécharger facture
             </button>
           )}
         </div>

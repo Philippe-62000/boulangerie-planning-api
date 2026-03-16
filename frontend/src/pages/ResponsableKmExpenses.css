@@ -70,6 +70,12 @@
   color: white;
 }
 
+.responsable-km .toll-pdf-hint {
+  font-size: 0.85rem;
+  color: #6c757d;
+  padding: 0.5rem 0.75rem;
+}
+
 .responsable-km .peage-section {
   margin-bottom: 1rem;
   padding: 1rem;

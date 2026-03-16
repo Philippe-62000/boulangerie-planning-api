@@ -129,6 +129,11 @@ exports.getExpense = async (req, res) => {
         if (y > t.deletedFromYear) return false;
         if (y === t.deletedFromYear && m >= t.deletedFromMonth) return false;
       }
+      // Lignes créées par import péage : afficher uniquement à partir du mois d'import (pas avant)
+      if (t.importMonth != null && t.importYear != null) {
+        if (y < t.importYear) return false;
+        if (y === t.importYear && m < t.importMonth) return false;
+      }
       return true;
     });
 
