@@ -4,6 +4,7 @@ const ResponsableDisplacementLog = require('../models/ResponsableDisplacementLog
 const DiversPreset = require('../models/DiversPreset');
 const Parameter = require('../models/Parameters');
 const { parseBipGoPdf } = require('../services/bipGoPdfParser');
+const sftpService = require('../services/sftpService');
 
 const roundEuro = (n) => Math.round((Number(n) || 0) * 100) / 100;
 
@@ -160,6 +161,7 @@ exports.getExpense = async (req, res) => {
         tollAmountTTC: roundEuro(expense?.tollAmountTTC ?? 0),
         tollAmountHT: roundEuro(expense?.tollAmountHT ?? 0),
         pdfImportedDates: expense?.pdfImportedDates ?? [],
+        tollPdfPath: expense?.tollPdfPath || '',
         diversComments: expense?.diversComments ?? '',
         tauxKm,
         daysInMonth
@@ -352,7 +354,10 @@ function extractPeageDisplayName(entry, exit) {
 /** Applique l'import après réconciliation utilisateur */
 exports.confirmImportPdf = async (req, res) => {
   try {
-    const { site, month, year, tollEntries, tollAmountTTC, refusedUnmatched, unmatchedToImport } = req.body;
+    let { site, month, year, tollEntries, tollAmountTTC, refusedUnmatched, unmatchedToImport } = req.body;
+    if (typeof tollEntries === 'string') tollEntries = JSON.parse(tollEntries || '[]');
+    if (typeof refusedUnmatched === 'string') refusedUnmatched = JSON.parse(refusedUnmatched || '[]');
+    if (typeof unmatchedToImport === 'string') unmatchedToImport = JSON.parse(unmatchedToImport || '[]');
     if (!site || !month || !year) {
       return res.status(400).json({ error: 'Site, mois et année requis' });
     }
@@ -424,6 +429,20 @@ exports.confirmImportPdf = async (req, res) => {
         })
       : [];
 
+    let tollPdfPath = '';
+    if (req.file && req.file.buffer && process.env.SFTP_PASSWORD) {
+      try {
+        const basePath = process.env.NAS_BASE_PATH || process.env.SFTP_BASE_PATH || '/n8n/uploads/documents';
+        const fileName = `facture-${y}-${String(m).padStart(2, '0')}.pdf`;
+        const remotePath = `${basePath}/responsable-km/${site}/${fileName}`;
+        await sftpService.putBuffer(req.file.buffer, remotePath);
+        tollPdfPath = remotePath;
+        console.log('✅ Facture péage stockée sur NAS:', remotePath);
+      } catch (err) {
+        console.error('⚠️ Erreur stockage facture NAS:', err.message);
+      }
+    }
+
     const update = {
       site,
       month: m,
@@ -431,7 +450,8 @@ exports.confirmImportPdf = async (req, res) => {
       entries: [...existingEntries, ...entries],
       tollAmountTTC: amountTTC,
       tollAmountHT: amountHT,
-      pdfImportedDates: [...new Set(entries.map(e => e.day))]
+      pdfImportedDates: [...new Set(entries.map(e => e.day))],
+      ...(tollPdfPath && { tollPdfPath })
     };
 
     await ResponsableKmExpense.findOneAndUpdate(
@@ -456,6 +476,29 @@ exports.confirmImportPdf = async (req, res) => {
     });
   } catch (error) {
     console.error('Erreur confirmImportPdf:', error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+/** Télécharge la facture PDF péage stockée sur le NAS */
+exports.downloadTollPdf = async (req, res) => {
+  try {
+    const { site, month, year } = req.params;
+    if (!site || !['longuenesse', 'arras'].includes(site)) {
+      return res.status(400).json({ error: 'Site invalide' });
+    }
+    const m = parseInt(month, 10);
+    const y = parseInt(year, 10);
+    const expense = await ResponsableKmExpense.findOne({ site, month: m, year: y });
+    if (!expense || !expense.tollPdfPath) {
+      return res.status(404).json({ error: 'Facture péage non trouvée' });
+    }
+    const buffer = await sftpService.downloadFile(expense.tollPdfPath);
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="facture-peage-${site}-${y}-${String(m).padStart(2, '0')}.pdf"`);
+    res.send(buffer);
+  } catch (error) {
+    console.error('Erreur downloadTollPdf:', error);
     res.status(500).json({ error: error.message });
   }
 };

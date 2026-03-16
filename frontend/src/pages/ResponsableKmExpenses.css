@@ -135,7 +135,14 @@
 .responsable-km-table .day-col {
   min-width: 32px;
   max-width: 36px;
-  font-size: 0.75rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+/* Jours 1, 2, 3... plus visibles dans l'en-tête */
+.responsable-km-table thead .day-col {
+  font-weight: 700;
+  font-size: 0.9rem;
 }
 
 .responsable-km-table .total-col {
@@ -472,6 +479,15 @@
 .responsable-km-table .divers-day-input:focus {
   border-color: #007bff;
   outline: none;
+}
+
+/* Case divers renseignée : fond coloré pour repérage visuel */
+.responsable-km-table .day-cell.divers-cell-filled {
+  background: #e8f5e9 !important;
+}
+.responsable-km-table .day-cell.divers-cell-filled .divers-day-input {
+  background: #c8e6c9;
+  border-color: #81c784;
 }
 
 .responsable-km-table .divers-km-label {

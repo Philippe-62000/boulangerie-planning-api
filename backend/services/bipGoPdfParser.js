@@ -56,6 +56,29 @@ function splitConcatenatedGantts(concatenated) {
   return null;
 }
 
+/** Mots-clés à exclure : faux positifs (pied de page, règlement, BIC/IBAN...) */
+const EXCLUDE_PATTERNS = [
+  /date\s+de\s+règlement/i,
+  /prelevement\s+automatique/i,
+  /bic\s*:/i,
+  /iban\s*:/i,
+  /compte\s+/i,
+  /^du\s*$/i,
+  /^sur\s+le\s+compte/i,
+  /^\d{8}[A-Z0-9]*$/,  // code gantt seul sans nom de gare
+  /^[a-z]{1,2}\s*$/i   // 1-2 lettres seules (ex: "du")
+];
+
+function isInvalidPeageEntry(entry, exit) {
+  const e = (entry || '').trim();
+  const s = (exit || '').trim();
+  if (e.length < 3 && s.length < 3) return true; // trop court pour être un péage
+  for (const pat of EXCLUDE_PATTERNS) {
+    if (pat.test(e) || pat.test(s)) return true;
+  }
+  return false;
+}
+
 /**
  * Extrait les transactions depuis le texte PDF
  * Format typique: Date | Entrée | Sortie | Tarif
@@ -108,6 +131,9 @@ function extractTransactions(text, expectedMonth, expectedYear) {
         entry = part;
       }
     }
+
+    // Exclure les faux positifs (pied de page, règlement, BIC/IBAN, "du", etc.)
+    if (isInvalidPeageEntry(entry, exit)) continue;
 
     transactions.push({ day, month, year, entry, exit, amountTTC });
   }

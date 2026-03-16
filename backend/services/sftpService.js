@@ -457,6 +457,31 @@ class SFTPService {
     }
   }
 
+  /**
+   * Upload un buffer vers un chemin NAS personnalisé (ex: factures péage)
+   * Crée les dossiers parents si nécessaire
+   */
+  async putBuffer(buffer, remotePath) {
+    try {
+      await this.connect();
+      const pathParts = remotePath.split('/').filter(Boolean);
+      let currentPath = '';
+      for (let i = 0; i < pathParts.length - 1; i++) {
+        currentPath += '/' + pathParts[i];
+        try {
+          await this._client.stat(currentPath);
+        } catch {
+          await this._client.mkdir(currentPath, true);
+        }
+      }
+      await this._client.put(Buffer.isBuffer(buffer) ? buffer : Buffer.from(buffer), remotePath);
+      return { remotePath };
+    } catch (error) {
+      console.error('❌ Erreur putBuffer:', error.message);
+      throw error;
+    }
+  }
+
   // Télécharger un fichier (pour prévisualisation)
   async downloadFile(filePath) {
     let retryCount = 0;

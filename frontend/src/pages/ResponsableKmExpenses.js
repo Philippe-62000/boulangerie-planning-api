@@ -34,9 +34,13 @@ const ResponsableKmExpenses = () => {
   // Modal réconciliation import
   const [showImportModal, setShowImportModal] = useState(false);
   const [importData, setImportData] = useState(null);
+  const [importFile, setImportFile] = useState(null); // Fichier PDF pour stockage NAS à la confirmation
   const [importTotalTTC, setImportTotalTTC] = useState(0);
   const [refusedIndexes, setRefusedIndexes] = useState(new Set());
   const [confirmingImport, setConfirmingImport] = useState(false);
+
+  // Facture PDF stockée (pour bouton télécharger)
+  const [tollPdfPath, setTollPdfPath] = useState('');
 
   // Déplacements en attente (mobile)
   const [pendingDisplacements, setPendingDisplacements] = useState(0);
@@ -61,6 +65,7 @@ const ResponsableKmExpenses = () => {
         setTollAmountTTC(roundEuro(d.tollAmountTTC || 0));
         setTollAmountHT(roundEuro(d.tollAmountHT || 0));
         setDiversComments(d.diversComments || '');
+        setTollPdfPath(d.tollPdfPath || '');
         setDaysInMonth(d.daysInMonth || new Date(year, month, 0).getDate());
       }
       if (t?.tauxKm !== undefined) setTauxKm(t.tauxKm);
@@ -262,6 +267,7 @@ const ResponsableKmExpenses = () => {
       return;
     }
     setImporting(true);
+    setImportFile(file);
     try {
       const formData = new FormData();
       formData.append('file', file);
@@ -308,19 +314,22 @@ const ResponsableKmExpenses = () => {
       const deducted = refusedUnmatched.reduce((s, u) => s + (parseFloat(u.amountTTC) || 0), 0);
       const tollAmountToSave = roundEuro((importTotalTTC || importData.totalTTC || 0) - deducted);
 
-      const res = await api.post('/responsable-km/confirm-import-pdf', {
-        site,
-        month,
-        year,
-        tollEntries,
-        tollAmountTTC: tollAmountToSave,
-        refusedUnmatched,
-        unmatchedToImport: toImport.map(u => ({ day: u.day, entry: u.entry, exit: u.exit, amountTTC: u.amountTTC }))
-      });
+      const formData = new FormData();
+      formData.append('site', site);
+      formData.append('month', month);
+      formData.append('year', year);
+      formData.append('tollEntries', JSON.stringify(tollEntries));
+      formData.append('tollAmountTTC', tollAmountToSave);
+      formData.append('refusedUnmatched', JSON.stringify(refusedUnmatched));
+      formData.append('unmatchedToImport', JSON.stringify(toImport.map(u => ({ day: u.day, entry: u.entry, exit: u.exit, amountTTC: u.amountTTC }))));
+      if (importFile) formData.append('file', importFile);
+
+      const res = await api.post('/responsable-km/confirm-import-pdf', formData);
 
       toast.success(res.data?.data?.message || 'Import appliqué');
       setShowImportModal(false);
       setImportData(null);
+      setImportFile(null);
       setTollAmountTTC(tollAmountToSave);
       setTollAmountHT(roundEuro(tollAmountToSave / 1.2));
       fetchData();
@@ -328,6 +337,21 @@ const ResponsableKmExpenses = () => {
       toast.error(error.response?.data?.error || 'Erreur lors de l\'application');
     } finally {
       setConfirmingImport(false);
+    }
+  };
+
+  const downloadTollPdf = async () => {
+    try {
+      const res = await api.get(`/responsable-km/toll-pdf/${site}/${month}/${year}`, { responseType: 'blob' });
+      const url = window.URL.createObjectURL(new Blob([res.data]));
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `facture-peage-${site}-${year}-${String(month).padStart(2, '0')}.pdf`;
+      a.click();
+      window.URL.revokeObjectURL(url);
+      toast.success('Facture téléchargée');
+    } catch (e) {
+      toast.error('Erreur téléchargement facture');
     }
   };
 
@@ -619,6 +643,11 @@ const ResponsableKmExpenses = () => {
         <div className="peage-fields">
           <label>TTC : <input type="number" step="0.01" value={roundEuro(tollAmountTTC)} onChange={e => setTollAmountTTC(roundEuro(parseFloat(e.target.value) || 0))} /> €</label>
           <label>HT : <input type="number" step="0.01" value={roundEuro(tollAmountHT)} onChange={e => setTollAmountHT(roundEuro(parseFloat(e.target.value) || 0))} /> €</label>
+          {tollPdfPath && (
+            <button type="button" className="btn btn-outline" onClick={downloadTollPdf} title="Télécharger la facture PDF">
+              📥 Voir / Télécharger facture
+            </button>
+          )}
         </div>
       </div>
 
@@ -696,8 +725,9 @@ const ResponsableKmExpenses = () => {
                       const kmVal = days[d] || 0;
                       const isSameMonthAsImport = t.importMonth === month && t.importYear === year;
                       const isImportDay = isSameMonthAsImport && Array.isArray(t.importDays) && t.importDays.includes(d);
+                      const hasValue = (parseFloat(kmVal) || 0) > 0;
                       return (
-                        <td key={d} className={`day-cell ${isImportDay ? 'peage-import-day-cell' : ''}`} onClick={e => e.stopPropagation()}>
+                        <td key={d} className={`day-cell ${isImportDay ? 'peage-import-day-cell' : ''} ${hasValue ? 'divers-cell-filled' : ''}`} onClick={e => e.stopPropagation()}>
                           <input
                             type="number"
                             step="0.1"
