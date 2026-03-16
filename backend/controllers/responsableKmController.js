@@ -487,6 +487,79 @@ exports.confirmImportPdf = async (req, res) => {
   }
 };
 
+/** Test SFTP + liste des factures sur le NAS (comme /api/sick-leaves/test-sftp) */
+exports.testSftp = async (req, res) => {
+  try {
+    const config = {
+      host: 'philange.synology.me',
+      username: 'nHEIGHTn',
+      passwordSet: !!process.env.SFTP_PASSWORD,
+      port: 22,
+      basePath: process.env.NAS_BASE_PATH || process.env.SFTP_BASE_PATH || '/n8n/uploads/documents'
+    };
+
+    if (!process.env.SFTP_PASSWORD) {
+      return res.json({
+        success: false,
+        error: 'SFTP_PASSWORD non configuré',
+        details: 'La variable SFTP_PASSWORD doit être définie dans Render pour stocker les factures péage sur le NAS.',
+        config
+      });
+    }
+
+    const SftpClient = require('ssh2-sftp-client');
+    const client = new SftpClient();
+    await client.connect({
+      host: config.host,
+      username: config.username,
+      password: process.env.SFTP_PASSWORD,
+      port: config.port,
+      readyTimeout: 10000
+    });
+
+    const basePath = config.basePath;
+    const arrasPath = `${basePath}/responsable-km/arras`;
+    const longuenessePath = `${basePath}/responsable-km/longuenesse`;
+
+    let arrasFiles = [];
+    let longuenesseFiles = [];
+    let arrasError = null;
+    let longuenesseError = null;
+    try {
+      arrasFiles = await client.list(arrasPath);
+    } catch (e) {
+      arrasError = e.message;
+    }
+    try {
+      longuenesseFiles = await client.list(longuenessePath);
+    } catch (e) {
+      longuenesseError = e.message;
+    }
+
+    await client.end();
+
+    res.json({
+      success: true,
+      message: 'Connexion SFTP OK. Factures péage listées.',
+      config,
+      facturesArras: (arrasFiles || []).filter(f => f.name && f.name.endsWith('.pdf')).map(f => f.name),
+      facturesLonguenesse: (longuenesseFiles || []).filter(f => f.name && f.name.endsWith('.pdf')).map(f => f.name),
+      arrasError: arrasError || null,
+      longuenesseError: longuenesseError || null
+    });
+  } catch (error) {
+    console.error('Erreur testSftp:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      config: {
+        host: 'philange.synology.me',
+        passwordSet: !!process.env.SFTP_PASSWORD
+      }
+    });
+  }
+};
+
 /** Télécharge la facture PDF péage stockée sur le NAS */
 exports.downloadTollPdf = async (req, res) => {
   try {

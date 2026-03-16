@@ -17,6 +17,7 @@ router.get('/peage-params', responsableKmController.getPeageParams);
 router.post('/peage-params', responsableKmController.savePeageParams);
 router.post('/import-pdf', upload.single('file'), responsableKmController.importPdf);
 router.post('/confirm-import-pdf', upload.single('file'), responsableKmController.confirmImportPdf);
+router.get('/test-sftp', responsableKmController.testSftp);
 router.get('/toll-pdf/:site/:month/:year', responsableKmController.downloadTollPdf);
 router.get('/taux-km', responsableKmController.getTauxKm);
 router.post('/taux-km', responsableKmController.saveTauxKm);
