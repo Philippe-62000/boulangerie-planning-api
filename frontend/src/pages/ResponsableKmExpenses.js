@@ -587,6 +587,12 @@ const ResponsableKmExpenses = () => {
                 );
               })()}
             </div>
+            {importData.rawText && (importData.allerCount === 0 && importData.allerRetourCount === 0) && (
+              <details className="import-debug">
+                <summary>🔍 Texte brut extrait du PDF (debug)</summary>
+                <pre className="import-raw-text">{importData.rawText}</pre>
+              </details>
+            )}
             {importData.unmatched && importData.unmatched.length > 0 && (
               <div className="import-unmatched">
                 <h4>Trajets non reconnus (entrée/sortie ≠ paramètres)</h4>

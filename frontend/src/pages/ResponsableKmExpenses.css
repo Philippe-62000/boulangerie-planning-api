@@ -405,6 +405,27 @@
   color: #856404;
 }
 
+.responsable-km .import-debug {
+  margin: 1rem 0;
+  font-size: 0.85rem;
+}
+.responsable-km .import-debug summary {
+  cursor: pointer;
+  color: #666;
+}
+.responsable-km .import-raw-text {
+  margin-top: 0.5rem;
+  padding: 0.75rem;
+  background: #f5f5f5;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  max-height: 200px;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
 /* Ligne Divers */
 .responsable-km-table .divers-row {
   background: #f5f5f5;
