@@ -5,6 +5,11 @@ const responsableKmController = require('../controllers/responsableKmController'
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
 
+// Endpoint de diagnostic pour vérifier que les routes responsable-km sont chargées
+router.get('/health', (req, res) => {
+  res.json({ ok: true, module: 'responsable-km', timestamp: new Date().toISOString() });
+});
+
 router.get('/trip-types', responsableKmController.getTripTypes);
 router.get('/expense', responsableKmController.getExpense);
 router.post('/expense', responsableKmController.saveExpense);
