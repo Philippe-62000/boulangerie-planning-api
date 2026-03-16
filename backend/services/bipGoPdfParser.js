@@ -41,8 +41,8 @@ function splitConcatenatedGantts(concatenated) {
   if (!concatenated || typeof concatenated !== 'string') return null;
   // Enlever les montants/km collés à la fin (ex: 12,802,330,00 %33,3)
   const cleaned = concatenated.replace(/\d+[,.]\d[\d,.\s%]*$/g, '').trim();
-  // Pattern: 8 chiffres + reste jusqu'au prochain bloc 8 chiffres ou fin (lettres/minuscules inclus)
-  const ganttPattern = /\d{8}[A-Za-z0-9\s]+?(?=\d{8}|$)/g;
+  // Pattern: 8 chiffres + reste jusqu'au prochain bloc 8 chiffres ou fin (lettres, espaces, parenthèses pour "ARRAS (A26)")
+  const ganttPattern = /\d{8}[A-Za-z0-9\s()]+?(?=\d{8}|$)/g;
   const matches = cleaned.match(ganttPattern);
   if (!matches) return null;
   // Enlever montants/km éventuellement collés à la fin de chaque gantt
@@ -65,7 +65,7 @@ const EXCLUDE_PATTERNS = [
   /compte\s+/i,
   /^du\s*$/i,
   /^sur\s+le\s+compte/i,
-  /^\d{8}[A-Z0-9]*$/,  // code gantt seul sans nom de gare
+  /^\d{8}[A-Z0-9]{0,6}$/,  // code gantt seul SANS nom de gare (max 6 car après les 8 chiffres)
   /^[a-z]{1,2}\s*$/i   // 1-2 lettres seules (ex: "du")
 ];
 
@@ -192,11 +192,82 @@ function extractTransactions(text, expectedMonth, expectedYear) {
  *   rawText: string
  * }}
  */
+/**
+ * Détecte et parse le format récapitulatif Bip&Go (facture mensuelle sans détail par jour)
+ * Ex: "Trajet A26 BETHUNE/ARRAS (A26) non remisé", "Trajets groupe Sanef", "NET A PAYER 35,50 €"
+ */
+function parseFormatRecap(text, expectedMonth, expectedYear, entreePeage, sortiePeage) {
+  const monthNames = ['janvier', 'fevrier', 'mars', 'avril', 'mai', 'juin', 'juillet', 'aout', 'septembre', 'octobre', 'novembre', 'decembre'];
+  const textLower = text.toLowerCase();
+
+  // Vérifier "Mois : Février 2026" ou similaire (\w peut exclure les accents)
+  const moisMatch = text.match(/Mois\s*:\s*([A-Za-z\u00C0-\u017F]+)\s+(\d{4})/i);
+  if (!moisMatch) return null;
+  const moisStr = moisMatch[1].toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  const pdfYear = parseInt(moisMatch[2], 10);
+  let pdfMonth = monthNames.findIndex(m => moisStr.includes(m.substring(0, 4))) + 1;
+  if (pdfMonth === 0) {
+    const altMonths = { fevr: 2, janv: 1, mars: 3, avri: 4, mai: 5, juin: 6, juil: 7, aout: 8, sept: 9, octo: 10, novem: 11, decem: 12 };
+    for (const [k, v] of Object.entries(altMonths)) {
+      if (moisStr.includes(k)) { pdfMonth = v; break; }
+    }
+  }
+  if (pdfMonth === 0 || pdfMonth !== expectedMonth || pdfYear !== expectedYear) return null;
+
+  // Extraire total NET A PAYER
+  const totalMatch = text.match(/NET\s*A\s*PAYER\s*([\d\s,]+)\s*€/i);
+  const totalTTC = totalMatch ? parseFloat(totalMatch[1].replace(/\s/g, '').replace(',', '.')) || 0 : 0;
+
+  // Chercher une ligne contenant les deux péages (ex: "Trajet A26 BETHUNE/ARRAS" ou "BETHUNE ... ARRAS")
+  const nEntree = normalizePeageName(entreePeage);
+  const nSortie = normalizePeageName(sortiePeage);
+  if (!nEntree || !nSortie) return null;
+
+  const lines = text.split(/\r?\n/);
+  let routeMatch = false;
+  for (const line of lines) {
+    const lineNorm = normalizePeageName(line);
+    if (lineNorm.includes(nEntree) && lineNorm.includes(nSortie)) {
+      routeMatch = true;
+      break;
+    }
+  }
+
+  if (!routeMatch) return null;
+
+  return {
+    totalTTC: roundEuro(totalTTC),
+    routeMatch: true,
+    formatRecap: true
+  };
+}
+
 async function parseBipGoPdf(buffer, expectedMonth, expectedYear, entreePeage = '', sortiePeage = '') {
   const data = await pdfParse(buffer);
   const text = data.text || '';
 
+  // D'abord extraire les transactions (format détaillé page 2 : RELEVE DETAILLE)
   const { transactions, totalTTC } = extractTransactions(text, expectedMonth, expectedYear);
+
+  // Si pas de transactions détaillées, tester le format récapitulatif (page 1 seule)
+  if (transactions.length === 0 && entreePeage && sortiePeage) {
+    const recap = parseFormatRecap(text, expectedMonth, expectedYear, entreePeage, sortiePeage);
+    if (recap) {
+      return {
+        allerCount: 0,
+        allerRetourCount: 0,
+        recognizedDays: [],
+        unmatched: [],
+        totalTTC: recap.totalTTC,
+        dates: [],
+        amountTTC: recap.totalTTC,
+        rawText: text.substring(0, 800),
+        formatRecap: true,
+        routeMatch: true,
+        message: `Format récapitulatif détecté. Trajet ${entreePeage}/${sortiePeage} reconnu. Montant total : ${recap.totalTTC.toFixed(2)} €. Ajoutez manuellement les jours dans le tableau.`
+      };
+    }
+  }
 
   // Fallback: si pas de transactions structurées, utiliser l'ancienne logique (dates simples)
   if (transactions.length === 0) {

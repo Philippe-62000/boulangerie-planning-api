@@ -317,20 +317,22 @@ exports.importPdf = async (req, res) => {
       });
     }
 
+    const message = result.message || `${result.allerCount} aller, ${result.allerRetourCount} aller-retour reconnus. ${(result.unmatched || []).length} non reconnus.`;
     res.json({
       success: true,
       data: {
         allerCount: result.allerCount,
         allerRetourCount: result.allerRetourCount,
         recognizedDays: result.recognizedDays || result.dates?.map(d => ({ day: d, count: 1 })) || [],
-        unmatched: result.unmatched,
+        unmatched: result.unmatched || [],
         totalTTC: result.totalTTC,
-        dates: result.dates,
+        dates: result.dates || [],
         amountTTC: result.amountTTC,
         allerTypeId: allerType._id.toString(),
         retourTypeId: retourType._id.toString(),
         legacyMode: result.legacyMode,
-        message: `${result.allerCount} aller, ${result.allerRetourCount} aller-retour reconnus. ${result.unmatched.length} non reconnus.`
+        formatRecap: result.formatRecap,
+        message
       }
     });
   } catch (error) {

@@ -556,6 +556,9 @@ const ResponsableKmExpenses = () => {
         <div className="modal-overlay" onClick={() => setShowImportModal(false)}>
           <div className="modal-content modal-import" onClick={e => e.stopPropagation()}>
             <h3>📄 Réconciliation import PDF</h3>
+            {importData.formatRecap && importData.message && (
+              <p className="import-format-recap">{importData.message}</p>
+            )}
             <div className="import-summary">
               <p><strong>Reconnus :</strong> {importData.allerCount || 0} aller, {importData.allerRetourCount || 0} aller-retour</p>
               <p>
