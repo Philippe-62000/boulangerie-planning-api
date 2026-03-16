@@ -346,16 +346,30 @@ exports.importPdf = async (req, res) => {
   }
 };
 
-/** Extrait un libellé lisible d'une entrée/sortie de péage (ex: "25003087A48VOREPPE BARRIERE" → "VOREPPE BARRIERE") */
+/** Extrait le nom de gare depuis un libellé Bip&Go (ex: "25007026A266BETHUNE" → "BETHUNE", "25007025A265 LILLERS" → "LILLERS") */
+function extractGareName(s) {
+  if (!s || typeof s !== 'string') return '';
+  const trimmed = s.replace(/\d+[,.]\d[\d,.\s%]*$/g, '').trim();
+  // Format: 8 chiffres + 0-6 alphanum (code gantt) + nom de la gare
+  const m = trimmed.match(/^\d{8}[A-Z0-9]{0,6}\s*(.+)$/);
+  return m ? m[1].trim().substring(0, 40) : trimmed.substring(0, 40);
+}
+
+/** Met en forme "BETHUNE" → "Bethune", "LILLERS" → "LILLERS" (capitale uniquement si tout majuscules) */
+function formatGareDisplay(name) {
+  if (!name || name.length < 2) return name;
+  if (name === name.toUpperCase() && name.length <= 15) {
+    return name.charAt(0) + name.slice(1).toLowerCase();
+  }
+  return name;
+}
+
+/** Extrait un libellé lisible pour la colonne déplacement (ex: "Bethune → LILLERS") */
 function extractPeageDisplayName(entry, exit) {
-  const clean = (s) => {
-    if (!s || typeof s !== 'string') return '';
-    return s.replace(/^\d{8}[A-Z0-9]*\s*/, '').replace(/\d+[,.]\d[\d,.\s%]*$/g, '').trim().substring(0, 60);
-  };
-  const e = clean(entry);
-  const s = clean(exit);
+  const e = formatGareDisplay(extractGareName(entry));
+  const s = formatGareDisplay(extractGareName(exit));
   if (e && s) return `${e} → ${s}`;
-  return e || s || (entry || '').substring(0, 60);
+  return e || s || (entry || exit || '').substring(0, 60);
 }
 
 /** Applique l'import après réconciliation utilisateur */
