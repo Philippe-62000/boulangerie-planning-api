@@ -487,7 +487,7 @@ exports.confirmImportPdf = async (req, res) => {
   }
 };
 
-/** Test SFTP + liste des factures sur le NAS (comme /api/sick-leaves/test-sftp) */
+/** Test SFTP + liste des factures sur le NAS. Ajouter ?create=1 pour créer les dossiers manquants. */
 exports.testSftp = async (req, res) => {
   try {
     const config = {
@@ -521,10 +521,39 @@ exports.testSftp = async (req, res) => {
     const arrasPath = `${basePath}/responsable-km/arras`;
     const longuenessePath = `${basePath}/responsable-km/longuenesse`;
 
+    const doCreate = req.query.create === '1' || req.query.create === 'true';
+    let created = [];
+
+    if (doCreate) {
+      for (const p of [arrasPath, longuenessePath]) {
+        try {
+          await client.mkdir(p, true);
+          created.push(p);
+        } catch (e) {
+          if (!e.message.includes('already exists')) {
+            created.push({ path: p, error: e.message });
+          }
+        }
+      }
+    }
+
     let arrasFiles = [];
     let longuenesseFiles = [];
     let arrasError = null;
     let longuenesseError = null;
+    let rootList = null;
+    let basePathExists = false;
+    try {
+      rootList = await client.list('/');
+    } catch (e) {
+      rootList = { error: e.message };
+    }
+    try {
+      await client.stat(basePath);
+      basePathExists = true;
+    } catch (e) {
+      basePathExists = false;
+    }
     try {
       arrasFiles = await client.list(arrasPath);
     } catch (e) {
@@ -540,8 +569,11 @@ exports.testSftp = async (req, res) => {
 
     res.json({
       success: true,
-      message: 'Connexion SFTP OK. Factures péage listées.',
+      message: doCreate ? 'Connexion SFTP OK. Création des dossiers tentée.' : 'Connexion SFTP OK. Factures péage listées.',
       config,
+      basePathExists,
+      rootContent: rootList && !rootList.error ? rootList.map(f => f.name).slice(0, 20) : (rootList?.error || null),
+      created: doCreate ? created : undefined,
       facturesArras: (arrasFiles || []).filter(f => f.name && f.name.endsWith('.pdf')).map(f => f.name),
       facturesLonguenesse: (longuenesseFiles || []).filter(f => f.name && f.name.endsWith('.pdf')).map(f => f.name),
       arrasError: arrasError || null,

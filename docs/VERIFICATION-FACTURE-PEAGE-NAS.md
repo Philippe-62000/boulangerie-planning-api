@@ -20,8 +20,14 @@ Si une de ces étapes échoue, le bouton reste masqué et vous voyez "📄 Factu
 GET https://boulangerie-planning-api-4-pbfy.onrender.com/api/responsable-km/test-sftp
 ```
 
+**Si les dossiers n'existent pas** (arrasError: "No such file"), ajoutez `?create=1` pour les créer :
+```
+GET https://boulangerie-planning-api-4-pbfy.onrender.com/api/responsable-km/test-sftp?create=1
+```
+
 Ou dans un navigateur :
 - https://boulangerie-planning-api-4-pbfy.onrender.com/api/responsable-km/test-sftp
+- https://boulangerie-planning-api-4-pbfy.onrender.com/api/responsable-km/test-sftp?create=1
 
 **Résultat attendu si tout est OK :**
 ```json
@@ -85,7 +91,10 @@ Si les arrêts maladie fonctionnent (upload + téléchargement), alors `SFTP_PAS
 
 ## Actions correctives
 
-1. **Vérifier SFTP_PASSWORD** sur Render pour l'API Arras
-2. **Ré-importer le PDF** : Import PDF Bip&Go → Réconciliation → **Appliquer l'import** (le fichier doit être renvoyé à cette étape)
-3. **Consulter les logs** Render juste après l'import pour voir le message de succès ou d'erreur
-4. **Tester** `/api/responsable-km/test-sftp` pour lister les factures déjà présentes sur le NAS
+1. **Créer les dossiers sur le NAS** : appeler `test-sftp?create=1` pour créer `responsable-km/arras` et `responsable-km/longuenesse`
+2. **Vérifier SFTP_PASSWORD** sur Render pour l'API Arras
+3. **Ré-importer le PDF** : Import PDF Bip&Go → Réconciliation → **Appliquer l'import** (le fichier doit être renvoyé à cette étape)
+4. **Consulter les logs** Render juste après l'import pour voir le message de succès ou d'erreur
+5. **Tester** `/api/responsable-km/test-sftp` pour lister les factures déjà présentes sur le NAS
+
+**Si `basePathExists: false`** : le chemin `/n8n/uploads/documents` n'existe pas sur le NAS. Créez-le manuellement via l'interface Synology (File Station) ou vérifiez la variable `NAS_BASE_PATH` / `SFTP_BASE_PATH` dans Render.
