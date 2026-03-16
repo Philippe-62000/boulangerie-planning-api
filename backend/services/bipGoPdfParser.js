@@ -41,8 +41,8 @@ function splitConcatenatedGantts(concatenated) {
   if (!concatenated || typeof concatenated !== 'string') return null;
   // Enlever les montants/km collés à la fin (ex: 12,802,330,00 %33,3)
   const cleaned = concatenated.replace(/\d+[,.]\d[\d,.\s%]*$/g, '').trim();
-  // Pattern: 8 chiffres + reste jusqu'au prochain bloc 8 chiffres ou fin
-  const ganttPattern = /\d{8}[A-Z0-9\s]+?(?=\d{8}|$)/g;
+  // Pattern: 8 chiffres + reste jusqu'au prochain bloc 8 chiffres ou fin (lettres/minuscules inclus)
+  const ganttPattern = /\d{8}[A-Za-z0-9\s]+?(?=\d{8}|$)/g;
   const matches = cleaned.match(ganttPattern);
   if (!matches) return null;
   // Enlever montants/km éventuellement collés à la fin de chaque gantt
@@ -72,7 +72,9 @@ const EXCLUDE_PATTERNS = [
 function isInvalidPeageEntry(entry, exit) {
   const e = (entry || '').trim();
   const s = (exit || '').trim();
-  if (e.length < 3 && s.length < 3) return true; // trop court pour être un péage
+  // Ne pas filtrer si les deux sont vides : on garde la transaction (jour + montant) pour unmatched
+  if (e.length === 0 && s.length === 0) return false;
+  // Filtrer seulement si on a du contenu qui ressemble à un faux positif
   for (const pat of EXCLUDE_PATTERNS) {
     if (pat.test(e) || pat.test(s)) return true;
   }
@@ -90,7 +92,8 @@ function extractTransactions(text, expectedMonth, expectedYear) {
   const lines = text.split(/\r?\n/);
   const dateRegex = /(\d{2})\/(\d{2})\/(\d{4})/;
 
-  for (const line of lines) {
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
     const dateMatch = line.match(dateRegex);
     if (!dateMatch) continue;
 
@@ -129,6 +132,27 @@ function extractTransactions(text, expectedMonth, expectedYear) {
         exit = split.exit;
       } else {
         entry = part;
+      }
+    } else {
+      // Fallback: chercher pattern gantt (8 chiffres) dans toute la ligne
+      const split = splitConcatenatedGantts(withoutDate);
+      if (split) {
+        entry = split.entry;
+        exit = split.exit;
+      } else if (entry === '' && exit === '' && i + 1 < lines.length) {
+        // Ligne suivante peut contenir entrée/sortie (format PDF à lignes séparées)
+        const nextLine = lines[i + 1];
+        const nextSplit = splitConcatenatedGantts(nextLine);
+        if (nextSplit) {
+          entry = nextSplit.entry;
+          exit = nextSplit.exit;
+        }
+        const nextAmount = nextLine.match(/([\d\s]+[,.]\d{2})\s*€?/g);
+        if (nextAmount && nextAmount.length > 0 && amountTTC === 0) {
+          const lastAmt = nextAmount[nextAmount.length - 1];
+          const ht = parseFloat(lastAmt.replace(/\s/g, '').replace(',', '.')) || 0;
+          amountTTC = roundEuro(ht * TVA_TAUX);
+        }
       }
     }
 
