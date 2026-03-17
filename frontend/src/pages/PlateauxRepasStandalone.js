@@ -45,6 +45,11 @@ const PlateauxRepasStandalone = () => {
   const [sending, setSending] = useState(false);
   const [error, setError] = useState('');
   const messagesEndRef = useRef(null);
+  const reservationRef = useRef(reservation);
+
+  useEffect(() => {
+    reservationRef.current = reservation;
+  }, [reservation]);
 
   const scrollToBottom = () => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
 
@@ -195,13 +200,21 @@ const PlateauxRepasStandalone = () => {
     }
     addBotMessage('Parfait ! Voici le récapitulatif.', [
       { label: 'Confirmer', action: () => showRecap() },
-      { label: 'Modifier', action: () => { setStep(STEPS.WELCOME); addBotMessage('Reprenons depuis le début.'); } }
+      { label: 'Modifier', action: () => goBackToModify() }
+    ]);
+  };
+
+  const goBackToModify = () => {
+    setStep(STEPS.WELCOME);
+    addBotMessage('Que souhaitez-vous modifier ?', [
+      { label: 'Nouvelle réservation', action: () => goToStep(STEPS.DATE) },
+      { label: 'Voir mes réservations', action: () => showMyReservations() }
     ]);
   };
 
   const showRecap = () => {
     setStep(STEPS.RECAP);
-    const r = reservation;
+    const r = reservationRef.current;
     const dateStr = r.date ? new Date(r.date).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }) : '-';
     const prixFormule = (r.formule?.prix || 0) * (r.quantite || 1);
     const prixForfait = r.forfaitInstallation?.prix || 0;
@@ -213,11 +226,12 @@ const PlateauxRepasStandalone = () => {
     recap += `\n💰 Total : ${total.toFixed(2)}€`;
     addBotMessage(recap, [
       { label: '✓ Confirmer la réservation', action: () => confirmReservation() },
-      { label: 'Annuler', action: () => { setStep(STEPS.WELCOME); addBotMessage('Réservation annulée.'); } }
+      { label: 'Annuler', action: () => goBackToModify() }
     ]);
   };
 
   const confirmReservation = async () => {
+    const r = reservationRef.current;
     setSending(true);
     setError('');
     try {
@@ -225,13 +239,13 @@ const PlateauxRepasStandalone = () => {
         `${apiBase}/meal-reservations/reservations`,
         {
           site,
-          date: reservation.date,
-          formuleId: reservation.formule?._id,
-          optionsChoisies: reservation.optionsChoisies,
-          produitsAjoutes: reservation.produitsAjoutes,
-          produitsRetires: reservation.produitsRetires,
-          quantite: reservation.quantite,
-          forfaitInstallation: reservation.forfaitInstallation
+          date: r.date,
+          formuleId: r.formule?._id,
+          optionsChoisies: r.optionsChoisies,
+          produitsAjoutes: r.produitsAjoutes,
+          produitsRetires: r.produitsRetires,
+          quantite: r.quantite,
+          forfaitInstallation: r.forfaitInstallation ? { nbTables: r.forfaitInstallation.nbTables, prix: r.forfaitInstallation.prix } : null
         },
         { headers: { Authorization: `Bearer ${token}` } }
       );

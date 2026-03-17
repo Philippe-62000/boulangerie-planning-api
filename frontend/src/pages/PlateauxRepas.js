@@ -19,7 +19,10 @@ const PlateauxRepas = () => {
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(null);
   const [editItem, setEditItem] = useState(null);
-  const [filterDate, setFilterDate] = useState(new Date().toISOString().split('T')[0]);
+  const [filterDate, setFilterDate] = useState(() => {
+    const d = new Date();
+    return d.toISOString().split('T')[0];
+  });
 
   useEffect(() => {
     loadData();
@@ -181,7 +184,7 @@ const PlateauxRepas = () => {
         <span className="site-badge">{site === 'lon' ? 'Longuenesse' : 'Arras'}</span>
       </div>
       <div className="plateaux-tabs">
-        {['clients', 'types', 'produits', 'formules', 'reservations'].map((tab) => (
+        {['reservations', 'clients', 'types', 'produits', 'formules'].map((tab) => (
           <button
             key={tab}
             className={activeTab === tab ? 'active' : ''}

@@ -376,6 +376,7 @@ const createReservation = async (req, res) => {
       produitsAjoutes: produitsAjoutes || [],
       produitsRetires: produitsRetires || [],
       quantite: parseInt(quantite, 10) || 1,
+      forfaitInstallation: forfaitInstallation && (forfaitInstallation.nbTables || forfaitInstallation.prix) ? { nbTables: forfaitInstallation.nbTables, prix: forfaitInstallation.prix } : null,
       remarques: remarques || '',
       site
     });
@@ -424,7 +425,7 @@ async function sendReservationEmails(reservation) {
     const recap = [
       `Date : ${dateStr}`,
       `Formule : ${formule?.nom || '-'} (${formule?.prix || 0}€ x ${reservation.quantite} = ${prixFormule.toFixed(2)}€)`,
-      reservation.forfaitInstallation ? `Forfait installation : ${reservation.forfaitInstallation.nbTables} table(s) (${prixForfait}€)` : null,
+      reservation.forfaitInstallation ? `Forfait installation : ${reservation.forfaitInstallation.nbTables ?? '-'} table(s) (${prixForfait}€)` : null,
       `Total : ${total.toFixed(2)}€`,
       `Options : ${JSON.stringify(reservation.optionsChoisies || {})}`,
       reservation.remarques ? `Remarques : ${reservation.remarques}` : ''
