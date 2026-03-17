@@ -59,6 +59,37 @@
   border-radius: 8px;
 }
 
+.filter-date-hint {
+  font-size: 0.9rem;
+  color: #666;
+  margin-left: 4px;
+}
+
+.formule-produits-checkboxes {
+  max-height: 200px;
+  overflow-y: auto;
+  border: 2px solid #e5e5e5;
+  border-radius: 8px;
+  padding: 12px;
+  margin-top: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.formule-produit-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.formule-produit-checkbox input {
+  width: auto;
+  margin: 0;
+}
+
 .plateaux-list table {
   width: 100%;
   border-collapse: collapse;

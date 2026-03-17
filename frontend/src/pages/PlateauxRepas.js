@@ -52,7 +52,12 @@ const PlateauxRepas = () => {
         setFormules(formRes.data?.data || []);
         setProduits(prodRes.data?.data || []);
       } else {
-        const r = await api.get('/meal-reservations/reservations', { params: { site, date: filterDate } });
+        const from = new Date(filterDate);
+        const to = new Date(filterDate);
+        to.setDate(to.getDate() + 3);
+        const dateFrom = from.toISOString().split('T')[0];
+        const dateTo = to.toISOString().split('T')[0];
+        const r = await api.get('/meal-reservations/reservations', { params: { site, dateFrom, dateTo } });
         setReservations(r.data?.data || []);
       }
     } catch (err) {
@@ -201,12 +206,13 @@ const PlateauxRepas = () => {
 
       {activeTab === 'reservations' && (
         <div className="filter-date">
-          <label>Date :</label>
+          <label>À partir du :</label>
           <input
             type="date"
             value={filterDate}
             onChange={(e) => setFilterDate(e.target.value)}
           />
+          <span className="filter-date-hint">(affiche le jour sélectionné + 3 jours suivants)</span>
         </div>
       )}
 
@@ -421,10 +427,30 @@ const PlateauxRepas = () => {
               <input value={formFormule.description} onChange={(e) => setFormFormule({ ...formFormule, description: e.target.value })} />
               <label>Prix (€)</label>
               <input type="number" step="0.01" min="0" required value={formFormule.prix} onChange={(e) => setFormFormule({ ...formFormule, prix: parseFloat(e.target.value) || 0 })} />
-              <label>Produits inclus</label>
-              <select multiple value={formFormule.produitsInclus || []} onChange={(e) => setFormFormule({ ...formFormule, produitsInclus: Array.from(e.target.selectedOptions, o => o.value) })}>
-                {(produits || []).map((p) => <option key={p._id} value={p._id}>{p.nom}{p.enRupture ? ' (rupture)' : ''}</option>)}
-              </select>
+              <label>Produits inclus (cochez ceux à inclure)</label>
+              <div className="formule-produits-checkboxes">
+                {(produits || []).map((p) => {
+                  const id = p._id?.toString?.() || p._id;
+                  const isChecked = (formFormule.produitsInclus || []).some(pid => (pid?.toString?.() || pid) === id);
+                  return (
+                    <label key={p._id} className="formule-produit-checkbox">
+                      <input
+                        type="checkbox"
+                        checked={isChecked}
+                        onChange={(e) => {
+                          const current = formFormule.produitsInclus || [];
+                          if (e.target.checked) {
+                            setFormFormule({ ...formFormule, produitsInclus: [...current, id] });
+                          } else {
+                            setFormFormule({ ...formFormule, produitsInclus: current.filter(pid => (pid?.toString?.() || pid) !== id) });
+                          }
+                        }}
+                      />
+                      {p.nom}{p.enRupture ? ' (rupture)' : ''}
+                    </label>
+                  );
+                })}
+              </div>
               <div className="modal-actions">
                 <button type="button" onClick={() => setShowModal(null)}>Annuler</button>
                 <button type="submit">Enregistrer</button>

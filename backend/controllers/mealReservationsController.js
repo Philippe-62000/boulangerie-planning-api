@@ -341,9 +341,15 @@ const deleteFormule = async (req, res) => {
 const getReservations = async (req, res) => {
   try {
     const site = normalizeSite(getSite(req));
-    const { date, clientProId, statut } = req.query;
+    const { date, dateFrom, dateTo, clientProId, statut } = req.query;
     let q = { site };
-    if (date) q.date = { $gte: new Date(date + 'T00:00:00'), $lt: new Date(new Date(date).getTime() + 86400000) };
+    if (dateFrom && dateTo) {
+      const from = new Date(dateFrom + 'T00:00:00');
+      const to = new Date(dateTo + 'T23:59:59');
+      q.date = { $gte: from, $lte: to };
+    } else if (date) {
+      q.date = { $gte: new Date(date + 'T00:00:00'), $lt: new Date(new Date(date).getTime() + 86400000) };
+    }
     if (clientProId) q.clientProId = clientProId;
     if (statut) q.statut = statut;
     const reservations = await MealReservation.find(q)
