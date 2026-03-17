@@ -12,9 +12,17 @@ const STEPS = {
   OPTIONS: 'options',
   PERSONNALISATION: 'personnalisation',
   QUANTITE: 'quantite',
+  QUANTITE_INPUT: 'quantite_input',
+  FORFAIT_INSTALLATION: 'forfait_installation',
   RECAP: 'recap',
   CONFIRMED: 'confirmed'
 };
+
+const FORFAITS_INSTALLATION = [
+  { nbTables: 1, prix: 10, label: '1 table + nappes (10€)' },
+  { nbTables: 2, prix: 12, label: '2 tables + nappes (12€)' },
+  { nbTables: 3, prix: 15, label: '3 tables + nappes (15€)' }
+];
 
 const API_URLS = {
   lon: 'https://boulangerie-planning-api-3.onrender.com/api',
@@ -81,7 +89,6 @@ const PlateauxRepasStandalone = () => {
     setStep(s);
     if (s === STEPS.DATE) {
       addBotMessage('Pour quelle date souhaitez-vous réserver ?', [
-        { label: "Aujourd'hui", action: () => selectDate(today()) },
         { label: 'Demain', action: () => selectDate(tomorrow()) },
         { label: 'Choisir une date', action: () => { setStep(STEPS.DATE_PICK); addBotMessage('Sélectionnez une date :', []); } }
       ]);
@@ -96,7 +103,17 @@ const PlateauxRepasStandalone = () => {
         { label: '1', action: () => selectQuantite(1) },
         { label: '2', action: () => selectQuantite(2) },
         { label: '5', action: () => selectQuantite(5) },
-        { label: '10', action: () => selectQuantite(10) }
+        { label: '10', action: () => selectQuantite(10) },
+        { label: 'Autre nombre', action: () => { setStep(STEPS.QUANTITE_INPUT); addBotMessage('Entrez le nombre de plateaux :', []); } }
+      ]);
+    } else if (s === STEPS.FORFAIT_INSTALLATION) {
+      const cards = FORFAITS_INSTALLATION.map((f) => ({
+        label: f.label,
+        action: () => selectForfaitInstallation(f)
+      }));
+      addBotMessage('Souhaitez-vous un forfait installation (tables + nappes) ?', [
+        ...cards,
+        { label: 'Non, merci', action: () => selectForfaitInstallation(null) }
       ]);
     }
   };
@@ -114,7 +131,8 @@ const PlateauxRepasStandalone = () => {
     optionsChoisies: {},
     produitsAjoutes: [],
     produitsRetires: [],
-    quantite: 1
+    quantite: 1,
+    forfaitInstallation: null // { nbTables: 1|2|3, prix: 10|12|15 }
   });
 
   const selectDate = (dateStr) => {
@@ -165,6 +183,16 @@ const PlateauxRepasStandalone = () => {
   const selectQuantite = (q) => {
     setReservation((r) => ({ ...r, quantite: q }));
     addUserMessage(`${q} plateau(x)`);
+    goToStep(STEPS.FORFAIT_INSTALLATION);
+  };
+
+  const selectForfaitInstallation = (forfait) => {
+    setReservation((r) => ({ ...r, forfaitInstallation: forfait }));
+    if (forfait) {
+      addUserMessage(forfait.label);
+    } else {
+      addUserMessage('Sans forfait installation');
+    }
     addBotMessage('Parfait ! Voici le récapitulatif.', [
       { label: 'Confirmer', action: () => showRecap() },
       { label: 'Modifier', action: () => { setStep(STEPS.WELCOME); addBotMessage('Reprenons depuis le début.'); } }
@@ -175,7 +203,14 @@ const PlateauxRepasStandalone = () => {
     setStep(STEPS.RECAP);
     const r = reservation;
     const dateStr = r.date ? new Date(r.date).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }) : '-';
-    const recap = `📅 ${dateStr}\n📋 ${r.formule?.nom || '-'} (${r.formule?.prix || 0}€)\n🔢 Quantité : ${r.quantite}`;
+    const prixFormule = (r.formule?.prix || 0) * (r.quantite || 1);
+    const prixForfait = r.forfaitInstallation?.prix || 0;
+    const total = prixFormule + prixForfait;
+    let recap = `📅 ${dateStr}\n📋 ${r.formule?.nom || '-'} : ${r.formule?.prix || 0}€ x ${r.quantite || 1} = ${prixFormule.toFixed(2)}€`;
+    if (r.forfaitInstallation) {
+      recap += `\n🪑 Forfait installation : ${r.forfaitInstallation.label} = ${prixForfait}€`;
+    }
+    recap += `\n💰 Total : ${total.toFixed(2)}€`;
     addBotMessage(recap, [
       { label: '✓ Confirmer la réservation', action: () => confirmReservation() },
       { label: 'Annuler', action: () => { setStep(STEPS.WELCOME); addBotMessage('Réservation annulée.'); } }
@@ -195,13 +230,14 @@ const PlateauxRepasStandalone = () => {
           optionsChoisies: reservation.optionsChoisies,
           produitsAjoutes: reservation.produitsAjoutes,
           produitsRetires: reservation.produitsRetires,
-          quantite: reservation.quantite
+          quantite: reservation.quantite,
+          forfaitInstallation: reservation.forfaitInstallation
         },
         { headers: { Authorization: `Bearer ${token}` } }
       );
       setStep(STEPS.CONFIRMED);
       addBotMessage('✅ Réservation enregistrée ! Un email de confirmation vous a été envoyé. Merci et à bientôt !');
-      setReservation({ date: null, formule: null, optionsChoisies: {}, produitsAjoutes: [], produitsRetires: [], quantite: 1 });
+      setReservation({ date: null, formule: null, optionsChoisies: {}, produitsAjoutes: [], produitsRetires: [], quantite: 1, forfaitInstallation: null });
     } catch (e) {
       setError(e.response?.data?.error || 'Erreur lors de la réservation');
       addBotMessage('❌ Une erreur est survenue. Veuillez réessayer.');
@@ -269,7 +305,7 @@ const PlateauxRepasStandalone = () => {
     setClient(null);
     setMessages([]);
     setStep(STEPS.LOGIN);
-    setReservation({ date: null, formule: null, optionsChoisies: {}, produitsAjoutes: [], produitsRetires: [], quantite: 1 });
+    setReservation({ date: null, formule: null, optionsChoisies: {}, produitsAjoutes: [], produitsRetires: [], quantite: 1, forfaitInstallation: null });
     localStorage.removeItem(`plateauxToken_${site}`);
   };
 
@@ -336,7 +372,7 @@ const PlateauxRepasStandalone = () => {
                   type="date"
                   value={customDate}
                   onChange={(e) => setCustomDate(e.target.value)}
-                  min={today()}
+                  min={tomorrow()}
                 />
                 <button
                   className="quick-reply"
@@ -345,6 +381,30 @@ const PlateauxRepasStandalone = () => {
                       selectDate(customDate);
                       setStep(STEPS.FORMULE);
                     }
+                  }}
+                >
+                  Valider
+                </button>
+              </div>
+            </div>
+          )}
+          {step === STEPS.QUANTITE_INPUT && (
+            <div className="message bot">
+              <div className="message-bubble">
+                <input
+                  type="number"
+                  min="1"
+                  max="999"
+                  value={reservation.quantite}
+                  onChange={(e) => setReservation((r) => ({ ...r, quantite: parseInt(e.target.value, 10) || 1 }))}
+                  placeholder="Nombre"
+                />
+                <button
+                  className="quick-reply"
+                  onClick={() => {
+                    const q = reservation.quantite || 1;
+                    addUserMessage(`${q} plateau(x)`);
+                    goToStep(STEPS.FORFAIT_INSTALLATION);
                   }}
                 >
                   Valider

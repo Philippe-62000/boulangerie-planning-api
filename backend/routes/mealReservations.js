@@ -25,7 +25,10 @@ router.get('/produits', controller.getProduits);
 router.post('/produits', controller.createProduit);
 router.put('/produits/:id', controller.updateProduit);
 router.delete('/produits/:id', controller.deleteProduit);
-
+router.get('/types', controller.getProductTypes);
+router.post('/types', controller.createProductType);
+router.put('/types/:id', controller.updateProductType);
+router.delete('/types/:id', controller.deleteProductType);
 router.get('/formules', controller.getFormules);
 router.post('/formules', controller.createFormule);
 router.put('/formules/:id', controller.updateFormule);

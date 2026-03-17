@@ -8,8 +8,8 @@ const produitSchema = new mongoose.Schema({
   },
   type: {
     type: String,
-    enum: ['entree', 'plat', 'dessert', 'gouter', 'boisson', 'fromage', 'autre'],
-    required: true
+    required: true,
+    trim: true
   },
   enRupture: {
     type: Boolean,

@@ -32,6 +32,10 @@ const mealReservationSchema = new mongoose.Schema({
     required: true,
     min: 1
   },
+  forfaitInstallation: {
+    nbTables: Number,
+    prix: Number
+  },
   remarques: {
     type: String,
     default: ''

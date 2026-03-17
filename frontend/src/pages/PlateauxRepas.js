@@ -6,16 +6,6 @@ import './PlateauxRepas.css';
 const getSite = () => (window.location.pathname.startsWith('/lon') ? 'lon' : 'plan');
 const params = (site) => ({ params: { site } });
 
-const TYPES_PRODUIT = [
-  { value: 'entree', label: 'Entrée' },
-  { value: 'plat', label: 'Plat' },
-  { value: 'dessert', label: 'Dessert' },
-  { value: 'gouter', label: 'Goûter' },
-  { value: 'boisson', label: 'Boisson' },
-  { value: 'fromage', label: 'Fromage' },
-  { value: 'autre', label: 'Autre' }
-];
-
 const STATUTS = { en_attente: 'En attente', confirmee: 'Confirmée', livree: 'Livrée', annulee: 'Annulée' };
 
 const PlateauxRepas = () => {
@@ -23,6 +13,7 @@ const PlateauxRepas = () => {
   const [activeTab, setActiveTab] = useState('clients');
   const [clients, setClients] = useState([]);
   const [produits, setProduits] = useState([]);
+  const [typesProduit, setTypesProduit] = useState([]);
   const [formules, setFormules] = useState([]);
   const [reservations, setReservations] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -41,11 +32,22 @@ const PlateauxRepas = () => {
         const r = await api.get('/meal-reservations/clients', params(site));
         setClients(r.data?.data || []);
       } else if (activeTab === 'produits') {
-        const r = await api.get('/meal-reservations/produits', params(site));
-        setProduits(r.data?.data || []);
+        const [prodRes, typesRes] = await Promise.all([
+          api.get('/meal-reservations/produits', params(site)),
+          api.get('/meal-reservations/types', params(site))
+        ]);
+        setProduits(prodRes.data?.data || []);
+        setTypesProduit(typesRes.data?.data || []);
+      } else if (activeTab === 'types') {
+        const r = await api.get('/meal-reservations/types', params(site));
+        setTypesProduit(r.data?.data || []);
       } else if (activeTab === 'formules') {
-        const r = await api.get('/meal-reservations/formules', params(site));
-        setFormules(r.data?.data || []);
+        const [formRes, prodRes] = await Promise.all([
+          api.get('/meal-reservations/formules', params(site)),
+          api.get('/meal-reservations/produits', params(site))
+        ]);
+        setFormules(formRes.data?.data || []);
+        setProduits(prodRes.data?.data || []);
       } else {
         const r = await api.get('/meal-reservations/reservations', { params: { site, date: filterDate } });
         setReservations(r.data?.data || []);
@@ -91,7 +93,7 @@ const PlateauxRepas = () => {
   };
 
   // --- Produits ---
-  const [formProduit, setFormProduit] = useState({ nom: '', type: 'plat', enRupture: false, visible: true, ordre: 0 });
+  const [formProduit, setFormProduit] = useState({ nom: '', type: '', enRupture: false, visible: true, ordre: 0 });
   const handleSaveProduit = async (e) => {
     e.preventDefault();
     try {
@@ -104,12 +106,43 @@ const PlateauxRepas = () => {
       }
       setShowModal(null);
       setEditItem(null);
-      setFormProduit({ nom: '', type: 'plat', enRupture: false, visible: true, ordre: 0 });
+      setFormProduit({ nom: '', type: '', enRupture: false, visible: true, ordre: 0 });
       loadData();
     } catch (err) {
       toast.error(err.response?.data?.error || 'Erreur');
     }
   };
+  // --- Types ---
+  const [formType, setFormType] = useState({ nom: '', ordre: 0 });
+  const handleSaveType = async (e) => {
+    e.preventDefault();
+    try {
+      if (editItem) {
+        await api.put(`/meal-reservations/types/${editItem._id}`, { ...formType, site });
+        toast.success('Type mis à jour');
+      } else {
+        await api.post('/meal-reservations/types', { ...formType, site });
+        toast.success('Type créé');
+      }
+      setShowModal(null);
+      setEditItem(null);
+      setFormType({ nom: '', ordre: 0 });
+      loadData();
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Erreur');
+    }
+  };
+  const handleDeleteType = async (t) => {
+    if (!window.confirm(`Supprimer le type "${t.nom}" ?`)) return;
+    try {
+      await api.delete(`/meal-reservations/types/${t._id}`);
+      toast.success('Type supprimé');
+      loadData();
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Erreur');
+    }
+  };
+
   const toggleRupture = async (p) => {
     try {
       await api.put(`/meal-reservations/produits/${p._id}`, { ...p, enRupture: !p.enRupture, site });
@@ -148,13 +181,14 @@ const PlateauxRepas = () => {
         <span className="site-badge">{site === 'lon' ? 'Longuenesse' : 'Arras'}</span>
       </div>
       <div className="plateaux-tabs">
-        {['clients', 'produits', 'formules', 'reservations'].map((tab) => (
+        {['clients', 'types', 'produits', 'formules', 'reservations'].map((tab) => (
           <button
             key={tab}
             className={activeTab === tab ? 'active' : ''}
             onClick={() => setActiveTab(tab)}
           >
             {tab === 'clients' && '👥 Clients'}
+            {tab === 'types' && '🏷️ Types'}
             {tab === 'produits' && '📦 Produits'}
             {tab === 'formules' && '📋 Formules'}
             {tab === 'reservations' && '📅 Réservations'}
@@ -202,9 +236,34 @@ const PlateauxRepas = () => {
             </div>
           )}
 
+          {activeTab === 'types' && (
+            <div className="plateaux-list">
+              <button className="btn-add" onClick={() => { setEditItem(null); setFormType({ nom: '', ordre: 0 }); setShowModal('type'); }}>
+                + Ajouter un type
+              </button>
+              <table>
+                <thead>
+                  <tr><th>Nom</th><th>Ordre</th><th></th></tr>
+                </thead>
+                <tbody>
+                  {typesProduit.map((t) => (
+                    <tr key={t._id}>
+                      <td>{t.nom}</td>
+                      <td>{t.ordre}</td>
+                      <td>
+                        <button className="btn-sm" onClick={() => { setEditItem(t); setFormType({ nom: t.nom, ordre: t.ordre || 0 }); setShowModal('type'); }}>Modifier</button>
+                        <button className="btn-sm rupture" onClick={() => handleDeleteType(t)}>Supprimer</button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
           {activeTab === 'produits' && (
             <div className="plateaux-list">
-              <button className="btn-add" onClick={() => { setEditItem(null); setFormProduit({ nom: '', type: 'plat', enRupture: false, visible: true, ordre: 0 }); setShowModal('produit'); }}>
+              <button className="btn-add" onClick={() => { setEditItem(null); setFormProduit({ nom: '', type: (typesProduit[0]?.value ?? typesProduit[0]?.nom ?? 'plat'), enRupture: false, visible: true, ordre: 0 }); setShowModal('produit'); }}>
                 + Ajouter un produit
               </button>
               <table>
@@ -215,7 +274,7 @@ const PlateauxRepas = () => {
                   {produits.map((p) => (
                     <tr key={p._id}>
                       <td>{p.nom}</td>
-                      <td>{TYPES_PRODUIT.find(t => t.value === p.type)?.label || p.type}</td>
+                      <td>{typesProduit.find(t => (t.value || t.nom) === p.type)?.nom || p.type}</td>
                       <td>
                         <button className={`btn-sm ${p.enRupture ? 'rupture' : ''}`} onClick={() => toggleRupture(p)}>
                           {p.enRupture ? 'En rupture' : 'Disponible'}
@@ -304,6 +363,25 @@ const PlateauxRepas = () => {
         </div>
       )}
 
+      {/* Modal Type */}
+      {showModal === 'type' && (
+        <div className="modal-overlay" onClick={() => setShowModal(null)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <h3>{editItem ? 'Modifier le type' : 'Nouveau type'}</h3>
+            <form onSubmit={handleSaveType}>
+              <label>Nom</label>
+              <input required value={formType.nom} onChange={(e) => setFormType({ ...formType, nom: e.target.value })} placeholder="ex: Entrée, Plat..." />
+              <label>Ordre</label>
+              <input type="number" min="0" value={formType.ordre} onChange={(e) => setFormType({ ...formType, ordre: parseInt(e.target.value, 10) || 0 })} />
+              <div className="modal-actions">
+                <button type="button" onClick={() => setShowModal(null)}>Annuler</button>
+                <button type="submit">Enregistrer</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* Modal Produit */}
       {showModal === 'produit' && (
         <div className="modal-overlay" onClick={() => setShowModal(null)}>
@@ -313,8 +391,9 @@ const PlateauxRepas = () => {
               <label>Nom</label>
               <input required value={formProduit.nom} onChange={(e) => setFormProduit({ ...formProduit, nom: e.target.value })} />
               <label>Type</label>
-              <select value={formProduit.type} onChange={(e) => setFormProduit({ ...formProduit, type: e.target.value })}>
-                {TYPES_PRODUIT.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+              <select value={formProduit.type} onChange={(e) => setFormProduit({ ...formProduit, type: e.target.value })} required>
+                <option value="">– Choisir –</option>
+                {(typesProduit || []).map((t) => <option key={t._id} value={t.value || t.nom}>{t.nom}</option>)}
               </select>
               <label><input type="checkbox" checked={formProduit.enRupture} onChange={(e) => setFormProduit({ ...formProduit, enRupture: e.target.checked })} /> En rupture</label>
               <label><input type="checkbox" checked={formProduit.visible} onChange={(e) => setFormProduit({ ...formProduit, visible: e.target.checked })} /> Visible</label>
@@ -341,7 +420,7 @@ const PlateauxRepas = () => {
               <input type="number" step="0.01" min="0" required value={formFormule.prix} onChange={(e) => setFormFormule({ ...formFormule, prix: parseFloat(e.target.value) || 0 })} />
               <label>Produits inclus</label>
               <select multiple value={formFormule.produitsInclus || []} onChange={(e) => setFormFormule({ ...formFormule, produitsInclus: Array.from(e.target.selectedOptions, o => o.value) })}>
-                {(produits || []).filter(p => !p.enRupture).map((p) => <option key={p._id} value={p._id}>{p.nom}</option>)}
+                {(produits || []).map((p) => <option key={p._id} value={p._id}>{p.nom}{p.enRupture ? ' (rupture)' : ''}</option>)}
               </select>
               <div className="modal-actions">
                 <button type="button" onClick={() => setShowModal(null)}>Annuler</button>

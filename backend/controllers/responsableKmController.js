@@ -875,6 +875,7 @@ exports.integrateDisplacements = async (req, res) => {
         if (grid[key] !== undefined) grid[key][e.day] = e.count ?? 1;
       });
     }
+    let diversCommentsToAppend = '';
     for (const log of logs) {
       const toObj = log.toTripTypeId;
       const toId = (toObj && toObj._id ? toObj._id : log.toTripTypeId).toString();
@@ -883,6 +884,11 @@ exports.integrateDisplacements = async (req, res) => {
       const addVal = isDivers ? (log.diversKm || 0) : 1;
       if (addVal > 0) {
         grid[toId][log.day] = (grid[toId][log.day] || 0) + addVal;
+      }
+      if (isDivers) {
+        const dateStr = `${String(log.day).padStart(2, '0')}/${String(log.month).padStart(2, '0')}/${log.year}`;
+        const line = `date : ${dateStr} | livraison : ${(log.diversDetail || '').trim()} | commentaire : ${(log.comment || '').trim()}`;
+        diversCommentsToAppend += (diversCommentsToAppend ? '\n' : '') + line;
       }
       log.integrated = true;
       await log.save();
@@ -897,6 +903,11 @@ exports.integrateDisplacements = async (req, res) => {
         }
       }
     }
+    const existingDiversComments = expense?.diversComments ?? '';
+    const finalDiversComments = diversCommentsToAppend
+      ? (existingDiversComments ? existingDiversComments + '\n' : '') + diversCommentsToAppend
+      : existingDiversComments;
+
     const update = {
       site,
       month: m,
@@ -905,7 +916,7 @@ exports.integrateDisplacements = async (req, res) => {
       tollAmountTTC: roundEuro(expense?.tollAmountTTC ?? 0),
       tollAmountHT: roundEuro(expense?.tollAmountHT ?? 0),
       pdfImportedDates: expense?.pdfImportedDates ?? [],
-      diversComments: expense?.diversComments ?? ''
+      diversComments: finalDiversComments
     };
     await ResponsableKmExpense.findOneAndUpdate(
       { site, month: m, year: y },

@@ -130,7 +130,20 @@
   z-index: 1000;
 }
 
-.modal {
+/* Contenu du modal - évite conflit avec index.css .modal (opacity:0, visibility:hidden) */
+.plateaux-repas .modal-overlay .modal {
+  opacity: 1;
+  visibility: visible;
+  position: relative;
+  width: auto;
+  height: auto;
+  top: auto;
+  left: auto;
+  right: auto;
+  bottom: auto;
+}
+
+.plateaux-repas .modal-overlay .modal {
   background: white;
   padding: 24px;
   border-radius: 16px;
@@ -139,22 +152,22 @@
   box-shadow: 0 10px 40px rgba(0,0,0,0.2);
 }
 
-.modal h3 {
+.plateaux-repas .modal-overlay .modal h3 {
   margin: 0 0 20px 0;
 }
 
-.modal label {
+.plateaux-repas .modal-overlay .modal label {
   display: block;
   margin-top: 12px;
   font-weight: 600;
   color: #333;
 }
 
-.modal input[type="text"],
-.modal input[type="email"],
-.modal input[type="password"],
-.modal input[type="number"],
-.modal select {
+.plateaux-repas .modal-overlay .modal input[type="text"],
+.plateaux-repas .modal-overlay .modal input[type="email"],
+.plateaux-repas .modal-overlay .modal input[type="password"],
+.plateaux-repas .modal-overlay .modal input[type="number"],
+.plateaux-repas .modal-overlay .modal select {
   width: 100%;
   padding: 10px 12px;
   border: 2px solid #e5e5e5;
@@ -162,34 +175,34 @@
   margin-top: 4px;
 }
 
-.modal select[multiple] {
+.plateaux-repas .modal-overlay .modal select[multiple] {
   min-height: 100px;
 }
 
-.modal-actions {
+.plateaux-repas .modal-overlay .modal-actions {
   display: flex;
   gap: 12px;
   margin-top: 24px;
 }
 
-.modal-actions button {
+.plateaux-repas .modal-overlay .modal-actions button {
   padding: 10px 20px;
   border-radius: 8px;
   cursor: pointer;
   font-weight: 600;
 }
 
-.modal-actions button[type="button"] {
+.plateaux-repas .modal-overlay .modal-actions button[type="button"] {
   background: #f5f5f5;
   border: 1px solid #ddd;
 }
 
-.modal-actions button[type="submit"] {
+.plateaux-repas .modal-overlay .modal-actions button[type="submit"] {
   background: #00A651;
   color: white;
   border: none;
 }
 
-.modal-actions button[type="submit"]:hover {
+.plateaux-repas .modal-overlay .modal-actions button[type="submit"]:hover {
   background: #008f45;
 }

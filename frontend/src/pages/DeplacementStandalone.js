@@ -20,7 +20,6 @@ const DeplacementStandalone = () => {
   const [toId, setToId] = useState('');
   const [diversDetail, setDiversDetail] = useState('');
   const [diversKm, setDiversKm] = useState('');
-  const [diversPresetId, setDiversPresetId] = useState('');
   const [comment, setComment] = useState('');
   const [displacementDate, setDisplacementDate] = useState(() => {
     const d = new Date();
@@ -39,7 +38,6 @@ const DeplacementStandalone = () => {
       setToId('');
       setDiversDetail('');
       setDiversKm('');
-      setDiversPresetId('');
     }
   }, [site, baseApi]);
 
@@ -70,18 +68,6 @@ const DeplacementStandalone = () => {
   const isSelectedDivers = selectedDeplacement?.name === 'divers';
   const isToDivers = toId && tripTypes.find(t => t._id === toId || t._id?.toString?.() === toId)?.name === 'divers';
   const isDivers = nonEnregistre ? isToDivers : isSelectedDivers;
-
-  const handleDiversPresetChange = (presetId) => {
-    setDiversPresetId(presetId);
-    const p = diversPresets.find(x => (x._id || '').toString() === (presetId || '').toString());
-    if (p) {
-      setDiversDetail(p.name);
-      setDiversKm(p.km !== undefined && p.km !== null ? String(p.km) : '');
-    } else {
-      setDiversDetail('');
-      setDiversKm('');
-    }
-  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -182,7 +168,6 @@ const DeplacementStandalone = () => {
                       setToId('');
                       setDiversDetail('');
                       setDiversKm('');
-                      setDiversPresetId('');
                     }}
                   />
                   <span>Déplacement non enregistré</span>
@@ -197,7 +182,6 @@ const DeplacementStandalone = () => {
                     value={selectedDeplacementId}
                     onChange={e => {
                       setSelectedDeplacementId(e.target.value);
-                      setDiversPresetId('');
                       setDiversDetail('');
                       setDiversKm('');
                     }}
@@ -257,22 +241,7 @@ const DeplacementStandalone = () => {
               {isDivers && (
                 <>
                   <div className="form-group">
-                    <label>Divers existant ou nouveau</label>
-                    <select
-                      value={diversPresetId}
-                      onChange={e => handleDiversPresetChange(e.target.value)}
-                      className="form-control"
-                    >
-                      <option value="">– Nouveau –</option>
-                      {diversPresets.map(p => (
-                        <option key={p._id} value={p._id}>
-                          {p.name} {p.km != null ? `(${p.km} km)` : '(km à définir)'}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="form-group">
-                    <label>Détail / Précision</label>
+                    <label>Détail / Précision (livraison)</label>
                     <input
                       type="text"
                       value={diversDetail}

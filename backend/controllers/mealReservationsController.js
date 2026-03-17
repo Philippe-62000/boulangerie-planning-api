@@ -2,6 +2,7 @@ const ClientPro = require('../models/ClientPro');
 const Produit = require('../models/Produit');
 const Formule = require('../models/Formule');
 const MealReservation = require('../models/MealReservation');
+const ProductType = require('../models/ProductType');
 const Parameter = require('../models/Parameters');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
@@ -191,6 +192,81 @@ const deleteProduit = async (req, res) => {
   }
 };
 
+// --- Types de produits (admin) ---
+const getProductTypes = async (req, res) => {
+  try {
+    const site = normalizeSite(getSite(req));
+    let types = await ProductType.find({ site }).sort({ ordre: 1, nom: 1 });
+    if (types.length === 0) {
+      const defaults = [
+        { nom: 'Entrée', value: 'entree', ordre: 1 },
+        { nom: 'Plat', value: 'plat', ordre: 2 },
+        { nom: 'Dessert', value: 'dessert', ordre: 3 },
+        { nom: 'Goûter', value: 'gouter', ordre: 4 },
+        { nom: 'Boisson', value: 'boisson', ordre: 5 },
+        { nom: 'Fromage', value: 'fromage', ordre: 6 },
+        { nom: 'Autre', value: 'autre', ordre: 7 }
+      ];
+      types = await ProductType.insertMany(defaults.map(t => ({ ...t, site })));
+    }
+    res.json({ success: true, data: types });
+  } catch (err) {
+    console.error('❌ getProductTypes:', err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+};
+
+const createProductType = async (req, res) => {
+  try {
+    const site = normalizeSite(getSite(req));
+    const { nom, ordre } = req.body;
+    if (!nom || !nom.trim()) {
+      return res.status(400).json({ success: false, error: 'Nom requis' });
+    }
+    const value = (nom.trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')).replace(/\s+/g, '_').slice(0, 30);
+    const type = await ProductType.create({
+      nom: nom.trim(),
+      value: value || 'autre',
+      ordre: ordre ?? 0,
+      site
+    });
+    res.json({ success: true, data: type });
+  } catch (err) {
+    console.error('❌ createProductType:', err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+};
+
+const updateProductType = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { nom, ordre } = req.body;
+    const update = {};
+    if (nom !== undefined) {
+      update.nom = nom.trim();
+      update.value = (nom.trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')).replace(/\s+/g, '_').slice(0, 30) || 'autre';
+    }
+    if (ordre !== undefined) update.ordre = ordre;
+    const type = await ProductType.findByIdAndUpdate(id, { $set: update }, { new: true });
+    if (!type) return res.status(404).json({ success: false, error: 'Type non trouvé' });
+    res.json({ success: true, data: type });
+  } catch (err) {
+    console.error('❌ updateProductType:', err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+};
+
+const deleteProductType = async (req, res) => {
+  try {
+    const { id } = req.params;
+    await ProductType.findByIdAndDelete(id);
+    res.json({ success: true });
+  } catch (err) {
+    console.error('❌ deleteProductType:', err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+};
+
 // --- Formules (admin) ---
 const getFormules = async (req, res) => {
   try {
@@ -286,7 +362,7 @@ const getReservations = async (req, res) => {
 const createReservation = async (req, res) => {
   try {
     const site = normalizeSite(getSite(req));
-    const { date, formuleId, optionsChoisies, produitsAjoutes, produitsRetires, quantite, remarques } = req.body;
+    const { date, formuleId, optionsChoisies, produitsAjoutes, produitsRetires, quantite, forfaitInstallation, remarques } = req.body;
     let clientProId = req.body.clientProId;
     if (!clientProId && req.clientProId) clientProId = req.clientProId;
     if (!clientProId || !date || !formuleId || !quantite) {
@@ -342,10 +418,14 @@ async function sendReservationEmails(reservation) {
     const client = reservation.clientProId;
     const formule = reservation.formuleId;
     const dateStr = new Date(reservation.date).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+    const prixFormule = (formule?.prix || 0) * reservation.quantite;
+    const prixForfait = reservation.forfaitInstallation?.prix || 0;
+    const total = prixFormule + prixForfait;
     const recap = [
       `Date : ${dateStr}`,
-      `Formule : ${formule?.nom || '-'} (${formule?.prix || 0}€)`,
-      `Quantité : ${reservation.quantite}`,
+      `Formule : ${formule?.nom || '-'} (${formule?.prix || 0}€ x ${reservation.quantite} = ${prixFormule.toFixed(2)}€)`,
+      reservation.forfaitInstallation ? `Forfait installation : ${reservation.forfaitInstallation.nbTables} table(s) (${prixForfait}€)` : null,
+      `Total : ${total.toFixed(2)}€`,
       `Options : ${JSON.stringify(reservation.optionsChoisies || {})}`,
       reservation.remarques ? `Remarques : ${reservation.remarques}` : ''
     ].filter(Boolean).join('\n');
@@ -424,6 +504,10 @@ module.exports = {
   createProduit,
   updateProduit,
   deleteProduit,
+  getProductTypes,
+  createProductType,
+  updateProductType,
+  deleteProductType,
   getFormules,
   createFormule,
   updateFormule,
