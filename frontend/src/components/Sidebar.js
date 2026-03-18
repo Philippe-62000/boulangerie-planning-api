@@ -52,15 +52,17 @@ const Sidebar = () => {
         { menuId: 'plateaux-repas', isVisibleToAdmin: true, isVisibleToEmployee: false }
       ];
     } else {
+      // Fallback salarié : permissions restrictives (planning, km-expenses, ticket-restaurant masqués par défaut pour Longuenesse)
+      // Ces valeurs ne s'appliquent qu'en cas d'erreur API ; sinon l'API fait foi
       return [
         { menuId: 'dashboard', isVisibleToAdmin: false, isVisibleToEmployee: true },
-        { menuId: 'planning', isVisibleToAdmin: false, isVisibleToEmployee: true },
+        { menuId: 'planning', isVisibleToAdmin: false, isVisibleToEmployee: false },
         { menuId: 'sales-stats', isVisibleToAdmin: false, isVisibleToEmployee: true },
         { menuId: 'absences', isVisibleToAdmin: false, isVisibleToEmployee: true },
         { menuId: 'meal-expenses', isVisibleToAdmin: false, isVisibleToEmployee: true },
-        { menuId: 'km-expenses', isVisibleToAdmin: false, isVisibleToEmployee: true },
+        { menuId: 'km-expenses', isVisibleToAdmin: false, isVisibleToEmployee: false },
         { menuId: 'recup', isVisibleToAdmin: false, isVisibleToEmployee: true },
-        { menuId: 'ticket-restaurant', isVisibleToAdmin: false, isVisibleToEmployee: true },
+        { menuId: 'ticket-restaurant', isVisibleToAdmin: false, isVisibleToEmployee: false },
         { menuId: 'advance-requests', isVisibleToAdmin: false, isVisibleToEmployee: false },
         { menuId: 'vacation-management', isVisibleToAdmin: false, isVisibleToEmployee: false },
         { menuId: 'sick-leave-management', isVisibleToAdmin: false, isVisibleToEmployee: false },
@@ -103,20 +105,26 @@ const Sidebar = () => {
         
         const data = await response.json();
         
-        if (data.success && data.menuPermissions?.length > 0) {
+        if (data.success && Array.isArray(data.menuPermissions)) {
           const defaults = getDefaultMenuPermissions(user.role);
           const apiPerms = data.menuPermissions;
           const menuIdsFromApi = new Set(apiPerms.map(p => p.menuId));
           const merged = [...apiPerms];
           for (const def of defaults) {
             if (!menuIdsFromApi.has(def.menuId)) {
-              merged.push(def);
+              // Pour les salariés : si l'API n'a pas retourné un menu, c'est qu'il n'est pas autorisé
+              // (l'API filtre par isVisibleToEmployee). Ne pas ajouter de défaut qui accorderait l'accès.
+              if (user.role === 'employee') {
+                merged.push({ ...def, isVisibleToEmployee: false });
+              } else {
+                merged.push(def);
+              }
             }
           }
           setMenuPermissions(merged);
           console.log('📋 Permissions de menu chargées:', merged.length, 'menus');
         } else {
-          console.warn('⚠️ Erreur API ou liste vide, utilisation des permissions par défaut');
+          console.warn('⚠️ Erreur API ou données invalides, utilisation des permissions par défaut');
           setMenuPermissions(getDefaultMenuPermissions(user.role));
         }
       } catch (error) {
