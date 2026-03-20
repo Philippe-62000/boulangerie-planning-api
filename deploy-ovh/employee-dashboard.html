@@ -395,6 +395,54 @@
             display: block;
         }
 
+        .document-subtabs.tabs {
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .document-subtabs .tab {
+            flex: 1 1 0;
+            min-width: 120px;
+            max-width: 200px;
+            padding: 12px 10px;
+            font-size: 14px;
+        }
+
+        #send-documents #employeeUploadNature {
+            width: 100%;
+            min-height: 140px;
+            padding: 14px 16px;
+            font-size: 16px;
+            line-height: 1.45;
+            border: 2px solid #e1e5e9;
+            border-radius: 10px;
+            resize: vertical;
+            box-sizing: border-box;
+            font-family: inherit;
+        }
+
+        #send-documents #employeeUploadNature:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.2);
+        }
+
+        #send-documents .employee-upload-file-block {
+            margin-top: 4px;
+        }
+
+        #send-documents .employee-upload-file-block input[type="file"] {
+            width: 100%;
+            max-width: 100%;
+            padding: 14px 16px;
+            border: 2px dashed #667eea;
+            border-radius: 10px;
+            background: #f8f9ff;
+            cursor: pointer;
+            font-size: 15px;
+            box-sizing: border-box;
+        }
+
         .documents-grid {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
@@ -994,19 +1042,23 @@
                         <ul>
                             <li>📋 Les <strong>documents généraux</strong> sont accessibles à tous les employés</li>
                             <li>👤 Les <strong>documents personnels</strong> sont spécifiques à votre compte</li>
-                            <li>💰 Les <strong>fiches de paie</strong> sont conservées sans limite de temps</li>
+                            <li>💰 Les <strong>fiches de paie</strong> sont conservées sans limite de temps, mais il est conseillé de les télécharger chaque mois</li>
                             <li>⏰ Les autres documents personnels sont désactivés après 1 mois</li>
                             <li>📥 Cliquez sur "Télécharger" pour sauvegarder un document sur votre appareil</li>
+                            <li>📤 Vous pouvez envoyer un fichier directement au responsable.</li>
                         </ul>
                     </div>
 
                     <!-- Onglets pour les types de documents -->
-                    <div class="tabs" style="margin-bottom: 30px;">
+                    <div class="tabs document-subtabs" style="margin-bottom: 30px;">
                         <button class="tab" onclick="switchDocumentTab('general')" id="general-tab">
                             📋 Documents Généraux
                         </button>
                         <button class="tab active" onclick="switchDocumentTab('personal')" id="personal-tab">
                             👤 Mes Documents Personnels
+                        </button>
+                        <button class="tab" onclick="switchDocumentTab('send')" id="send-tab">
+                            📤 Envoyer Documents
                         </button>
                     </div>
 
@@ -1022,7 +1074,7 @@
                     </div>
 
                     <!-- Section Documents Personnels -->
-                    <div class="document-section" id="personal-documents">
+                    <div class="document-section active" id="personal-documents">
                         <div class="loading" id="personalLoading">
                             <div class="spinner"></div>
                             <p>Chargement de vos documents personnels...</p>
@@ -1030,6 +1082,28 @@
                         <div id="personalDocumentsList" style="display: none;">
                             <!-- Les documents personnels seront chargés ici -->
                         </div>
+                    </div>
+
+                    <!-- Envoi de document vers l'administration -->
+                    <div class="document-section" id="send-documents">
+                        <p class="form-subtitle" style="margin-bottom: 12px;">Envoyez un fichier à l'administration (ex. justificatif). Indiquez la nature du document et joignez le fichier.</p>
+                        <p class="form-subtitle" style="margin-bottom: 20px; font-size: 15px; color: #495057;">Un message de confirmation de lecture vous sera envoyé par mail dès que le document sera lu.</p>
+                        <form id="employeeUploadForm" class="form">
+                            <div class="form-group">
+                                <label for="employeeUploadNature">Nature du document *</label>
+                                <textarea id="employeeUploadNature" name="nature" required maxlength="500" rows="6" placeholder="Ex. Attestation, certificat médical, justificatif…"></textarea>
+                            </div>
+                            <div class="form-group employee-upload-file-block">
+                                <label for="employeeUploadFile">Choisir un fichier *</label>
+                                <input type="file" id="employeeUploadFile" name="file" required accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.txt">
+                                <small class="form-text">PDF, Word, Excel, images ou texte — 10 Mo maximum</small>
+                            </div>
+                            <div class="form-actions">
+                                <button type="submit" class="btn btn-primary" id="employeeUploadSubmit">
+                                    <span class="btn-text">📤 Envoyer</span>
+                                </button>
+                            </div>
+                        </form>
                     </div>
                 </div>
             </div>
@@ -1519,7 +1593,7 @@
             });
 
             // Désactiver tous les onglets de documents
-            document.querySelectorAll('#general-tab, #personal-tab').forEach(tab => {
+            document.querySelectorAll('#general-tab, #personal-tab, #send-tab').forEach(tab => {
                 tab.classList.remove('active');
             });
 
@@ -1546,8 +1620,53 @@
                         }
                     }, 1000);
                 }
+            } else if (tabType === 'send') {
+                hideAlert('documentsAlert');
             }
         }
+
+        document.getElementById('employeeUploadForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const nature = document.getElementById('employeeUploadNature').value.trim();
+            const fileInput = document.getElementById('employeeUploadFile');
+            if (!nature) {
+                showAlert('documentsAlert', 'Veuillez indiquer la nature du document.', 'danger');
+                return;
+            }
+            if (!fileInput.files || !fileInput.files[0]) {
+                showAlert('documentsAlert', 'Veuillez sélectionner un fichier.', 'danger');
+                return;
+            }
+            const formData = new FormData();
+            formData.append('nature', nature);
+            formData.append('file', fileInput.files[0]);
+            const btn = document.getElementById('employeeUploadSubmit');
+            const prevText = btn.querySelector('.btn-text')?.textContent;
+            if (btn.querySelector('.btn-text')) btn.querySelector('.btn-text').textContent = 'Envoi…';
+            btn.disabled = true;
+            try {
+                const response = await fetch(`${API_URL}/documents/employee-upload`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('employeeToken')}`
+                    },
+                    body: formData
+                });
+                const data = await response.json().catch(() => ({}));
+                if (response.ok && data.success) {
+                    showAlert('documentsAlert', '✅ Document envoyé. L\'administration a été informée par email (paramètre « Email de l\'Administrateur »).', 'success');
+                    document.getElementById('employeeUploadForm').reset();
+                } else {
+                    showAlert('documentsAlert', data.message || 'Erreur lors de l\'envoi du document.', 'danger');
+                }
+            } catch (err) {
+                console.error(err);
+                showAlert('documentsAlert', 'Erreur réseau lors de l\'envoi.', 'danger');
+            } finally {
+                btn.disabled = false;
+                if (btn.querySelector('.btn-text') && prevText) btn.querySelector('.btn-text').textContent = prevText;
+            }
+        });
 
         async function loadGeneralDocuments() {
             const loading = document.getElementById('generalLoading');

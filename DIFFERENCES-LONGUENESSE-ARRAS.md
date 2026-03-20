@@ -45,10 +45,20 @@ Ce document liste les différences entre les déploiements Longuenesse (`/lon`, 
 
 ---
 
+## Envoi de documents salarié → admin (Mes documents)
+
+**Statut** : aligné Longuenesse / Arras côté pages statiques (`frontend/public`). Les URLs d’API sont choisies selon le chemin (`/lon` → api-3, `/plan` → api-4-pbfy).
+
+**Déploiement frontend Arras** : `deploy-frontend/` (copie des HTML) et/ou `npm run build:plan` → dossier `deploy-ovh/` à uploader vers `/plan/` sur OVH.
+
+**Backend Arras** : les routes `/api/documents/employee-upload`, `employee-uploads`, `confirm-receipt`, etc. doivent être présentes sur le déploiement **api-4-pbfy** (merger / déployer le même code backend que sur Longuenesse si ce n’est pas déjà fait).
+
+---
+
 ## Actions recommandées pour Arras
 
-1. **Backend** : Déployer les modifications (MenuPermissions) sur Render api-4-pbfy.
-2. **Frontend** : Rebuild et upload du dossier `deploy-frontend` vers `/plan/` sur OVH (pour le texte documents).
+1. **Backend** : Déployer les modifications (MenuPermissions, documents salarié → admin si besoin) sur Render api-4-pbfy.
+2. **Frontend** : Rebuild et upload du dossier `deploy-frontend` ou `deploy-ovh` vers `/plan/` sur OVH (pour le texte documents et l’envoi de fichiers).
 3. **Permissions** : Vérifier dans Paramètres > Gestion des permissions que "Génération du planning" et "Ticket restaurant" sont bien désactivés pour les salariés si souhaité. Sauvegarder.
 
 ---
