@@ -87,6 +87,9 @@ router.get('/employee-uploads', documentController.getEmployeeUploads);
 // POST /api/documents/employee-upload - Envoi par un salarié connecté
 router.post('/employee-upload', ensureTempDir, authenticateEmployee, upload.single('file'), documentController.uploadEmployeeDocument);
 
+// POST /api/documents/employee-upload/:documentId/confirm-receipt - Confirmer la lecture (admin) + e-mail au salarié
+router.post('/employee-upload/:documentId/confirm-receipt', documentController.confirmEmployeeUploadReceipt);
+
 // GET /api/documents/orphaned - Lister les fiches orphelines sur le NAS (admin seulement)
 router.get('/orphaned', documentController.getOrphanedDocuments);
 

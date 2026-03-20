@@ -3242,6 +3242,58 @@ Consultez la page : ${adminDocsUrl}
     `;
     return await this.sendEmail(adminEmail, subject, htmlContent, textContent);
   }
+
+  async sendEmployeeUploadReceiptConfirmation(employeeEmail, employeeName, nature, fileName) {
+    if (!employeeEmail) {
+      return { success: false, message: 'Email salarié non renseigné' };
+    }
+    const esc = (s) => String(s ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+    const safeName = esc(employeeName);
+    const safeNature = esc(nature);
+    const safeFile = esc(fileName);
+    const dashboardUrl = this.getEmployeeDashboardUrl();
+    const subject = `✅ Votre document a été lu — ${nature}`;
+    const htmlContent = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <div style="background: linear-gradient(135deg, #28a745 0%, #20c997 100%); color: white; padding: 20px; text-align: center; border-radius: 10px 10px 0 0;">
+          <h1 style="margin: 0; font-size: 22px;">✅ Confirmation de lecture</h1>
+        </div>
+        <div style="background: #f8f9fa; padding: 24px; border-radius: 0 0 10px 10px; border: 1px solid #dee2e6;">
+          <p style="font-size: 16px; color: #333;">Bonjour <strong>${safeName}</strong>,</p>
+          <p style="font-size: 16px; color: #333;">Nous vous confirmons que votre envoi a bien été <strong>pris en compte et lu</strong> par l'administration.</p>
+          <div style="background: white; padding: 16px; border-radius: 8px; border-left: 4px solid #28a745; margin: 16px 0;">
+            <p style="margin: 0 0 8px 0;"><strong>Nature du document :</strong> ${safeNature}</p>
+            <p style="margin: 0;"><strong>Fichier :</strong> ${safeFile}</p>
+          </div>
+          <p style="text-align: center; margin-top: 20px;">
+            <a href="${dashboardUrl}" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 12px 24px; text-decoration: none; border-radius: 25px; font-weight: bold; display: inline-block;">
+              Accéder à mon espace salarié
+            </a>
+          </p>
+          <p style="font-size: 12px; color: #999; margin-top: 20px; text-align: center;">
+            Cet email confirme la lecture de votre document par le responsable.
+          </p>
+        </div>
+      </div>
+    `;
+    const textContent = `
+Confirmation de lecture
+
+Bonjour ${employeeName},
+
+Nous vous confirmons que votre envoi a bien été pris en compte et lu par l'administration.
+
+Nature du document : ${nature}
+Fichier : ${fileName}
+
+Espace salarié : ${dashboardUrl}
+    `;
+    return await this.sendEmail(employeeEmail, subject, htmlContent, textContent);
+  }
 }
 
 // Instance singleton

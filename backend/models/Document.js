@@ -94,6 +94,11 @@ const documentSchema = new mongoose.Schema({
     type: String,
     default: 'admin',
     comment: 'Utilisateur qui a uploadé le document'
+  },
+  receiptConfirmedAt: {
+    type: Date,
+    default: null,
+    comment: 'Date de confirmation de lecture (envois salarié→admin uniquement)'
   }
 }, {
   timestamps: true

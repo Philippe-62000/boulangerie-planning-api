@@ -1146,19 +1146,65 @@
                     container.innerHTML = '<p>Aucun fichier envoyé par les salariés pour le moment.</p>';
                     return;
                 }
-                let html = '<table style="width:100%; border-collapse:collapse; font-size:14px;"><thead><tr style="background:#f8f9fa;"><th style="padding:8px;text-align:left;">Salarié</th><th style="padding:8px;text-align:left;">Nature du document</th><th style="padding:8px;text-align:left;">Date d\'envoi</th><th style="padding:8px;text-align:left;">Fichier</th><th style="padding:8px;"></th></tr></thead><tbody>';
+                let html = '<table style="width:100%; border-collapse:collapse; font-size:14px;"><thead><tr style="background:#f8f9fa;"><th style="padding:8px;text-align:left;">Salarié</th><th style="padding:8px;text-align:left;">Nature du document</th><th style="padding:8px;text-align:left;">Date d\'envoi</th><th style="padding:8px;text-align:left;">Fichier</th><th style="padding:8px;text-align:left;">Réception</th><th style="padding:8px;text-align:left;">Actions</th></tr></thead><tbody>';
                 list.forEach(doc => {
                     const emp = doc.employeeId;
                     const name = emp && emp.name ? emp.name : 'Inconnu';
                     const empId = (emp && emp._id) ? emp._id : doc.employeeId;
                     const dUrl = `${API_URL}/documents/${doc._id}/download?employeeId=${empId}`;
-                    html += `<tr style="border-bottom:1px solid #dee2e6;"><td style="padding:8px;">${esc(name)}</td><td style="padding:8px;">${esc(doc.title)}</td><td style="padding:8px;">${formatDate(doc.uploadDate)}</td><td style="padding:8px;">${esc(doc.fileName)}</td><td style="padding:8px;"><a class="btn" href="${dUrl}" target="_blank" rel="noopener">Télécharger</a></td></tr>`;
+                    const docId = doc._id;
+                    const confirmed = doc.receiptConfirmedAt;
+                    const receptionCell = confirmed
+                        ? `<span style="color:#28a745;font-weight:600;">✓ Lu le ${formatDate(doc.receiptConfirmedAt)}</span>`
+                        : `<button type="button" class="btn" style="background:#28a745;color:white;border:none;" onclick="confirmEmployeeUploadReceipt('${docId}')">Confirmer la réception</button>`;
+                    html += `<tr style="border-bottom:1px solid #dee2e6;"><td style="padding:8px;">${esc(name)}</td><td style="padding:8px;">${esc(doc.title)}</td><td style="padding:8px;">${formatDate(doc.uploadDate)}</td><td style="padding:8px;">${esc(doc.fileName)}</td><td style="padding:8px; white-space:normal;">${receptionCell}</td><td style="padding:8px; white-space:nowrap;"><a class="btn" href="${dUrl}" target="_blank" rel="noopener">Télécharger</a> <button type="button" class="btn btn-danger" onclick="deleteEmployeeUpload('${docId}')">Supprimer</button></td></tr>`;
                 });
                 html += '</tbody></table>';
                 container.innerHTML = html;
             } catch (e) {
                 console.error(e);
                 container.innerHTML = '<p>Erreur lors du chargement.</p>';
+            }
+        }
+
+        async function confirmEmployeeUploadReceipt(documentId) {
+            if (!documentId || !confirm('Confirmer que vous avez bien lu ce document ? Un e-mail sera envoyé au salarié.')) {
+                return;
+            }
+            try {
+                const response = await fetch(`${API_URL}/documents/employee-upload/${documentId}/confirm-receipt`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                const data = await response.json().catch(() => ({}));
+                if (response.ok && data.success) {
+                    showAlert('E-mail de confirmation envoyé au salarié.', 'success');
+                    loadEmployeeUploads();
+                } else {
+                    showAlert(data.message || 'Erreur lors de la confirmation.', 'danger');
+                }
+            } catch (err) {
+                console.error(err);
+                showAlert('Erreur réseau.', 'danger');
+            }
+        }
+
+        async function deleteEmployeeUpload(documentId) {
+            if (!documentId || !confirm('Supprimer définitivement ce fichier sur le serveur et retirer la ligne ?')) {
+                return;
+            }
+            try {
+                const response = await fetch(`${API_URL}/documents/${documentId}`, { method: 'DELETE' });
+                const data = await response.json().catch(() => ({}));
+                if (response.ok && data.success) {
+                    showAlert('Fichier supprimé.', 'success');
+                    loadEmployeeUploads();
+                } else {
+                    showAlert(data.message || 'Erreur lors de la suppression.', 'danger');
+                }
+            } catch (err) {
+                console.error(err);
+                showAlert('Erreur réseau lors de la suppression.', 'danger');
             }
         }
 

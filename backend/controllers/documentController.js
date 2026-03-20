@@ -92,6 +92,72 @@ exports.getEmployeeUploads = async (req, res) => {
   }
 };
 
+// Confirmer la réception / lecture d'un envoi salarié → admin (e-mail au salarié)
+exports.confirmEmployeeUploadReceipt = async (req, res) => {
+  try {
+    const { documentId } = req.params;
+
+    const document = await Document.findById(documentId);
+    if (!document || document.type !== 'employee_upload') {
+      return res.status(404).json({
+        success: false,
+        message: 'Envoi non trouvé'
+      });
+    }
+
+    if (document.receiptConfirmedAt) {
+      return res.status(409).json({
+        success: false,
+        message: 'La réception a déjà été confirmée pour cet envoi'
+      });
+    }
+
+    const employee = await Employee.findById(document.employeeId);
+    if (!employee) {
+      return res.status(400).json({
+        success: false,
+        message: 'Salarié introuvable'
+      });
+    }
+    if (!employee.email || !String(employee.email).trim()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Aucune adresse e-mail enregistrée pour ce salarié'
+      });
+    }
+
+    const emailResult = await emailService.sendEmployeeUploadReceiptConfirmation(
+      employee.email.trim(),
+      employee.name,
+      document.title,
+      document.fileName
+    );
+
+    if (!emailResult.success) {
+      return res.status(500).json({
+        success: false,
+        message: emailResult.message || 'Erreur lors de l\'envoi de l\'e-mail au salarié'
+      });
+    }
+
+    document.receiptConfirmedAt = new Date();
+    await document.save();
+
+    res.json({
+      success: true,
+      message: 'E-mail de confirmation envoyé au salarié',
+      data: document
+    });
+  } catch (error) {
+    console.error('❌ Erreur confirmation réception envoi salarié:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erreur lors de la confirmation',
+      error: error.message
+    });
+  }
+};
+
 // Récupérer les documents personnels d'un employé
 exports.getPersonalDocuments = async (req, res) => {
   try {
@@ -846,16 +912,39 @@ exports.deleteDocument = async (req, res) => {
         message: 'Document non trouvé'
       });
     }
-    
-    // Supprimer le fichier du NAS
-    const filePath = path.join(NAS_CONFIG.basePath, document.filePath);
-    if (fs.existsSync(filePath)) {
-      fs.unlinkSync(filePath);
+
+    const normalizePath = (...parts) => parts.filter(p => p).join('/').replace(/\\/g, '/');
+    const fullPath = normalizePath(NAS_CONFIG.basePath, document.filePath);
+
+    let sftpConnected = false;
+    try {
+      await sftpService.connect();
+      sftpConnected = true;
+      if (await sftpService.fileExists(fullPath)) {
+        await sftpService.client.delete(fullPath);
+        console.log('🗑️ Fichier supprimé sur le NAS:', fullPath);
+      } else {
+        console.log('⚠️ Fichier absent sur le NAS:', fullPath);
+      }
+    } catch (sftpError) {
+      console.error('❌ Erreur suppression SFTP:', sftpError.message);
+      const localPath = path.join(NAS_CONFIG.basePath, document.filePath);
+      if (fs.existsSync(localPath)) {
+        fs.unlinkSync(localPath);
+        console.log('🗑️ Fichier supprimé en local (fallback):', localPath);
+      }
+    } finally {
+      if (sftpConnected) {
+        try {
+          await sftpService.disconnect();
+        } catch (e) {
+          console.error('⚠️ Erreur déconnexion SFTP:', e.message);
+        }
+      }
     }
-    
-    // Supprimer l'enregistrement
+
     await Document.findByIdAndDelete(documentId);
-    
+
     console.log(`✅ Document supprimé: ${document.title}`);
     
     res.json({
