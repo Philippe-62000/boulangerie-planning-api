@@ -8,13 +8,39 @@ const Sidebar = () => {
   // Étendu par défaut sur desktop (largeur > 768px) pour éviter que le menu semble "disparaître" au refresh
   const [isExpanded, setIsExpanded] = useState(() => typeof window !== 'undefined' && window.innerWidth > 768);
   const [socialMenuExpanded, setSocialMenuExpanded] = useState(false);
+  const [venteMenuExpanded, setVenteMenuExpanded] = useState(false);
+  const [paiesMenuExpanded, setPaiesMenuExpanded] = useState(false);
+  const [facturationMenuExpanded, setFacturationMenuExpanded] = useState(false);
   const [menuPermissions, setMenuPermissions] = useState([]);
   const location = useLocation();
   const { user, isAdmin, isEmployee } = useAuth();
   const isLonguenesse = window.location.pathname.startsWith('/lon');
 
+  // Sous-menus admin (comme Social) — regroupent des entrées retirées du menu plat pour l’admin uniquement
+  const VENTE_MENU_ITEMS = [
+    { path: '/sales-stats', label: 'Stats Vente', icon: '💰', menuId: 'sales-stats' },
+    { path: '/ambassadeur', label: 'Ambassadeur', icon: '⭐', menuId: 'ambassadeur' },
+    { path: '/plateaux-repas', label: 'Plateaux repas', icon: '🍽️', menuId: 'plateaux-repas' }
+  ];
+
+  const PAIES_MENU_ITEMS = [
+    { path: '/km-expenses', label: 'Frais KM', icon: '🚗', menuId: 'km-expenses' },
+    { path: '/meal-expenses', label: 'Frais repas', icon: '🍽️', menuId: 'meal-expenses' }
+  ];
+
+  const FACTURATION_MENU_ITEMS = [
+    { path: '/ticket-restaurant', label: 'Ticket restaurant', icon: '🎫', menuId: 'ticket-restaurant' },
+    { path: '/product-exchanges', label: 'Échanges entre boulangeries', icon: '🔄', menuId: 'product-exchanges' },
+    { path: '/chorus', label: 'Chorus', icon: '🎵', menuId: 'chorus', longuenesseOnly: true }
+  ];
+
+  const ADMIN_GROUPED_MENU_IDS = new Set([
+    ...VENTE_MENU_ITEMS,
+    ...PAIES_MENU_ITEMS,
+    ...FACTURATION_MENU_ITEMS
+  ].map((i) => i.menuId));
+
   // Menus regroupés sous "Social" (visible uniquement pour l'admin)
-  // Note: product-exchanges est dans le menu principal pour Longuenesse et Arras (pas dans Social)
   const SOCIAL_MENU_ITEMS = [
     { path: '/advance-requests', label: 'Demandes d\'Acompte', icon: '💰', menuId: 'advance-requests' },
     { path: '/vacation-management', label: 'Gestion des Congés', icon: '🏖️', menuId: 'vacation-management' },
@@ -81,12 +107,14 @@ const Sidebar = () => {
     }
   };
 
-  // Auto-expandre le menu Social quand on est sur une de ses pages
+  // Auto-expandre les sous-menus admin quand on est sur une de leurs pages
   useEffect(() => {
-    const socialPaths = ['advance-requests', 'vacation-management', 'sick-leave-management', 'mutuelle-management', 'primes', 'product-exchanges'];
-    if (socialPaths.some(p => location.pathname.includes(p))) {
-      setSocialMenuExpanded(true);
-    }
+    const p = location.pathname;
+    if (VENTE_MENU_ITEMS.some((i) => p.includes(i.path))) setVenteMenuExpanded(true);
+    if (PAIES_MENU_ITEMS.some((i) => p.includes(i.path))) setPaiesMenuExpanded(true);
+    if (FACTURATION_MENU_ITEMS.some((i) => p.includes(i.path))) setFacturationMenuExpanded(true);
+    const socialPaths = ['advance-requests', 'vacation-management', 'sick-leave-management', 'mutuelle-management', 'primes'];
+    if (socialPaths.some((x) => p.includes(x))) setSocialMenuExpanded(true);
   }, [location.pathname]);
 
   // Charger les permissions de menu selon le rôle utilisateur
@@ -167,27 +195,52 @@ const Sidebar = () => {
   ];
 
   // Vérifier si un menu a la permission pour le rôle actuel
-  // L'API retourne uniquement les menus visibles pour le rôle : si un menu n'est pas dans la liste, il est masqué
   const hasPermission = (menuId) => {
-    // Frais KM Responsable : toujours visible pour admin sur Longuenesse et Arras
-    if (menuId === 'frais-km-responsable' && isAdmin()) return true;
+    if (!user) return false;
 
-    const permission = menuPermissions.find(p => p.menuId === menuId);
+    // Frais KM Responsable / Véhicule : toujours visibles pour l’admin (évite masquage si permission BDD absente ou désactivée par erreur)
+    if (isAdmin() && (menuId === 'frais-km-responsable' || menuId === 'vehicle')) return true;
+
+    // Permissions pas encore chargées : éviter menu vide (sous-menus + Véhicule invisibles)
+    if (menuPermissions.length === 0) {
+      const defaults = getDefaultMenuPermissions(user.role);
+      const d = defaults.find((p) => p.menuId === menuId);
+      if (d) {
+        return isAdmin() ? d.isVisibleToAdmin : d.isVisibleToEmployee;
+      }
+      return false;
+    }
+
+    const permission = menuPermissions.find((p) => p.menuId === menuId);
     if (permission) {
       return isAdmin() ? permission.isVisibleToAdmin : permission.isVisibleToEmployee;
     }
-    // Menu absent de la réponse API = non visible (l'API filtre par rôle : isVisibleToAdmin/isVisibleToEmployee)
-    // Ne pas utiliser les défauts car ils afficheraient des menus que l'admin a désactivés pour les salariés
+
+    // Nouveau menuId pas encore en base : fallback défauts admin uniquement
+    if (isAdmin()) {
+      const defaults = getDefaultMenuPermissions('admin');
+      const d = defaults.find((p) => p.menuId === menuId);
+      if (d) return d.isVisibleToAdmin;
+    }
     return false;
   };
 
-  // Filtrer les menus principaux (sans les items Social)
+  /** Sous-menus admin : afficher tous les liens (sauf Chorus hors Longuenesse). Les pages restent protégées par les routes. */
+  const filterSubmenuForAdmin = (items) =>
+    items.filter((item) => !(item.longuenesseOnly && !isLonguenesse));
+
+  // Filtrer les menus principaux ; pour l’admin, retirer les entrées regroupées (Vente, Paies, Facturation)
   const getFilteredMenuItems = () => {
     if (!user) return [];
 
-    let items = menuItems.filter(item => !(item.longuenesseOnly && !isLonguenesse));
+    let items = menuItems.filter((item) => !(item.longuenesseOnly && !isLonguenesse));
+    items = items.filter((item) => hasPermission(item.menuId));
 
-    return items.filter(item => hasPermission(item.menuId));
+    if (isAdmin()) {
+      items = items.filter((item) => !ADMIN_GROUPED_MENU_IDS.has(item.menuId));
+    }
+
+    return items;
   };
 
   // Items du menu Social visibles pour le salarié (affichés individuellement, pas sous un parent)
@@ -235,20 +288,117 @@ const Sidebar = () => {
             <span className="nav-label">{item.label}</span>
           </Link>
         ))}
+        {/* Sous-menus admin : Vente, Paies, Facturation */}
+        {isAdmin() && filterSubmenuForAdmin(VENTE_MENU_ITEMS).length > 0 && (
+          <div className="nav-group admin-submenu">
+            <button
+              type="button"
+              className={`nav-item nav-group-toggle ${venteMenuExpanded ? 'expanded' : ''} ${VENTE_MENU_ITEMS.some((i) => location.pathname.includes(i.path)) ? 'active' : ''}`}
+              onClick={() => {
+                setIsExpanded(true);
+                setVenteMenuExpanded((v) => !v);
+              }}
+              onMouseEnter={() => isExpanded && setVenteMenuExpanded(true)}
+            >
+              <span className="nav-icon">📊</span>
+              <span className="nav-label">Vente</span>
+              <span className="nav-chevron">{venteMenuExpanded ? '▼' : '▶'}</span>
+            </button>
+            {venteMenuExpanded && (
+              <div className="nav-submenu">
+                {filterSubmenuForAdmin(VENTE_MENU_ITEMS).map((item) => (
+                  <Link
+                    key={item.path}
+                    to={item.path}
+                    className={`nav-item nav-subitem ${location.pathname.includes(item.path) ? 'active' : ''}`}
+                  >
+                    <span className="nav-icon">{item.icon}</span>
+                    <span className="nav-label">{item.label}</span>
+                  </Link>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+        {isAdmin() && filterSubmenuForAdmin(PAIES_MENU_ITEMS).length > 0 && (
+          <div className="nav-group admin-submenu">
+            <button
+              type="button"
+              className={`nav-item nav-group-toggle ${paiesMenuExpanded ? 'expanded' : ''} ${PAIES_MENU_ITEMS.some((i) => location.pathname.includes(i.path)) ? 'active' : ''}`}
+              onClick={() => {
+                setIsExpanded(true);
+                setPaiesMenuExpanded((v) => !v);
+              }}
+              onMouseEnter={() => isExpanded && setPaiesMenuExpanded(true)}
+            >
+              <span className="nav-icon">💶</span>
+              <span className="nav-label">Paies</span>
+              <span className="nav-chevron">{paiesMenuExpanded ? '▼' : '▶'}</span>
+            </button>
+            {paiesMenuExpanded && (
+              <div className="nav-submenu">
+                {filterSubmenuForAdmin(PAIES_MENU_ITEMS).map((item) => (
+                  <Link
+                    key={item.path}
+                    to={item.path}
+                    className={`nav-item nav-subitem ${location.pathname.includes(item.path) ? 'active' : ''}`}
+                  >
+                    <span className="nav-icon">{item.icon}</span>
+                    <span className="nav-label">{item.label}</span>
+                  </Link>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+        {isAdmin() && filterSubmenuForAdmin(FACTURATION_MENU_ITEMS).length > 0 && (
+          <div className="nav-group admin-submenu">
+            <button
+              type="button"
+              className={`nav-item nav-group-toggle ${facturationMenuExpanded ? 'expanded' : ''} ${FACTURATION_MENU_ITEMS.some((i) => location.pathname.includes(i.path)) ? 'active' : ''}`}
+              onClick={() => {
+                setIsExpanded(true);
+                setFacturationMenuExpanded((v) => !v);
+              }}
+              onMouseEnter={() => isExpanded && setFacturationMenuExpanded(true)}
+            >
+              <span className="nav-icon">🧾</span>
+              <span className="nav-label">Facturation</span>
+              <span className="nav-chevron">{facturationMenuExpanded ? '▼' : '▶'}</span>
+            </button>
+            {facturationMenuExpanded && (
+              <div className="nav-submenu">
+                {filterSubmenuForAdmin(FACTURATION_MENU_ITEMS).map((item) => (
+                  <Link
+                    key={item.path}
+                    to={item.path}
+                    className={`nav-item nav-subitem ${location.pathname.includes(item.path) ? 'active' : ''}`}
+                  >
+                    <span className="nav-icon">{item.icon}</span>
+                    <span className="nav-label">{item.label}</span>
+                  </Link>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
         {/* Menu Social - visible uniquement pour l'admin */}
         {isAdmin() && (
           <div className="nav-group social-menu">
             <button
               type="button"
               className={`nav-item nav-group-toggle ${socialMenuExpanded ? 'expanded' : ''} ${SOCIAL_MENU_ITEMS.some(i => location.pathname.includes(i.path)) ? 'active' : ''}`}
-              onClick={() => setSocialMenuExpanded(!socialMenuExpanded)}
+              onClick={() => {
+                setIsExpanded(true);
+                setSocialMenuExpanded((v) => !v);
+              }}
               onMouseEnter={() => isExpanded && setSocialMenuExpanded(true)}
             >
               <span className="nav-icon">👥</span>
               <span className="nav-label">Social</span>
               <span className="nav-chevron">{socialMenuExpanded ? '▼' : '▶'}</span>
             </button>
-            {socialMenuExpanded && isExpanded && (
+            {socialMenuExpanded && (
               <div className="nav-submenu">
                 {SOCIAL_MENU_ITEMS.map((item) => (
                   <Link

@@ -207,6 +207,12 @@
   opacity: 1;
 }
 
+/* Sous-menus admin (Vente, Paies, Facturation) — même style que Social */
+.nav-group.admin-submenu {
+  margin-top: 4px;
+  border-top: 1px solid var(--border-color);
+}
+
 /* Menu Social - groupe avec sous-menus */
 .nav-group.social-menu {
   margin-top: 4px;
