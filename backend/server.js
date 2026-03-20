@@ -50,7 +50,29 @@ app.use(cors(corsOptions));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// Connexion à MongoDB
+const PORT = Number(process.env.PORT) || config.PORT || 5000;
+const HOST = process.env.HOST || '0.0.0.0';
+
+// Santé : enregistré en premier pour que Render puisse valider le déploiement
+app.get('/health', (req, res) => {
+  res.json({ 
+    status: 'OK', 
+    timestamp: new Date().toISOString(),
+    version: config.APP_VERSION,
+    environment: config.NODE_ENV
+  });
+});
+
+// Render : ouvrir le port immédiatement (avant require lourd des routes / MongoDB)
+// Sinon le scan de port peut expirer si le chargement des modules est lent
+app.listen(PORT, HOST, () => {
+  console.log(`🚀 ${config.APP_NAME} v${config.APP_VERSION}`);
+  console.log(`📡 Serveur démarré sur ${HOST}:${PORT}`);
+  console.log(`🌍 Environnement: ${config.NODE_ENV}`);
+  console.log(`🔗 PORT effectif (Render): ${PORT}`);
+});
+
+// Connexion à MongoDB (après écoute — ne bloque pas l'ouverture du port)
 mongoose.connect(config.MONGODB_URI, {
   useNewUrlParser: true,
   useUnifiedTopology: true,
@@ -122,7 +144,7 @@ mongoose.connect(config.MONGODB_URI, {
 })
 .catch(err => console.error('❌ Erreur de connexion MongoDB:', err));
 
-// Routes
+// Routes (après listen — Express accepte d'ajouter des routes ensuite)
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/menu-permissions', require('./routes/menuPermissions'));
 app.use('/api/passwords', require('./routes/passwords'));
@@ -163,16 +185,6 @@ console.log('✅ Routes meal-reservations montées (/api/meal-reservations/*)');
 app.use('/api/chorus', require('./routes/chorus'));
 console.log('✅ Routes chorus montées (/api/chorus/*)');
 
-// Route de santé pour vérifier que l'API fonctionne
-app.get('/health', (req, res) => {
-  res.json({ 
-    status: 'OK', 
-    timestamp: new Date().toISOString(),
-    version: config.APP_VERSION,
-    environment: config.NODE_ENV
-  });
-});
-
 // Route racine
 app.get('/', (req, res) => {
   res.json({ 
@@ -208,15 +220,4 @@ app.use('*', (req, res) => {
   res.status(404).json({ error: 'Route non trouvée' });
 });
 
-const PORT = config.PORT;
-// Render requiert l'écoute sur 0.0.0.0 pour détecter le port (pas localhost)
-const HOST = process.env.HOST || '0.0.0.0';
-app.listen(PORT, HOST, () => {
-  console.log(`🚀 ${config.APP_NAME} v${config.APP_VERSION}`);
-  console.log(`📡 Serveur démarré sur ${HOST}:${PORT}`);
-  console.log(`🌍 Environnement: ${config.NODE_ENV}`);
-  console.log(`🔗 URL: http://localhost:${PORT}`);
-});
-
 module.exports = app;
-
