@@ -460,7 +460,8 @@ const EmployeeDashboard = () => {
           <ul>
             <li>📋 Les <strong>documents généraux</strong> sont accessibles à tous les employés</li>
             <li>👤 Les <strong>documents personnels</strong> sont spécifiques à votre compte</li>
-            <li>⏰ Les documents personnels sont automatiquement supprimés après 1 mois</li>
+            <li>💰 Les <strong>fiches de paie</strong> sont conservées sans limite de temps</li>
+            <li>⏰ Les autres documents personnels sont désactivés après 1 mois</li>
             <li>📥 Cliquez sur "Télécharger" pour sauvegarder un document sur votre appareil</li>
           </ul>
         </div>

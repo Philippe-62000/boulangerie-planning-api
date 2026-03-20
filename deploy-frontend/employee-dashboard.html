@@ -80,6 +80,36 @@
             background: #c82333;
         }
 
+        .connexion-btn {
+            background: #28a745;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            transition: background 0.3s;
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .connexion-btn:hover {
+            background: #218838;
+        }
+
+        .loading .connexion-btn {
+            margin-top: 20px;
+        }
+
+        .loading-hint {
+            margin-top: 10px;
+            font-size: 13px;
+            color: #6c757d;
+        }
+
         .container {
             max-width: 1200px;
             margin: 40px auto;
@@ -692,6 +722,8 @@
     <div class="loading" id="initialLoading">
         <div class="spinner"></div>
         <p>Chargement...</p>
+        <a href="#" class="connexion-btn" onclick="goToLogin(); return false;">🔐 Connexion</a>
+        <p class="loading-hint">Si la page ne charge pas, cliquez sur Connexion pour vous reconnecter.</p>
     </div>
 
     <div class="container" id="mainContent" style="display: none;">
@@ -700,6 +732,7 @@
                 <div class="logo">Dashboard Salarié</div>
                 <div class="user-info">
                     <span class="employee-name" id="employeeName">Salarié</span>
+                    <a href="#" class="connexion-btn" onclick="goToLogin(); return false;">🔐 Connexion</a>
                     <a href="#" class="logout-btn" onclick="logout()">
                         🚪 Déconnexion
                     </a>
@@ -961,7 +994,8 @@
                         <ul>
                             <li>📋 Les <strong>documents généraux</strong> sont accessibles à tous les employés</li>
                             <li>👤 Les <strong>documents personnels</strong> sont spécifiques à votre compte</li>
-                            <li>⏰ Les documents personnels sont automatiquement supprimés après 1 mois</li>
+                            <li>💰 Les <strong>fiches de paie</strong> sont conservées sans limite de temps</li>
+                            <li>⏰ Les autres documents personnels sont désactivés après 1 mois</li>
                             <li>📥 Cliquez sur "Télécharger" pour sauvegarder un document sur votre appareil</li>
                         </ul>
                     </div>
@@ -1215,6 +1249,11 @@
         }
 
         function redirectToLogin() {
+            window.location.href = BASE_PATH + '/salarie-connexion.html';
+        }
+
+        // Bouton Connexion : redirige vers la page de connexion (toujours disponible, même si token expiré)
+        function goToLogin() {
             window.location.href = BASE_PATH + '/salarie-connexion.html';
         }
 

@@ -260,6 +260,15 @@ menuPermissionsSchema.statics.createDefaultPermissions = async function() {
         isVisibleToEmployee: false,
         requiredPermissions: ['view_plateaux_repas'],
         order: 20
+      },
+      {
+        menuId: 'employee-dashboard',
+        menuName: 'Mes Documents',
+        menuPath: '/employee-dashboard',
+        isVisibleToAdmin: false,
+        isVisibleToEmployee: true,
+        requiredPermissions: [],
+        order: 21
       }
     ];
 
@@ -274,27 +283,28 @@ menuPermissionsSchema.statics.createDefaultPermissions = async function() {
         order = 0
       } = menuConfig;
 
-      // findOneAndUpdate + upsert évite la condition de concurrence (E11000 duplicate key)
-      // quand menuPermissionsController ET server.js appellent createDefaultPermissions en parallèle
+      // $set : mis à jour à chaque sync (menuName, menuPath, etc.)
+      // $setOnInsert : uniquement à la création - préserve isVisibleToAdmin/isVisibleToEmployee
+      // des choix de l'admin dans Parameters (sinon chaque redémarrage réinitialisait les permissions)
       const result = await this.findOneAndUpdate(
         { menuId },
         {
           $set: {
             menuName,
             menuPath,
-            isVisibleToAdmin,
-            isVisibleToEmployee,
             requiredPermissions,
             order,
             isActive: true
+          },
+          $setOnInsert: {
+            isVisibleToAdmin,
+            isVisibleToEmployee
           }
         },
         { upsert: true, new: true, includeResultMetadata: true }
       );
       if (result.lastErrorObject?.upserted) {
         console.log(`✅ Menu ${menuId} créé`);
-      } else if (result.value) {
-        console.log(`🔄 Menu ${menuId} synchronisé`);
       }
     };
 
