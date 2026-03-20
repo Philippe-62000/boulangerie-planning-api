@@ -135,3 +135,89 @@
   cursor: pointer;
   font-weight: 600;
 }
+
+.vehicle-history-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.vehicle-history-header h2 {
+  margin: 0;
+}
+
+.vehicle-month-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.vehicle-month-picker input[type='month'] {
+  padding: 0.45rem 0.6rem;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+}
+
+.vehicle-hint {
+  font-size: 0.82rem;
+  color: #666;
+  margin: 0 0 0.75rem;
+}
+
+.vehicle-row-km-warn {
+  background: #ffe5e5 !important;
+}
+
+.vehicle-row-km-warn td {
+  border-color: #f5b5b5;
+}
+
+.vehicle-btn-dismiss {
+  background: #6c757d;
+  color: #fff;
+  border: none;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.vehicle-btn-dismiss:hover {
+  background: #5a6268;
+}
+
+.vehicle-fait-cells {
+  white-space: nowrap;
+}
+
+.vehicle-fait-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.6rem;
+  align-items: center;
+  font-size: 0.75rem;
+}
+
+.vehicle-fait-grid label {
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.vehicle-link-photo {
+  background: none;
+  border: none;
+  color: #0d6efd;
+  text-decoration: underline;
+  cursor: pointer;
+  font-size: inherit;
+  padding: 0;
+}
+
+.vehicle-link-photo:hover {
+  color: #0a58ca;
+}

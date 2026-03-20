@@ -1,6 +1,17 @@
+const path = require('path');
+const fs = require('fs');
 const Employee = require('../models/Employee');
 const VehicleTrip = require('../models/VehicleTrip');
 const VehicleConfig = require('../models/VehicleConfig');
+const sftpService = require('../services/sftpService');
+
+/** Racine NAS par déploiement (env) ou défaut : documents-longuenesse vs documents */
+const nasBaseForSite = (site) => {
+  const env = process.env.NAS_BASE_PATH || process.env.SFTP_BASE_PATH;
+  if (env) return env;
+  return site === 'arras' ? '/n8n/uploads/documents' : '/n8n/uploads/documents-longuenesse';
+};
+const normalizePath = (...parts) => parts.filter(Boolean).join('/').replace(/\\/g, '/');
 
 const getSite = (req) => {
   const s = (req.query.site || req.body.site || 'longuenesse').toLowerCase();
@@ -90,13 +101,48 @@ exports.putConfig = async (req, res) => {
 exports.listTrips = async (req, res) => {
   try {
     const site = getSite(req);
-    const limit = Math.min(parseInt(req.query.limit, 10) || 100, 500);
-    const trips = await VehicleTrip.find({ site })
+    const limit = Math.min(parseInt(req.query.limit, 10) || 500, 1000);
+    const { year, month } = req.query;
+    const query = { site };
+    if (year != null && month != null && month !== '') {
+      const y = parseInt(year, 10);
+      const m = parseInt(month, 10) - 1;
+      if (!Number.isNaN(y) && !Number.isNaN(m) && m >= 0 && m <= 11) {
+        const start = new Date(y, m, 1, 0, 0, 0, 0);
+        const end = new Date(y, m + 1, 0, 23, 59, 59, 999);
+        query.dateDepart = { $gte: start, $lte: end };
+      }
+    }
+    const trips = await VehicleTrip.find(query)
       .populate('driverId', 'name')
       .populate('pleinParEmployeeId', 'name')
       .sort({ dateDepart: -1 })
-      .limit(limit);
-    res.json({ success: true, data: trips });
+      .limit(limit)
+      .lean();
+
+    const allDone = await VehicleTrip.find({
+      site,
+      status: 'termine',
+      kmRetour: { $ne: null }
+    })
+      .select('dateDepart kmDepart kmRetour')
+      .sort({ dateDepart: 1 })
+      .lean();
+
+    const warnById = {};
+    for (let i = 1; i < allDone.length; i++) {
+      const prev = allDone[i - 1];
+      const cur = allDone[i];
+      const d = Math.abs((cur.kmDepart || 0) - (prev.kmRetour || 0));
+      if (d >= 2) warnById[String(cur._id)] = true;
+    }
+
+    const data = trips.map((t) => ({
+      ...t,
+      kmGapWarn: !!warnById[String(t._id)]
+    }));
+
+    res.json({ success: true, data });
   } catch (e) {
     console.error('vehicle listTrips', e);
     res.status(500).json({ success: false, error: e.message });
@@ -298,6 +344,7 @@ exports.getStats = async (req, res) => {
     const problemTrips = await VehicleTrip.find({
       site,
       status: 'termine',
+      problemesIgnores: { $ne: true },
       $or: [{ problemeVoyantMoteur: true }, { problemeAutre: true }]
     })
       .populate('driverId', 'name')
@@ -364,5 +411,148 @@ exports.getStats = async (req, res) => {
   } catch (e) {
     console.error('vehicle getStats', e);
     res.status(500).json({ success: false, error: e.message });
+  }
+};
+
+/** Mise à jour admin : cases « fait », masquer problèmes */
+exports.updateTripAdmin = async (req, res) => {
+  try {
+    const site = getSite(req);
+    const { id } = req.params;
+    const {
+      todoLaveGlaceFait,
+      todoPneuFait,
+      todoRevisionFait,
+      todoPleinFait,
+      problemesIgnores
+    } = req.body;
+
+    const trip = await VehicleTrip.findOne({ _id: id, site });
+    if (!trip) return res.status(404).json({ success: false, error: 'Trajet introuvable' });
+
+    if (todoLaveGlaceFait !== undefined) trip.todoLaveGlaceFait = Boolean(todoLaveGlaceFait);
+    if (todoPneuFait !== undefined) trip.todoPneuFait = Boolean(todoPneuFait);
+    if (todoRevisionFait !== undefined) trip.todoRevisionFait = Boolean(todoRevisionFait);
+    if (todoPleinFait !== undefined) trip.todoPleinFait = Boolean(todoPleinFait);
+    if (problemesIgnores !== undefined) trip.problemesIgnores = Boolean(problemesIgnores);
+
+    await trip.save();
+    const populated = await VehicleTrip.findById(trip._id)
+      .populate('driverId', 'name')
+      .populate('pleinParEmployeeId', 'name')
+      .lean();
+    res.json({ success: true, data: populated });
+  } catch (e) {
+    console.error('vehicle updateTripAdmin', e);
+    res.status(500).json({ success: false, error: e.message });
+  }
+};
+
+exports.uploadPhotoRetour = async (req, res) => {
+  let sftpConnected = false;
+  try {
+    const site = getSite(req);
+    const { id } = req.params;
+    if (!req.file) return res.status(400).json({ success: false, error: 'Photo requise' });
+
+    const trip = await VehicleTrip.findOne({ _id: id, site });
+    if (!trip || trip.status !== 'termine') {
+      try {
+        if (req.file.path && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
+      } catch (_) {}
+      return res.status(400).json({ success: false, error: 'Trajet introuvable ou non terminé' });
+    }
+
+    const nasBase = nasBaseForSite(site);
+    if (trip.photoRetourPath) {
+      const oldFull = normalizePath(nasBase, trip.photoRetourPath);
+      try {
+        await sftpService.connect();
+        sftpConnected = true;
+        if (await sftpService.fileExists(oldFull)) await sftpService.deleteFile(oldFull);
+      } catch (_) {}
+      try {
+        await sftpService.disconnect();
+      } catch (_) {}
+      sftpConnected = false;
+    }
+
+    const ext = path.extname(req.file.originalname) || '.jpg';
+    const safeBase = path.basename(req.file.originalname, ext).replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 60);
+    const fileName = `${trip._id}_${Date.now()}_${safeBase}${ext}`;
+    const relDir = 'vehicule';
+    const relPath = normalizePath(relDir, fileName);
+    const fullDir = normalizePath(nasBase, relDir);
+    const fullPath = normalizePath(nasBase, relPath);
+
+    try {
+      await sftpService.connect();
+      sftpConnected = true;
+      try {
+        await sftpService.client.stat(fullDir);
+      } catch {
+        await sftpService.client.mkdir(fullDir, true);
+      }
+      await sftpService.put(req.file.path, fullPath);
+    } finally {
+      if (sftpConnected) {
+        try {
+          await sftpService.disconnect();
+        } catch (_) {}
+      }
+      try {
+        if (req.file.path && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
+      } catch (_) {}
+    }
+
+    trip.photoRetourPath = relPath;
+    trip.photoRetourFileName = path.basename(req.file.originalname);
+    trip.photoRetourMimeType = req.file.mimetype || 'image/jpeg';
+    await trip.save();
+
+    const populated = await VehicleTrip.findById(trip._id)
+      .populate('driverId', 'name')
+      .populate('pleinParEmployeeId', 'name')
+      .lean();
+    res.json({ success: true, data: populated });
+  } catch (e) {
+    console.error('vehicle uploadPhotoRetour', e);
+    try {
+      if (req.file?.path && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
+    } catch (_) {}
+    res.status(500).json({ success: false, error: e.message });
+  }
+};
+
+exports.downloadPhotoRetour = async (req, res) => {
+  let sftpConnected = false;
+  try {
+    const site = getSite(req);
+    const { id } = req.params;
+    const trip = await VehicleTrip.findOne({ _id: id, site });
+    if (!trip || !trip.photoRetourPath) {
+      return res.status(404).json({ success: false, error: 'Photo introuvable' });
+    }
+    const nasBase = nasBaseForSite(site);
+    const fullPath = normalizePath(nasBase, trip.photoRetourPath);
+    await sftpService.connect();
+    sftpConnected = true;
+    if (!(await sftpService.fileExists(fullPath))) {
+      return res.status(404).json({ success: false, error: 'Fichier absent du NAS' });
+    }
+    const buffer = await sftpService.downloadFile(fullPath);
+    const downloadName = trip.photoRetourFileName || path.basename(trip.photoRetourPath);
+    res.setHeader('Content-Disposition', `inline; filename="${encodeURIComponent(downloadName)}"`);
+    res.setHeader('Content-Type', trip.photoRetourMimeType || 'image/jpeg');
+    res.send(buffer);
+  } catch (e) {
+    console.error('vehicle downloadPhotoRetour', e);
+    if (!res.headersSent) res.status(500).json({ success: false, error: e.message });
+  } finally {
+    if (sftpConnected) {
+      try {
+        await sftpService.disconnect();
+      } catch (_) {}
+    }
   }
 };

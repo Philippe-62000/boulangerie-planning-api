@@ -32,6 +32,16 @@ const vehicleTripSchema = new mongoose.Schema({
   todoPneu: { type: Boolean, default: false },
   todoRevision: { type: Boolean, default: false },
   todoPlein: { type: Boolean, default: false },
+  todoLaveGlaceFait: { type: Boolean, default: false },
+  todoPneuFait: { type: Boolean, default: false },
+  todoRevisionFait: { type: Boolean, default: false },
+  todoPleinFait: { type: Boolean, default: false },
+  /** Photo du retour sur le NAS (chemin relatif ex. vehicule/xxx.jpg) */
+  photoRetourPath: { type: String, default: null },
+  photoRetourFileName: { type: String, default: null },
+  photoRetourMimeType: { type: String, default: null },
+  /** Admin : masquer la ligne dans la liste des problèmes */
+  problemesIgnores: { type: Boolean, default: false },
   pleinEffectue: { type: Boolean, default: false },
   pleinDate: { type: Date, default: null },
   pleinKm: { type: Number, default: null },

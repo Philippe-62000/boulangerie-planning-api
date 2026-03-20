@@ -3,16 +3,13 @@ import axios from 'axios';
 import { getApiUrl } from '../config/apiConfig';
 import './VehicleStandalone.css';
 
-const API_URLS = {
-  longuenesse: 'https://boulangerie-planning-api-3.onrender.com/api',
-  arras: 'https://boulangerie-planning-api-4-pbfy.onrender.com/api'
-};
-
 const VehicleStandalone = () => {
-  const baseApi = getApiUrl();
-  const [site, setSite] = useState('');
+  const site = window.location.pathname.startsWith('/lon') ? 'longuenesse' : 'arras';
+  const siteLabel = site === 'longuenesse' ? 'Longuenesse' : 'Arras';
+  const apiBase = getApiUrl();
+
   const [drivers, setDrivers] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [msg, setMsg] = useState('');
   const [msgOk, setMsgOk] = useState(true);
 
@@ -35,16 +32,14 @@ const VehicleStandalone = () => {
   const [tdPl, setTdPl] = useState(false);
   const [pleinEffectue, setPleinEffectue] = useState(false);
   const [pleinParId, setPleinParId] = useState('');
-
-  const api = () => API_URLS[site] || baseApi;
+  const [photoRetourFile, setPhotoRetourFile] = useState(null);
 
   useEffect(() => {
-    if (!site) return;
     (async () => {
       setLoading(true);
       setMsg('');
       try {
-        const r = await axios.get(`${api()}/vehicle/drivers`, { params: { site } });
+        const r = await axios.get(`${apiBase}/vehicle/drivers`, { params: { site } });
         setDrivers(r.data?.data || []);
         setDriverId('');
         setPleinParId('');
@@ -55,29 +50,26 @@ const VehicleStandalone = () => {
         setLoading(false);
       }
     })();
-  }, [site]);
+  }, [apiBase, site]);
 
   const startTrip = async (e) => {
     e.preventDefault();
-    if (!site || !driverId || kmDepart === '') {
-      setMsg('Site, conducteur et km départ requis');
+    if (!driverId || kmDepart === '') {
+      setMsg('Conducteur et km départ requis');
       setMsgOk(false);
       return;
     }
     setLoading(true);
     setMsg('');
     try {
-      const r = await axios.post(
-        `${api()}/vehicle/trips`,
-        {
-          site,
-          driverId,
-          kmDepart: Number(String(kmDepart).replace(',', '.')),
-          etatInterieur: ei,
-          etatExterieur: ee,
-          remarquesDepart: remDep
-        }
-      );
+      const r = await axios.post(`${apiBase}/vehicle/trips`, {
+        site,
+        driverId,
+        kmDepart: Number(String(kmDepart).replace(',', '.')),
+        etatInterieur: ei,
+        etatExterieur: ee,
+        remarquesDepart: remDep
+      });
       const trip = r.data?.data;
       setActiveTrip(trip);
       setKmRetour('');
@@ -91,6 +83,7 @@ const VehicleStandalone = () => {
       setTdPl(false);
       setPleinEffectue(false);
       setPleinParId(driverId);
+      setPhotoRetourFile(null);
       setMsg('Départ enregistré — complétez le retour ci-dessous.');
       setMsgOk(true);
     } catch (err) {
@@ -118,7 +111,7 @@ const VehicleStandalone = () => {
     setLoading(true);
     setMsg('');
     try {
-      await axios.put(`${api()}/vehicle/trips/${activeTrip._id}/return`, {
+      const r = await axios.put(`${apiBase}/vehicle/trips/${activeTrip._id}/return`, {
         site,
         destination: destination.trim(),
         kmRetour: kr,
@@ -132,11 +125,36 @@ const VehicleStandalone = () => {
         pleinEffectue,
         pleinParEmployeeId: pleinEffectue ? (pleinParId || driverId) : undefined
       });
+      const trip = r.data?.data;
+
+      if (photoRetourFile && trip?._id) {
+        try {
+          const fd = new FormData();
+          fd.append('file', photoRetourFile);
+          await axios.post(`${apiBase}/vehicle/trips/${trip._id}/photo-retour`, fd, {
+            params: { site },
+            timeout: 120000
+          });
+        } catch (upErr) {
+          setMsg(
+            `Trajet enregistré, mais échec envoi photo : ${upErr.response?.data?.error || upErr.message}`
+          );
+          setMsgOk(false);
+          setActiveTrip(null);
+          setKmDepart('');
+          setRemDep('');
+          setPhotoRetourFile(null);
+          setLoading(false);
+          return;
+        }
+      }
+
       setMsg('Trajet terminé. Merci !');
       setMsgOk(true);
       setActiveTrip(null);
       setKmDepart('');
       setRemDep('');
+      setPhotoRetourFile(null);
     } catch (err) {
       setMsg(err.response?.data?.error || 'Erreur');
       setMsgOk(false);
@@ -167,34 +185,21 @@ const VehicleStandalone = () => {
     <div className="vs-page">
       <h1>🚗 Véhicule</h1>
       <p style={{ color: '#555', fontSize: '0.95rem' }}>
-        Enregistrement départ / retour (usage interne).
+        Enregistrement départ / retour (usage interne) — <strong>{siteLabel}</strong>
       </p>
-
-      <div className="vs-site">
-        <label>
-          <strong>Site</strong>
-          <select value={site} onChange={(e) => { setSite(e.target.value); setActiveTrip(null); }}>
-            <option value="">— Choisir —</option>
-            <option value="longuenesse">Longuenesse</option>
-            <option value="arras">Arras</option>
-          </select>
-        </label>
-      </div>
 
       {msg && (
         <div className={`vs-msg ${msgOk ? 'ok' : 'err'}`}>{msg}</div>
       )}
 
-      {site && !loading && drivers.length === 0 && (
+      {!loading && drivers.length === 0 && (
         <div className="vs-msg err">
           Aucun conducteur autorisé. Dans <strong>Gestion des employés</strong>, cochez « Autoriser à conduire le véhicule »
           sous le téléphone d’urgence.
         </div>
       )}
 
-      {!site ? (
-        <p>Sélectionnez le site pour continuer.</p>
-      ) : loading && !drivers.length ? (
+      {loading && !drivers.length ? (
         <p>Chargement…</p>
       ) : (
         <>
@@ -321,6 +326,16 @@ const VehicleStandalone = () => {
                     </select>
                   </div>
                 )}
+
+                <div className="vs-field">
+                  <label>Photo du retour (optionnel)</label>
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/gif,image/webp,.heic"
+                    onChange={(e) => setPhotoRetourFile(e.target.files?.[0] || null)}
+                  />
+                  <p className="vs-photo-hint">Stockée sur le NAS (dossier véhicule du site).</p>
+                </div>
 
                 <button type="submit" className="vs-btn vs-btn-primary" disabled={loading}>
                   Terminer le trajet

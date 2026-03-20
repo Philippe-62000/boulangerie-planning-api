@@ -34,6 +34,12 @@
   margin-bottom: 0.25rem;
 }
 
+.vs-photo-hint {
+  margin: 0.35rem 0 0;
+  font-size: 0.8rem;
+  color: #666;
+}
+
 .vs-field input,
 .vs-field select,
 .vs-field textarea {
