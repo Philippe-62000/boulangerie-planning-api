@@ -35,7 +35,14 @@ const Chorus = () => {
       setCommandes(cmdRes.data?.data || []);
     } catch (e) {
       console.error(e);
-      toast.error('Erreur chargement Chorus');
+      const st = e.response?.status;
+      if (st === 404) {
+        toast.error(
+          'API Chorus indisponible (404). Déployez le backend sur Render (api-3) avec le dernier code, ou fusionnez main dans la branche déployée.'
+        );
+      } else {
+        toast.error('Erreur chargement Chorus');
+      }
     } finally {
       setLoading(false);
     }
@@ -73,7 +80,12 @@ const Chorus = () => {
       setShowClientModal(false);
       loadAll();
     } catch (e) {
-      toast.error(e.response?.data?.error || 'Erreur enregistrement');
+      const st = e.response?.status;
+      if (st === 404) {
+        toast.error('API Chorus absente (404) — déployez le backend à jour.');
+      } else {
+        toast.error(e.response?.data?.error || 'Erreur enregistrement');
+      }
     }
   };
 
@@ -186,22 +198,7 @@ const Chorus = () => {
     <div className="chorus-page">
       <div className="chorus-header">
         <h1>🎵 Chorus</h1>
-        <p className="chorus-sub">
-          Commandes et bons de commande — site : <strong>{site === 'longuenesse' ? 'Longuenesse' : 'Arras'}</strong>
-        </p>
-      </div>
-
-      <div className="chorus-info-nas card-like">
-        <h3>📁 Répertoire NAS (à créer manuellement)</h3>
-        <p>
-          Sous la racine documents du site (déjà <code>documents-longuenesse</code> pour Longuenesse), créez uniquement :
-        </p>
-        <p className="chorus-nas-example">
-          <code>/n8n/uploads/documents-longuenesse/chorus/</code>
-        </p>
-        <p className="chorus-sub" style={{ marginTop: '0.5rem' }}>
-          Pas de sous-dossier « longuenesse » : la racine NAS est déjà celle du site.
-        </p>
+        <p className="chorus-sub">Commandes et bons de commande</p>
       </div>
 
       <div className="chorus-toolbar">
