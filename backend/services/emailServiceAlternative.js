@@ -3264,7 +3264,7 @@ Consultez la page : ${adminDocsUrl}
         </div>
         <div style="background: #f8f9fa; padding: 24px; border-radius: 0 0 10px 10px; border: 1px solid #dee2e6;">
           <p style="font-size: 16px; color: #333;">Bonjour <strong>${safeName}</strong>,</p>
-          <p style="font-size: 16px; color: #333;">Nous vous confirmons que votre envoi a bien été <strong>pris en compte et lu</strong> par l'administration.</p>
+          <p style="font-size: 16px; color: #333;">Nous vous confirmons que votre envoi a bien été <strong>pris en compte et lu</strong> par le responsable.</p>
           <div style="background: white; padding: 16px; border-radius: 8px; border-left: 4px solid #28a745; margin: 16px 0;">
             <p style="margin: 0 0 8px 0;"><strong>Nature du document :</strong> ${safeNature}</p>
             <p style="margin: 0;"><strong>Fichier :</strong> ${safeFile}</p>
@@ -3285,7 +3285,7 @@ Confirmation de lecture
 
 Bonjour ${employeeName},
 
-Nous vous confirmons que votre envoi a bien été pris en compte et lu par l'administration.
+Nous vous confirmons que votre envoi a bien été pris en compte et lu par le responsable.
 
 Nature du document : ${nature}
 Fichier : ${fileName}
