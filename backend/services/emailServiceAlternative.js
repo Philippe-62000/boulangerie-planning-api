@@ -3200,6 +3200,48 @@ Date : ${new Date().toLocaleDateString('fr-FR')}
       return { success: false, message: error.message };
     }
   }
+
+  async sendEmployeeUploadAdminNotification(adminEmail, employeeName, nature, fileName) {
+    if (!adminEmail) {
+      return { success: false, message: 'Email administrateur non configuré' };
+    }
+    const adminDocsUrl = this.getAdminUrl('/admin-documents.html');
+    const subject = `📤 Document reçu d'un salarié — ${nature}`;
+    const htmlContent = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; text-align: center; border-radius: 10px 10px 0 0;">
+          <h1 style="margin: 0; font-size: 22px;">📤 Nouvel envoi depuis l'espace salarié</h1>
+        </div>
+        <div style="background: #f8f9fa; padding: 24px; border-radius: 0 0 10px 10px; border: 1px solid #dee2e6;">
+          <p style="font-size: 16px; color: #333;">Un salarié a envoyé un fichier à consulter.</p>
+          <div style="background: white; padding: 16px; border-radius: 8px; border-left: 4px solid #667eea; margin: 16px 0;">
+            <p style="margin: 0 0 8px 0;"><strong>Salarié :</strong> ${employeeName}</p>
+            <p style="margin: 0 0 8px 0;"><strong>Nature du document :</strong> ${nature}</p>
+            <p style="margin: 0;"><strong>Fichier :</strong> ${fileName}</p>
+          </div>
+          <p style="text-align: center; margin-top: 20px;">
+            <a href="${adminDocsUrl}" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 12px 24px; text-decoration: none; border-radius: 25px; font-weight: bold; display: inline-block;">
+              Ouvrir la gestion des documents
+            </a>
+          </p>
+          <p style="font-size: 12px; color: #999; margin-top: 24px; text-align: center;">
+            Connectez-vous à l'administration et utilisez « Voir les fichiers uploadés » pour télécharger le fichier.
+          </p>
+        </div>
+      </div>
+    `;
+    const textContent = `
+Nouvel envoi depuis l'espace salarié
+
+Salarié : ${employeeName}
+Nature du document : ${nature}
+Fichier : ${fileName}
+
+Consultez la page : ${adminDocsUrl}
+(Bouton « Voir les fichiers uploadés »)
+    `;
+    return await this.sendEmail(adminEmail, subject, htmlContent, textContent);
+  }
 }
 
 // Instance singleton

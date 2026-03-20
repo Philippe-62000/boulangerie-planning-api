@@ -1,5 +1,6 @@
 const Document = require('../models/Document');
 const Employee = require('../models/Employee');
+const Parameter = require('../models/Parameters');
 const fs = require('fs');
 const path = require('path');
 const sftpService = require('../services/sftpService');
@@ -70,6 +71,27 @@ exports.getAllPersonalDocuments = async (req, res) => {
   }
 };
 
+// Fichiers envoyés par les salariés (consultation admin)
+exports.getEmployeeUploads = async (req, res) => {
+  try {
+    const documents = await Document.find({ type: 'employee_upload' })
+      .populate('employeeId', 'name role email')
+      .sort({ uploadDate: -1 });
+
+    res.json({
+      success: true,
+      data: documents
+    });
+  } catch (error) {
+    console.error('❌ Erreur récupération envois salariés:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erreur lors de la récupération des fichiers uploadés',
+      error: error.message
+    });
+  }
+};
+
 // Récupérer les documents personnels d'un employé
 exports.getPersonalDocuments = async (req, res) => {
   try {
@@ -129,8 +151,8 @@ exports.downloadDocument = async (req, res) => {
       });
     }
     
-    // Vérifier les permissions pour les documents personnels
-    if (document.type === 'personal') {
+    // Vérifier les permissions pour les documents personnels et envois salarié→admin
+    if (document.type === 'personal' || document.type === 'employee_upload') {
       const { employeeId } = req.query;
       
       if (!employeeId || document.employeeId.toString() !== employeeId) {
@@ -618,6 +640,192 @@ exports.uploadDocument = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Erreur lors de l\'upload du document',
+      error: error.message
+    });
+  }
+};
+
+// Upload d'un fichier par un salarié (Mes documents → Envoyer documents)
+exports.uploadEmployeeDocument = async (req, res) => {
+  if (req.user.role !== 'employee' || !req.user.employeeId) {
+    return res.status(403).json({
+      success: false,
+      message: 'Cette action est réservée aux salariés connectés'
+    });
+  }
+
+  const nature = (req.body.nature || '').trim();
+  if (!nature) {
+    return res.status(400).json({
+      success: false,
+      message: 'Le champ « Nature du document » est requis'
+    });
+  }
+
+  if (!req.file) {
+    return res.status(400).json({
+      success: false,
+      message: 'Aucun fichier fourni'
+    });
+  }
+
+  const employeeId = req.user.employeeId;
+  const employee = await Employee.findById(employeeId);
+  if (!employee) {
+    return res.status(404).json({
+      success: false,
+      message: 'Employé non trouvé'
+    });
+  }
+
+  const fileExtension = path.extname(req.file.originalname).toLowerCase().substring(1);
+  if (!NAS_CONFIG.allowedTypes.includes(fileExtension)) {
+    return res.status(400).json({
+      success: false,
+      message: `Type de fichier non autorisé. Types autorisés: ${NAS_CONFIG.allowedTypes.join(', ')}`
+    });
+  }
+
+  if (req.file.size > NAS_CONFIG.maxFileSize) {
+    return res.status(400).json({
+      success: false,
+      message: `Fichier trop volumineux. Taille maximale: ${NAS_CONFIG.maxFileSize / (1024 * 1024)}MB`
+    });
+  }
+
+  const currentYear = new Date().getFullYear();
+  const targetDir = `${NAS_CONFIG.personalPath}/employee-uploads/${currentYear}`;
+  const normalizePath = (...parts) => parts.filter(p => p).join('/').replace(/\\/g, '/');
+
+  let fileName = req.file.originalname;
+  if (fileName.includes('Ã')) {
+    try {
+      const buffer = Buffer.from(fileName, 'latin1');
+      const decoded = buffer.toString('utf8');
+      if (decoded && (decoded.includes('ï') || decoded.includes('é') || decoded.includes('è') || decoded.includes('à') || decoded.includes('ç'))) {
+        fileName = decoded;
+      } else if (decoded && decoded.length === buffer.length && decoded !== fileName) {
+        fileName = decoded;
+      }
+    } catch (e) {
+      /* ignore */
+    }
+  }
+
+  let filePath = normalizePath(targetDir, fileName);
+  let fullPath = normalizePath(NAS_CONFIG.basePath, filePath);
+
+  let sftpConnected = false;
+  try {
+    await sftpService.connect();
+    sftpConnected = true;
+
+    if (!sftpService.client) {
+      throw new Error('Client SFTP non initialisé');
+    }
+
+    const dir = normalizePath(NAS_CONFIG.basePath, targetDir);
+    try {
+      try {
+        await sftpService.client.stat(dir);
+      } catch (error) {
+        await sftpService.client.mkdir(dir, true);
+      }
+    } catch (error) {
+      console.error('❌ Erreur création dossier NAS:', error);
+      return res.status(500).json({
+        success: false,
+        message: 'Erreur lors de la création du dossier sur le NAS'
+      });
+    }
+
+    let counter = 1;
+    const originalNameWithoutExt = path.parse(req.file.originalname).name;
+    const originalExt = path.parse(req.file.originalname).ext;
+
+    while (true) {
+      const fileExists = await sftpService.fileExists(fullPath);
+      if (!fileExists) break;
+      fileName = `${originalNameWithoutExt}_${counter}${originalExt}`;
+      filePath = normalizePath(targetDir, fileName);
+      fullPath = normalizePath(NAS_CONFIG.basePath, filePath);
+      counter++;
+      if (counter > 100) {
+        return res.status(500).json({
+          success: false,
+          message: 'Impossible de trouver un nom de fichier unique'
+        });
+      }
+    }
+
+    await sftpService.put(req.file.path, fullPath);
+    fs.unlinkSync(req.file.path);
+  } catch (error) {
+    console.error('❌ Erreur SFTP upload salarié:', error);
+    try {
+      if (req.file && req.file.path && fs.existsSync(req.file.path)) {
+        fs.unlinkSync(req.file.path);
+      }
+    } catch (cleanupError) {
+      /* ignore */
+    }
+    return res.status(500).json({
+      success: false,
+      message: 'Erreur lors de l\'upload sur le NAS',
+      error: error.message
+    });
+  } finally {
+    if (sftpConnected) {
+      try {
+        await sftpService.disconnect();
+      } catch (disconnectError) {
+        console.error('⚠️ Erreur déconnexion SFTP:', disconnectError.message);
+      }
+    }
+  }
+
+  try {
+    const document = await Document.createEmployeeUploadDocument({
+      title: nature,
+      employeeId,
+      filePath,
+      fileName,
+      fileSize: req.file.size,
+      mimeType: req.file.mimetype,
+      description: '',
+      uploadedBy: employee.name || 'salarié'
+    });
+
+    try {
+      const adminEmailParam = await Parameter.findOne({ name: 'adminEmail' });
+      const adminEmail = adminEmailParam?.stringValue?.trim();
+      if (adminEmail) {
+        const emailResult = await emailService.sendEmployeeUploadAdminNotification(
+          adminEmail,
+          employee.name,
+          nature,
+          fileName
+        );
+        if (!emailResult.success) {
+          console.log(`⚠️ Email admin non envoyé: ${emailResult.message}`);
+        }
+      } else {
+        console.log('⚠️ Paramètre adminEmail non configuré — pas de notification');
+      }
+    } catch (emailErr) {
+      console.error('❌ Erreur email notification envoi salarié:', emailErr);
+    }
+
+    res.json({
+      success: true,
+      message: 'Document envoyé avec succès',
+      data: document
+    });
+  } catch (error) {
+    console.error('❌ Erreur enregistrement document salarié:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erreur lors de l\'enregistrement du document',
       error: error.message
     });
   }

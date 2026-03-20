@@ -3,6 +3,7 @@ const router = express.Router();
 const multer = require('multer');
 const path = require('path');
 const documentController = require('../controllers/documentController');
+const { authenticateEmployee } = require('../middleware/auth');
 
 // Configuration multer pour l'upload
 const storage = multer.diskStorage({
@@ -79,6 +80,12 @@ router.get('/stats', documentController.getDocumentStats);
 
 // GET /api/documents/all-personal - Récupérer tous les documents personnels (admin)
 router.get('/all-personal', documentController.getAllPersonalDocuments);
+
+// GET /api/documents/employee-uploads - Fichiers envoyés par les salariés (admin)
+router.get('/employee-uploads', documentController.getEmployeeUploads);
+
+// POST /api/documents/employee-upload - Envoi par un salarié connecté
+router.post('/employee-upload', ensureTempDir, authenticateEmployee, upload.single('file'), documentController.uploadEmployeeDocument);
 
 // GET /api/documents/orphaned - Lister les fiches orphelines sur le NAS (admin seulement)
 router.get('/orphaned', documentController.getOrphanedDocuments);

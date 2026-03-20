@@ -9,21 +9,21 @@ const documentSchema = new mongoose.Schema({
   },
   type: {
     type: String,
-    enum: ['general', 'personal'],
+    enum: ['general', 'personal', 'employee_upload'],
     required: true,
-    comment: 'Type de document: general (pour tous) ou personal (spécifique à un employé)'
+    comment: 'general, personal (admin→salarié) ou employee_upload (salarié→admin)'
   },
   category: {
     type: String,
     required: true,
-    enum: ['notice', 'procedure', 'formation', 'payslip', 'contract', 'regulation', 'other'],
+    enum: ['notice', 'procedure', 'formation', 'payslip', 'contract', 'regulation', 'other', 'employee_submission'],
     comment: 'Catégorie du document'
   },
   employeeId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Employee',
     required: function() {
-      return this.type === 'personal';
+      return this.type === 'personal' || this.type === 'employee_upload';
     },
     comment: 'ID de l\'employé pour les documents personnels'
   },
@@ -208,6 +208,18 @@ documentSchema.statics.createGeneralDocument = async function(docData) {
   return await document.save();
 };
 
+// Document envoyé par un salarié vers l'administration (pas d'expiration)
+documentSchema.statics.createEmployeeUploadDocument = async function(docData) {
+  const document = new this({
+    ...docData,
+    type: 'employee_upload',
+    category: 'employee_submission',
+    expiryDate: null,
+    isActive: true
+  });
+  return await document.save();
+};
+
 // Méthode pour vérifier si un document est expiré
 documentSchema.methods.isExpired = function() {
   if (this.type === 'general') return false;
@@ -241,7 +253,8 @@ documentSchema.statics.getCategoryLabel = function(category) {
     'formation': '🎓 Formation',
     'payslip': '💰 Fiche de paie',
     'contract': '📄 Contrat',
-    'other': '📁 Autre'
+    'other': '📁 Autre',
+    'employee_submission': '📤 Envoi salarié'
   };
   return labels[category] || category;
 };

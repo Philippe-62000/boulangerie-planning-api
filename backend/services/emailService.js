@@ -82,6 +82,10 @@ class EmailService {
     return await emailServiceAlternative.sendGeneralDocumentNotification(employeeEmail, employeeName, documentTitle, documentCategory);
   }
 
+  async sendEmployeeUploadAdminNotification(adminEmail, employeeName, nature, fileName) {
+    return await emailServiceAlternative.sendEmployeeUploadAdminNotification(adminEmail, employeeName, nature, fileName);
+  }
+
   // Envoyer un email de test
   async sendTestEmail(toEmail) {
     return await emailServiceAlternative.sendTestEmail(toEmail);
