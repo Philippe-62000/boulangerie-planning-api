@@ -32,6 +32,8 @@ const Chorus = () => {
   const [newCmdClientId, setNewCmdClientId] = useState('');
   const [newCmdStatut, setNewCmdStatut] = useState('en_cours');
   const [newCmdRemarque, setNewCmdRemarque] = useState('');
+  const [newCmdMontantTtc, setNewCmdMontantTtc] = useState('');
+  const [newCmdNumBon, setNewCmdNumBon] = useState('');
   const [triCommandes, setTriCommandes] = useState('client');
 
   const commandesTriees = useMemo(() => {
@@ -155,7 +157,9 @@ const Chorus = () => {
           dateCommande: newCmdDate,
           clientId: newCmdClientId,
           statut: newCmdStatut,
-          remarque: newCmdRemarque.trim() || undefined
+          remarque: newCmdRemarque.trim() || undefined,
+          montantTtc: newCmdMontantTtc.trim() ? newCmdMontantTtc.replace(',', '.') : undefined,
+          numBonCommande: newCmdNumBon.trim() || undefined
         },
         { params: { site } }
       );
@@ -291,6 +295,36 @@ const Chorus = () => {
               ))}
             </select>
           </label>
+          <label>
+            Montant TTC (€)
+            <input
+              type="text"
+              inputMode="decimal"
+              placeholder="ex. 123,45"
+              value={newCmdMontantTtc}
+              onChange={(e) => setNewCmdMontantTtc(e.target.value)}
+            />
+          </label>
+          <label>
+            N° bon de commande
+            <input
+              type="text"
+              maxLength={80}
+              placeholder="Référence"
+              value={newCmdNumBon}
+              onChange={(e) => setNewCmdNumBon(e.target.value)}
+            />
+          </label>
+          <label className="chorus-field-remarque">
+            Remarque
+            <input
+              type="text"
+              maxLength={500}
+              placeholder="Court texte optionnel"
+              value={newCmdRemarque}
+              onChange={(e) => setNewCmdRemarque(e.target.value)}
+            />
+          </label>
           <button type="submit" className="btn btn-success">
             Créer la commande
           </button>
@@ -318,6 +352,8 @@ const Chorus = () => {
                 <th>Date</th>
                 <th>Client</th>
                 <th>Remarque</th>
+                <th>Montant TTC</th>
+                <th>N° bon</th>
                 <th>Réalisé</th>
                 <th>Bon de commande</th>
                 <th>Déposé sur Chorus</th>
@@ -364,6 +400,51 @@ const Chorus = () => {
                           const v = e.target.value.trim();
                           if (v !== (row.remarque || '').trim()) {
                             updateCommandeField(row._id, { remarque: v });
+                          }
+                        }}
+                      />
+                    </td>
+                    <td>
+                      <input
+                        type="text"
+                        className="chorus-remarque-input"
+                        inputMode="decimal"
+                        placeholder="—"
+                        key={`mt-${row._id}-${row.montantTtc ?? 'x'}`}
+                        defaultValue={row.montantTtc != null ? String(row.montantTtc) : ''}
+                        onBlur={(e) => {
+                          const raw = e.target.value.trim().replace(',', '.');
+                          if (raw === '') {
+                            if (row.montantTtc != null) {
+                              updateCommandeField(row._id, { montantTtc: null });
+                            }
+                            return;
+                          }
+                          const n = parseFloat(raw);
+                          if (!Number.isNaN(n) && n >= 0) {
+                            updateCommandeField(row._id, { montantTtc: Math.round(n * 100) / 100 });
+                          }
+                        }}
+                      />
+                    </td>
+                    <td>
+                      <input
+                        type="text"
+                        className="chorus-remarque-input"
+                        maxLength={80}
+                        placeholder="—"
+                        value={row.numBonCommande ?? ''}
+                        onChange={(e) =>
+                          setCommandes((prev) =>
+                            prev.map((r) =>
+                              r._id === row._id ? { ...r, numBonCommande: e.target.value } : r
+                            )
+                          )
+                        }
+                        onBlur={(e) => {
+                          const v = e.target.value.trim();
+                          if (v !== (row.numBonCommande || '').trim()) {
+                            updateCommandeField(row._id, { numBonCommande: v });
                           }
                         }}
                       />

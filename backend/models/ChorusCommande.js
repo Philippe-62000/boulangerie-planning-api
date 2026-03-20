@@ -19,6 +19,10 @@ const chorusCommandeSchema = new mongoose.Schema({
   bonDeCommandeMimeType: { type: String, default: null },
   /** Remarque libre sur la commande (court texte) */
   remarque: { type: String, default: '', maxlength: 500, trim: true },
+  /** Montant TTC (€) */
+  montantTtc: { type: Number, default: null },
+  /** Numéro de bon de commande */
+  numBonCommande: { type: String, default: '', maxlength: 80, trim: true },
   deposedChorus: { type: Boolean, default: false },
   misEnCaisse: { type: Boolean, default: false },
   paiementRecu: { type: Boolean, default: false },

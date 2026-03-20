@@ -50,7 +50,8 @@ const Sidebar = () => {
         { menuId: 'product-exchanges', isVisibleToAdmin: true, isVisibleToEmployee: false },
         { menuId: 'frais-km-responsable', isVisibleToAdmin: true, isVisibleToEmployee: false },
         { menuId: 'plateaux-repas', isVisibleToAdmin: true, isVisibleToEmployee: false },
-        { menuId: 'chorus', isVisibleToAdmin: true, isVisibleToEmployee: false }
+        { menuId: 'chorus', isVisibleToAdmin: true, isVisibleToEmployee: false },
+        { menuId: 'vehicle', isVisibleToAdmin: true, isVisibleToEmployee: false }
       ];
     } else {
       // Fallback salarié : permissions restrictives (planning, km-expenses, ticket-restaurant masqués par défaut pour Longuenesse)
@@ -74,7 +75,8 @@ const Sidebar = () => {
         { menuId: 'product-exchanges', isVisibleToAdmin: false, isVisibleToEmployee: false },
         { menuId: 'frais-km-responsable', isVisibleToAdmin: false, isVisibleToEmployee: false },
         { menuId: 'plateaux-repas', isVisibleToAdmin: false, isVisibleToEmployee: false },
-        { menuId: 'chorus', isVisibleToAdmin: false, isVisibleToEmployee: false }
+        { menuId: 'chorus', isVisibleToAdmin: false, isVisibleToEmployee: false },
+        { menuId: 'vehicle', isVisibleToAdmin: false, isVisibleToEmployee: false }
       ];
     }
   };
@@ -160,7 +162,8 @@ const Sidebar = () => {
     { path: '/product-exchanges', label: 'Échanges entre boulangeries', icon: '🔄', menuId: 'product-exchanges' },
     { path: '/frais-km-responsable', label: 'Frais KM Responsable', icon: '🚗', menuId: 'frais-km-responsable' },
     { path: '/plateaux-repas', label: 'Plateaux repas', icon: '🍽️', menuId: 'plateaux-repas' },
-    { path: '/chorus', label: 'Chorus', icon: '🎵', menuId: 'chorus', longuenesseOnly: true }
+    { path: '/chorus', label: 'Chorus', icon: '🎵', menuId: 'chorus', longuenesseOnly: true },
+    { path: '/vehicle', label: 'Véhicule', icon: '🚗', menuId: 'vehicle' }
   ];
 
   // Vérifier si un menu a la permission pour le rôle actuel

@@ -29,6 +29,7 @@ const EmployeeModal = ({ employee, onSave, onClose, employees = [] }) => {
     email: '',
     saleCode: '',
     mutuelle: 'Oui Entreprise',
+    autoriseConduiteVehicule: false,
     isActive: true,
     emergencyContact: {
       lastName: '',
@@ -54,8 +55,33 @@ const EmployeeModal = ({ employee, onSave, onClose, employees = [] }) => {
         email: employee.email || '',
         saleCode: employee.saleCode || '',
         mutuelle: employee.mutuelle || 'Oui Entreprise',
+        autoriseConduiteVehicule: !!employee.autoriseConduiteVehicule,
         isActive: employee.isActive !== undefined ? employee.isActive : true,
         emergencyContact: employee.emergencyContact || {
+          lastName: '',
+          firstName: '',
+          phone: '',
+          email: ''
+        }
+      });
+    } else {
+      setFormData({
+        name: '',
+        contractType: 'CDI',
+        age: '',
+        birthDate: '',
+        skills: [],
+        role: 'vendeuse',
+        weeklyHours: 35,
+        trainingDays: [],
+        contractEndDate: '',
+        tutor: '',
+        email: '',
+        saleCode: '',
+        mutuelle: 'Oui Entreprise',
+        autoriseConduiteVehicule: false,
+        isActive: true,
+        emergencyContact: {
           lastName: '',
           firstName: '',
           phone: '',
@@ -199,6 +225,7 @@ const EmployeeModal = ({ employee, onSave, onClose, employees = [] }) => {
       ...formData,
       age: parseInt(formData.age),
       weeklyHours: parseInt(formData.weeklyHours),
+      autoriseConduiteVehicule: !!formData.autoriseConduiteVehicule,
       // S'assurer que les champs optionnels sont correctement formatés
       contractEndDate: formData.contractEndDate || undefined,
       birthDate: formData.birthDate || undefined,
@@ -561,6 +588,23 @@ const EmployeeModal = ({ employee, onSave, onClose, employees = [] }) => {
                   placeholder="contact@exemple.com"
                 />
               </div>
+            </div>
+
+            <div className="form-group" style={{ marginTop: '0.75rem' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 600 }}>
+                <input
+                  type="checkbox"
+                  name="autoriseConduiteVehicule"
+                  checked={!!formData.autoriseConduiteVehicule}
+                  onChange={(e) =>
+                    setFormData((prev) => ({ ...prev, autoriseConduiteVehicule: e.target.checked }))
+                  }
+                />
+                Autoriser à conduire le véhicule
+              </label>
+              <small className="form-text">
+                Si coché, le salarié apparaît dans la liste des conducteurs (page Véhicule mobile).
+              </small>
             </div>
           </div>
 

@@ -1,0 +1,137 @@
+.vehicle-page {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 1rem 1.5rem 3rem;
+}
+
+.vehicle-page h1 {
+  margin: 0 0 0.5rem;
+  font-size: 1.6rem;
+}
+
+.vehicle-banner {
+  background: #fff3cd;
+  border: 1px solid #ffc107;
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  margin-bottom: 1rem;
+}
+
+.vehicle-banner ul {
+  margin: 0.5rem 0 0;
+  padding-left: 1.2rem;
+}
+
+.vehicle-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.vehicle-stat-card {
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 1rem;
+  text-align: center;
+}
+
+.vehicle-stat-card strong {
+  display: block;
+  font-size: 1.4rem;
+  color: #0d6efd;
+}
+
+.vehicle-section {
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 1.25rem;
+  margin-bottom: 1.25rem;
+}
+
+.vehicle-section h2 {
+  margin-top: 0;
+  font-size: 1.15rem;
+}
+
+.vehicle-config-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 1rem;
+  align-items: end;
+}
+
+.vehicle-config-grid label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.vehicle-config-grid input {
+  padding: 0.45rem 0.6rem;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+}
+
+.vehicle-table-wrap {
+  overflow-x: auto;
+}
+
+.vehicle-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+
+.vehicle-table th,
+.vehicle-table td {
+  border: 1px solid #e0e0e0;
+  padding: 0.45rem 0.5rem;
+  text-align: left;
+}
+
+.vehicle-table th {
+  background: #f8f9fa;
+}
+
+.vehicle-problem {
+  color: #b02a37;
+  font-weight: 600;
+}
+
+.vehicle-badge {
+  display: inline-block;
+  padding: 0.15rem 0.45rem;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  background: #e9ecef;
+}
+
+.vehicle-link-standalone {
+  display: inline-block;
+  margin-top: 0.5rem;
+  padding: 0.5rem 1rem;
+  background: #198754;
+  color: #fff !important;
+  border-radius: 6px;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.vehicle-link-standalone:hover {
+  opacity: 0.92;
+}
+
+.vehicle-page .btn-primary {
+  background: #0d6efd;
+  color: #fff;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+}

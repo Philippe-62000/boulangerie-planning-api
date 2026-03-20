@@ -208,6 +208,11 @@ const employeeSchema = new mongoose.Schema({
     default: 'Oui Entreprise',
     comment: 'Choix de la mutuelle : Oui Entreprise ou Non Perso'
   },
+  /** Autorisation conduite véhicule de l'entreprise (liste conducteurs page véhicule) */
+  autoriseConduiteVehicule: {
+    type: Boolean,
+    default: false
+  },
   isActive: {
     type: Boolean,
     default: true

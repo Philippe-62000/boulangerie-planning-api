@@ -1,0 +1,135 @@
+.vs-page {
+  max-width: 520px;
+  margin: 0 auto;
+  padding: 1rem;
+  font-family: system-ui, sans-serif;
+}
+
+.vs-page h1 {
+  font-size: 1.35rem;
+  margin: 0 0 0.5rem;
+}
+
+.vs-card {
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 10px;
+  padding: 1rem;
+  margin-bottom: 1rem;
+}
+
+.vs-card h2 {
+  font-size: 1.05rem;
+  margin: 0 0 0.75rem;
+}
+
+.vs-field {
+  margin-bottom: 0.85rem;
+}
+
+.vs-field label {
+  display: block;
+  font-weight: 600;
+  font-size: 0.9rem;
+  margin-bottom: 0.25rem;
+}
+
+.vs-field input,
+.vs-field select,
+.vs-field textarea {
+  width: 100%;
+  padding: 0.55rem;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  font-size: 1rem;
+  box-sizing: border-box;
+}
+
+.vs-rating {
+  display: flex;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+}
+
+.vs-rating button {
+  min-width: 2.5rem;
+  padding: 0.45rem;
+  border: 1px solid #0d6efd;
+  background: #fff;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.vs-rating button.active {
+  background: #0d6efd;
+  color: #fff;
+}
+
+.vs-toggle-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.vs-toggle {
+  padding: 0.4rem 0.65rem;
+  border-radius: 6px;
+  border: 1px solid #999;
+  background: #f8f9fa;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+
+.vs-toggle.on {
+  background: #cfe2ff;
+  border-color: #0d6efd;
+  font-weight: 600;
+}
+
+.vs-btn {
+  width: 100%;
+  padding: 0.75rem;
+  border: none;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.vs-btn-primary {
+  background: #198754;
+  color: #fff;
+}
+
+.vs-btn-secondary {
+  background: #6c757d;
+  color: #fff;
+  margin-top: 0.5rem;
+}
+
+.vs-msg {
+  padding: 0.65rem;
+  border-radius: 8px;
+  margin-bottom: 0.75rem;
+}
+
+.vs-msg.ok {
+  background: #d1e7dd;
+  color: #0f5132;
+}
+
+.vs-msg.err {
+  background: #f8d7da;
+  color: #842029;
+}
+
+.vs-site {
+  margin-bottom: 1rem;
+}
+
+.vs-site select {
+  width: 100%;
+  padding: 0.55rem;
+  font-size: 1rem;
+}

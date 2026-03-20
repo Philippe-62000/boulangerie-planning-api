@@ -63,6 +63,57 @@ const Parameters = () => {
   const [marges, setMarges] = useState({ vert: 100, jaune: 80, orange: 50 });
   const [savingMarges, setSavingMarges] = useState(false);
 
+  const [vehicleConfig, setVehicleConfig] = useState(null);
+  const [loadingVehicle, setLoadingVehicle] = useState(false);
+  const [savingVehicle, setSavingVehicle] = useState(false);
+
+  const vehSite = () => (window.location.pathname.startsWith('/lon') ? 'longuenesse' : 'arras');
+
+  const fetchVehicleConfig = async () => {
+    setLoadingVehicle(true);
+    try {
+      const r = await api.get('/vehicle/config', { params: { site: vehSite() } });
+      setVehicleConfig(r.data?.data);
+    } catch (e) {
+      console.error(e);
+      toast.error('Erreur chargement paramètres véhicule');
+    } finally {
+      setLoadingVehicle(false);
+    }
+  };
+
+  const saveVehicleConfig = async () => {
+    if (!vehicleConfig) return;
+    setSavingVehicle(true);
+    try {
+      await api.put(
+        '/vehicle/config',
+        {
+          controleTechniqueDate: vehicleConfig.controleTechniqueDate || null,
+          dateRenouvellement: vehicleConfig.dateRenouvellement || null,
+          prochaineRevisionKm: vehicleConfig.prochaineRevisionKm,
+          prochaineRevisionDate: vehicleConfig.prochaineRevisionDate || null,
+          rappelKmAvantRevision: vehicleConfig.rappelKmAvantRevision,
+          rappelJoursAvantRevision: vehicleConfig.rappelJoursAvantRevision,
+          rappelJoursAvantCT: vehicleConfig.rappelJoursAvantCT,
+          rappelJoursAvantRenouvellement: vehicleConfig.rappelJoursAvantRenouvellement
+        },
+        { params: { site: vehSite() } }
+      );
+      toast.success('Paramètres véhicule enregistrés');
+    } catch (e) {
+      toast.error('Erreur sauvegarde véhicule');
+    } finally {
+      setSavingVehicle(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'vehicle') {
+      fetchVehicleConfig();
+    }
+  }, [activeTab]);
+
   useEffect(() => {
     fetchParameters();
     fetchMenuPermissions();
@@ -771,6 +822,12 @@ const Parameters = () => {
           🚗 Paramètres - Frais KM
         </button>
         <button 
+          className={`tab-button ${activeTab === 'vehicle' ? 'active' : ''}`}
+          onClick={() => handleTabChange('vehicle')}
+        >
+          🚗 Véhicule (CT, révision…)
+        </button>
+        <button 
           className={`tab-button ${activeTab === 'templates' ? 'active' : ''}`}
           onClick={() => handleTabChange('templates')}
         >
@@ -1143,6 +1200,138 @@ const Parameters = () => {
             </button>
           </div>
         </div>
+          </div>
+        )}
+
+        {activeTab === 'vehicle' && (
+          <div className="card">
+            <div className="card-header">
+              <h3>🚗 Véhicule — échéances</h3>
+              <p>Dates de contrôle technique, renouvellement et révision. Les rappels s’affichent sur la page <strong>Véhicule</strong>.</p>
+            </div>
+            <div className="card-body">
+              {loadingVehicle ? (
+                <p>Chargement…</p>
+              ) : vehicleConfig ? (
+                <>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '1rem' }}>
+                    <label>
+                      Date contrôle technique
+                      <input
+                        type="date"
+                        className="form-control"
+                        value={
+                          vehicleConfig.controleTechniqueDate
+                            ? new Date(vehicleConfig.controleTechniqueDate).toISOString().slice(0, 10)
+                            : ''
+                        }
+                        onChange={(e) =>
+                          setVehicleConfig({
+                            ...vehicleConfig,
+                            controleTechniqueDate: e.target.value ? new Date(e.target.value).toISOString() : null
+                          })
+                        }
+                      />
+                    </label>
+                    <label>
+                      Date renouvellement
+                      <input
+                        type="date"
+                        className="form-control"
+                        value={
+                          vehicleConfig.dateRenouvellement
+                            ? new Date(vehicleConfig.dateRenouvellement).toISOString().slice(0, 10)
+                            : ''
+                        }
+                        onChange={(e) =>
+                          setVehicleConfig({
+                            ...vehicleConfig,
+                            dateRenouvellement: e.target.value ? new Date(e.target.value).toISOString() : null
+                          })
+                        }
+                      />
+                    </label>
+                    <label>
+                      Prochaine révision (date)
+                      <input
+                        type="date"
+                        className="form-control"
+                        value={
+                          vehicleConfig.prochaineRevisionDate
+                            ? new Date(vehicleConfig.prochaineRevisionDate).toISOString().slice(0, 10)
+                            : ''
+                        }
+                        onChange={(e) =>
+                          setVehicleConfig({
+                            ...vehicleConfig,
+                            prochaineRevisionDate: e.target.value ? new Date(e.target.value).toISOString() : null
+                          })
+                        }
+                      />
+                    </label>
+                    <label>
+                      Prochaine révision (km)
+                      <input
+                        type="number"
+                        className="form-control"
+                        min={0}
+                        value={vehicleConfig.prochaineRevisionKm ?? ''}
+                        onChange={(e) =>
+                          setVehicleConfig({
+                            ...vehicleConfig,
+                            prochaineRevisionKm: e.target.value === '' ? null : Number(e.target.value)
+                          })
+                        }
+                      />
+                    </label>
+                    <label>
+                      Rappel km avant révision
+                      <input
+                        type="number"
+                        className="form-control"
+                        min={1}
+                        value={vehicleConfig.rappelKmAvantRevision ?? 500}
+                        onChange={(e) =>
+                          setVehicleConfig({
+                            ...vehicleConfig,
+                            rappelKmAvantRevision: Number(e.target.value) || 500
+                          })
+                        }
+                      />
+                    </label>
+                    <label>
+                      Rappel jours (révision / CT / renouv.)
+                      <input
+                        type="number"
+                        className="form-control"
+                        min={1}
+                        value={vehicleConfig.rappelJoursAvantRevision ?? 30}
+                        onChange={(e) => {
+                          const n = Number(e.target.value) || 30;
+                          setVehicleConfig({
+                            ...vehicleConfig,
+                            rappelJoursAvantRevision: n,
+                            rappelJoursAvantCT: n,
+                            rappelJoursAvantRenouvellement: n
+                          });
+                        }}
+                      />
+                    </label>
+                  </div>
+                  <button
+                    type="button"
+                    className="btn btn-success"
+                    style={{ marginTop: '1rem' }}
+                    disabled={savingVehicle}
+                    onClick={saveVehicleConfig}
+                  >
+                    {savingVehicle ? 'Enregistrement…' : 'Enregistrer'}
+                  </button>
+                </>
+              ) : (
+                <p>Impossible de charger la configuration.</p>
+              )}
+            </div>
           </div>
         )}
 

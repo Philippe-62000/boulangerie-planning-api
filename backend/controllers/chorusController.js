@@ -98,7 +98,7 @@ exports.listCommandes = async (req, res) => {
 exports.createCommande = async (req, res) => {
   try {
     const site = getSite(req);
-    const { dateCommande, clientId, statut, remarque } = req.body;
+    const { dateCommande, clientId, statut, remarque, montantTtc, numBonCommande } = req.body;
     if (!dateCommande || !clientId) {
       return res.status(400).json({ success: false, error: 'Date et client requis' });
     }
@@ -110,11 +110,20 @@ exports.createCommande = async (req, res) => {
       remarque != null && String(remarque).trim() !== ''
         ? String(remarque).trim().slice(0, 500)
         : '';
+    let mt = null;
+    if (montantTtc !== undefined && montantTtc !== null && montantTtc !== '') {
+      const n = Number(String(montantTtc).replace(',', '.'));
+      if (!Number.isNaN(n) && n >= 0) mt = Math.round(n * 100) / 100;
+    }
+    const numBon =
+      numBonCommande != null ? String(numBonCommande).trim().slice(0, 80) : '';
     const cmd = await ChorusCommande.create({
       dateCommande: new Date(dateCommande),
       clientId,
       statut: s,
       remarque: rem,
+      montantTtc: mt,
+      numBonCommande: numBon,
       site
     });
     const populated = await ChorusCommande.findById(cmd._id).populate('clientId', 'nom remarques');
@@ -134,6 +143,8 @@ exports.updateCommande = async (req, res) => {
       clientId,
       statut,
       remarque,
+      montantTtc,
+      numBonCommande,
       deposedChorus,
       misEnCaisse,
       paiementRecu
@@ -156,6 +167,17 @@ exports.updateCommande = async (req, res) => {
     }
     if (remarque !== undefined) {
       cmd.remarque = String(remarque).trim().slice(0, 500);
+    }
+    if (montantTtc !== undefined) {
+      if (montantTtc === null || montantTtc === '') {
+        cmd.montantTtc = null;
+      } else {
+        const n = Number(String(montantTtc).replace(',', '.'));
+        cmd.montantTtc = Number.isNaN(n) || n < 0 ? cmd.montantTtc : Math.round(n * 100) / 100;
+      }
+    }
+    if (numBonCommande !== undefined) {
+      cmd.numBonCommande = String(numBonCommande).trim().slice(0, 80);
     }
     if (deposedChorus !== undefined) cmd.deposedChorus = Boolean(deposedChorus);
     if (misEnCaisse !== undefined) cmd.misEnCaisse = Boolean(misEnCaisse);

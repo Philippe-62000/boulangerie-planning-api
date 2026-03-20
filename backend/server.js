@@ -184,6 +184,8 @@ app.use('/api/meal-reservations', require('./routes/mealReservations'));
 console.log('✅ Routes meal-reservations montées (/api/meal-reservations/*)');
 app.use('/api/chorus', require('./routes/chorus'));
 console.log('✅ Routes chorus montées (/api/chorus/*)');
+app.use('/api/vehicle', require('./routes/vehicle'));
+console.log('✅ Routes vehicle montées (/api/vehicle/*)');
 
 // Route racine
 app.get('/', (req, res) => {

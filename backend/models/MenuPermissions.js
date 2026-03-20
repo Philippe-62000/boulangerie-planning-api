@@ -269,6 +269,15 @@ menuPermissionsSchema.statics.createDefaultPermissions = async function() {
         isVisibleToEmployee: false,
         requiredPermissions: ['manage_parameters'],
         order: 21
+      },
+      {
+        menuId: 'vehicle',
+        menuName: 'Véhicule',
+        menuPath: '/vehicle',
+        isVisibleToAdmin: true,
+        isVisibleToEmployee: false,
+        requiredPermissions: ['manage_parameters'],
+        order: 22
       }
     ];
 
