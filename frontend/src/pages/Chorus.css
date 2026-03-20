@@ -1,0 +1,240 @@
+.chorus-page {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 1rem 1.5rem 3rem;
+}
+
+.chorus-header h1 {
+  margin: 0 0 0.25rem;
+  font-size: 1.75rem;
+}
+
+.chorus-sub {
+  color: #555;
+  margin: 0 0 1rem;
+}
+
+.card-like {
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 1.25rem;
+  margin-bottom: 1.25rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+}
+
+.chorus-info-nas h3 {
+  margin-top: 0;
+  font-size: 1.1rem;
+}
+
+.chorus-path,
+.chorus-nas-example code {
+  background: #f4f4f4;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 0.9rem;
+  word-break: break-all;
+}
+
+.chorus-nas-example {
+  font-size: 0.9rem;
+  color: #444;
+}
+
+.chorus-toolbar {
+  margin-bottom: 1rem;
+}
+
+.chorus-form-new {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  align-items: flex-end;
+}
+
+.chorus-form-new label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.chorus-form-new input,
+.chorus-form-new select {
+  min-width: 180px;
+  padding: 0.45rem 0.6rem;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+}
+
+.chorus-table-wrap {
+  overflow-x: auto;
+}
+
+.chorus-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.chorus-table th,
+.chorus-table td {
+  border: 1px solid #e0e0e0;
+  padding: 0.5rem 0.6rem;
+  text-align: left;
+  vertical-align: middle;
+}
+
+.chorus-table th {
+  background: #f8f9fa;
+  font-weight: 600;
+}
+
+.chorus-empty {
+  text-align: center;
+  color: #888;
+  padding: 2rem !important;
+}
+
+.chorus-client-cell {
+  font-weight: 600;
+}
+
+.chorus-remarques {
+  font-size: 0.8rem;
+  color: #666;
+  margin-top: 0.25rem;
+}
+
+.chorus-bon-cell {
+  white-space: nowrap;
+}
+
+.chorus-bon-cell .btn-link {
+  margin-left: 0.5rem;
+  background: none;
+  border: none;
+  color: #0d6efd;
+  cursor: pointer;
+  text-decoration: underline;
+  font-size: 0.85rem;
+}
+
+.chorus-check {
+  text-align: center;
+}
+
+.chorus-check input {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+}
+
+.chorus-client-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.chorus-client-list li {
+  padding: 0.5rem 0;
+  border-bottom: 1px solid #eee;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.chorus-rem {
+  color: #555;
+  font-weight: normal;
+}
+
+.btn {
+  padding: 0.45rem 0.9rem;
+  border-radius: 6px;
+  border: 1px solid #ccc;
+  background: #fff;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+.btn-primary {
+  background: #0d6efd;
+  color: #fff;
+  border-color: #0d6efd;
+}
+
+.btn-success {
+  background: #198754;
+  color: #fff;
+  border-color: #198754;
+}
+
+.btn-danger {
+  background: #dc3545;
+  color: #fff;
+  border-color: #dc3545;
+}
+
+.btn-sm {
+  padding: 0.25rem 0.5rem;
+  font-size: 0.8rem;
+}
+
+.btn-xs {
+  padding: 0.15rem 0.45rem;
+  font-size: 0.75rem;
+}
+
+.btn-outline {
+  border: 1px solid #0d6efd;
+  color: #0d6efd;
+  background: #fff;
+}
+
+.chorus-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.chorus-modal {
+  background: #fff;
+  padding: 1.5rem;
+  border-radius: 10px;
+  min-width: 320px;
+  max-width: 90vw;
+}
+
+.chorus-modal h3 {
+  margin-top: 0;
+}
+
+.chorus-modal label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-bottom: 1rem;
+  font-weight: 600;
+}
+
+.chorus-modal input,
+.chorus-modal textarea {
+  padding: 0.5rem;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+}
+
+.chorus-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}

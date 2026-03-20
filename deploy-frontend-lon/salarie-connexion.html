@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
@@ -342,7 +342,7 @@
         // API dynamique : /lon = Longuenesse (api-3), /plan = Arras (api-4-pbfy)
         const API_URL = (window.location.pathname || '').startsWith('/lon')
             ? 'https://boulangerie-planning-api-3.onrender.com/api'
-            : 'https://boulangerie-planning-api-4-pbfy.onrender.com/api';
+            : 'https://boulangerie-planning-api-3.onrender.com/api';
         const BASE_PATH = (window.location.pathname || '').startsWith('/lon') ? '/lon' : '/plan';
         
         const loginForm = document.getElementById('loginForm');

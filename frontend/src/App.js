@@ -36,6 +36,7 @@ import ResponsableKmExpenses from './pages/ResponsableKmExpenses';
 import DeplacementStandalone from './pages/DeplacementStandalone';
 import PlateauxRepas from './pages/PlateauxRepas';
 import PlateauxRepasStandalone from './pages/PlateauxRepasStandalone';
+import Chorus from './pages/Chorus';
 
 const AppContent = () => {
   const { user, loading } = useAuth();
@@ -187,6 +188,11 @@ const AppContent = () => {
             <Route path="/plateaux-repas" element={
               <ProtectedRoute>
                 <PlateauxRepas />
+              </ProtectedRoute>
+            } />
+            <Route path="/chorus" element={
+              <ProtectedRoute adminOnly={true}>
+                <Chorus />
               </ProtectedRoute>
             } />
           </Routes>

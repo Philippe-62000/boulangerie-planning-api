@@ -49,7 +49,8 @@ const Sidebar = () => {
         { menuId: 'commandes-en-ligne', isVisibleToAdmin: true, isVisibleToEmployee: true },
         { menuId: 'product-exchanges', isVisibleToAdmin: true, isVisibleToEmployee: false },
         { menuId: 'frais-km-responsable', isVisibleToAdmin: true, isVisibleToEmployee: false },
-        { menuId: 'plateaux-repas', isVisibleToAdmin: true, isVisibleToEmployee: false }
+        { menuId: 'plateaux-repas', isVisibleToAdmin: true, isVisibleToEmployee: false },
+        { menuId: 'chorus', isVisibleToAdmin: true, isVisibleToEmployee: false }
       ];
     } else {
       // Fallback salarié : permissions restrictives (planning, km-expenses, ticket-restaurant masqués par défaut pour Longuenesse)
@@ -72,7 +73,8 @@ const Sidebar = () => {
         { menuId: 'commandes-en-ligne', isVisibleToAdmin: false, isVisibleToEmployee: true },
         { menuId: 'product-exchanges', isVisibleToAdmin: false, isVisibleToEmployee: false },
         { menuId: 'frais-km-responsable', isVisibleToAdmin: false, isVisibleToEmployee: false },
-        { menuId: 'plateaux-repas', isVisibleToAdmin: false, isVisibleToEmployee: false }
+        { menuId: 'plateaux-repas', isVisibleToAdmin: false, isVisibleToEmployee: false },
+        { menuId: 'chorus', isVisibleToAdmin: false, isVisibleToEmployee: false }
       ];
     }
   };
@@ -157,7 +159,8 @@ const Sidebar = () => {
     { path: '/commandes-en-ligne', label: 'Commandes en ligne', icon: '🛒', menuId: 'commandes-en-ligne', longuenesseOnly: true },
     { path: '/product-exchanges', label: 'Échanges entre boulangeries', icon: '🔄', menuId: 'product-exchanges' },
     { path: '/frais-km-responsable', label: 'Frais KM Responsable', icon: '🚗', menuId: 'frais-km-responsable' },
-    { path: '/plateaux-repas', label: 'Plateaux repas', icon: '🍽️', menuId: 'plateaux-repas' }
+    { path: '/plateaux-repas', label: 'Plateaux repas', icon: '🍽️', menuId: 'plateaux-repas' },
+    { path: '/chorus', label: 'Chorus', icon: '🎵', menuId: 'chorus', longuenesseOnly: true }
   ];
 
   // Vérifier si un menu a la permission pour le rôle actuel

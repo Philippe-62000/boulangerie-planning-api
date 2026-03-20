@@ -38,6 +38,7 @@ Ce document liste les différences entre les déploiements Longuenesse (`/lon`, 
 | **Commandes en ligne** | Oui (`longuenesseOnly: true` dans Sidebar) | Non (masqué) | Spécifique Longuenesse |
 | **Module MealReservations** (plateaux, formules, etc.) | Non (absent du backend longuenesse) | Oui (main) | Déjà sur Arras uniquement |
 | **Frais KM Responsable** | Oui | Oui | Commun |
+| **Chorus** (commandes, bons NAS) | Oui (menu visible) | Non (`longuenesseOnly`) | Activer sur Arras après tests |
 | **Branche déploiement** | `longuenesse` | `main` | - |
 | **Base MongoDB** | `boulangerie-planning-longuenesse` | `boulangerie-planning` | - |
 | **API Render** | api-3 | api-4-pbfy | - |

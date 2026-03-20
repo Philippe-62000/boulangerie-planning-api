@@ -160,6 +160,8 @@ app.use('/api/product-exchanges', require('./routes/productExchanges'));
 app.use('/api/responsable-km', require('./routes/responsableKm'));
 app.use('/api/meal-reservations', require('./routes/mealReservations'));
 console.log('✅ Routes meal-reservations montées (/api/meal-reservations/*)');
+app.use('/api/chorus', require('./routes/chorus'));
+console.log('✅ Routes chorus montées (/api/chorus/*)');
 
 // Route de santé pour vérifier que l'API fonctionne
 app.get('/health', (req, res) => {

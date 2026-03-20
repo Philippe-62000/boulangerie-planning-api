@@ -262,12 +262,12 @@ menuPermissionsSchema.statics.createDefaultPermissions = async function() {
         order: 20
       },
       {
-        menuId: 'employee-dashboard',
-        menuName: 'Mes Documents',
-        menuPath: '/employee-dashboard',
-        isVisibleToAdmin: false,
-        isVisibleToEmployee: true,
-        requiredPermissions: [],
+        menuId: 'chorus',
+        menuName: 'Chorus',
+        menuPath: '/chorus',
+        isVisibleToAdmin: true,
+        isVisibleToEmployee: false,
+        requiredPermissions: ['manage_parameters'],
         order: 21
       }
     ];
