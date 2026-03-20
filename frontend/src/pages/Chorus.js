@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { toast } from 'react-toastify';
 import api from '../services/api';
 import './Chorus.css';
@@ -9,6 +9,13 @@ const STATUT_OPTIONS = [
   { value: 'annulee', label: 'Annulée' }
 ];
 
+/** Tri des lignes commandes : nom client | déposé Chorus | paiement reçu */
+const TRI_OPTIONS = [
+  { value: 'client', label: 'Nom du client (A → Z)' },
+  { value: 'deposedChorus', label: 'Déposé sur Chorus' },
+  { value: 'paiementRecu', label: 'Paiement reçu' }
+];
+
 const Chorus = () => {
   const site = window.location.pathname.startsWith('/lon') ? 'longuenesse' : 'arras';
 
@@ -17,12 +24,45 @@ const Chorus = () => {
   const [loading, setLoading] = useState(true);
 
   const [showClientModal, setShowClientModal] = useState(false);
+  const [showClientsListModal, setShowClientsListModal] = useState(false);
   const [editingClient, setEditingClient] = useState(null);
   const [clientForm, setClientForm] = useState({ nom: '', remarques: '' });
 
   const [newCmdDate, setNewCmdDate] = useState(() => new Date().toISOString().split('T')[0]);
   const [newCmdClientId, setNewCmdClientId] = useState('');
   const [newCmdStatut, setNewCmdStatut] = useState('en_cours');
+  const [newCmdRemarque, setNewCmdRemarque] = useState('');
+  const [triCommandes, setTriCommandes] = useState('client');
+
+  const commandesTriees = useMemo(() => {
+    const rows = [...commandes];
+    const dateKey = (r) => new Date(r.dateCommande).getTime();
+
+    if (triCommandes === 'client') {
+      rows.sort((a, b) => {
+        const na = (a.clientId?.nom || '').localeCompare(b.clientId?.nom || '', 'fr', {
+          sensitivity: 'base'
+        });
+        if (na !== 0) return na;
+        return dateKey(b) - dateKey(a);
+      });
+    } else if (triCommandes === 'deposedChorus') {
+      rows.sort((a, b) => {
+        const da = a.deposedChorus ? 1 : 0;
+        const db = b.deposedChorus ? 1 : 0;
+        if (db !== da) return db - da;
+        return dateKey(b) - dateKey(a);
+      });
+    } else if (triCommandes === 'paiementRecu') {
+      rows.sort((a, b) => {
+        const pa = a.paiementRecu ? 1 : 0;
+        const pb = b.paiementRecu ? 1 : 0;
+        if (pb !== pa) return pb - pa;
+        return dateKey(b) - dateKey(a);
+      });
+    }
+    return rows;
+  }, [commandes, triCommandes]);
 
   const loadAll = useCallback(async () => {
     try {
@@ -53,12 +93,14 @@ const Chorus = () => {
   }, [loadAll]);
 
   const openNewClient = () => {
+    setShowClientsListModal(false);
     setEditingClient(null);
     setClientForm({ nom: '', remarques: '' });
     setShowClientModal(true);
   };
 
   const openEditClient = (c) => {
+    setShowClientsListModal(false);
     setEditingClient(c);
     setClientForm({ nom: c.nom, remarques: c.remarques || '' });
     setShowClientModal(true);
@@ -112,12 +154,14 @@ const Chorus = () => {
         {
           dateCommande: newCmdDate,
           clientId: newCmdClientId,
-          statut: newCmdStatut
+          statut: newCmdStatut,
+          remarque: newCmdRemarque.trim() || undefined
         },
         { params: { site } }
       );
       toast.success('Commande créée');
       setNewCmdStatut('en_cours');
+      setNewCmdRemarque('');
       loadAll();
     } catch (err) {
       toast.error(err.response?.data?.error || 'Erreur création');
@@ -145,7 +189,7 @@ const Chorus = () => {
         params: { site },
         headers: { 'Content-Type': 'multipart/form-data' }
       });
-      toast.success('Bon de commande enregistré sur le NAS');
+      toast.success('Bon de commande enregistré');
       loadAll();
     } catch (e) {
       toast.error(e.response?.data?.error || e.message || 'Erreur upload');
@@ -201,7 +245,10 @@ const Chorus = () => {
         <p className="chorus-sub">Commandes et bons de commande</p>
       </div>
 
-      <div className="chorus-toolbar">
+      <div className="chorus-toolbar chorus-toolbar-row">
+        <button type="button" className="btn btn-primary" onClick={() => setShowClientsListModal(true)}>
+          Clients
+        </button>
         <button type="button" className="btn btn-primary" onClick={openNewClient}>
           + Client
         </button>
@@ -251,13 +298,26 @@ const Chorus = () => {
       </section>
 
       <section className="chorus-section card-like">
-        <h2>Liste des commandes</h2>
+        <div className="chorus-liste-head">
+          <h2>Liste des commandes</h2>
+          <label className="chorus-tri-label">
+            Affichage / tri
+            <select value={triCommandes} onChange={(e) => setTriCommandes(e.target.value)}>
+              {TRI_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
         <div className="chorus-table-wrap">
           <table className="chorus-table">
             <thead>
               <tr>
                 <th>Date</th>
                 <th>Client</th>
+                <th>Remarque</th>
                 <th>Réalisé</th>
                 <th>Bon de commande</th>
                 <th>Déposé sur Chorus</th>
@@ -269,12 +329,12 @@ const Chorus = () => {
             <tbody>
               {commandes.length === 0 && (
                 <tr>
-                  <td colSpan={8} className="chorus-empty">
+                  <td colSpan={9} className="chorus-empty">
                     Aucune commande
                   </td>
                 </tr>
               )}
-              {commandes.map((row) => {
+              {commandesTriees.map((row) => {
                 const client = row.clientId;
                 const nomClient = client?.nom || '—';
                 return (
@@ -285,6 +345,28 @@ const Chorus = () => {
                       {client?.remarques && (
                         <div className="chorus-remarques">{client.remarques}</div>
                       )}
+                    </td>
+                    <td className="chorus-remarque-cell">
+                      <input
+                        type="text"
+                        className="chorus-remarque-input"
+                        maxLength={500}
+                        placeholder="—"
+                        value={row.remarque ?? ''}
+                        onChange={(e) =>
+                          setCommandes((prev) =>
+                            prev.map((r) =>
+                              r._id === row._id ? { ...r, remarque: e.target.value } : r
+                            )
+                          )
+                        }
+                        onBlur={(e) => {
+                          const v = e.target.value.trim();
+                          if (v !== (row.remarque || '').trim()) {
+                            updateCommandeField(row._id, { remarque: v });
+                          }
+                        }}
+                      />
                     </td>
                     <td>
                       <select
@@ -376,27 +458,37 @@ const Chorus = () => {
         </div>
       </section>
 
-      <section className="chorus-section card-like">
-        <h2>Clients ({clients.length})</h2>
-        <ul className="chorus-client-list">
-          {clients.map((c) => (
-            <li key={c._id}>
-              <strong>{c.nom}</strong>
-              {c.remarques ? <span className="chorus-rem"> — {c.remarques}</span> : null}
-              <button type="button" className="btn btn-xs" onClick={() => openEditClient(c)}>
-                Modifier
+      {showClientsListModal && (
+        <div className="chorus-modal-overlay" onClick={() => setShowClientsListModal(false)}>
+          <div className="chorus-modal chorus-modal-wide" onClick={(e) => e.stopPropagation()}>
+            <h3>Clients ({clients.length})</h3>
+            <ul className="chorus-client-list">
+              {clients.length === 0 && <li className="chorus-empty-inline">Aucun client — utilisez « + Client »</li>}
+              {clients.map((c) => (
+                <li key={c._id}>
+                  <strong>{c.nom}</strong>
+                  {c.remarques ? <span className="chorus-rem"> — {c.remarques}</span> : null}
+                  <button type="button" className="btn btn-xs" onClick={() => openEditClient(c)}>
+                    Modifier
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-xs btn-danger"
+                    onClick={() => deleteClient(c)}
+                  >
+                    Effacer
+                  </button>
+                </li>
+              ))}
+            </ul>
+            <div className="chorus-modal-actions">
+              <button type="button" className="btn btn-primary" onClick={() => setShowClientsListModal(false)}>
+                Fermer
               </button>
-              <button
-                type="button"
-                className="btn btn-xs btn-danger"
-                onClick={() => deleteClient(c)}
-              >
-                Effacer
-              </button>
-            </li>
-          ))}
-        </ul>
-      </section>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showClientModal && (
         <div className="chorus-modal-overlay" onClick={() => setShowClientModal(false)}>

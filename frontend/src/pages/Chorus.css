@@ -23,27 +23,74 @@
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
 }
 
-.chorus-info-nas h3 {
-  margin-top: 0;
-  font-size: 1.1rem;
-}
-
-.chorus-path,
-.chorus-nas-example code {
-  background: #f4f4f4;
-  padding: 2px 8px;
-  border-radius: 4px;
-  font-size: 0.9rem;
-  word-break: break-all;
-}
-
-.chorus-nas-example {
-  font-size: 0.9rem;
-  color: #444;
-}
-
 .chorus-toolbar {
   margin-bottom: 1rem;
+}
+
+.chorus-toolbar-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.chorus-liste-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.chorus-liste-head h2 {
+  margin: 0;
+  font-size: 1.2rem;
+}
+
+.chorus-tri-label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.chorus-tri-label select {
+  min-width: 220px;
+  padding: 0.45rem 0.6rem;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+}
+
+.chorus-field-remarque input {
+  min-width: 220px;
+  max-width: 100%;
+}
+
+.chorus-modal-wide {
+  min-width: min(520px, 92vw);
+  max-height: 85vh;
+  overflow: auto;
+}
+
+.chorus-empty-inline {
+  list-style: none;
+  color: #888;
+  padding: 0.5rem 0;
+}
+
+.chorus-remarque-cell {
+  min-width: 140px;
+  max-width: 220px;
+}
+
+.chorus-remarque-input {
+  width: 100%;
+  padding: 0.35rem 0.5rem;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  font-size: 0.85rem;
 }
 
 .chorus-form-new {

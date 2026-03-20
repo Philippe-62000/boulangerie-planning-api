@@ -98,7 +98,7 @@ exports.listCommandes = async (req, res) => {
 exports.createCommande = async (req, res) => {
   try {
     const site = getSite(req);
-    const { dateCommande, clientId, statut } = req.body;
+    const { dateCommande, clientId, statut, remarque } = req.body;
     if (!dateCommande || !clientId) {
       return res.status(400).json({ success: false, error: 'Date et client requis' });
     }
@@ -106,10 +106,15 @@ exports.createCommande = async (req, res) => {
     if (!client) return res.status(400).json({ success: false, error: 'Client invalide' });
     const allowed = ['en_cours', 'realisee', 'annulee'];
     const s = allowed.includes(statut) ? statut : 'en_cours';
+    const rem =
+      remarque != null && String(remarque).trim() !== ''
+        ? String(remarque).trim().slice(0, 500)
+        : '';
     const cmd = await ChorusCommande.create({
       dateCommande: new Date(dateCommande),
       clientId,
       statut: s,
+      remarque: rem,
       site
     });
     const populated = await ChorusCommande.findById(cmd._id).populate('clientId', 'nom remarques');
@@ -128,6 +133,7 @@ exports.updateCommande = async (req, res) => {
       dateCommande,
       clientId,
       statut,
+      remarque,
       deposedChorus,
       misEnCaisse,
       paiementRecu
@@ -147,6 +153,9 @@ exports.updateCommande = async (req, res) => {
         return res.status(400).json({ success: false, error: 'Statut invalide' });
       }
       cmd.statut = statut;
+    }
+    if (remarque !== undefined) {
+      cmd.remarque = String(remarque).trim().slice(0, 500);
     }
     if (deposedChorus !== undefined) cmd.deposedChorus = Boolean(deposedChorus);
     if (misEnCaisse !== undefined) cmd.misEnCaisse = Boolean(misEnCaisse);

@@ -17,6 +17,8 @@ const chorusCommandeSchema = new mongoose.Schema({
   bonDeCommandeFilePath: { type: String, default: null },
   bonDeCommandeFileName: { type: String, default: null },
   bonDeCommandeMimeType: { type: String, default: null },
+  /** Remarque libre sur la commande (court texte) */
+  remarque: { type: String, default: '', maxlength: 500, trim: true },
   deposedChorus: { type: Boolean, default: false },
   misEnCaisse: { type: Boolean, default: false },
   paiementRecu: { type: Boolean, default: false },
