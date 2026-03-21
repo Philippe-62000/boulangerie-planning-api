@@ -46,6 +46,27 @@ function delay(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
+/** Données commandes en ligne + OAuth : stockées sous `longuenesse` même sur l’API Arras. */
+const ONLINE_ORDERS_CITY_FALLBACK = 'longuenesse';
+
+async function findOAuthTokenForCity(city) {
+  const c = (city || ONLINE_ORDERS_CITY_FALLBACK).toLowerCase();
+  let token = await GoogleOAuthToken.findOne({ city: c });
+  if (!token?.refreshToken && c !== ONLINE_ORDERS_CITY_FALLBACK) {
+    token = await GoogleOAuthToken.findOne({ city: ONLINE_ORDERS_CITY_FALLBACK });
+  }
+  return token;
+}
+
+async function findOnlineOrderLinks(city) {
+  const c = (city || ONLINE_ORDERS_CITY_FALLBACK).toLowerCase();
+  let links = await OnlineOrderLink.find({ city: c }).sort({ order: 1, className: 1 });
+  if (links.length === 0 && c !== ONLINE_ORDERS_CITY_FALLBACK) {
+    links = await OnlineOrderLink.find({ city: ONLINE_ORDERS_CITY_FALLBACK }).sort({ order: 1, className: 1 });
+  }
+  return links;
+}
+
 // Extraire l'ID du spreadsheet depuis une URL Google Sheets
 function extractSpreadsheetId(url) {
   const match = url.match(/\/d\/([a-zA-Z0-9-_]+)/);
@@ -62,7 +83,7 @@ function extractGidFromUrl(url) {
 async function getLinks(req, res) {
   try {
     const city = (req.query.city || 'longuenesse').toLowerCase();
-    const links = await OnlineOrderLink.find({ city }).sort({ order: 1, className: 1 });
+    const links = await findOnlineOrderLinks(city);
     res.json({ success: true, data: links });
   } catch (error) {
     console.error('Erreur getLinks:', error);
@@ -130,7 +151,7 @@ async function fetchMonthGidsFromTabs(spreadsheetId, city) {
 // Ajouter un lien
 async function addLink(req, res) {
   try {
-    const { spreadsheetUrl, className, city = 'longuenesse' } = req.body;
+    const { spreadsheetUrl, className } = req.body;
     const spreadsheetId = extractSpreadsheetId(spreadsheetUrl || req.body.spreadsheetId);
     if (!spreadsheetId) {
       return res.status(400).json({ success: false, error: 'URL ou ID de spreadsheet invalide' });
@@ -138,7 +159,7 @@ async function addLink(req, res) {
     if (!className || !className.trim()) {
       return res.status(400).json({ success: false, error: 'Nom de la classe requis' });
     }
-    const cityLower = city.toLowerCase();
+    const cityLower = ONLINE_ORDERS_CITY_FALLBACK;
     const count = await OnlineOrderLink.countDocuments({ city: cityLower });
     let monthGids = {};
     try {
@@ -280,7 +301,7 @@ async function updateLinksOrder(req, res) {
 
 // Obtenir un client OAuth authentifié pour une ville
 async function getAuthenticatedClient(city) {
-  const token = await GoogleOAuthToken.findOne({ city: (city || 'longuenesse').toLowerCase() });
+  const token = await findOAuthTokenForCity(city);
   if (!token?.refreshToken) {
     throw new Error('Compte Google non connecté. Cliquez sur "Connecter Google" pour autoriser l\'accès aux feuilles partagées.');
   }
@@ -544,7 +565,7 @@ async function getOrdersForDay(req, res) {
     const targetMonth = targetDate.getMonth() + 1;
     const targetYear = targetDate.getFullYear();
     const monthName = MONTH_NAMES[targetMonth - 1];
-    const links = await OnlineOrderLink.find({ city }).sort({ order: 1 });
+    const links = await findOnlineOrderLinks(city);
     const allOrders = [];
     // TP EC Jeudi : Mars utilise toujours le gid 466543188 (onglet Mars)
     const TP_EC_JEUDI_MARS_GID = { '12ziNmTVtEaswdW8hjk3XOUyF4vhSf-JkrQZiEqD5Pv4': '466543188' };
@@ -589,7 +610,7 @@ async function getMonthlySummary(req, res) {
     const targetMonth = parseInt(month, 10) || new Date().getMonth() + 1;
     const targetYear = parseInt(year, 10) || new Date().getFullYear();
     const monthName = MONTH_NAMES[targetMonth - 1];
-    const links = await OnlineOrderLink.find({ city }).sort({ order: 1 });
+    const links = await findOnlineOrderLinks(city);
     const byClass = {};
     let total = 0;
     const TP_EC_JEUDI_MARS_GID = { '12ziNmTVtEaswdW8hjk3XOUyF4vhSf-JkrQZiEqD5Pv4': '466543188' };

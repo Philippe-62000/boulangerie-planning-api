@@ -35,7 +35,7 @@ Ce document liste les différences entre les déploiements Longuenesse (`/lon`, 
 | Fonctionnalité | Longuenesse | Arras | Décision |
 |----------------|-------------|-------|---------|
 | **Plateaux repas** | Non (pas dans MenuPermissions) | Oui (menu plateaux-repas) | À décider : activer sur Longuenesse ? |
-| **Commandes en ligne** | Oui (`longuenesseOnly: true` dans Sidebar) | Non (masqué) | Spécifique Longuenesse |
+| **Commandes en ligne** | Oui | Oui (même module) | Données MongoDB `city: longuenesse` sur les deux API (école) ; ne pas utiliser `city=arras` pour ce module |
 | **Module MealReservations** (plateaux, formules, etc.) | Non (absent du backend longuenesse) | Oui (main) | Déjà sur Arras uniquement |
 | **Frais KM Responsable** | Oui | Oui | Commun |
 | **Chorus** (commandes, bons NAS) | Oui (menu visible) | Non (`longuenesseOnly`) | Activer sur Arras après tests |

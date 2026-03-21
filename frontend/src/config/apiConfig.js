@@ -15,6 +15,15 @@ export const getApiUrl = () => {
   return import.meta.env.VITE_API_URL || API_URLS.plan;
 };
 
+/**
+ * Clé MongoDB (`city`) pour commandes en ligne + OAuth Google Sheets.
+ * Les `OnlineOrderLink` et `GoogleOAuthToken` sont historiquement enregistrés sous
+ * `longuenesse` (une seule école), sur les deux déploiements api-3 et api-4.
+ * Ne pas dériver depuis /plan vs /lon : sinon on lit un autre document (ou un jeton vide)
+ * et l’API Sheets renvoie « insufficient authentication scopes ».
+ */
+export const getOnlineOrdersCity = () => 'longuenesse';
+
 /** Suffixe pour stocker les tokens par site (évite conflit Longuenesse/Arras) */
 export const getTokenStorageSuffix = () => {
   const path = window.location.pathname;

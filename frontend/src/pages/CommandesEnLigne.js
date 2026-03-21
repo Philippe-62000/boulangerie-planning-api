@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { toast } from 'react-toastify';
 import api from '../services/api';
-import { getApiUrl } from '../config/apiConfig';
+import { getApiUrl, getOnlineOrdersCity } from '../config/apiConfig';
 import './CommandesEnLigne.css';
 
 const MONTH_NAMES = ['Janvier', 'Fevrier', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Aout', 'Septembre', 'Octobre', 'Novembre', 'Decembre'];
@@ -26,8 +26,7 @@ const CommandesEnLigne = () => {
   const [googleEmail, setGoogleEmail] = useState('');
   const printRef = useRef();
 
-  /** Même logique que getApiUrl : liens Google stockés par ville en base */
-  const city = window.location.pathname.startsWith('/lon') ? 'longuenesse' : 'arras';
+  const city = getOnlineOrdersCity();
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
