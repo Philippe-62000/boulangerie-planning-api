@@ -45,6 +45,21 @@ Ce document liste les différences entre les déploiements Longuenesse (`/lon`, 
 
 ---
 
+## Commandes en ligne — Google OAuth (à retenir)
+
+**Mémo** (mars 2026) : après changement de scopes côté code ou dans Google Cloud, ou si les feuilles ne se chargent plus avec l’erreur *« Request had insufficient authentication scopes »* :
+
+1. Sur la page **Commandes en ligne** : **Déconnecter** puis **Connecter Google** (une seule fois suffit).
+2. Le backend enregistre les jetons sous MongoDB `city: longuenesse` pour ce module (école), sur les deux API ; la déconnexion supprime les entrées `longuenesse` et `arras` pour éviter les doublons.
+3. Dans les **logs Render**, une reconnexion réussie affiche une ligne du type  
+   `Google OAuth connecté: { city, email, scopes: '...' }`  
+   avec notamment `spreadsheets` et `drive.readonly` dans `scopes`.
+4. Un message d’erreur sur **une** feuille juste avant la reconnexion peut encore apparaître (ancien jeton en mémoire) ; après reconnexion, les chargements doivent être OK.
+
+Documentation détaillée : `backend/GOOGLE_OAUTH_SETUP.md`.
+
+---
+
 ## Envoi de documents salarié → admin (Mes documents)
 
 **Statut** : aligné Longuenesse / Arras côté pages statiques (`frontend/public`). Les URLs d’API sont choisies selon le chemin (`/lon` → api-3, `/plan` → api-4-pbfy).
