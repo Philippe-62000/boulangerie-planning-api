@@ -106,7 +106,11 @@ const CommandesEnLigne = () => {
     } catch (err) {
       console.error(err);
       const msg = err.response?.data?.error || 'Erreur lors du chargement des commandes';
-      toast.error(msg);
+      if (err.response?.status === 403 || err.response?.data?.code === 'OAUTH_INSUFFICIENT_SCOPES') {
+        toast.error(msg, { autoClose: 15000 });
+      } else {
+        toast.error(msg);
+      }
       setOrders([]);
     } finally {
       setLoadingOrders(false);
@@ -122,7 +126,12 @@ const CommandesEnLigne = () => {
       setShowMonthlySummary(true);
     } catch (err) {
       console.error(err);
-      toast.error('Erreur lors du chargement du récapitulatif');
+      const msg = err.response?.data?.error || 'Erreur lors du chargement du récapitulatif';
+      if (err.response?.status === 403 || err.response?.data?.code === 'OAUTH_INSUFFICIENT_SCOPES') {
+        toast.error(msg, { autoClose: 15000 });
+      } else {
+        toast.error(msg);
+      }
     }
   };
 

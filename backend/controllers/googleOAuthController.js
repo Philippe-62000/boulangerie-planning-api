@@ -9,6 +9,7 @@ const GoogleOAuthToken = require('../models/GoogleOAuthToken');
  */
 const SCOPES = [
   'https://www.googleapis.com/auth/spreadsheets',
+  'https://www.googleapis.com/auth/drive.readonly',
   'https://www.googleapis.com/auth/userinfo.email'
 ];
 
@@ -79,13 +80,19 @@ async function handleCallback(req, res) {
     oauth2Client.setCredentials(tokens);
     const userInfo = await oauth2.userinfo.get();
     const email = userInfo.data?.email || '';
+    const grantedScopes = typeof tokens.scope === 'string' ? tokens.scope : '';
+    console.log('✅ Google OAuth connecté:', { city, email, scopes: grantedScopes });
+    if (grantedScopes && !grantedScopes.includes('spreadsheets')) {
+      console.warn('⚠️ Le jeton Google ne contient pas le scope spreadsheets — reconnectez-vous ou vérifiez l’écran de consentement OAuth (GCP).');
+    }
     await GoogleOAuthToken.findOneAndUpdate(
       { city },
       {
         refreshToken: tokens.refresh_token,
-        accessToken: tokens.access_token || '',
-        expiryDate: tokens.expiry_date ? new Date(tokens.expiry_date) : null,
-        email
+        accessToken: '',
+        expiryDate: null,
+        email,
+        grantedScopes
       },
       { upsert: true, new: true }
     );
@@ -104,12 +111,14 @@ async function handleCallback(req, res) {
 
 async function getAuthStatus(req, res) {
   try {
-    const city = (req.query.city || 'longuenesse').toLowerCase();
-    const token = await GoogleOAuthToken.findOne({ city });
+    const token =
+      (await GoogleOAuthToken.findOne({ city: 'longuenesse' })) ||
+      (await GoogleOAuthToken.findOne({ city: 'arras' }));
     res.json({
       success: true,
       connected: !!token?.refreshToken,
-      email: token?.email || ''
+      email: token?.email || '',
+      grantedScopes: token?.grantedScopes || ''
     });
   } catch (error) {
     console.error('Erreur getAuthStatus:', error);
@@ -119,8 +128,9 @@ async function getAuthStatus(req, res) {
 
 async function disconnect(req, res) {
   try {
-    const city = (req.query.city || req.body?.city || 'longuenesse').toLowerCase();
-    await GoogleOAuthToken.deleteOne({ city });
+    // Un seul compte Google pour l’école : supprimer longuenesse + arras (évite jetons obsolètes après changements de routes)
+    const result = await GoogleOAuthToken.deleteMany({ city: { $in: ['longuenesse', 'arras'] } });
+    console.log(`🗑️ Google OAuth déconnecté (${result.deletedCount} entrée(s))`);
     res.json({ success: true });
   } catch (error) {
     console.error('Erreur disconnect:', error);

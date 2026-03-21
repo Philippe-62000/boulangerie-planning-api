@@ -13,9 +13,12 @@ Pour que la connexion Google fonctionne avec les feuilles partagées par l'écol
 1. **APIs & Services** → **OAuth consent screen**
 2. Type : **Externe** (ou Interne si vous avez un Workspace)
 3. Remplissez : Nom de l'application, email de support
-4. **Scopes** : ajoutez au minimum :
-   - `https://www.googleapis.com/auth/spreadsheets` (accès Sheets — le backend utilise ce scope ; `spreadsheets.readonly` peut provoquer des erreurs « insufficient authentication scopes » selon les tokens)
+4. **Scopes** : ajoutez au minimum (comme dans le code backend) :
+   - `https://www.googleapis.com/auth/spreadsheets`
+   - `https://www.googleapis.com/auth/drive.readonly` (accès aux fichiers Drive liés aux feuilles partagées)
    - `https://www.googleapis.com/auth/userinfo.email`
+
+   Après ajout de scopes : les **anciens** jetons (refresh token) ne contiennent pas les nouveaux droits — il faut **Déconnecter** puis **Connecter Google** sur la page Commandes.
 5. En mode **Test**, ajoutez les comptes Google autorisés (utilisateurs de test).
 
 ## 3. Identifiants OAuth

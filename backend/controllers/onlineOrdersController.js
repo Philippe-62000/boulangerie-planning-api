@@ -306,10 +306,10 @@ async function getAuthenticatedClient(city) {
     throw new Error('Compte Google non connecté. Cliquez sur "Connecter Google" pour autoriser l\'accès aux feuilles partagées.');
   }
   const oauth2Client = googleOAuthController.getOAuth2Client();
+  // Ne pas réutiliser accessToken/expiry en base : un vieux jeton peut avoir été émis sans scope Sheets
+  // (ex. ancien flux) et provoquer « insufficient authentication scopes » jusqu’à expiration.
   oauth2Client.setCredentials({
-    refresh_token: token.refreshToken,
-    access_token: token.accessToken,
-    expiry_date: token.expiryDate?.getTime()
+    refresh_token: token.refreshToken
   });
   await oauth2Client.getAccessToken();
   return oauth2Client;
@@ -556,14 +556,29 @@ function filterOrdersForDay(orders, targetDay, targetMonth, targetYear) {
 }
 
 // Récupérer les commandes du jour
+function isGoogleOAuthScopeError(err) {
+  const m = String(err?.message || err || '');
+  return /insufficient|authentication scopes|Insufficient Permission|ACCESS_TOKEN_SCOPE_INSUFFICIENT/i.test(m);
+}
+
 async function getOrdersForDay(req, res) {
   try {
     const { date } = req.query; // YYYY-MM-DD
     const city = (req.query.city || 'longuenesse').toLowerCase();
-    const targetDate = date ? new Date(date) : new Date();
-    const targetDay = targetDate.getDate();
-    const targetMonth = targetDate.getMonth() + 1;
-    const targetYear = targetDate.getFullYear();
+    const parts = date && parseIsoDatePartsLocal(date);
+    let targetDay;
+    let targetMonth;
+    let targetYear;
+    if (parts) {
+      targetDay = parts.day;
+      targetMonth = parts.month;
+      targetYear = parts.year;
+    } else {
+      const targetDate = new Date();
+      targetDay = targetDate.getDate();
+      targetMonth = targetDate.getMonth() + 1;
+      targetYear = targetDate.getFullYear();
+    }
     const monthName = MONTH_NAMES[targetMonth - 1];
     const links = await findOnlineOrderLinks(city);
     const allOrders = [];
@@ -584,6 +599,14 @@ async function getOrdersForDay(req, res) {
         allOrders.push(...dayOrders.map(o => ({ ...o, className: className || link.className })));
       } catch (err) {
         console.error(`Erreur fetch sheet ${link.className}:`, err.message);
+        if (isGoogleOAuthScopeError(err)) {
+          return res.status(403).json({
+            success: false,
+            code: 'OAUTH_INSUFFICIENT_SCOPES',
+            error:
+              'Connexion Google : droits insuffisants sur les feuilles. Utilisez « Déconnecter », puis « Connecter Google » et acceptez l’accès aux Sheets (et Drive). Si le problème continue, vérifiez l’écran de consentement OAuth dans Google Cloud.'
+          });
+        }
       }
     }
     const dateIso = `${targetYear}-${String(targetMonth).padStart(2, '0')}-${String(targetDay).padStart(2, '0')}`;
@@ -630,6 +653,14 @@ async function getMonthlySummary(req, res) {
         total += count;
       } catch (err) {
         console.error(`Erreur fetch sheet ${link.className}:`, err.message);
+        if (isGoogleOAuthScopeError(err)) {
+          return res.status(403).json({
+            success: false,
+            code: 'OAUTH_INSUFFICIENT_SCOPES',
+            error:
+              'Connexion Google : droits insuffisants sur les feuilles. Utilisez « Déconnecter », puis « Connecter Google » et acceptez l’accès aux Sheets (et Drive).'
+          });
+        }
         byClass[link.className] = 0;
       }
     }

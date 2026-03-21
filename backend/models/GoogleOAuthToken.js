@@ -21,6 +21,11 @@ const googleOAuthTokenSchema = new mongoose.Schema({
   email: {
     type: String,
     default: ''
+  },
+  /** Scopes accordés par Google (debug / vérif) */
+  grantedScopes: {
+    type: String,
+    default: ''
   }
 }, {
   timestamps: true
