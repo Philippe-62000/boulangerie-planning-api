@@ -27,7 +27,7 @@ const Sidebar = () => {
     { path: '/sales-stats', label: 'Stats Vente', icon: '💰', menuId: 'sales-stats' },
     { path: '/ambassadeur', label: 'Ambassadeur', icon: '⭐', menuId: 'ambassadeur' },
     { path: '/plateaux-repas', label: 'Plateaux repas', icon: '🍽️', menuId: 'plateaux-repas' },
-    { path: '/commandes-en-ligne', label: 'Commandes en ligne', icon: '🛒', menuId: 'commandes-en-ligne', longuenesseOnly: true }
+    { path: '/commandes-en-ligne', label: 'Commandes en ligne', icon: '🛒', menuId: 'commandes-en-ligne' }
   ];
 
   const PAIES_MENU_ITEMS = [
@@ -42,6 +42,7 @@ const Sidebar = () => {
   ];
 
   const ADMIN_GROUPED_MENU_IDS = new Set([
+    ...PLANNING_MENU_ITEMS,
     ...VENTE_MENU_ITEMS,
     ...PAIES_MENU_ITEMS,
     ...FACTURATION_MENU_ITEMS
@@ -194,7 +195,7 @@ const Sidebar = () => {
     { path: '/ticket-restaurant', label: 'Ticket restaurant', icon: '🎫', menuId: 'ticket-restaurant' },
     { path: '/employee-dashboard', label: 'Mes Documents', icon: '📁', menuId: 'employee-dashboard' },
     { path: '/ambassadeur', label: 'Ambassadeur', icon: '⭐', menuId: 'ambassadeur' },
-    { path: '/commandes-en-ligne', label: 'Commandes en ligne', icon: '🛒', menuId: 'commandes-en-ligne', longuenesseOnly: true },
+    { path: '/commandes-en-ligne', label: 'Commandes en ligne', icon: '🛒', menuId: 'commandes-en-ligne' },
     { path: '/product-exchanges', label: 'Échanges entre boulangeries', icon: '🔄', menuId: 'product-exchanges' },
     { path: '/frais-km-responsable', label: 'Frais KM Responsable', icon: '🚗', menuId: 'frais-km-responsable' },
     { path: '/plateaux-repas', label: 'Plateaux repas', icon: '🍽️', menuId: 'plateaux-repas' },
@@ -476,7 +477,7 @@ const Sidebar = () => {
             </div>
           )}
         </div>
-        <div className="version-info">v2.0</div>
+        <div className="version-info">v2.1</div>
       </div>
     </div>
   );

@@ -1,4 +1,4 @@
-# Configuration OAuth Google pour Commandes en ligne (Longuenesse)
+# Configuration OAuth Google pour Commandes en ligne (Longuenesse & Arras)
 
 Pour que la connexion Google fonctionne avec les feuilles partagées par l'école, configurez OAuth 2.0 :
 
@@ -6,46 +6,59 @@ Pour que la connexion Google fonctionne avec les feuilles partagées par l'écol
 
 1. Allez sur [Google Cloud Console](https://console.cloud.google.com/)
 2. Créez un projet ou sélectionnez-en un
-3. Activez **Google Sheets API** et **Google People API** (pour l'email)
+3. Activez **Google Sheets API** (obligatoire)
 
 ## 2. Écran de consentement OAuth
 
 1. **APIs & Services** → **OAuth consent screen**
 2. Type : **Externe** (ou Interne si vous avez un Workspace)
 3. Remplissez : Nom de l'application, email de support
-4. Scopes : ajoutez `.../auth/spreadsheets.readonly` et `.../auth/userinfo.email`
-5. Utilisateurs de test : ajoutez `longuenesse.boulangerie.ange@gmail.com` (en mode test)
+4. **Scopes** : ajoutez au minimum :
+   - `https://www.googleapis.com/auth/spreadsheets` (accès Sheets — le backend utilise ce scope ; `spreadsheets.readonly` peut provoquer des erreurs « insufficient authentication scopes » selon les tokens)
+   - `https://www.googleapis.com/auth/userinfo.email`
+5. En mode **Test**, ajoutez les comptes Google autorisés (utilisateurs de test).
 
 ## 3. Identifiants OAuth
 
 1. **APIs & Services** → **Credentials** → **Create Credentials** → **OAuth client ID**
 2. Type : **Web application**
-3. Nom : "Boulangerie Commandes"
-4. **Authorized redirect URIs** : ajoutez exactement :
+3. **Authorized redirect URIs** : ajoutez **les deux** URLs de callback (Longuenesse + Arras si vous utilisez deux API Render) :
+
    ```
    https://boulangerie-planning-api-3.onrender.com/api/online-orders/auth/google/callback
+   https://boulangerie-planning-api-4-pbfy.onrender.com/api/online-orders/auth/google/callback
    ```
-5. Créez et récupérez **Client ID** et **Client Secret**
+
+   (Adaptez le host si vos services Render ont d’autres noms.)
+
+4. Créez et récupérez **Client ID** et **Client Secret**
 
 ## 4. Variables d'environnement (Render / serveur)
 
-Ajoutez sur le service Longuenesse (boulangerie-planning-api-3) :
+Sur **chaque** service API qui expose `/api/online-orders` :
 
 ```
 GOOGLE_CLIENT_ID=votre_client_id.apps.googleusercontent.com
 GOOGLE_CLIENT_SECRET=votre_client_secret
+GOOGLE_OAUTH_REDIRECT_URI=https://<votre-api>/api/online-orders/auth/google/callback
 ```
 
+Important : `GOOGLE_OAUTH_REDIRECT_URI` doit correspondre **exactement** à l’URI enregistrée pour ce service (api-3 vs api-4).
+
 Optionnel :
+
 ```
-API_BASE_URL=https://boulangerie-planning-api-3.onrender.com
+API_BASE_URL=https://<votre-api>.onrender.com
 FRONTEND_URL=https://www.filmara.fr
 ```
 
-## 5. Utilisation
+## 5. Après changement des scopes
 
-1. Connectez-vous à l'app avec **longuenesse.boulangerie.ange@gmail.com**
-2. Allez dans **Commandes en ligne**
+Les tokens déjà stockés en base peuvent être **invalides**. Sur la page **Commandes en ligne** : **Déconnecter Google**, puis **Connecter Google** à nouveau pour obtenir un refresh token avec les bons scopes.
+
+## 6. Utilisation
+
+1. Connectez-vous à l’app avec le compte autorisé
+2. Allez dans **Commandes en ligne** (`/lon/...` ou `/plan/...`)
 3. Cliquez sur **Connecter Google**
-4. Autorisez l'accès aux feuilles
-5. Les Google Sheets partagés avec ce compte seront accessibles
+4. Les Google Sheets partagés avec ce compte seront accessibles
