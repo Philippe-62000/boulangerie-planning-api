@@ -26,7 +26,8 @@ const CommandesEnLigne = () => {
   const [googleEmail, setGoogleEmail] = useState('');
   const printRef = useRef();
 
-  const city = 'longuenesse';
+  /** Même logique que getApiUrl : liens Google stockés par ville en base */
+  const city = window.location.pathname.startsWith('/lon') ? 'longuenesse' : 'arras';
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);

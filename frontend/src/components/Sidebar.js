@@ -8,6 +8,7 @@ const Sidebar = () => {
   // Étendu par défaut sur desktop (largeur > 768px) pour éviter que le menu semble "disparaître" au refresh
   const [isExpanded, setIsExpanded] = useState(() => typeof window !== 'undefined' && window.innerWidth > 768);
   const [socialMenuExpanded, setSocialMenuExpanded] = useState(false);
+  const [planningMenuExpanded, setPlanningMenuExpanded] = useState(false);
   const [venteMenuExpanded, setVenteMenuExpanded] = useState(false);
   const [paiesMenuExpanded, setPaiesMenuExpanded] = useState(false);
   const [facturationMenuExpanded, setFacturationMenuExpanded] = useState(false);
@@ -17,10 +18,16 @@ const Sidebar = () => {
   const isLonguenesse = window.location.pathname.startsWith('/lon');
 
   // Sous-menus admin (comme Social) — regroupent des entrées retirées du menu plat pour l’admin uniquement
+  const PLANNING_MENU_ITEMS = [
+    { path: '/planning', label: 'Génération du planning', icon: '🎯', menuId: 'planning' },
+    { path: '/constraints', label: 'Contraintes hebdomadaires', icon: '📋', menuId: 'constraints' }
+  ];
+
   const VENTE_MENU_ITEMS = [
     { path: '/sales-stats', label: 'Stats Vente', icon: '💰', menuId: 'sales-stats' },
     { path: '/ambassadeur', label: 'Ambassadeur', icon: '⭐', menuId: 'ambassadeur' },
-    { path: '/plateaux-repas', label: 'Plateaux repas', icon: '🍽️', menuId: 'plateaux-repas' }
+    { path: '/plateaux-repas', label: 'Plateaux repas', icon: '🍽️', menuId: 'plateaux-repas' },
+    { path: '/commandes-en-ligne', label: 'Commandes en ligne', icon: '🛒', menuId: 'commandes-en-ligne', longuenesseOnly: true }
   ];
 
   const PAIES_MENU_ITEMS = [
@@ -110,6 +117,7 @@ const Sidebar = () => {
   // Auto-expandre les sous-menus admin quand on est sur une de leurs pages
   useEffect(() => {
     const p = location.pathname;
+    if (PLANNING_MENU_ITEMS.some((i) => p.includes(i.path))) setPlanningMenuExpanded(true);
     if (VENTE_MENU_ITEMS.some((i) => p.includes(i.path))) setVenteMenuExpanded(true);
     if (PAIES_MENU_ITEMS.some((i) => p.includes(i.path))) setPaiesMenuExpanded(true);
     if (FACTURATION_MENU_ITEMS.some((i) => p.includes(i.path))) setFacturationMenuExpanded(true);
@@ -288,6 +296,38 @@ const Sidebar = () => {
             <span className="nav-label">{item.label}</span>
           </Link>
         ))}
+        {/* Sous-menu admin : Planning */}
+        {isAdmin() && filterSubmenuForAdmin(PLANNING_MENU_ITEMS).length > 0 && (
+          <div className="nav-group admin-submenu">
+            <button
+              type="button"
+              className={`nav-item nav-group-toggle ${planningMenuExpanded ? 'expanded' : ''} ${PLANNING_MENU_ITEMS.some((i) => location.pathname.includes(i.path)) ? 'active' : ''}`}
+              onClick={() => {
+                setIsExpanded(true);
+                setPlanningMenuExpanded((v) => !v);
+              }}
+              onMouseEnter={() => isExpanded && setPlanningMenuExpanded(true)}
+            >
+              <span className="nav-icon">📅</span>
+              <span className="nav-label">Planning</span>
+              <span className="nav-chevron">{planningMenuExpanded ? '▼' : '▶'}</span>
+            </button>
+            {planningMenuExpanded && (
+              <div className="nav-submenu">
+                {filterSubmenuForAdmin(PLANNING_MENU_ITEMS).map((item) => (
+                  <Link
+                    key={item.path}
+                    to={item.path}
+                    className={`nav-item nav-subitem ${location.pathname.includes(item.path) ? 'active' : ''}`}
+                  >
+                    <span className="nav-icon">{item.icon}</span>
+                    <span className="nav-label">{item.label}</span>
+                  </Link>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
         {/* Sous-menus admin : Vente, Paies, Facturation */}
         {isAdmin() && filterSubmenuForAdmin(VENTE_MENU_ITEMS).length > 0 && (
           <div className="nav-group admin-submenu">

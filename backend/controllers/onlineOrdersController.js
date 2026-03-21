@@ -500,6 +500,18 @@ function parseDateFromCell(str, defaultYear) {
   return null;
 }
 
+/** Parse YYYY-MM-DD sans décalage fuseau (évite les erreurs de jour avec new Date(iso). */
+function parseIsoDatePartsLocal(dateStr) {
+  if (!dateStr || typeof dateStr !== 'string') return null;
+  const m = dateStr.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+  if (!m) return null;
+  return {
+    year: parseInt(m[1], 10),
+    month: parseInt(m[2], 10),
+    day: parseInt(m[3], 10)
+  };
+}
+
 // Filtrer les commandes pour une date donnée (jour + mois + année)
 function filterOrdersForDay(orders, targetDay, targetMonth, targetYear) {
   return orders.filter(o => {
@@ -553,10 +565,11 @@ async function getOrdersForDay(req, res) {
         console.error(`Erreur fetch sheet ${link.className}:`, err.message);
       }
     }
+    const dateIso = `${targetYear}-${String(targetMonth).padStart(2, '0')}-${String(targetDay).padStart(2, '0')}`;
     res.json({
       success: true,
       data: {
-        date: targetDate.toISOString().split('T')[0],
+        date: dateIso,
         day: targetDay,
         month: targetMonth,
         orders: allOrders

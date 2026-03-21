@@ -74,6 +74,10 @@ const employeeSchema = new mongoose.Schema({
     },
     endDate: {
       type: Date
+    },
+    therapeuticPartTime: {
+      type: Boolean,
+      default: false
     }
   },
   // CHAMP VACATION - CRÉÉ POUR LA SYNCHRONISATION DES CONGÉS

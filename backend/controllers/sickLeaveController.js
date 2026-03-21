@@ -180,6 +180,10 @@ const uploadSickLeave = async (req, res) => {
     
     // Vérification des données requises
     const { employeeName, employeeEmail, startDate, endDate } = req.body;
+    const therapeuticPartTime =
+      req.body.therapeuticPartTime === true ||
+      req.body.therapeuticPartTime === 'true' ||
+      req.body.therapeuticPartTime === 'on';
     
     if (!employeeName || !employeeEmail || !startDate || !endDate) {
       return res.status(400).json({
@@ -292,6 +296,7 @@ const uploadSickLeave = async (req, res) => {
         employeeEmail: employeeEmail.trim().toLowerCase(),
         startDate: start,
         endDate: end,
+        therapeuticPartTime,
         fileName: uploadResult.fileName,
         originalFileName: req.file.originalname,
         fileSize: req.file.size,
@@ -1423,9 +1428,9 @@ const deleteAllSickLeaves = async (req, res) => {
 const updateSickLeave = async (req, res) => {
   try {
     const { id } = req.params;
-    const { startDate, endDate } = req.body;
+    const { startDate, endDate, therapeuticPartTime } = req.body;
 
-    console.log('📝 Modification arrêt maladie:', { id, startDate, endDate });
+    console.log('📝 Modification arrêt maladie:', { id, startDate, endDate, therapeuticPartTime });
 
     // Validation des dates
     if (!startDate || !endDate) {
@@ -1449,15 +1454,20 @@ const updateSickLeave = async (req, res) => {
     // Calculer la durée
     const duration = Math.ceil((end - start) / (1000 * 60 * 60 * 24)) + 1;
 
+    const updatePayload = {
+      startDate: new Date(startDate),
+      endDate: new Date(endDate),
+      updatedAt: new Date()
+    };
+    if (therapeuticPartTime !== undefined) {
+      updatePayload.therapeuticPartTime =
+        therapeuticPartTime === true || therapeuticPartTime === 'true';
+    }
+
     // Mettre à jour l'arrêt maladie
     const updatedSickLeave = await SickLeave.findByIdAndUpdate(
       id,
-      {
-        startDate: new Date(startDate),
-        endDate: new Date(endDate),
-        duration: duration,
-        updatedAt: new Date()
-      },
+      updatePayload,
       { new: true }
     );
 

@@ -303,7 +303,8 @@ const Dashboard = () => {
           sickLeave: {
             isOnSickLeave: true,
             startDate: activeSickLeave.startDate,
-            endDate: activeSickLeave.endDate
+            endDate: activeSickLeave.endDate,
+            therapeuticPartTime: !!activeSickLeave.therapeuticPartTime
           }
         };
       }
@@ -494,6 +495,7 @@ const Dashboard = () => {
                   <th>Nom</th>
                   <th>Date de reprise</th>
                   <th>Jours avant reprise</th>
+                  <th>Temps partiel thérapeutique</th>
                 </tr>
               </thead>
               <tbody>
@@ -572,6 +574,13 @@ const Dashboard = () => {
                             </span>
                           );
                         })()}
+                      </td>
+                      <td>
+                        {employee.sickLeave?.therapeuticPartTime ? (
+                          <span style={{ color: '#0d6efd', fontWeight: '600' }}>Oui</span>
+                        ) : (
+                          <span style={{ color: '#6c757d' }}>Non</span>
+                        )}
                       </td>
                     </tr>
                   );
