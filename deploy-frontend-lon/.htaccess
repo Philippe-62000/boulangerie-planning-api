@@ -3,16 +3,16 @@ RewriteEngine On
 
 # Redirection de HTTP vers HTTPS
 RewriteCond %{HTTPS} off
-RewriteRule ^(.*)$ https://www.filmara.fr/lon/$1 [R=301,L]
+RewriteRule ^(.*)$ https://www.filmara.fr/plan/$1 [R=301,L]
 
 # Redirection de filmara.fr vers www.filmara.fr
 RewriteCond %{HTTP_HOST} ^filmara\.fr$ [NC]
-RewriteRule ^(.*)$ https://www.filmara.fr/lon/$1 [R=301,L]
+RewriteRule ^(.*)$ https://www.filmara.fr/plan/$1 [R=301,L]
 
-# Configuration pour React Router (fichiers dans /lon/)
+# Configuration pour React Router
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
-RewriteRule . /lon/index.html [L]
+RewriteRule . /plan/index.html [L]
 
 # Headers de sécurité
 Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains"
