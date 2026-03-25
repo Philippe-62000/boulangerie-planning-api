@@ -226,6 +226,7 @@ const ResponsableKmExpenses = () => {
       toast.success('Divers enregistré');
       const r = await api.get(`/responsable-km/divers-presets?site=${site}`);
       setDiversPresets(r.data?.data || []);
+      fetchData();
     } catch (e) {
       toast.error('Erreur sauvegarde');
     }

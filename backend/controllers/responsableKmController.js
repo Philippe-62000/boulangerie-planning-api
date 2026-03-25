@@ -1,3 +1,4 @@
+const mongoose = require('mongoose');
 const ResponsableTripType = require('../models/ResponsableTripType');
 const ResponsableKmExpense = require('../models/ResponsableKmExpense');
 const ResponsableDisplacementLog = require('../models/ResponsableDisplacementLog');
@@ -50,6 +51,9 @@ exports.getTripTypes = async (req, res) => {
     if (types.length === 0) {
       types = await ensureTripTypes(site);
     }
+    await migratePeageToAllerRetour(site);
+    await ensureDiversPresetTripTypes(site);
+    types = await ResponsableTripType.find({ site }).sort({ order: 1 });
     res.json({ success: true, data: types });
   } catch (error) {
     console.error('Erreur getTripTypes:', error);
@@ -92,6 +96,47 @@ async function migratePeageToAllerRetour(site) {
   await ResponsableTripType.deleteOne({ _id: peageType._id });
 }
 
+/** Chaque entrée DiversPreset doit avoir une ligne ResponsableTripType (tableau frais KM). */
+async function ensureDiversPresetTripTypes(site) {
+  const diversType = await ResponsableTripType.findOne({ site, name: 'divers' });
+  if (!diversType) return;
+
+  const presets = await DiversPreset.find({ site }).sort({ order: 1, name: 1 });
+  const validIds = new Set(presets.map(p => p._id.toString()));
+
+  const presetTripTypes = await ResponsableTripType.find({
+    site,
+    name: { $regex: /^divers-preset-[a-f0-9]{24}$/ }
+  });
+  for (const tt of presetTripTypes) {
+    const idFromName = tt.name.replace(/^divers-preset-/, '');
+    if (!validIds.has(idFromName)) {
+      await ResponsableTripType.deleteOne({ _id: tt._id });
+    }
+  }
+
+  let i = 0;
+  for (const p of presets) {
+    const name = `divers-preset-${p._id}`;
+    const order = diversType.order - (i + 1) * 0.01;
+    const kmVal = p.km != null && !Number.isNaN(Number(p.km)) ? Number(p.km) : 0;
+    await ResponsableTripType.findOneAndUpdate(
+      { site, name },
+      {
+        $set: {
+          displayName: p.name,
+          km: kmVal,
+          order,
+          site,
+          name
+        }
+      },
+      { upsert: true, new: true }
+    );
+    i += 1;
+  }
+}
+
 exports.getExpense = async (req, res) => {
   try {
     const { site, month, year } = req.query;
@@ -111,6 +156,7 @@ exports.getExpense = async (req, res) => {
       types = await ResponsableTripType.find({ site }).sort({ order: 1 });
     }
     await migratePeageToAllerRetour(site);
+    await ensureDiversPresetTripTypes(site);
     types = await ResponsableTripType.find({ site }).sort({ order: 1 });
 
     const [expense, tauxKm, peageParams] = await Promise.all([
@@ -705,6 +751,15 @@ exports.updateTripType = async (req, res) => {
       }
     }
     const tripType = await ResponsableTripType.findByIdAndUpdate(tripTypeId, { $set: update }, { new: true });
+    if (tripType?.name && tripType.name.startsWith('divers-preset-')) {
+      const presetId = tripType.name.replace(/^divers-preset-/, '');
+      if (mongoose.Types.ObjectId.isValid(presetId)) {
+        await DiversPreset.findOneAndUpdate(
+          { _id: presetId, site: tripType.site },
+          { $set: { name: tripType.displayName, km: tripType.km, updatedAt: new Date() } }
+        );
+      }
+    }
     res.json({ success: true, data: tripType });
   } catch (error) {
     console.error('Erreur updateTripType:', error);
@@ -791,6 +846,7 @@ exports.saveDiversPreset = async (req, res) => {
       { $set: update },
       { new: true, upsert: true }
     );
+    await ensureDiversPresetTripTypes(site);
     res.json({ success: true, data: preset });
   } catch (error) {
     console.error('Erreur saveDiversPreset:', error);
