@@ -14,9 +14,15 @@ const DocumentCard = ({
     onDownload(document._id, document.title);
   };
 
+  const isPayslipLike =
+    document.category === 'payslip' ||
+    /fiche\s*(de\s*)?paie|bulletin\s*(de\s*)?paie|bulletin\s+de\s+salaire/i.test(
+      `${document.title || ''} ${document.fileName || ''}`
+    );
+
   const getExpiryStatus = () => {
-    // Les fiches de paie n'expirent jamais - toujours téléchargeables
-    if (!isPersonal || !document.expiryDate || document.category === 'payslip') return null;
+    // Les fiches de paie n'expirent jamais - toujours téléchargeables (y compris si mal catégorisées)
+    if (!isPersonal || !document.expiryDate || isPayslipLike) return null;
     
     const now = new Date();
     const expiryDate = new Date(document.expiryDate);
@@ -35,7 +41,7 @@ const DocumentCard = ({
   };
 
   const expiryStatus = getExpiryStatus();
-  const isPayslip = document.category === 'payslip';
+  const isPayslip = isPayslipLike;
 
   return (
     <div className={`document-card ${isPersonal ? 'personal' : 'general'}`}>

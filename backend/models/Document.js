@@ -1,5 +1,14 @@
 const mongoose = require('mongoose');
 
+/** Fiches de paie mal catégorisées (ex. « Autre ») : même règle que category === payslip */
+const PAYSLIP_TITLE_REGEX = /fiche\s*(de\s*)?paie|bulletin\s*(de\s*)?paie|bulletin\s+de\s+salaire/i;
+
+function isPayslipLikeFields(title, fileName, category) {
+  if (category === 'payslip') return true;
+  const t = `${title || ''} ${fileName || ''}`;
+  return PAYSLIP_TITLE_REGEX.test(t);
+}
+
 const documentSchema = new mongoose.Schema({
   title: {
     type: String,
@@ -158,34 +167,29 @@ documentSchema.statics.recordDownload = async function(documentId, employeeId = 
 // Les fiches de paie (payslip) ne sont JAMAIS expirées - les salariés doivent y avoir accès indéfiniment
 documentSchema.statics.cleanExpiredDocuments = async function() {
   const now = new Date();
-  const expiredDocs = await this.find({
+  const candidates = await this.find({
     type: 'personal',
-    category: { $ne: 'payslip' }, // Exclure les fiches de paie
+    category: { $ne: 'payslip' },
     expiryDate: { $lt: now, $ne: null },
     isActive: true
   });
-  
-  if (expiredDocs.length > 0) {
-    await this.updateMany(
-      { 
-        type: 'personal',
-        category: { $ne: 'payslip' },
-        expiryDate: { $lt: now, $ne: null },
-        isActive: true 
-      },
-      { isActive: false }
-    );
-    
-    console.log(`🧹 ${expiredDocs.length} documents personnels expirés désactivés (fiches de paie exclues)`);
+
+  const idsToDeactivate = candidates
+    .filter((doc) => !isPayslipLikeFields(doc.title, doc.fileName, doc.category))
+    .map((doc) => doc._id);
+
+  if (idsToDeactivate.length > 0) {
+    await this.updateMany({ _id: { $in: idsToDeactivate } }, { isActive: false });
+    console.log(`🧹 ${idsToDeactivate.length} documents personnels expirés désactivés (fiches de paie exclues)`);
   }
-  
-  return expiredDocs.length;
+
+  return idsToDeactivate.length;
 };
 
 // Méthode statique pour créer un document personnel avec expiration
 // Les fiches de paie (payslip) n'expirent jamais - les salariés doivent pouvoir les télécharger indéfiniment
 documentSchema.statics.createPersonalDocument = async function(docData) {
-  const isPayslip = docData.category === 'payslip';
+  const isPayslip = isPayslipLikeFields(docData.title, docData.fileName, docData.category);
   
   // Fiches de paie : pas d'expiration. Autres documents : expiration 1 mois
   let expiryDate = null;
@@ -225,9 +229,14 @@ documentSchema.statics.createEmployeeUploadDocument = async function(docData) {
   return await document.save();
 };
 
+documentSchema.methods.isPayslipLike = function() {
+  return isPayslipLikeFields(this.title, this.fileName, this.category);
+};
+
 // Méthode pour vérifier si un document est expiré
 documentSchema.methods.isExpired = function() {
   if (this.type === 'general') return false;
+  if (this.isPayslipLike()) return false;
   if (!this.expiryDate) return false;
   return new Date() > this.expiryDate;
 };

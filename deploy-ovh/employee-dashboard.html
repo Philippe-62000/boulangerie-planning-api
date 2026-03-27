@@ -1828,7 +1828,7 @@
             const documentsHtml = documents.map(doc => {
                 const icon = getDocumentIcon(doc.category);
                 const expiryInfo = getExpiryInfo(doc);
-                const isExpired = doc.expiryDate && new Date(doc.expiryDate) < new Date();
+                const isExpired = isPersonalDocumentExpired(doc);
                 
                 return `
                     <div class="document-card ${type}">
@@ -1904,8 +1904,21 @@
             return labels[category] || category;
         }
 
+        /** Aligné sur DocumentCard.js : fiches de paie sans expiration affichée / téléchargeable */
+        function isPayslipDocument(doc) {
+            if (doc.category === 'payslip') return true;
+            const t = `${doc.title || ''} ${doc.fileName || ''}`.toLowerCase();
+            return /fiche\s*(de\s*)?paie|bulletin\s*(de\s*)?paie|bulletin\s+de\s+salaire/.test(t);
+        }
+
+        function isPersonalDocumentExpired(doc) {
+            if (isPayslipDocument(doc)) return false;
+            if (!doc.expiryDate) return false;
+            return new Date(doc.expiryDate) < new Date();
+        }
+
         function getExpiryInfo(doc) {
-            if (!doc.expiryDate) return null;
+            if (isPayslipDocument(doc) || !doc.expiryDate) return null;
             
             const now = new Date();
             const expiry = new Date(doc.expiryDate);
