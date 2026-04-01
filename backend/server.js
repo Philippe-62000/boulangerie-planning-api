@@ -209,11 +209,21 @@ app.get('/', (req, res) => {
   });
 });
 
-// Gestion des erreurs
+// Gestion des erreurs (détail en logs uniquement ; le client reçoit un message générique en production)
 app.use((err, req, res, next) => {
-  console.error('❌ Erreur serveur:', err.stack);
-  res.status(500).json({ 
-    error: config.NODE_ENV === 'production' ? 'Erreur serveur interne' : err.message 
+  const method = req.method || '?';
+  const path = req.originalUrl || req.url || '?';
+  const msg = err?.message || String(err);
+  const code = err?.code;
+  console.error('❌ Erreur serveur (non gérée):', {
+    message: msg,
+    code: code || undefined,
+    method,
+    path,
+    stack: err?.stack
+  });
+  res.status(500).json({
+    error: config.NODE_ENV === 'production' ? 'Erreur serveur interne' : msg
   });
 });
 
