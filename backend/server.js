@@ -47,7 +47,8 @@ const corsOptions = {
 };
 app.use(cors(corsOptions));
 
-app.use(express.json({ limit: '10mb' }));
+// strict: false — accepte le corps JSON `null` (axios peut l’envoyer) ; sinon body-parser lève « null is not valid JSON »
+app.use(express.json({ limit: '10mb', strict: false }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 const PORT = Number(process.env.PORT) || config.PORT || 5000;

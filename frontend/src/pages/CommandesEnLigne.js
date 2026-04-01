@@ -158,7 +158,7 @@ const CommandesEnLigne = () => {
 
   const handleSyncTabs = async (id) => {
     try {
-      await api.post(`/online-orders/links/${id}/sync-tabs`, null, { params: { city } });
+      await api.post(`/online-orders/links/${id}/sync-tabs`, {}, { params: { city } });
       toast.success('Onglets synchronisés (Mars, Avril, etc.)');
       loadLinks();
     } catch (err) {
