@@ -17,7 +17,9 @@ const vehicleConfigSchema = new mongoose.Schema({
   rappelKmAvantRevision: { type: Number, default: 500 },
   rappelJoursAvantRevision: { type: Number, default: 30 },
   rappelJoursAvantCT: { type: Number, default: 30 },
-  rappelJoursAvantRenouvellement: { type: Number, default: 30 }
+  rappelJoursAvantRenouvellement: { type: Number, default: 30 },
+  /** Noms affichés dans la page salariés (sélection destination / tournée) */
+  destinationLabels: { type: [String], default: [] }
 }, { timestamps: true });
 
 module.exports = mongoose.model('VehicleConfig', vehicleConfigSchema);

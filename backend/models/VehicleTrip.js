@@ -22,7 +22,7 @@ const vehicleTripSchema = new mongoose.Schema({
     enum: ['en_cours', 'termine'],
     default: 'en_cours'
   },
-  destination: { type: String, default: '' },
+  destination: { type: String, default: '', maxlength: 2000 },
   kmRetour: { type: Number, default: null },
   dateRetour: { type: Date, default: null },
   problemeVoyantMoteur: { type: Boolean, default: false },

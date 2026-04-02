@@ -139,3 +139,103 @@
   padding: 0.55rem;
   font-size: 1rem;
 }
+
+.vs-dest-trigger {
+  width: 100%;
+  text-align: left;
+  padding: 0.65rem 0.75rem;
+  font-size: 1rem;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  background: #fff;
+  cursor: pointer;
+  min-height: 2.75rem;
+  line-height: 1.35;
+}
+
+.vs-dest-trigger:hover {
+  border-color: #198754;
+  background: #f8fff9;
+}
+
+.vs-dest-hint {
+  margin: 0.35rem 0 0;
+  font-size: 0.82rem;
+  color: #666;
+}
+
+.vs-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 0;
+}
+
+@media (min-width: 480px) {
+  .vs-modal-overlay {
+    align-items: center;
+    padding: 1rem;
+  }
+}
+
+.vs-modal {
+  background: #fff;
+  width: 100%;
+  max-width: 420px;
+  max-height: 85vh;
+  overflow: auto;
+  border-radius: 12px 12px 0 0;
+  padding: 1rem;
+  box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.15);
+}
+
+@media (min-width: 480px) {
+  .vs-modal {
+    border-radius: 12px;
+  }
+}
+
+.vs-modal-title {
+  margin: 0 0 0.35rem;
+  font-size: 1.1rem;
+}
+
+.vs-modal-hint {
+  margin: 0 0 0.75rem;
+  font-size: 0.85rem;
+  color: #555;
+  line-height: 1.35;
+}
+
+.vs-dest-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin-bottom: 1rem;
+}
+
+.vs-dest-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 0.55rem 0.6rem;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 500;
+  font-size: 0.95rem;
+}
+
+.vs-dest-item.on {
+  border-color: #198754;
+  background: #e8f5e9;
+}
+
+.vs-dest-item input {
+  margin-top: 0.2rem;
+  flex-shrink: 0;
+}

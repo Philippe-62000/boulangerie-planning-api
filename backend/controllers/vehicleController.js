@@ -60,7 +60,8 @@ exports.putConfig = async (req, res) => {
       rappelKmAvantRevision,
       rappelJoursAvantRevision,
       rappelJoursAvantCT,
-      rappelJoursAvantRenouvellement
+      rappelJoursAvantRenouvellement,
+      destinationLabels
     } = req.body;
 
     const patch = {};
@@ -84,6 +85,20 @@ exports.putConfig = async (req, res) => {
     if (rappelJoursAvantCT !== undefined) patch.rappelJoursAvantCT = Number(rappelJoursAvantCT) || 30;
     if (rappelJoursAvantRenouvellement !== undefined) {
       patch.rappelJoursAvantRenouvellement = Number(rappelJoursAvantRenouvellement) || 30;
+    }
+    if (destinationLabels !== undefined) {
+      const arr = Array.isArray(destinationLabels) ? destinationLabels : [];
+      const seen = new Set();
+      patch.destinationLabels = [];
+      for (const raw of arr) {
+        const s = String(raw ?? '')
+          .trim()
+          .slice(0, 120);
+        if (!s || seen.has(s)) continue;
+        seen.add(s);
+        patch.destinationLabels.push(s);
+        if (patch.destinationLabels.length >= 80) break;
+      }
     }
 
     const cfg = await VehicleConfig.findOneAndUpdate(
@@ -210,6 +225,7 @@ exports.completeReturn = async (req, res) => {
     const { id } = req.params;
     const {
       destination,
+      destinations,
       kmRetour,
       problemeVoyantMoteur,
       problemeAutre,
@@ -236,7 +252,23 @@ exports.completeReturn = async (req, res) => {
       });
     }
 
-    trip.destination = destination != null ? String(destination).slice(0, 500) : '';
+    let destStr = '';
+    if (Array.isArray(destinations) && destinations.length > 0) {
+      const seen = new Set();
+      const parts = [];
+      for (const raw of destinations) {
+        const s = String(raw ?? '')
+          .trim()
+          .slice(0, 120);
+        if (!s || seen.has(s)) continue;
+        seen.add(s);
+        parts.push(s);
+      }
+      destStr = parts.join(' · ');
+    } else if (destination != null) {
+      destStr = String(destination).trim();
+    }
+    trip.destination = destStr.slice(0, 2000);
     trip.kmRetour = kr;
     trip.dateRetour = new Date();
     trip.dateDepart = trip.dateDepart || trip.createdAt;
@@ -267,6 +299,10 @@ exports.completeReturn = async (req, res) => {
       trip.pleinDate = null;
       trip.pleinKm = null;
       trip.pleinParEmployeeId = null;
+    }
+
+    if (!trip.destination) {
+      return res.status(400).json({ success: false, error: 'Destination requise' });
     }
 
     trip.status = 'termine';
@@ -444,6 +480,46 @@ exports.updateTripAdmin = async (req, res) => {
     res.json({ success: true, data: populated });
   } catch (e) {
     console.error('vehicle updateTripAdmin', e);
+    res.status(500).json({ success: false, error: e.message });
+  }
+};
+
+exports.deleteTrip = async (req, res) => {
+  let sftpConnected = false;
+  try {
+    const site = getSite(req);
+    const { id } = req.params;
+    const trip = await VehicleTrip.findOne({ _id: id, site });
+    if (!trip) return res.status(404).json({ success: false, error: 'Trajet introuvable' });
+
+    if (trip.photoRetourPath) {
+      const nasBase = nasBaseForSite(site);
+      const fullPath = normalizePath(nasBase, trip.photoRetourPath);
+      try {
+        await sftpService.connect();
+        sftpConnected = true;
+        if (await sftpService.fileExists(fullPath)) await sftpService.deleteFile(fullPath);
+      } catch (err) {
+        console.warn('vehicle deleteTrip NAS photo', err?.message || err);
+      } finally {
+        if (sftpConnected) {
+          try {
+            await sftpService.disconnect();
+          } catch (_) {}
+          sftpConnected = false;
+        }
+      }
+    }
+
+    await VehicleTrip.deleteOne({ _id: id, site });
+    res.json({ success: true });
+  } catch (e) {
+    console.error('vehicle deleteTrip', e);
+    if (sftpConnected) {
+      try {
+        await sftpService.disconnect();
+      } catch (_) {}
+    }
     res.status(500).json({ success: false, error: e.message });
   }
 };
