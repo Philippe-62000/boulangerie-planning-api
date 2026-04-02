@@ -27,6 +27,11 @@
   margin-bottom: 0.85rem;
 }
 
+.vs-field-nested {
+  margin-top: 0.65rem;
+  margin-bottom: 0;
+}
+
 .vs-field label {
   display: block;
   font-weight: 600;

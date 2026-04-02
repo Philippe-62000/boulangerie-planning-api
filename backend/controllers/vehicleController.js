@@ -157,6 +157,7 @@ exports.listTrips = async (req, res) => {
       kmGapWarn: !!warnById[String(t._id)]
     }));
 
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
     res.json({ success: true, data });
   } catch (e) {
     console.error('vehicle listTrips', e);
@@ -432,6 +433,7 @@ exports.getStats = async (req, res) => {
       }
     }
 
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
     res.json({
       success: true,
       data: {
@@ -446,6 +448,62 @@ exports.getStats = async (req, res) => {
     });
   } catch (e) {
     console.error('vehicle getStats', e);
+    res.status(500).json({ success: false, error: e.message });
+  }
+};
+
+/** Km par mois pour une année (trajets terminés, distance = km retour − km départ, date = dateDepart) */
+exports.getMonthlyKm = async (req, res) => {
+  try {
+    const site = getSite(req);
+    const y = parseInt(req.query.year, 10);
+    const year = !Number.isNaN(y) && y >= 2000 && y <= 2100 ? y : new Date().getFullYear();
+    const start = new Date(year, 0, 1, 0, 0, 0, 0);
+    const end = new Date(year, 11, 31, 23, 59, 59, 999);
+
+    const trips = await VehicleTrip.find({
+      site,
+      status: 'termine',
+      kmRetour: { $ne: null },
+      dateDepart: { $gte: start, $lte: end }
+    })
+      .select('kmDepart kmRetour dateDepart')
+      .lean();
+
+    const months = Array.from({ length: 12 }, (_, i) => ({
+      month: i + 1,
+      km: 0,
+      tripCount: 0
+    }));
+
+    trips.forEach((t) => {
+      const d = new Date(t.dateDepart);
+      const m = d.getMonth();
+      if (d.getFullYear() !== year) return;
+      const kd = t.kmDepart != null ? Number(t.kmDepart) : 0;
+      const kr = t.kmRetour != null ? Number(t.kmRetour) : 0;
+      const dist = kr - kd;
+      if (dist >= 0 && m >= 0 && m < 12) {
+        months[m].km += dist;
+        months[m].tripCount += 1;
+      }
+    });
+
+    const yearTotalKm = months.reduce((a, x) => a + x.km, 0);
+    const yearTripCount = months.reduce((a, x) => a + x.tripCount, 0);
+
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+    res.json({
+      success: true,
+      data: {
+        year,
+        months,
+        yearTotalKm: Math.round(yearTotalKm),
+        yearTripCount
+      }
+    });
+  } catch (e) {
+    console.error('vehicle getMonthlyKm', e);
     res.status(500).json({ success: false, error: e.message });
   }
 };

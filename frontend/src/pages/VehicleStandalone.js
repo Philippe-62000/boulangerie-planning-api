@@ -24,6 +24,8 @@ const VehicleStandalone = () => {
   const [destinationLabels, setDestinationLabels] = useState([]);
   const [destModalOpen, setDestModalOpen] = useState(false);
   const [selectedDestinations, setSelectedDestinations] = useState([]);
+  /** Lieu absent de la liste paramétrée (complément aux cases cochées) */
+  const [nouvelleDestination, setNouvelleDestination] = useState('');
   const [destination, setDestination] = useState('');
   const [kmRetour, setKmRetour] = useState('');
   const [pv, setPv] = useState(false);
@@ -83,6 +85,7 @@ const VehicleStandalone = () => {
       setActiveTrip(trip);
       setKmRetour('');
       setDestination('');
+      setNouvelleDestination('');
       setSelectedDestinations([]);
       setPv(false);
       setPa(false);
@@ -108,8 +111,9 @@ const VehicleStandalone = () => {
     e.preventDefault();
     if (!activeTrip?._id) return;
     const hasList = destinationLabels.length > 0;
-    if (hasList && selectedDestinations.length === 0) {
-      setMsg('Sélectionnez au moins une destination');
+    const extraDest = nouvelleDestination.trim();
+    if (hasList && selectedDestinations.length === 0 && !extraDest) {
+      setMsg('Choisissez au moins une destination dans la liste ou saisissez une nouvelle destination');
       setMsgOk(false);
       return;
     }
@@ -141,7 +145,12 @@ const VehicleStandalone = () => {
         pleinParEmployeeId: pleinEffectue ? (pleinParId || driverId) : undefined
       };
       if (destinationLabels.length > 0) {
-        body.destinations = selectedDestinations;
+        const parts = [...selectedDestinations];
+        if (extraDest) {
+          const seen = new Set(parts.map((p) => p.toLowerCase()));
+          if (!seen.has(extraDest.toLowerCase())) parts.push(extraDest);
+        }
+        body.destinations = parts;
       } else {
         body.destination = destination.trim();
       }
@@ -164,6 +173,8 @@ const VehicleStandalone = () => {
           setActiveTrip(null);
           setKmDepart('');
           setRemDep('');
+          setNouvelleDestination('');
+          setSelectedDestinations([]);
           setPhotoRetourFile(null);
           setLoading(false);
           return;
@@ -175,6 +186,8 @@ const VehicleStandalone = () => {
       setActiveTrip(null);
       setKmDepart('');
       setRemDep('');
+      setNouvelleDestination('');
+      setSelectedDestinations([]);
       setPhotoRetourFile(null);
     } catch (err) {
       setMsg(err.response?.data?.error || 'Erreur');
@@ -290,6 +303,17 @@ const VehicleStandalone = () => {
                           ? `${selectedDestinations.length} lieu(x) — ordre = ordre de sélection`
                           : 'Plusieurs choix possibles pour une tournée'}
                       </p>
+                      <div className="vs-field vs-field-nested">
+                        <label htmlFor="vs-nouvelle-dest">Nouvelle destination (si absente de la liste)</label>
+                        <input
+                          id="vs-nouvelle-dest"
+                          type="text"
+                          autoComplete="off"
+                          value={nouvelleDestination}
+                          onChange={(e) => setNouvelleDestination(e.target.value)}
+                          placeholder="Ex. client ponctuel, adresse…"
+                        />
+                      </div>
                     </>
                   ) : (
                     <input
