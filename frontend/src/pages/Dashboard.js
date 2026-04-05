@@ -13,8 +13,9 @@ const Dashboard = () => {
   
   // Détecter si on est sur Longuenesse ou Arras
   const isLonguenesse = window.location.pathname.startsWith('/lon');
-  const isArras = window.location.pathname.includes('/plan/');
+  const isArras = window.location.pathname.startsWith('/plan');
   const shouldShowLosses = isLonguenesse || isArras;
+  const shouldShowVehicleRecap = shouldShowLosses;
 
   useEffect(() => {
     fetchDashboardData();
@@ -23,10 +24,10 @@ const Dashboard = () => {
     if (shouldShowLosses) {
       fetchLossesStats();
     }
-    if (isLonguenesse) {
+    if (shouldShowVehicleRecap) {
       fetchVehicleSummary();
     }
-  }, [shouldShowLosses, isLonguenesse]);
+  }, [shouldShowLosses, shouldShowVehicleRecap]);
 
   const fetchDashboardData = async () => {
     try {
@@ -104,8 +105,9 @@ const Dashboard = () => {
   const fetchVehicleSummary = async () => {
     try {
       setVehicleSummaryLoading(true);
+      const site = window.location.pathname.startsWith('/lon') ? 'longuenesse' : 'arras';
       const response = await api.get('/vehicle/dashboard-summary', {
-        params: { site: 'longuenesse' }
+        params: { site }
       });
       if (response.data.success && response.data.data) {
         setVehicleSummary(response.data.data);
@@ -506,8 +508,8 @@ const Dashboard = () => {
         </div>
       )}
 
-      {/* Récapitulatif véhicule — Longuenesse uniquement */}
-      {isLonguenesse && (
+      {/* Récapitulatif véhicule — Longuenesse et Arras */}
+      {shouldShowVehicleRecap && (
         <div className="card" style={{ marginBottom: '2rem' }}>
           <h3>🚗 Récapitulatif véhicule</h3>
           {vehicleSummaryLoading ? (
@@ -593,7 +595,7 @@ const Dashboard = () => {
               </div>
 
               <a
-                href="/lon/vehicle"
+                href={isLonguenesse ? '/lon/vehicle' : '/plan/vehicle'}
                 style={{
                   display: 'inline-block',
                   padding: '8px 16px',
