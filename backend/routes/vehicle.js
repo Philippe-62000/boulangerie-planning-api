@@ -33,6 +33,7 @@ router.get('/config', vehicleController.getConfig);
 router.put('/config', vehicleController.putConfig);
 router.get('/trips', vehicleController.listTrips);
 router.get('/stats/monthly', vehicleController.getMonthlyKm);
+router.get('/dashboard-summary', vehicleController.getDashboardSummary);
 router.get('/stats', vehicleController.getStats);
 router.post('/trips', vehicleController.startTrip);
 router.put('/trips/:id/return', vehicleController.completeReturn);

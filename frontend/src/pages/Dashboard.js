@@ -8,6 +8,8 @@ const Dashboard = () => {
   const [pendingObligations, setPendingObligations] = useState([]);
   const [lossesStats, setLossesStats] = useState(null);
   const [printingRecup, setPrintingRecup] = useState(false);
+  const [vehicleSummary, setVehicleSummary] = useState(null);
+  const [vehicleSummaryLoading, setVehicleSummaryLoading] = useState(false);
   
   // Détecter si on est sur Longuenesse ou Arras
   const isLonguenesse = window.location.pathname.startsWith('/lon');
@@ -21,7 +23,10 @@ const Dashboard = () => {
     if (shouldShowLosses) {
       fetchLossesStats();
     }
-  }, [shouldShowLosses]);
+    if (isLonguenesse) {
+      fetchVehicleSummary();
+    }
+  }, [shouldShowLosses, isLonguenesse]);
 
   const fetchDashboardData = async () => {
     try {
@@ -93,6 +98,25 @@ const Dashboard = () => {
     } catch (error) {
       console.error('Erreur lors du chargement des stats pertes:', error);
       setLossesStats(null);
+    }
+  };
+
+  const fetchVehicleSummary = async () => {
+    try {
+      setVehicleSummaryLoading(true);
+      const response = await api.get('/vehicle/dashboard-summary', {
+        params: { site: 'longuenesse' }
+      });
+      if (response.data.success && response.data.data) {
+        setVehicleSummary(response.data.data);
+      } else {
+        setVehicleSummary(null);
+      }
+    } catch (error) {
+      console.error('Erreur récap véhicule:', error);
+      setVehicleSummary(null);
+    } finally {
+      setVehicleSummaryLoading(false);
     }
   };
 
@@ -479,6 +503,112 @@ const Dashboard = () => {
               📊 Ouvrir la page de saisie
             </a>
           </div>
+        </div>
+      )}
+
+      {/* Récapitulatif véhicule — Longuenesse uniquement */}
+      {isLonguenesse && (
+        <div className="card" style={{ marginBottom: '2rem' }}>
+          <h3>🚗 Récapitulatif véhicule</h3>
+          {vehicleSummaryLoading ? (
+            <p style={{ color: '#666' }}>Chargement…</p>
+          ) : !vehicleSummary ? (
+            <p style={{ color: '#856404' }}>Impossible de charger les données véhicule.</p>
+          ) : (
+            <>
+              <div style={{ marginBottom: '1.25rem' }}>
+                <h4 style={{ fontSize: '1rem', marginBottom: '0.5rem', color: '#444' }}>
+                  Échéances (fenêtre de rappel)
+                </h4>
+                {vehicleSummary.rappels && vehicleSummary.rappels.length > 0 ? (
+                  <ul style={{ margin: 0, paddingLeft: '1.25rem' }}>
+                    {vehicleSummary.rappels.map((r) => (
+                      <li key={r.id} style={{ marginBottom: '0.35rem' }}>
+                        <strong>{r.label}</strong> — {r.detail}
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p style={{ margin: 0, color: '#6c757d' }}>
+                    Aucun rappel actif : vous n’êtes pas dans la fenêtre définie (km avant révision, jours avant
+                    révision / CT / renouvellement).
+                  </p>
+                )}
+              </div>
+
+              {vehicleSummary.kmIncoherenceDernierTrajet && (
+                <div
+                  style={{
+                    marginBottom: '1rem',
+                    padding: '0.65rem 0.85rem',
+                    backgroundColor: '#f8d7da',
+                    color: '#721c24',
+                    borderRadius: '8px',
+                    border: '1px solid #f5c6cb',
+                    fontWeight: 600
+                  }}
+                >
+                  Incohérence km : le dernier trajet enregistré présente un écart (≥ 2 km) entre le km retour du
+                  trajet précédent et le km départ du suivant, comme sur la page véhicule.
+                </div>
+              )}
+
+              <div style={{ marginBottom: '1rem' }}>
+                <h4 style={{ fontSize: '1rem', marginBottom: '0.5rem', color: '#444' }}>
+                  Dernier trajet terminé
+                </h4>
+                {!vehicleSummary.dernierTrajet ? (
+                  <p style={{ margin: 0, color: '#6c757d' }}>Aucun trajet terminé enregistré.</p>
+                ) : (
+                  <ul style={{ margin: 0, paddingLeft: '1.25rem' }}>
+                    <li>
+                      {vehicleSummary.dernierTrajet.dateRetour
+                        ? `Retour le ${formatDate(vehicleSummary.dernierTrajet.dateRetour)}`
+                        : `Départ le ${formatDate(vehicleSummary.dernierTrajet.dateDepart)}`}
+                      {vehicleSummary.dernierTrajet.conducteur
+                        ? ` — ${vehicleSummary.dernierTrajet.conducteur}`
+                        : ''}
+                    </li>
+                    {vehicleSummary.dernierTrajet.etatsEnDessousDe5 && (
+                      <li style={{ color: '#856404', fontWeight: 600 }}>
+                        États &lt; 5 : intérieur {vehicleSummary.dernierTrajet.etatInterieur}/5, extérieur{' '}
+                        {vehicleSummary.dernierTrajet.etatExterieur}/5 (action à prévoir)
+                      </li>
+                    )}
+                    {vehicleSummary.dernierTrajet.pleinAFaire && (
+                      <li style={{ color: '#0d6efd', fontWeight: 600 }}>Plein à faire</li>
+                    )}
+                    {vehicleSummary.dernierTrajet.autresChosesAFaire &&
+                      vehicleSummary.dernierTrajet.autresChosesAFaire.length > 0 && (
+                        <li style={{ color: '#0d6efd', fontWeight: 600 }}>
+                          Chose(s) à faire : {vehicleSummary.dernierTrajet.autresChosesAFaire.join(', ')}
+                        </li>
+                      )}
+                    <li>
+                      Photo retour :{' '}
+                      <strong>{vehicleSummary.dernierTrajet.photoUploadee ? 'Oui (uploadée)' : 'Non'}</strong>
+                    </li>
+                  </ul>
+                )}
+              </div>
+
+              <a
+                href="/lon/vehicle"
+                style={{
+                  display: 'inline-block',
+                  padding: '8px 16px',
+                  backgroundColor: '#667eea',
+                  color: 'white',
+                  textDecoration: 'none',
+                  borderRadius: '8px',
+                  fontWeight: 600,
+                  fontSize: '0.9rem'
+                }}
+              >
+                Ouvrir la page véhicule
+              </a>
+            </>
+          )}
         </div>
       )}
 

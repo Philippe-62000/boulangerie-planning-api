@@ -452,6 +452,171 @@ exports.getStats = async (req, res) => {
   }
 };
 
+/**
+ * Résumé véhicule pour le tableau de bord (rappels dans fenêtre paramétrée, dernier trajet, incohérence km).
+ */
+exports.getDashboardSummary = async (req, res) => {
+  try {
+    const site = getSite(req);
+    const cfg = await VehicleConfig.findOne({ site });
+    const termine = await VehicleTrip.find({ site, status: 'termine' }).lean();
+
+    let lastOdometer = null;
+    termine.forEach((t) => {
+      if (t.kmRetour != null) {
+        if (lastOdometer === null || t.kmRetour > lastOdometer) lastOdometer = t.kmRetour;
+      }
+    });
+
+    const rappels = [];
+    const now = new Date();
+    if (cfg) {
+      if (cfg.controleTechniqueDate) {
+        const d = new Date(cfg.controleTechniqueDate);
+        const days = daysBetween(now, d);
+        const seuil = cfg.rappelJoursAvantCT || 30;
+        if (days < 0) {
+          rappels.push({
+            id: 'ct',
+            label: 'Contrôle technique',
+            detail: `Échéance dépassée depuis ${-days} jour(s) — ${d.toLocaleDateString('fr-FR')}.`
+          });
+        } else if (days <= seuil) {
+          rappels.push({
+            id: 'ct',
+            label: 'Contrôle technique',
+            detail: `Dans ${days} jour(s) (${d.toLocaleDateString('fr-FR')}).`
+          });
+        }
+      }
+      if (cfg.dateRenouvellement) {
+        const d = new Date(cfg.dateRenouvellement);
+        const days = daysBetween(now, d);
+        const seuil = cfg.rappelJoursAvantRenouvellement || 30;
+        if (days < 0) {
+          rappels.push({
+            id: 'renouvellement',
+            label: 'Renouvellement',
+            detail: `Échéance dépassée depuis ${-days} jour(s) — ${d.toLocaleDateString('fr-FR')}.`
+          });
+        } else if (days <= seuil) {
+          rappels.push({
+            id: 'renouvellement',
+            label: 'Renouvellement',
+            detail: `Dans ${days} jour(s) (${d.toLocaleDateString('fr-FR')}).`
+          });
+        }
+      }
+      if (cfg.prochaineRevisionDate) {
+        const d = new Date(cfg.prochaineRevisionDate);
+        const days = daysBetween(now, d);
+        const seuil = cfg.rappelJoursAvantRevision || 30;
+        if (days < 0) {
+          rappels.push({
+            id: 'revision_date',
+            label: 'Révision (date)',
+            detail: `Échéance dépassée depuis ${-days} jour(s) — ${d.toLocaleDateString('fr-FR')}.`
+          });
+        } else if (days <= seuil) {
+          rappels.push({
+            id: 'revision_date',
+            label: 'Révision (date)',
+            detail: `Dans ${days} jour(s) (${d.toLocaleDateString('fr-FR')}).`
+          });
+        }
+      }
+      if (cfg.prochaineRevisionKm != null && lastOdometer != null) {
+        const rest = cfg.prochaineRevisionKm - lastOdometer;
+        const seuil = cfg.rappelKmAvantRevision || 500;
+        if (rest < 0) {
+          rappels.push({
+            id: 'revision_km',
+            label: 'Révision (km)',
+            detail: `Objectif km dépassé de ${-rest} km (odomètre ${lastOdometer}, cible ${cfg.prochaineRevisionKm}).`
+          });
+        } else if (rest <= seuil) {
+          rappels.push({
+            id: 'revision_km',
+            label: 'Révision (km)',
+            detail: `Il reste environ ${rest} km (odomètre ${lastOdometer}, cible ${cfg.prochaineRevisionKm}).`
+          });
+        }
+      }
+    }
+
+    const allDone = await VehicleTrip.find({
+      site,
+      status: 'termine',
+      kmRetour: { $ne: null }
+    })
+      .select('dateDepart kmDepart kmRetour')
+      .sort({ dateDepart: 1 })
+      .lean();
+
+    const warnById = {};
+    for (let i = 1; i < allDone.length; i++) {
+      const prev = allDone[i - 1];
+      const cur = allDone[i];
+      const d = Math.abs((cur.kmDepart || 0) - (prev.kmRetour || 0));
+      if (d >= 2) warnById[String(cur._id)] = true;
+    }
+
+    const dernierTrajet = await VehicleTrip.findOne({ site, status: 'termine' })
+      .sort({ dateRetour: -1, dateDepart: -1 })
+      .populate('driverId', 'name')
+      .lean();
+
+    let kmIncoherenceDernierTrajet = false;
+    if (dernierTrajet && dernierTrajet.kmRetour != null) {
+      kmIncoherenceDernierTrajet = !!warnById[String(dernierTrajet._id)];
+    }
+
+    const autresChosesAFaire = [];
+    if (dernierTrajet) {
+      if (dernierTrajet.todoLaveGlace && !dernierTrajet.todoLaveGlaceFait) autresChosesAFaire.push('Lave-glace');
+      if (dernierTrajet.todoPneu && !dernierTrajet.todoPneuFait) autresChosesAFaire.push('Pneu');
+      if (dernierTrajet.todoRevision && !dernierTrajet.todoRevisionFait) autresChosesAFaire.push('Révision');
+    }
+
+    const etatInterieur = dernierTrajet?.etatInterieur;
+    const etatExterieur = dernierTrajet?.etatExterieur;
+    const etatsEnDessousDe5 =
+      dernierTrajet != null &&
+      ((etatInterieur != null && etatInterieur < 5) || (etatExterieur != null && etatExterieur < 5));
+
+    const pleinAFaire =
+      !!dernierTrajet && !!dernierTrajet.todoPlein && !dernierTrajet.todoPleinFait;
+
+    const photoUploadee = !!(dernierTrajet && dernierTrajet.photoRetourPath);
+
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+    res.json({
+      success: true,
+      data: {
+        rappels,
+        kmIncoherenceDernierTrajet,
+        dernierTrajet: dernierTrajet
+          ? {
+              id: dernierTrajet._id,
+              dateRetour: dernierTrajet.dateRetour,
+              dateDepart: dernierTrajet.dateDepart,
+              conducteur: dernierTrajet.driverId?.name || null,
+              etatInterieur,
+              etatExterieur,
+              etatsEnDessousDe5,
+              pleinAFaire,
+              autresChosesAFaire,
+              photoUploadee
+            }
+          : null
+      }
+    });
+  } catch (e) {
+    console.error('vehicle getDashboardSummary', e);
+    res.status(500).json({ success: false, error: e.message });
+  }
+};
+
 /** Km par mois pour une année (trajets terminés, distance = km retour − km départ, date = dateDepart) */
 exports.getMonthlyKm = async (req, res) => {
   try {
