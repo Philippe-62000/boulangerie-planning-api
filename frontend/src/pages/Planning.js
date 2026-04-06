@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import api from '../services/api';
 import { toast } from 'react-toastify';
+import './Planning.css';
 
 const Planning = () => {
   const [weekNumber, setWeekNumber] = useState('');
@@ -142,6 +143,10 @@ const Planning = () => {
     return time.substring(0, 5); // Retirer les secondes si présentes
   };
 
+  const handlePrintPlanning = () => {
+    window.print();
+  };
+
   const getStaffCountByDay = (planning, day) => {
     return planning.filter(emp => {
       const daySchedule = emp.schedule.find(s => s.day === day);
@@ -276,6 +281,27 @@ const Planning = () => {
 
       {planning && !loading && (
         <div>
+          <div className="planning-print-header">
+            <h1>Planning — Semaine {weekNumber} — {year}</h1>
+            <p className="sub">
+              Généré le {new Date().toLocaleDateString('fr-FR', { dateStyle: 'long' })}
+            </p>
+          </div>
+
+          <div className="planning-print-toolbar no-print">
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={handlePrintPlanning}
+              title="Imprimer ou enregistrer en PDF (Ctrl+P, destination PDF)"
+            >
+              Imprimer / PDF
+            </button>
+            <span style={{ fontSize: '0.85rem', color: '#555' }}>
+              Utilisez « Enregistrer au format PDF » dans la boîte d&apos;impression du navigateur.
+            </span>
+          </div>
+
           {/* Résumé des totaux par jour */}
           <div className="card">
             <h3>📊 Résumé par jour</h3>

@@ -1,10 +1,29 @@
 const mongoose = require('mongoose');
 
+/** Catégorie planning : vente / préparation / boulanger (3 pôles magasin) */
+const EMPLOYEE_CATEGORIES = ['vente', 'preparation', 'boulanger'];
+
+function inferEmployeeCategory(role) {
+  if (!role || typeof role !== 'string') return 'vente';
+  const r = role.toLowerCase();
+  if (r === 'boulanger' || r === 'apprenti boulanger') return 'boulanger';
+  if (r === 'préparateur' || r === 'apprenti préparateur' || r === 'chef prod') return 'preparation';
+  return 'vente';
+}
+
 const employeeSchema = new mongoose.Schema({
   name: {
     type: String,
     required: true,
     trim: true
+  },
+  /** Pôle principal (utilisé par le moteur de planning) */
+  employeeCategory: {
+    type: String,
+    enum: EMPLOYEE_CATEGORIES,
+    default: function () {
+      return inferEmployeeCategory(this.role);
+    }
   },
   contractType: {
     type: String,
@@ -49,6 +68,42 @@ const employeeSchema = new mongoose.Schema({
     required: true,
     min: 20,
     max: 39
+  },
+  /**
+   * Pause repas par jour travaillé (minutes), non comptée dans le volume horaire contractuel.
+   * Valeur métier par défaut : 30 min.
+   */
+  dailyBreakMinutes: {
+    type: Number,
+    default: 30,
+    min: 0,
+    max: 120
+  },
+  /**
+   * Préférences de planning pour les postes vente (vendeuses).
+   * Utilisées comme contraintes souples par le générateur.
+   */
+  vendeusePlanningPreferences: {
+    preferredRestDay: {
+      type: String,
+      enum: ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'],
+      default: undefined
+    },
+    shiftPreference: {
+      type: String,
+      enum: ['matin', 'soir', 'aucune'],
+      default: 'aucune'
+    }
+  },
+  /**
+   * Apprentissage : les jours de formation sont décomptés du contrat mais l'apprenti n'est pas en magasin.
+   * Si true (défaut), le générateur n'affecte pas de créneaux magasin ces jours-là.
+   */
+  trainingDaysOutsideShop: {
+    type: Boolean,
+    default: function () {
+      return this.contractType === 'Apprentissage';
+    }
   },
   trainingDays: [{
     type: String,
@@ -235,6 +290,18 @@ const employeeSchema = new mongoose.Schema({
 // ⚠️ IMPORTANT: Le code n'est généré QUE lors de la création (isNew), pas lors des modifications
 employeeSchema.pre('save', async function(next) {
   this.updatedAt = Date.now();
+
+  if (!this.employeeCategory) {
+    this.employeeCategory = inferEmployeeCategory(this.role);
+  }
+
+  if (this.contractType === 'Apprentissage' && this.trainingDaysOutsideShop === undefined) {
+    this.trainingDaysOutsideShop = true;
+  }
+
+  if (this.vendeusePlanningPreferences && this.vendeusePlanningPreferences.preferredRestDay === '') {
+    this.vendeusePlanningPreferences.preferredRestDay = undefined;
+  }
   
   // Convertir les chaînes vides en null pour saleCode (nécessaire pour l'index sparse unique)
   // MongoDB considère les chaînes vides comme des valeurs réelles, ce qui viole l'index unique
@@ -314,6 +381,8 @@ employeeSchema.pre('save', async function(next) {
   
   next();
 });
+
+employeeSchema.statics.inferEmployeeCategory = inferEmployeeCategory;
 
 module.exports = mongoose.model('Employee', employeeSchema);
 

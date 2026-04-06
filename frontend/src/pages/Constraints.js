@@ -199,7 +199,7 @@ const Constraints = () => {
       const nextValue = !isCurrentlySixDays;
 
       if (nextValue) {
-        toast.success('Mode 6j/7 activé : OR-Tools choisira le jour de repos en fonction des contraintes');
+        toast.success('Mode 6j/7 activé : le solveur intégrera ce réglage avec les autres contraintes');
       } else {
         toast.success('Mode 6j/7 désactivé pour ce salarié');
       }

@@ -3,385 +3,13 @@ const Employee = require('../models/Employee');
 const WeeklyConstraints = require('../models/WeeklyConstraints');
 const EquityStats = require('../models/EquityStats');
 const axios = require('axios');
+const planningBusinessRules = require('../constants/planningBusinessRules');
 
-// Solveur de planning optimisé en JavaScript pur (inspiré du code Python OR-Tools)
-class PlanningBoulangerieSolver {
-  constructor() {
-    this.maxIterations = 1000;
-    this.timeoutMs = 30000; // 30 secondes max
-  }
-
-  // Créneaux simplifiés mais complets (inspirés du code Python)
-  getTimeSlotsForDay(dayIndex, affluenceLevel) {
-    if (dayIndex === 6) { // DIMANCHE
-      return [
-        'Repos',
-        '06h00-13h00',    // Ouverture matin
-        '07h30-13h00',    // Support matin  
-        '09h30-13h00',    // Renfort matin
-        '13h00-20h30',    // Fermeture après-midi
-        '14h00-20h30',    // Support fermeture
-      ];
-    } else if (dayIndex === 5) { // SAMEDI
-      return [
-        'Repos',
-        '06h00-16h30',    // Ouverture longue
-        '07h30-16h30',    // Support matin
-        '10h30-16h30',    // Renfort midi
-        '16h30-20h30',    // Fermeture
-        '17h00-20h30',    // Support fermeture
-      ];
-    } else { // LUNDI À VENDREDI
-      let baseSlots = [
-        'Repos',
-        '06h00-14h00',    // Ouverture standard
-        '07h30-15h30',    // Support matin
-        '13h00-20h30',    // Fermeture
-      ];
-      
-      // Ajouter selon affluence
-      if (affluenceLevel >= 2) {
-        baseSlots.push(
-          '10h00-18h00',    // Renfort midi
-          '14h00-20h30'     // Renfort fermeture
-        );
-      }
-      
-      if (affluenceLevel >= 3) {
-        baseSlots.push(
-          '09h00-17h00',    // Renfort matinée
-          '16h00-20h30'     // Support fermeture courte
-        );
-      }
-      
-      return baseSlots;
-    }
-  }
-
-  // Heures par créneau (inspirées du code Python)
-  getSlotHours() {
-    return {
-      // Créneaux semaine
-      '06h00-14h00': 8.0,
-      '07h30-15h30': 8.0,
-      '09h00-17h00': 8.0,
-      '10h00-18h00': 8.0,
-      '13h00-20h30': 7.5,
-      '14h00-20h30': 6.5,
-      '16h00-20h30': 4.5,
-      
-      // Créneaux samedi
-      '06h00-16h30': 10.5,
-      '07h30-16h30': 9.0,
-      '10h30-16h30': 6.0,
-      '16h30-20h30': 4.0,
-      '17h00-20h30': 3.5,
-      
-      // Créneaux dimanche
-      '06h00-13h00': 7.0,
-      '07h30-13h00': 5.5,
-      '09h30-13h00': 3.5,
-      '13h00-20h30': 7.5,
-      '14h00-20h30': 6.5,
-      
-      // Spéciaux
-      'Formation': 8.0,
-      'CP': 5.5,
-      'MAL': 0,
-      'Indisponible': 0,
-      'Repos': 0
-    };
-  }
-
-  // Algorithme de résolution optimisé (inspiré du code Python)
-  solvePlanning(employees, constraints, affluences, weekNumber) {
-    console.log(`🚀 Début résolution planning semaine ${weekNumber}`);
-    console.log(`👥 Employés: ${employees.length}, Contraintes: ${Object.keys(constraints).length}`);
-    
-    const startTime = Date.now();
-    const slotHours = this.getSlotHours();
-    const days = 7;
-    
-    // Validation des données d'entrée
-    if (employees.length < 1) {
-      return {
-        success: false,
-        error: 'Au moins 1 employé est nécessaire',
-        diagnostic: ['Aucun employé fourni'],
-        suggestions: ['Ajoutez au moins un employé']
-      };
-    }
-    
-    let diagnostic = [];
-    let suggestions = [];
-    
-    if (employees.length === 1) {
-      diagnostic.push('Un seul employé (planification limitée)');
-      suggestions.push('Ajoutez plus d\'employés pour un planning optimal');
-    }
-    
-    // Vérifier les compétences
-    const openingStaff = employees.filter(emp => emp.skills && emp.skills.includes('Ouverture')).length;
-    const closingStaff = employees.filter(emp => emp.skills && emp.skills.includes('Fermeture')).length;
-    
-    if (openingStaff === 0) {
-      diagnostic.push('Aucun employé avec compétence Ouverture');
-      suggestions.push('Ajoutez la compétence Ouverture à au moins un employé');
-    }
-    
-    if (closingStaff === 0) {
-      diagnostic.push('Aucun employé avec compétence Fermeture');
-      suggestions.push('Ajoutez la compétence Fermeture à au moins un employé');
-    }
-    
-    // Initialiser la solution
-    let solution = {};
-    let bestSolution = null;
-    let bestScore = Infinity;
-    
-    // Algorithme de recherche avec backtracking optimisé
-    for (let iteration = 0; iteration < this.maxIterations; iteration++) {
-      if (Date.now() - startTime > this.timeoutMs) {
-        console.log('⏰ Timeout atteint, utilisation de la meilleure solution trouvée');
-        break;
-      }
-      
-      // Générer une solution candidate
-      const candidateSolution = this.generateCandidateSolution(employees, constraints, affluences, slotHours);
-      
-      if (candidateSolution) {
-        // Évaluer la solution
-        const score = this.evaluateSolution(candidateSolution, employees, slotHours);
-        
-        if (score < bestScore) {
-          bestScore = score;
-          bestSolution = JSON.parse(JSON.stringify(candidateSolution));
-          console.log(`✅ Nouvelle meilleure solution trouvée (score: ${score})`);
-        }
-        
-        // Si la solution est parfaite, on peut s'arrêter
-        if (score === 0) {
-          console.log('🎯 Solution parfaite trouvée !');
-          break;
-        }
-      }
-    }
-    
-    if (bestSolution) {
-      // Construire la solution finale
-      const finalSolution = this.buildFinalSolution(bestSolution, employees, slotHours);
-      const validation = this.validateSolution(finalSolution, employees, slotHours);
-      
-      console.log(`✅ Solution trouvée en ${Date.now() - startTime}ms`);
-      
-      return {
-        success: true,
-        planning: finalSolution,
-        validation: validation,
-        diagnostic: diagnostic,
-        suggestions: suggestions,
-        solverInfo: {
-          status: 'FEASIBLE',
-          solveTime: Date.now() - startTime,
-          objective: bestScore,
-          iterations: Math.min(this.maxIterations, this.maxIterations)
-        }
-      };
-    } else {
-      return {
-        success: false,
-        error: 'Aucune solution possible avec les contraintes actuelles',
-        diagnostic: diagnostic,
-        suggestions: suggestions
-      };
-    }
-  }
-
-  // Générer une solution candidate
-  generateCandidateSolution(employees, constraints, affluences, slotHours) {
-    const solution = {};
-    const days = 7;
-    
-    for (const emp of employees) {
-      const empId = emp._id.toString();
-      solution[empId] = {};
-      
-      for (let day = 0; day < days; day++) {
-        const availableSlots = this.getTimeSlotsForDay(day, affluences[day]);
-        
-        // Appliquer contraintes spécifiques
-        if (constraints[empId] && constraints[empId][day] !== undefined) {
-          const constraintValue = constraints[empId][day];
-          if (['CP', 'MAL', 'Formation', 'Indisponible', 'Repos'].includes(constraintValue)) {
-            solution[empId][day] = constraintValue;
-            continue;
-          }
-        }
-        
-        // Contraintes apprentis : jours de formation
-        if (emp.contract === 'Apprentissage' && emp.trainingDays) {
-          if (emp.trainingDays.includes(day + 1)) {
-            solution[empId][day] = 'Formation';
-            continue;
-          }
-        }
-        
-        // Sélectionner un créneau aléatoire
-        const randomSlot = availableSlots[Math.floor(Math.random() * availableSlots.length)];
-        solution[empId][day] = randomSlot;
-      }
-    }
-    
-    return solution;
-  }
-
-  // Évaluer une solution
-  evaluateSolution(solution, employees, slotHours) {
-    let score = 0;
-    
-    // Pénaliser les écarts de volume horaire
-    for (const emp of employees) {
-      const empId = emp._id.toString();
-      let totalHours = 0;
-      
-      for (let day = 0; day < 7; day++) {
-        const slot = solution[empId][day];
-        totalHours += slotHours[slot] || 0;
-      }
-      
-      const targetHours = emp.weeklyHours;
-      const gap = Math.abs(totalHours - targetHours);
-      score += gap * 10; // Poids élevé pour les écarts de volume
-    }
-    
-    // Pénaliser les déséquilibres de repos
-    for (let day = 0; day < 7; day++) {
-      let restCount = 0;
-      for (const emp of employees) {
-        const empId = emp._id.toString();
-        if (solution[empId][day] === 'Repos') {
-          restCount++;
-        }
-      }
-      
-      // Pénaliser si trop ou pas assez de repos
-      const idealRest = 2;
-      const deviation = Math.abs(restCount - idealRest);
-      score += deviation;
-    }
-    
-    // Pénaliser les violations de contraintes
-    for (const emp of employees) {
-      const empId = emp._id.toString();
-      
-      // Contraintes mineurs
-      if (emp.age < 18) {
-        if (solution[empId][6] !== 'Repos') { // Dimanche
-          score += 100;
-        }
-        
-        // Vérifier repos consécutifs
-        for (let day = 0; day < 6; day++) {
-          if (solution[empId][day] !== 'Repos' && solution[empId][day + 1] !== 'Repos') {
-            score += 50;
-          }
-        }
-      }
-    }
-    
-    return score;
-  }
-
-  // Construire la solution finale
-  buildFinalSolution(solution, employees, slotHours) {
-    const finalSolution = {};
-    
-    for (const emp of employees) {
-      const empId = emp._id.toString();
-      finalSolution[empId] = {};
-      
-      for (let day = 0; day < 7; day++) {
-        const slot = solution[empId][day];
-        finalSolution[empId][day] = {
-          slot: slot,
-          hours: slotHours[slot] || 0,
-          type: this.getSlotType(slot)
-        };
-      }
-    }
-    
-    return finalSolution;
-  }
-
-  // Obtenir le type de créneau
-  getSlotType(slot) {
-    if (slot === 'Repos') return 'Repos';
-    if (slot === 'Formation') return 'Formation';
-    if (slot === 'CP') return 'CP';
-    if (slot === 'MAL') return 'MAL';
-    if (slot.includes('06h00') || slot.includes('07h30')) return 'Ouverture';
-    if (slot.includes('20h30') || slot.includes('16h30')) return 'Fermeture';
-    return 'Standard';
-  }
-
-  // Valider une solution
-  validateSolution(solution, employees, slotHours) {
-    const validation = { errors: [], warnings: [], stats: {} };
-    
-    let totalWeekHours = 0;
-    const restDistribution = [0, 0, 0, 0, 0, 0, 0];
-    
-    for (const emp of employees) {
-      const empId = emp._id.toString();
-      let empTotalHours = 0;
-      let empRestDays = 0;
-      
-      for (let day = 0; day < 7; day++) {
-        const daySchedule = solution[empId][day];
-        if (daySchedule.slot === 'Repos') {
-          empRestDays++;
-          restDistribution[day]++;
-        } else {
-          empTotalHours += daySchedule.hours;
-        }
-      }
-      
-      totalWeekHours += empTotalHours;
-      
-      // Validation volume horaire
-      const volumeDiff = Math.abs(empTotalHours - emp.weeklyHours);
-      if (volumeDiff > 1.0) {
-        validation.warnings.push(
-          `${emp.name}: ${empTotalHours}h au lieu de ${emp.weeklyHours}h (écart ${volumeDiff.toFixed(1)}h)`
-        );
-      }
-      
-      // Validation nombre de repos
-      if (emp.weeklyHours >= 35 && empRestDays < 2) {
-        validation.warnings.push(
-          `${emp.name}: seulement ${empRestDays} jour(s) de repos (minimum 2 recommandés)`
-        );
-      }
-    }
-    
-    // Stats de répartition des repos
-    const dayNames = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
-    const restInfo = {};
-    dayNames.forEach((day, index) => {
-      restInfo[day] = restDistribution[index];
-    });
-    
-    validation.stats = {
-      totalHours: totalWeekHours,
-      restDistribution: restInfo
-    };
-    
-    return validation;
-  }
-}
-
-// Instance globale du solveur
-const planningSolver = new PlanningBoulangerieSolver();
+const {
+  planningSolver,
+  inferEmployeeCategoryForSolver,
+  getContractTypeForSolver
+} = require('../services/planningGeneticSolver');
 
 class PlanningGenerator {
   constructor() {
@@ -676,15 +304,77 @@ class PlanningGenerator {
     return { valid: true };
   }
 
-  // Utiliser Google OR-Tools via API externe
+  /**
+   * Génération principale : solveur JS local (recherche stochastique + scoring multi-critères).
+   * Base pour l’évolution « IA » (algorithme génétique / ajustement des poids) sans dépendre d’OR-Tools.
+   */
   async generateWeeklyPlanning(weekNumber, year, affluenceLevels, employees) {
-    console.log('🚀 GÉNÉRATION PLANNING - OR-TOOLS OBLIGATOIRE');
-    
-    // Forcer l'utilisation d'OR-Tools uniquement (API principale)
-    return this.generatePlanningWithORToolsOnly(weekNumber, year, affluenceLevels, employees);
+    console.log('🚀 GÉNÉRATION PLANNING — solveur JS (scoring, champs salarié, contraintes magasin)');
+    return this.generateWeeklyPlanningWithJSSolver(weekNumber, year, affluenceLevels, employees);
   }
 
-  // Forcer l'utilisation d'OR-Tools uniquement (API principale, sans services distribués intermédiaires)
+  async generateWeeklyPlanningWithJSSolver(weekNumber, year, affluenceLevels, employees) {
+    const wn = parseInt(weekNumber, 10);
+    const yr = parseInt(year, 10);
+
+    const weeklyConstraintsDocs = await WeeklyConstraints.find({
+      weekNumber: wn,
+      year: yr,
+      employeeId: { $in: employees.map((e) => e._id) }
+    });
+
+    const constraintsMap = {};
+    const daysOrder = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
+    const allowedConstraintValues = ['Repos', 'Formation', 'CP', 'MAL', 'Indisponible'];
+
+    weeklyConstraintsDocs.forEach((doc) => {
+      const empId = doc.employeeId.toString();
+      constraintsMap[empId] = constraintsMap[empId] || {};
+      daysOrder.forEach((dayName, index) => {
+        const value = doc.constraints?.[dayName];
+        if (value && allowedConstraintValues.includes(value)) {
+          constraintsMap[empId][index] = value;
+        }
+      });
+    });
+
+    await this.integrateDeclaredSickLeaves(employees, constraintsMap, wn, yr);
+
+    const affluencesArray = [
+      affluenceLevels?.Lundi ?? 2,
+      affluenceLevels?.Mardi ?? 2,
+      affluenceLevels?.Mercredi ?? 2,
+      affluenceLevels?.Jeudi ?? 2,
+      affluenceLevels?.Vendredi ?? 2,
+      affluenceLevels?.Samedi ?? 2,
+      affluenceLevels?.Dimanche ?? 2
+    ];
+
+    const result = planningSolver.solvePlanning(employees, constraintsMap, affluencesArray, wn);
+
+    if (!result.success) {
+      return {
+        success: false,
+        error: result.error || 'Échec du solveur de planning',
+        diagnostic: result.diagnostic,
+        suggestions: result.suggestions
+      };
+    }
+
+    return {
+      success: true,
+      planning: result.planning,
+      method: 'solveur-genetique-js',
+      validation: result.validation,
+      diagnostic: result.diagnostic,
+      suggestions: result.suggestions,
+      solverInfo: result.solverInfo,
+      alternatives: result.alternatives,
+      scoringDetail: result.scoringDetail
+    };
+  }
+
+  /** Ancienne voie HTTP OR-Tools — conservée pour référence ou réactivation ponctuelle (non utilisée par défaut). */
   async generatePlanningWithORToolsOnly(weekNumber, year, affluenceLevels, employees) {
     console.log('🚀 GÉNÉRATION PLANNING - OR-TOOLS (API principale)');
     
@@ -728,8 +418,16 @@ class PlanningGenerator {
           volume: emp.weeklyHours,
           skills: emp.skills || [],
           role: emp.role || '',
-          // Flag 6j/7 défini dans WeeklyConstraints pour cette semaine
-          sixDaysPerWeek: !!sixDaysMap[empId]
+          sixDaysPerWeek: !!sixDaysMap[empId],
+          employeeCategory: emp.employeeCategory || inferEmployeeCategoryForSolver(emp),
+          dailyBreakMinutes:
+            emp.dailyBreakMinutes != null
+              ? emp.dailyBreakMinutes
+              : planningBusinessRules.DEFAULT_DAILY_BREAK_MINUTES,
+          vendeusePlanningPreferences: emp.vendeusePlanningPreferences || null,
+          trainingDaysOutsideShop: emp.trainingDaysOutsideShop,
+          trainingDays: emp.trainingDays || [],
+          contractType: getContractTypeForSolver(emp)
         };
       });
 
@@ -848,10 +546,17 @@ class PlanningGenerator {
           skills: emp.skills || [],
           trainingDays: emp.trainingDays || [],
           sickLeave: emp.sickLeave || { isOnSickLeave: false },
-          // sixDaysPerWeek est défini semaine par semaine à partir de WeeklyConstraints
           sixDaysPerWeek: !!sixDaysMap[emp._id.toString()],
           role: rawRole,
-          is_supervisor: isSupervisor
+          is_supervisor: isSupervisor,
+          employeeCategory: emp.employeeCategory || inferEmployeeCategoryForSolver(emp),
+          dailyBreakMinutes:
+            emp.dailyBreakMinutes != null
+              ? emp.dailyBreakMinutes
+              : planningBusinessRules.DEFAULT_DAILY_BREAK_MINUTES,
+          vendeusePlanningPreferences: emp.vendeusePlanningPreferences || null,
+          trainingDaysOutsideShop: emp.trainingDaysOutsideShop,
+          contractType: getContractTypeForSolver(emp)
         };
       });
       
@@ -1161,21 +866,26 @@ class PlanningGenerator {
     };
     
     const mapping = slotMappings[slot];
+    const breakMin =
+      employee.dailyBreakMinutes != null
+        ? employee.dailyBreakMinutes
+        : planningBusinessRules.DEFAULT_DAILY_BREAK_MINUTES;
+    const slotHoursMap = planningSolver.getSlotHours();
     if (mapping) {
+      const hoursWorked = planningSolver.getEffectiveHoursForSlot(slot, employee, slotHoursMap);
       return {
         startTime: mapping.start,
         endTime: mapping.end,
-        breakMinutes: 30,
-        hoursWorked: mapping.hours,
+        breakMinutes: breakMin,
+        hoursWorked: hoursWorked || mapping.hours,
         role: employee.role || 'vendeuse'
       };
     }
-    
-    // Fallback pour créneaux non reconnus
+
     return {
       startTime: '08:00',
       endTime: '17:00',
-      breakMinutes: 30,
+      breakMinutes: breakMin,
       hoursWorked: 8.0,
       role: employee.role || 'vendeuse'
     };
@@ -1225,6 +935,13 @@ class PlanningGenerator {
               totalHours: 0,
               constraint: 'MAL'
             });
+          } else if (daySchedule.slot === 'Indisponible') {
+            schedule.push({
+              day: dayName,
+              shifts: [],
+              totalHours: 0,
+              constraint: 'Indisponible'
+            });
           } else {
             // Créneau de travail
             const shift = this.generateShiftFromSlot(daySchedule.slot, emp);
@@ -1259,29 +976,33 @@ class PlanningGenerator {
   // Générer un shift à partir d'un créneau
   generateShiftFromSlot(slot, employee) {
     const slotHours = planningSolver.getSlotHours();
-    const hours = slotHours[slot] || 8;
-    
+    const rawHours = slotHours[slot] || 8;
+    const breakMin =
+      employee.dailyBreakMinutes != null
+        ? employee.dailyBreakMinutes
+        : planningBusinessRules.DEFAULT_DAILY_BREAK_MINUTES;
+    const hoursWorked = planningSolver.getEffectiveHoursForSlot(slot, employee, slotHours);
+
     // Extraire les heures du créneau (ex: "06h00-14h00")
     const timeMatch = slot.match(/(\d{1,2})h(\d{2})-(\d{1,2})h(\d{2})/);
     if (timeMatch) {
       const startHour = timeMatch[1] + ':' + timeMatch[2];
       const endHour = timeMatch[3] + ':' + timeMatch[4];
-      
+
       return {
         startTime: startHour,
         endTime: endHour,
-        breakMinutes: 30,
-        hoursWorked: hours,
+        breakMinutes: breakMin,
+        hoursWorked,
         role: employee.role
       };
     }
-    
-    // Fallback
+
     return {
       startTime: '08:00',
       endTime: '17:00',
-      breakMinutes: 30,
-      hoursWorked: hours,
+      breakMinutes: breakMin,
+      hoursWorked: rawHours >= 5.5 ? Math.max(0, rawHours - breakMin / 60) : rawHours,
       role: employee.role
     };
   }
@@ -2240,7 +1961,6 @@ exports.generatePlanning = async (req, res) => {
       console.log(`✅ ${deleteResult.deletedCount} anciens plannings supprimés`);
     }
 
-    // Générer le planning avec OR-Tools (architecture distribuée ou service classique)
     const generationResult = await planningGenerator.generateWeeklyPlanning(
       weekNumber,
       year,
@@ -2249,19 +1969,24 @@ exports.generatePlanning = async (req, res) => {
     );
 
     if (!generationResult || !generationResult.success) {
-      console.error('❌ OR-Tools n\'a pas pu générer de planning:', generationResult);
+      console.error('❌ Génération planning échouée:', generationResult);
       return res.status(500).json({
-        error: generationResult?.error || 'Erreur OR-Tools lors de la génération du planning',
+        error: generationResult?.error || 'Erreur lors de la génération du planning',
         diagnostic: generationResult?.diagnostic,
         suggestions: generationResult?.suggestions
       });
     }
 
-    // Selon la méthode utilisée, construire les documents Planning à sauvegarder
     let planningsToSave = [];
 
-    if (generationResult.method === 'OR-Tools Distribué' || generationResult.method === 'distributed') {
-      // Solution venant de l'architecture distribuée (constraint-calculator + planning-generator)
+    if (generationResult.method === 'solveur-genetique-js') {
+      planningsToSave = planningGenerator.createPlanningsFromSolution(
+        generationResult.planning,
+        weekNumber,
+        year,
+        employees
+      );
+    } else if (generationResult.method === 'OR-Tools Distribué' || generationResult.method === 'distributed') {
       planningsToSave = planningGenerator.createPlanningsFromDistributedSolution(
         generationResult.planning,
         weekNumber,
@@ -2269,7 +1994,6 @@ exports.generatePlanning = async (req, res) => {
         employees
       );
     } else if (generationResult.method === 'OR-Tools Classique') {
-      // Solution venant du service OR-Tools classique
       planningsToSave = planningGenerator.createPlanningsFromORToolsSolution(
         generationResult.planning,
         weekNumber,
@@ -2277,7 +2001,6 @@ exports.generatePlanning = async (req, res) => {
         employees
       );
     } else {
-      // Fallback : si aucune méthode explicite, on tente la création classique
       planningsToSave = planningGenerator.createPlanningsFromORToolsSolution(
         generationResult.planning,
         weekNumber,
@@ -2290,10 +2013,16 @@ exports.generatePlanning = async (req, res) => {
     const savedPlannings = await Planning.insertMany(planningsToSave);
 
     res.json({
-      message: 'Planning généré avec succès (OR-Tools)',
+      message: 'Planning généré avec succès',
       plannings: savedPlannings,
       deletedCount: deleteResult.deletedCount,
-      method: generationResult.method
+      method: generationResult.method,
+      validation: generationResult.validation,
+      solverInfo: generationResult.solverInfo,
+      diagnostic: generationResult.diagnostic,
+      suggestions: generationResult.suggestions,
+      alternatives: generationResult.alternatives,
+      scoringDetail: generationResult.scoringDetail
     });
   } catch (error) {
     console.error('Erreur lors de la génération du planning:', error);
@@ -2402,4 +2131,3 @@ exports.testDistributedArchitecture = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
-
