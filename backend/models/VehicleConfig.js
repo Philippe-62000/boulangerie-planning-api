@@ -18,7 +18,10 @@ const vehicleConfigSchema = new mongoose.Schema({
   rappelJoursAvantRevision: { type: Number, default: 30 },
   rappelJoursAvantCT: { type: Number, default: 30 },
   rappelJoursAvantRenouvellement: { type: Number, default: 30 },
-  /** Noms affichés dans la page salariés (sélection destination / tournée) */
+  /**
+   * Noms affichés dans la page salariés (sélection destination / tournée).
+   * Une ligne = un libellé (max ~80 éléments, tronqués côté controller).
+   */
   destinationLabels: { type: [String], default: [] }
 }, { timestamps: true });
 
