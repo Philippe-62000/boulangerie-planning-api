@@ -220,6 +220,45 @@ exports.startTrip = async (req, res) => {
   }
 };
 
+/**
+ * Reprendre la dernière saisie "départ" incomplète (trajet en_cours) pour un conducteur.
+ * Utilisé par la page standalone (salariés) si l'onglet a été fermé avant de saisir le retour.
+ */
+exports.getLastOpenTripForDriver = async (req, res) => {
+  try {
+    const site = getSite(req);
+    const driverId = req.query.driverId || req.body.driverId;
+    if (!driverId) {
+      return res.status(400).json({ success: false, error: 'driverId requis' });
+    }
+
+    const driver = await Employee.findOne({
+      _id: driverId,
+      isActive: true,
+      autoriseConduiteVehicule: true
+    }).select('_id');
+    if (!driver) {
+      return res.status(400).json({ success: false, error: 'Conducteur non autorisé' });
+    }
+
+    const trip = await VehicleTrip.findOne({
+      site,
+      driverId,
+      status: 'en_cours'
+    })
+      .sort({ dateDepart: -1, createdAt: -1 })
+      .populate('driverId', 'name')
+      .populate('pleinParEmployeeId', 'name')
+      .lean();
+
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+    res.json({ success: true, data: trip || null });
+  } catch (e) {
+    console.error('vehicle getLastOpenTripForDriver', e);
+    res.status(500).json({ success: false, error: e.message });
+  }
+};
+
 exports.completeReturn = async (req, res) => {
   try {
     const site = getSite(req);

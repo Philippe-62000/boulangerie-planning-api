@@ -19,6 +19,7 @@
     "preview": "vite preview",
     "test": "echo \"Error: no test specified\" && exit 1",
     "deploy": "npm run build && echo 'Frontend build completed'",
+    "prebuild:lon": "node ../scripts/clean-deploy-lon-static.js",
     "build:lon": "vite build --base /lon/ --outDir ../deploy-frontend-lon",
     "build:plan": "vite build --base /plan/ --outDir ../deploy-ovh --emptyOutDir"
   },

@@ -107,6 +107,52 @@ const VehicleStandalone = () => {
     }
   };
 
+  const resumeLastTrip = async () => {
+    if (!driverId) {
+      setMsg('Choisissez un conducteur pour reprendre une saisie');
+      setMsgOk(false);
+      return;
+    }
+    if (activeTrip?._id) return;
+    setLoading(true);
+    setMsg('');
+    try {
+      const r = await axios.get(`${apiBase}/vehicle/trips/last-open`, { params: { site, driverId } });
+      const trip = r.data?.data || null;
+      if (!trip?._id) {
+        setMsg('Aucune saisie départ en cours trouvée pour ce conducteur.');
+        setMsgOk(false);
+        return;
+      }
+      setActiveTrip(trip);
+      setKmDepart(trip.kmDepart != null ? String(trip.kmDepart) : '');
+      setEi(trip.etatInterieur != null ? Number(trip.etatInterieur) : 3);
+      setEe(trip.etatExterieur != null ? Number(trip.etatExterieur) : 3);
+      setRemDep(trip.remarquesDepart || '');
+      setKmRetour('');
+      setDestination('');
+      setNouvelleDestination('');
+      setSelectedDestinations([]);
+      setPv(false);
+      setPa(false);
+      setProbRem('');
+      setTdLav(false);
+      setTdPneu(false);
+      setTdRev(false);
+      setTdPl(false);
+      setPleinEffectue(false);
+      setPleinParId(driverId);
+      setPhotoRetourFile(null);
+      setMsg('Dernière saisie reprise — complétez le retour ci-dessous.');
+      setMsgOk(true);
+    } catch (err) {
+      setMsg(err.response?.data?.error || 'Erreur reprise saisie');
+      setMsgOk(false);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const completeReturn = async (e) => {
     e.preventDefault();
     if (!activeTrip?._id) return;
@@ -275,9 +321,20 @@ const VehicleStandalone = () => {
                 <label>Remarques (optionnel)</label>
                 <textarea rows={2} value={remDep} onChange={(e) => setRemDep(e.target.value)} />
               </div>
-              <button type="submit" className="vs-btn vs-btn-primary" disabled={loading || !!activeTrip}>
-                {activeTrip ? 'Départ déjà enregistré' : 'Enregistrer le départ'}
-              </button>
+              <div className="vs-btn-row">
+                <button type="submit" className="vs-btn vs-btn-primary" disabled={loading || !!activeTrip}>
+                  {activeTrip ? 'Départ déjà enregistré' : 'Enregistrer le départ'}
+                </button>
+                <button
+                  type="button"
+                  className="vs-btn vs-btn-secondary"
+                  disabled={loading || !!activeTrip || !driverId}
+                  onClick={resumeLastTrip}
+                  title={!driverId ? 'Choisissez un conducteur' : 'Reprendre la dernière saisie incomplète'}
+                >
+                  Reprendre la dernière saisie
+                </button>
+              </div>
             </form>
           </div>
 

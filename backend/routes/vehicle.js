@@ -35,6 +35,7 @@ router.get('/trips', vehicleController.listTrips);
 router.get('/stats/monthly', vehicleController.getMonthlyKm);
 router.get('/dashboard-summary', vehicleController.getDashboardSummary);
 router.get('/stats', vehicleController.getStats);
+router.get('/trips/last-open', vehicleController.getLastOpenTripForDriver);
 router.post('/trips', vehicleController.startTrip);
 router.put('/trips/:id/return', vehicleController.completeReturn);
 router.put('/trips/:id', vehicleController.updateTripAdmin);

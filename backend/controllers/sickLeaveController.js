@@ -1,4 +1,5 @@
 const SickLeave = require('../models/SickLeave');
+const Employee = require('../models/Employee');
 const sftpService = require('../services/sftpService');
 const imageValidationService = require('../services/imageValidationService');
 const emailService = require('../services/emailService');
@@ -183,7 +184,7 @@ const uploadSickLeave = async (req, res) => {
     const therapeuticPartTime =
       req.body.therapeuticPartTime === true ||
       req.body.therapeuticPartTime === 'true' ||
-      req.body.therapeuticPartTime === 'on';
+    req.body.therapeuticPartTime === 'on';
     
     if (!employeeName || !employeeEmail || !startDate || !endDate) {
       return res.status(400).json({
@@ -579,7 +580,8 @@ const createSickLeave = async (req, res) => {
           $set: {
             'sickLeave.isOnSickLeave': true,
             'sickLeave.startDate': sickLeave.startDate,
-            'sickLeave.endDate': sickLeave.endDate
+          'sickLeave.endDate': sickLeave.endDate,
+          'sickLeave.therapeuticPartTime': !!sickLeave.therapeuticPartTime
           }
         });
         console.log('✅ Employé synchronisé avec l\'arrêt maladie créé manuellement:', employee.name);
@@ -598,7 +600,8 @@ const createSickLeave = async (req, res) => {
               $set: {
                 'sickLeave.isOnSickLeave': true,
                 'sickLeave.startDate': sickLeave.startDate,
-                'sickLeave.endDate': sickLeave.endDate
+                'sickLeave.endDate': sickLeave.endDate,
+                'sickLeave.therapeuticPartTime': !!sickLeave.therapeuticPartTime
               }
             });
             console.log('✅ Employé synchronisé avec l\'arrêt maladie (par ID):', employeeToSync.name);
@@ -787,8 +790,6 @@ const validateSickLeave = async (req, res) => {
         
         // Synchroniser l'employé avec l'arrêt maladie (utiliser le même employé trouvé par absenceService)
         try {
-          const Employee = require('../models/Employee');
-          
           // Nettoyer le nom (enlever les suffixes comme "- Manager", "- Salarié", etc.)
           const cleanName = sickLeave.employeeName.split(' - ')[0].trim();
           
@@ -828,7 +829,8 @@ const validateSickLeave = async (req, res) => {
               $set: {
                 'sickLeave.isOnSickLeave': true,
                 'sickLeave.startDate': sickLeave.startDate,
-                'sickLeave.endDate': sickLeave.endDate
+                'sickLeave.endDate': sickLeave.endDate,
+                'sickLeave.therapeuticPartTime': !!sickLeave.therapeuticPartTime
               }
             });
             console.log('✅ Employé synchronisé avec l\'arrêt maladie:', employee.name);
@@ -1079,8 +1081,6 @@ const markAsDeclared = async (req, res) => {
 
     // Synchroniser l'employé avec l'arrêt maladie déclaré
     try {
-      const Employee = require('../models/Employee');
-      
       // Nettoyer le nom (enlever les suffixes comme "- Manager", "- Salarié", etc.)
       const cleanName = sickLeave.employeeName.split(' - ')[0].trim();
       
@@ -1120,7 +1120,8 @@ const markAsDeclared = async (req, res) => {
           $set: {
             'sickLeave.isOnSickLeave': true,
             'sickLeave.startDate': sickLeave.startDate,
-            'sickLeave.endDate': sickLeave.endDate
+            'sickLeave.endDate': sickLeave.endDate,
+            'sickLeave.therapeuticPartTime': !!sickLeave.therapeuticPartTime
           }
         });
         console.log('✅ Employé synchronisé avec l\'arrêt maladie déclaré:', employee.name);

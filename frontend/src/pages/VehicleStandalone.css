@@ -108,6 +108,12 @@
   cursor: pointer;
 }
 
+.vs-btn-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.6rem;
+}
+
 .vs-btn-primary {
   background: #198754;
   color: #fff;
@@ -116,7 +122,6 @@
 .vs-btn-secondary {
   background: #6c757d;
   color: #fff;
-  margin-top: 0.5rem;
 }
 
 .vs-msg {
