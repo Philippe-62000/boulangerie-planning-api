@@ -3,6 +3,7 @@ const path = require('path');
 const fs = require('fs');
 const multer = require('multer');
 const router = express.Router();
+const { authenticateEmployee } = require('../middleware/auth');
 const vehicleController = require('../controllers/vehicleController');
 
 const storage = multer.diskStorage({
@@ -31,10 +32,14 @@ router.get('/drivers', vehicleController.listDrivers);
 router.get('/config', vehicleController.getConfig);
 router.put('/config', vehicleController.putConfig);
 router.get('/trips', vehicleController.listTrips);
+router.get('/stats/monthly', vehicleController.getMonthlyKm);
+router.get('/dashboard-summary', vehicleController.getDashboardSummary);
 router.get('/stats', vehicleController.getStats);
+router.get('/trips/last-open', vehicleController.getLastOpenTripForDriver);
 router.post('/trips', vehicleController.startTrip);
 router.put('/trips/:id/return', vehicleController.completeReturn);
 router.put('/trips/:id', vehicleController.updateTripAdmin);
+router.delete('/trips/:id', authenticateEmployee, vehicleController.deleteTrip);
 router.post('/trips/:id/photo-retour', uploadPhoto.single('file'), vehicleController.uploadPhotoRetour);
 router.get('/trips/:id/photo-retour/download', vehicleController.downloadPhotoRetour);
 
