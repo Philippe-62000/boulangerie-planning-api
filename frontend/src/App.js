@@ -41,6 +41,7 @@ import Vehicle from './pages/Vehicle';
 import VehicleStandalone from './pages/VehicleStandalone';
 import CompteClientStandalone from './pages/CompteClientStandalone';
 import CompteClientDepots from './pages/CompteClientDepots';
+import StandaloneMenu from './pages/StandaloneMenu';
 
 const AppContent = () => {
   const { user, loading } = useAuth();
@@ -252,6 +253,8 @@ function App() {
           <Route path="/vehicle-standalone.html" element={<VehicleStandalone />} />
           <Route path="/compte-client-standalone" element={<CompteClientStandalone />} />
           <Route path="/compte-client-standalone.html" element={<CompteClientStandalone />} />
+          <Route path="/menu-standalone" element={<StandaloneMenu />} />
+          <Route path="/menu-standalone.html" element={<StandaloneMenu />} />
           <Route path="/*" element={<AppContent />} />
         </Routes>
     </Router>

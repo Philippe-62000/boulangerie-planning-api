@@ -1,0 +1,125 @@
+.standalone-menu-page {
+  min-height: 100vh;
+  background: linear-gradient(160deg, #1e3a5f 0%, #0f172a 45%, #134e4a 100%);
+  padding: 24px 16px 40px;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  box-sizing: border-box;
+}
+
+.standalone-menu-card {
+  width: 100%;
+  max-width: 440px;
+  background: #fff;
+  border-radius: 20px;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.25);
+  overflow: hidden;
+}
+
+.standalone-menu-header {
+  padding: 28px 24px 20px;
+  text-align: center;
+  background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.standalone-menu-header h1 {
+  margin: 0 0 6px 0;
+  font-size: 1.45rem;
+  color: #0f172a;
+  font-weight: 800;
+}
+
+.standalone-menu-site {
+  margin: 0 0 10px 0;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #0d9488;
+}
+
+.standalone-menu-intro {
+  margin: 0;
+  font-size: 0.92rem;
+  color: #64748b;
+  line-height: 1.45;
+}
+
+.standalone-menu-nav {
+  display: flex;
+  flex-direction: column;
+  padding: 12px 0 8px;
+}
+
+.standalone-menu-link {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 18px 20px;
+  margin: 8px 12px;
+  border-radius: 14px;
+  text-decoration: none;
+  color: inherit;
+  border: 2px solid transparent;
+  transition: background 0.15s ease, border-color 0.15s ease, transform 0.1s ease;
+}
+
+.standalone-menu-link:active {
+  transform: scale(0.98);
+}
+
+.standalone-menu-link--vehicle {
+  background: #eff6ff;
+  border-color: #bfdbfe;
+}
+
+.standalone-menu-link--vehicle:hover {
+  background: #dbeafe;
+  border-color: #93c5fd;
+}
+
+.standalone-menu-link--compte {
+  background: #f0fdfa;
+  border-color: #99f6e4;
+}
+
+.standalone-menu-link--compte:hover {
+  background: #ccfbf1;
+  border-color: #5eead4;
+}
+
+.standalone-menu-icon {
+  font-size: 2rem;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.standalone-menu-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  text-align: left;
+}
+
+.standalone-menu-title {
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.standalone-menu-desc {
+  font-size: 0.85rem;
+  color: #64748b;
+  margin-top: 4px;
+  line-height: 1.35;
+}
+
+.standalone-menu-chevron {
+  font-size: 1.75rem;
+  font-weight: 300;
+  color: #94a3b8;
+  flex-shrink: 0;
+  line-height: 1;
+}

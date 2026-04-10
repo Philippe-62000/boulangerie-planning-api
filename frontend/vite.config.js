@@ -41,6 +41,7 @@ export default defineConfig({
         'plateaux-repas-standalone': path.resolve(__dirname, 'plateaux-repas-standalone.html'),
         'vehicle-standalone': path.resolve(__dirname, 'vehicle-standalone.html'),
         'compte-client-standalone': path.resolve(__dirname, 'compte-client-standalone.html'),
+        'menu-standalone': path.resolve(__dirname, 'menu-standalone.html'),
       },
       output: {
         // Conserver la structure des noms de fichiers pour compatibilité
