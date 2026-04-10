@@ -3,11 +3,11 @@ import axios from 'axios';
 import { getApiUrl, getStoredToken, getTokenStorageSuffix } from '../config/apiConfig';
 import './CompteClientStandalone.css';
 
-const PRESETS_KEY = () => `compteClientPresets${getTokenStorageSuffix()}`;
+const LEGACY_PRESETS_KEY = () => `compteClientPresets${getTokenStorageSuffix()}`;
 
-function loadPresets() {
+function loadLegacyPresets() {
   try {
-    const raw = localStorage.getItem(PRESETS_KEY());
+    const raw = localStorage.getItem(LEGACY_PRESETS_KEY());
     if (!raw) return [];
     const arr = JSON.parse(raw);
     if (!Array.isArray(arr)) return [];
@@ -20,20 +20,6 @@ function loadPresets() {
   }
 }
 
-function savePresets(list) {
-  try {
-    const trimmed = list.slice(0, 50);
-    localStorage.setItem(PRESETS_KEY(), JSON.stringify(trimmed));
-  } catch {
-    /* quota ou mode privé */
-  }
-}
-
-function presetKey(fn, ln) {
-  return `${ln.trim().toLowerCase()}|${fn.trim().toLowerCase()}`;
-}
-
-/** Expiration JWT (ms) depuis le payload, sans dépendance */
 function jwtExpiresAtMs(token) {
   try {
     const parts = token.split('.');
@@ -152,7 +138,7 @@ const CompteClientStandalone = () => {
   const site = typeof window !== 'undefined' && window.location.pathname.startsWith('/lon') ? 'longuenesse' : 'arras';
   const apiBase = getApiUrl();
 
-  const [presets, setPresets] = useState(() => loadPresets());
+  const [presets, setPresets] = useState([]);
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [amount, setAmount] = useState('25');
@@ -165,6 +151,62 @@ const CompteClientStandalone = () => {
 
   const token = getStoredToken();
   const loginPath = site === 'longuenesse' ? '/lon/login' : '/plan/login';
+  const returnUrlParam = encodeURIComponent(
+    typeof window !== 'undefined' ? window.location.pathname + window.location.search : ''
+  );
+  const loginWithReturn = `${loginPath}?returnUrl=${returnUrlParam}`;
+
+  const authHeaders = (t) => (t ? { Authorization: `Bearer ${t}` } : {});
+
+  const fetchPresets = useCallback(async () => {
+    const t = getStoredToken();
+    if (!t) {
+      setPresets([]);
+      return;
+    }
+    try {
+      const { data } = await axios.get(`${apiBase}/account-client-presets`, {
+        params: { site },
+        headers: authHeaders(t),
+        timeout: 60000
+      });
+      let list = Array.isArray(data?.data) ? data.data : [];
+
+      if (list.length === 0) {
+        const legacy = loadLegacyPresets();
+        if (legacy.length > 0) {
+          for (const p of legacy) {
+            try {
+              await axios.post(
+                `${apiBase}/account-client-presets`,
+                { site, firstName: p.firstName, lastName: p.lastName },
+                { headers: authHeaders(t), timeout: 30000 }
+              );
+            } catch {
+              /* ignore duplicate / erreur unitaire */
+            }
+          }
+          try {
+            localStorage.removeItem(LEGACY_PRESETS_KEY());
+          } catch {
+            /* */
+          }
+          const { data: again } = await axios.get(`${apiBase}/account-client-presets`, {
+            params: { site },
+            headers: authHeaders(t)
+          });
+          list = Array.isArray(again?.data) ? again.data : [];
+        }
+      }
+      setPresets(list);
+    } catch {
+      setPresets([]);
+    }
+  }, [apiBase, site]);
+
+  useEffect(() => {
+    fetchPresets();
+  }, [fetchPresets]);
 
   useEffect(() => {
     if (!token) {
@@ -173,15 +215,20 @@ const CompteClientStandalone = () => {
     }
     const exp = jwtExpiresAtMs(token);
     if (exp != null && exp < Date.now()) {
-      setSessionHint('Votre session a expiré : reconnectez-vous depuis la page de connexion.');
+      setSessionHint('Votre session a expiré : reconnectez-vous.');
     } else if (exp != null && exp - Date.now() < 24 * 60 * 60 * 1000) {
-      setSessionHint('Pensez à vous reconnecter bientôt : la session expire dans moins de 24 h.');
+      setSessionHint('Session courte : pensez à vous reconnecter bientôt (moins de 24 h).');
     } else {
       setSessionHint('');
     }
   }, [token]);
 
-  const addCurrentToPresets = () => {
+  const clearClientFields = () => {
+    setFirstName('');
+    setLastName('');
+  };
+
+  const addCurrentToPresets = async () => {
     const fn = firstName.trim();
     const ln = lastName.trim();
     if (!fn || !ln) {
@@ -189,40 +236,42 @@ const CompteClientStandalone = () => {
       setMessageType('error');
       return;
     }
-    const k = presetKey(fn, ln);
-    const filtered = presets.filter((p) => presetKey(p.firstName, p.lastName) !== k);
-    const next = [...filtered, { firstName: fn, lastName: ln }].sort((a, b) =>
-      a.lastName.localeCompare(b.lastName, 'fr', { sensitivity: 'base' }) ||
-      a.firstName.localeCompare(b.firstName, 'fr', { sensitivity: 'base' })
-    );
-    savePresets(next);
-    setPresets(next);
-    setMessage('Client ajouté à la liste sur cet appareil.');
-    setMessageType('success');
+    const t = getStoredToken();
+    if (!t) {
+      setMessage('Connexion requise.');
+      setMessageType('error');
+      return;
+    }
+    try {
+      await axios.post(
+        `${apiBase}/account-client-presets`,
+        { site, firstName: fn, lastName: ln },
+        { headers: authHeaders(t) }
+      );
+      await fetchPresets();
+      setMessage('Client enregistré dans la liste.');
+      setMessageType('success');
+      clearClientFields();
+    } catch (e) {
+      setMessage(e.response?.data?.error || 'Impossible d’enregistrer');
+      setMessageType('error');
+    }
   };
 
-  const removePreset = (index) => {
-    const next = presets.filter((_, i) => i !== index);
-    savePresets(next);
-    setPresets(next);
-  };
-
-  const presetSelectValue = (() => {
-    const i = presets.findIndex(
+  const matchedPresetId =
+    presets.find(
       (p) =>
         p.firstName.trim().toLowerCase() === firstName.trim().toLowerCase() &&
         p.lastName.trim().toLowerCase() === lastName.trim().toLowerCase()
-    );
-    return i >= 0 ? String(i) : '';
-  })();
+    )?._id || '';
 
   const onPresetSelectChange = (e) => {
     const v = e.target.value;
-    if (v === '') return;
-    const i = parseInt(v, 10);
-    if (!Number.isNaN(i) && presets[i]) {
-      setFirstName(presets[i].firstName);
-      setLastName(presets[i].lastName);
+    if (!v) return;
+    const p = presets.find((x) => x._id === v);
+    if (p) {
+      setFirstName(p.firstName);
+      setLastName(p.lastName);
     }
   };
 
@@ -230,13 +279,13 @@ const CompteClientStandalone = () => {
     e.preventDefault();
     const currentToken = getStoredToken();
     if (!currentToken) {
-      setMessage('Connexion requise. Utilisez la page de connexion sur ce téléphone, puis revenez ici.');
+      setMessage('Connexion requise sur cet appareil.');
       setMessageType('error');
       return;
     }
     const exp = jwtExpiresAtMs(currentToken);
     if (exp != null && exp < Date.now()) {
-      setMessage('Session expirée. Reconnectez-vous depuis la page de connexion, puis rouvrez cette page.');
+      setMessage('Session expirée. Reconnectez-vous puis rouvrez cette page.');
       setMessageType('error');
       return;
     }
@@ -285,16 +334,17 @@ const CompteClientStandalone = () => {
       setMessage('Dépôt enregistré.');
       setMessageType('success');
       setAmount('25');
+      clearClientFields();
       pad.clear();
     } catch (err) {
       const status = err.response?.status;
       const serverMsg = err.response?.data?.error;
       if (status === 401) {
         setMessage(
-          'Session expirée ou non reconnue. Sur le téléphone, ouvrez d’abord la page de connexion du planning dans Safari ou Chrome (pas depuis un autre appli), connectez-vous, puis rouvrez cette page. Les jetons sont valables 7 jours après reconnexion.'
+          'Session non reconnue. Reconnectez-vous (code vendeuse ou mot de passe salarié), puis rouvrez cette page.'
         );
       } else if (!err.response) {
-        setMessage('Pas de réponse du serveur (réseau ou veille). Réessayez dans un instant.');
+        setMessage('Pas de réponse du serveur. Réessayez dans un instant.');
       } else {
         setMessage(serverMsg || err.message || 'Erreur enregistrement');
       }
@@ -314,9 +364,8 @@ const CompteClientStandalone = () => {
         {!token && (
           <div className="compte-client-warning">
             <p>
-              Connectez-vous sur <strong>ce téléphone</strong> dans le même navigateur (les identifiants ne se
-              transfèrent pas depuis un ordinateur).{' '}
-              <a href={loginPath}>Page de connexion</a>
+              Connectez-vous sur <strong>ce téléphone</strong> (code vendeuse 3 chiffres ou mot de passe salarié).{' '}
+              <a href={loginWithReturn}>Page de connexion</a>
             </p>
           </div>
         )}
@@ -324,7 +373,7 @@ const CompteClientStandalone = () => {
         {token && sessionHint && (
           <div className="compte-client-session-hint">
             <p>{sessionHint}</p>
-            <a href={loginPath}>Se reconnecter</a>
+            <a href={loginWithReturn}>Se reconnecter</a>
           </div>
         )}
 
@@ -334,17 +383,17 @@ const CompteClientStandalone = () => {
             <select
               id="ccf-preset"
               className="form-control"
-              value={presetSelectValue}
+              value={matchedPresetId}
               onChange={onPresetSelectChange}
             >
               <option value="">— Choisir un client ou saisir ci-dessous —</option>
-              {presets.map((p, i) => (
-                <option key={`${p.lastName}-${p.firstName}-${i}`} value={i}>
+              {presets.map((p) => (
+                <option key={p._id} value={p._id}>
                   {p.lastName.toUpperCase()} {p.firstName}
                 </option>
               ))}
             </select>
-            <p className="field-hint">Les clients enregistrés sont stockés sur cet appareil uniquement.</p>
+            <p className="field-hint">Liste partagée (sauvegardée sur le serveur).</p>
           </div>
 
           <div className="form-group">
@@ -374,24 +423,6 @@ const CompteClientStandalone = () => {
               Enregistrer ce client dans la liste
             </button>
           </div>
-
-          {presets.length > 0 && (
-            <div className="compte-client-preset-list">
-              <span className="preset-list-label">Liste ({presets.length})</span>
-              <ul className="preset-chips">
-                {presets.map((p, index) => (
-                  <li key={`${p.lastName}-${p.firstName}-${index}`}>
-                    <span>
-                      {p.lastName} {p.firstName}
-                    </span>
-                    <button type="button" className="preset-remove" onClick={() => removePreset(index)} aria-label="Retirer">
-                      ×
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
 
           <div className="form-group">
             <label htmlFor="ccf-montant">Montant (€)</label>

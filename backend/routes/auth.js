@@ -90,6 +90,9 @@ router.post('/admin-login', authController.adminLogin);
 // Route de connexion pour les salariés (interface React)
 router.post('/employee-login', authController.employeeLoginReact);
 
+// Connexion par code vendeuse (3 chiffres) — JWT employé nominatif
+router.post('/login-by-sale-code', authController.loginBySaleCode);
+
 // Route pour récupérer le profil de l'employé connecté
 router.get('/employee-profile', authenticateEmployee, authController.getEmployeeProfile);
 

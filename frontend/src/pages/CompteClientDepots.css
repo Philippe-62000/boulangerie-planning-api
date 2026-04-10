@@ -21,6 +21,28 @@
   max-width: 720px;
 }
 
+.ccd-header-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.ccd-manage-clients {
+  padding: 8px 16px;
+  border-radius: 8px;
+  border: 1px solid #0d9488;
+  background: #f0fdfa;
+  color: #0f766e;
+  font-weight: 600;
+  cursor: pointer;
+  font-size: 0.95rem;
+}
+
+.ccd-manage-clients:hover {
+  background: #ccfbf1;
+}
+
 .ccd-badge {
   display: inline-block;
   margin-left: 10px;
@@ -139,4 +161,123 @@
   .ccd-sig-cell {
     flex-wrap: wrap;
   }
+}
+
+.ccd-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.45);
+  z-index: 1000;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 24px 16px;
+  overflow-y: auto;
+}
+
+.ccd-modal {
+  background: #fff;
+  border-radius: 12px;
+  max-width: 640px;
+  width: 100%;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.15);
+  padding: 0 0 20px;
+}
+
+.ccd-modal-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 18px 20px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.ccd-modal-head h2 {
+  margin: 0;
+  font-size: 1.2rem;
+  color: #0f172a;
+}
+
+.ccd-modal-close {
+  border: none;
+  background: transparent;
+  font-size: 1.75rem;
+  line-height: 1;
+  cursor: pointer;
+  color: #64748b;
+  padding: 0 4px;
+}
+
+.ccd-modal-desc {
+  margin: 0;
+  padding: 12px 20px;
+  font-size: 0.9rem;
+  color: #64748b;
+  line-height: 1.45;
+}
+
+.ccd-preset-table-wrap {
+  padding: 0 12px;
+  overflow-x: auto;
+}
+
+.ccd-preset-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.ccd-preset-table th,
+.ccd-preset-table td {
+  padding: 8px 10px;
+  border-bottom: 1px solid #f1f5f9;
+  text-align: left;
+  vertical-align: middle;
+}
+
+.ccd-preset-table th {
+  background: #f8fafc;
+  font-weight: 600;
+  color: #334155;
+}
+
+.ccd-preset-input {
+  width: 100%;
+  max-width: 200px;
+  padding: 6px 8px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  font-size: 0.9rem;
+}
+
+.ccd-preset-actions {
+  white-space: nowrap;
+  text-align: right;
+}
+
+.ccd-preset-edit,
+.ccd-preset-save,
+.ccd-preset-cancel,
+.ccd-preset-del {
+  margin-left: 6px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  cursor: pointer;
+  border: 1px solid #cbd5e1;
+  background: #fff;
+}
+
+.ccd-preset-save {
+  border-color: #0d9488;
+  background: #f0fdfa;
+  color: #0f766e;
+  font-weight: 600;
+}
+
+.ccd-preset-del {
+  color: #b91c1c;
+  border-color: #fecaca;
+  background: #fef2f2;
 }
