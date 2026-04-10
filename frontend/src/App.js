@@ -39,6 +39,8 @@ import PlateauxRepasStandalone from './pages/PlateauxRepasStandalone';
 import Chorus from './pages/Chorus';
 import Vehicle from './pages/Vehicle';
 import VehicleStandalone from './pages/VehicleStandalone';
+import CompteClientStandalone from './pages/CompteClientStandalone';
+import CompteClientDepots from './pages/CompteClientDepots';
 
 const AppContent = () => {
   const { user, loading } = useAuth();
@@ -202,6 +204,11 @@ const AppContent = () => {
                 <Vehicle />
               </ProtectedRoute>
             } />
+            <Route path="/compte-client-depots" element={
+              <ProtectedRoute adminOnly={true}>
+                <CompteClientDepots />
+              </ProtectedRoute>
+            } />
           </Routes>
         </main>
       </div>
@@ -243,6 +250,8 @@ function App() {
           <Route path="/plateaux-repas-standalone.html" element={<PlateauxRepasStandalone />} />
           <Route path="/vehicle-standalone" element={<VehicleStandalone />} />
           <Route path="/vehicle-standalone.html" element={<VehicleStandalone />} />
+          <Route path="/compte-client-standalone" element={<CompteClientStandalone />} />
+          <Route path="/compte-client-standalone.html" element={<CompteClientStandalone />} />
           <Route path="/*" element={<AppContent />} />
         </Routes>
     </Router>

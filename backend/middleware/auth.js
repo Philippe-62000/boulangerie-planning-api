@@ -95,7 +95,7 @@ const authenticateManager = async (req, res, next) => {
     }
     
     req.user = {
-      id: decoded.id || decoded.employeeId,
+      id: decoded.userId || decoded.id || decoded.employeeId,
       email: decoded.email,
       name: decoded.name,
       role: decoded.role

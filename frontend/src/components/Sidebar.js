@@ -38,7 +38,8 @@ const Sidebar = () => {
   const FACTURATION_MENU_ITEMS = [
     { path: '/ticket-restaurant', label: 'Ticket restaurant', icon: '🎫', menuId: 'ticket-restaurant' },
     { path: '/product-exchanges', label: 'Échanges entre boulangeries', icon: '🔄', menuId: 'product-exchanges' },
-    { path: '/chorus', label: 'Chorus', icon: '🎵', menuId: 'chorus', longuenesseOnly: true }
+    { path: '/chorus', label: 'Chorus', icon: '🎵', menuId: 'chorus', longuenesseOnly: true },
+    { path: '/compte-client-depots', label: 'Dépôts compte client', icon: '💳', menuId: 'compte-client-depots', longuenesseOnly: true }
   ];
 
   const ADMIN_GROUPED_MENU_IDS = new Set([
@@ -85,6 +86,7 @@ const Sidebar = () => {
         { menuId: 'frais-km-responsable', isVisibleToAdmin: true, isVisibleToEmployee: false },
         { menuId: 'plateaux-repas', isVisibleToAdmin: true, isVisibleToEmployee: false },
         { menuId: 'chorus', isVisibleToAdmin: true, isVisibleToEmployee: false },
+        { menuId: 'compte-client-depots', isVisibleToAdmin: true, isVisibleToEmployee: false },
         { menuId: 'vehicle', isVisibleToAdmin: true, isVisibleToEmployee: false }
       ];
     } else {
@@ -110,6 +112,7 @@ const Sidebar = () => {
         { menuId: 'frais-km-responsable', isVisibleToAdmin: false, isVisibleToEmployee: false },
         { menuId: 'plateaux-repas', isVisibleToAdmin: false, isVisibleToEmployee: false },
         { menuId: 'chorus', isVisibleToAdmin: false, isVisibleToEmployee: false },
+        { menuId: 'compte-client-depots', isVisibleToAdmin: false, isVisibleToEmployee: false },
         { menuId: 'vehicle', isVisibleToAdmin: false, isVisibleToEmployee: false }
       ];
     }
@@ -208,7 +211,7 @@ const Sidebar = () => {
     if (!user) return false;
 
     // Frais KM Responsable / Véhicule : toujours visibles pour l’admin (évite masquage si permission BDD absente ou désactivée par erreur)
-    if (isAdmin() && (menuId === 'frais-km-responsable' || menuId === 'vehicle')) return true;
+    if (isAdmin() && (menuId === 'frais-km-responsable' || menuId === 'vehicle' || menuId === 'compte-client-depots')) return true;
 
     // Permissions pas encore chargées : éviter menu vide (sous-menus + Véhicule invisibles)
     if (menuPermissions.length === 0) {

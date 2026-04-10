@@ -187,6 +187,8 @@ app.use('/api/chorus', require('./routes/chorus'));
 console.log('✅ Routes chorus montées (/api/chorus/*)');
 app.use('/api/vehicle', require('./routes/vehicle'));
 console.log('✅ Routes vehicle montées (/api/vehicle/*)');
+app.use('/api/account-deposits', require('./routes/accountDeposits'));
+console.log('✅ Routes account-deposits montées (/api/account-deposits/*)');
 
 // Route racine
 app.get('/', (req, res) => {
