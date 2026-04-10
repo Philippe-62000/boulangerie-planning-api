@@ -1,6 +1,13 @@
-import React, { useRef, useState, useEffect, useCallback } from 'react';
+import React, { useRef, useState, useEffect, useCallback, useMemo } from 'react';
 import axios from 'axios';
-import { getApiUrl, getStoredToken, getTokenStorageSuffix } from '../config/apiConfig';
+import {
+  getApiUrl,
+  getStoredToken,
+  getTokenStorageSuffix,
+  setStoredEmployeeToken,
+  clearStoredTokens
+} from '../config/apiConfig';
+import { useAuth } from '../contexts/AuthContext';
 import './CompteClientStandalone.css';
 
 const LEGACY_PRESETS_KEY = () => `compteClientPresets${getTokenStorageSuffix()}`;
@@ -20,14 +27,19 @@ function loadLegacyPresets() {
   }
 }
 
-function jwtExpiresAtMs(token) {
+function parseJwtIdentity(token) {
   try {
     const parts = token.split('.');
     if (parts.length < 2) return null;
     const payload = JSON.parse(
       atob(parts[1].replace(/-/g, '+').replace(/_/g, '/'))
     );
-    return typeof payload.exp === 'number' ? payload.exp * 1000 : null;
+    return {
+      name: typeof payload.name === 'string' ? payload.name : '',
+      saleCode: typeof payload.saleCode === 'string' ? payload.saleCode : '',
+      role: payload.role,
+      exp: typeof payload.exp === 'number' ? payload.exp * 1000 : null
+    };
   } catch {
     return null;
   }
@@ -134,9 +146,25 @@ function useSignaturePad() {
   return { canvasRef, hasInk, start, move, end, clear, toDataUrl, initCanvas };
 }
 
+const DEFAULT_PERMS = [
+  'view_planning',
+  'view_absences',
+  'view_sales_stats',
+  'view_meal_expenses',
+  'view_km_expenses'
+];
+
 const CompteClientStandalone = () => {
   const site = typeof window !== 'undefined' && window.location.pathname.startsWith('/lon') ? 'longuenesse' : 'arras';
   const apiBase = getApiUrl();
+  const { login, logout } = useAuth();
+
+  const [sessionRefresh, setSessionRefresh] = useState(0);
+  const token = useMemo(() => getStoredToken(), [sessionRefresh]);
+  const identity = useMemo(() => (token ? parseJwtIdentity(token) : null), [token]);
+
+  const [saleCodeInput, setSaleCodeInput] = useState('');
+  const [identBusy, setIdentBusy] = useState(false);
 
   const [presets, setPresets] = useState([]);
   const [firstName, setFirstName] = useState('');
@@ -149,7 +177,6 @@ const CompteClientStandalone = () => {
 
   const pad = useSignaturePad();
 
-  const token = getStoredToken();
   const loginPath = site === 'longuenesse' ? '/lon/login' : '/plan/login';
   const returnUrlParam = encodeURIComponent(
     typeof window !== 'undefined' ? window.location.pathname + window.location.search : ''
@@ -157,6 +184,13 @@ const CompteClientStandalone = () => {
   const loginWithReturn = `${loginPath}?returnUrl=${returnUrlParam}`;
 
   const authHeaders = (t) => (t ? { Authorization: `Bearer ${t}` } : {});
+
+  const sessionValid =
+    token &&
+    identity &&
+    identity.exp != null &&
+    identity.exp > Date.now() &&
+    (identity.role === 'employee' || identity.role === 'admin');
 
   const fetchPresets = useCallback(async () => {
     const t = getStoredToken();
@@ -183,7 +217,7 @@ const CompteClientStandalone = () => {
                 { headers: authHeaders(t), timeout: 30000 }
               );
             } catch {
-              /* ignore duplicate / erreur unitaire */
+              /* */
             }
           }
           try {
@@ -205,23 +239,74 @@ const CompteClientStandalone = () => {
   }, [apiBase, site]);
 
   useEffect(() => {
-    fetchPresets();
-  }, [fetchPresets]);
+    if (sessionValid) {
+      fetchPresets();
+    } else {
+      setPresets([]);
+    }
+  }, [sessionValid, fetchPresets]);
 
   useEffect(() => {
-    if (!token) {
+    if (!token || !identity) {
       setSessionHint('');
       return;
     }
-    const exp = jwtExpiresAtMs(token);
+    const exp = identity.exp;
     if (exp != null && exp < Date.now()) {
       setSessionHint('Votre session a expiré : reconnectez-vous.');
     } else if (exp != null && exp - Date.now() < 24 * 60 * 60 * 1000) {
-      setSessionHint('Session courte : pensez à vous reconnecter bientôt (moins de 24 h).');
+      setSessionHint('Session courte : moins de 24 h avant expiration.');
     } else {
       setSessionHint('');
     }
-  }, [token]);
+  }, [token, identity]);
+
+  const handleSaleCodeConnect = async (e) => {
+    e.preventDefault();
+    const digits = String(saleCodeInput).replace(/\D/g, '').slice(0, 3);
+    if (digits.length !== 3) {
+      setMessage('Saisissez les 3 chiffres du code vendeuse.');
+      setMessageType('error');
+      return;
+    }
+    setIdentBusy(true);
+    setMessage('');
+    try {
+      const response = await fetch(`${apiBase}/auth/login-by-sale-code`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ saleCode: digits.padStart(3, '0') })
+      });
+      const data = await response.json();
+      if (data.success && data.token) {
+        setStoredEmployeeToken(data.token);
+        login({
+          role: data.user.role,
+          name: data.user.name,
+          permissions: data.user.permissions || DEFAULT_PERMS
+        });
+        setSaleCodeInput('');
+        setSessionRefresh((x) => x + 1);
+        setMessage('Identifiée. Vous pouvez enchaîner les encaissements sans resaisir le code.');
+        setMessageType('success');
+      } else {
+        setMessage(data.error || 'Code incorrect');
+        setMessageType('error');
+      }
+    } catch {
+      setMessage('Erreur réseau');
+      setMessageType('error');
+    } finally {
+      setIdentBusy(false);
+    }
+  };
+
+  const handleChangeVendeuse = () => {
+    clearStoredTokens();
+    logout();
+    setSessionRefresh((x) => x + 1);
+    setMessage('');
+  };
 
   const clearClientFields = () => {
     setFirstName('');
@@ -237,8 +322,8 @@ const CompteClientStandalone = () => {
       return;
     }
     const t = getStoredToken();
-    if (!t) {
-      setMessage('Connexion requise.');
+    if (!t || !sessionValid) {
+      setMessage('Identifiez-vous avec le code vendeuse ci-dessus.');
       setMessageType('error');
       return;
     }
@@ -278,14 +363,8 @@ const CompteClientStandalone = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     const currentToken = getStoredToken();
-    if (!currentToken) {
-      setMessage('Connexion requise sur cet appareil.');
-      setMessageType('error');
-      return;
-    }
-    const exp = jwtExpiresAtMs(currentToken);
-    if (exp != null && exp < Date.now()) {
-      setMessage('Session expirée. Reconnectez-vous puis rouvrez cette page.');
+    if (!currentToken || !sessionValid) {
+      setMessage('Identifiez-vous avec votre code vendeuse (3 chiffres) en haut de page.');
       setMessageType('error');
       return;
     }
@@ -340,9 +419,7 @@ const CompteClientStandalone = () => {
       const status = err.response?.status;
       const serverMsg = err.response?.data?.error;
       if (status === 401) {
-        setMessage(
-          'Session non reconnue. Reconnectez-vous (code vendeuse ou mot de passe salarié), puis rouvrez cette page.'
-        );
+        setMessage('Session expirée. Identifiez-vous à nouveau avec le code vendeuse.');
       } else if (!err.response) {
         setMessage('Pas de réponse du serveur. Réessayez dans un instant.');
       } else {
@@ -361,19 +438,56 @@ const CompteClientStandalone = () => {
           <h1>Crédit compte client</h1>
         </div>
 
-        {!token && (
-          <div className="compte-client-warning">
-            <p>
-              Connectez-vous sur <strong>ce téléphone</strong> (code vendeuse 3 chiffres ou mot de passe salarié).{' '}
-              <a href={loginWithReturn}>Page de connexion</a>
-            </p>
-          </div>
-        )}
+        <div className="compte-client-identity">
+          {!sessionValid ? (
+            <form className="identity-form" onSubmit={handleSaleCodeConnect}>
+              <p className="identity-title">Qui encaisse ?</p>
+              <p className="identity-desc">
+                Saisissez une fois votre <strong>code vendeuse à 3 chiffres</strong>. La session reste active pour
+                plusieurs clients d’affilée (jusqu’à 7 jours).
+              </p>
+              <div className="identity-row">
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  placeholder="ex. 042"
+                  maxLength={3}
+                  className="form-control identity-code-input"
+                  value={saleCodeInput}
+                  onChange={(e) => setSaleCodeInput(e.target.value.replace(/\D/g, '').slice(0, 3))}
+                />
+                <button type="submit" className="btn-identity-ok" disabled={identBusy || saleCodeInput.replace(/\D/g, '').length !== 3}>
+                  {identBusy ? '…' : 'Valider'}
+                </button>
+              </div>
+              <p className="identity-alt">
+                <a href={loginWithReturn}>Autre connexion (admin / mot de passe salarié)</a>
+              </p>
+            </form>
+          ) : (
+            <div className="identity-banner">
+              <div className="identity-banner-text">
+                <strong>{identity.name || 'Utilisateur'}</strong>
+                {identity.role === 'admin' ? (
+                  <span className="identity-code-pill muted">Compte admin</span>
+                ) : identity.saleCode ? (
+                  <span className="identity-code-pill">Code {identity.saleCode}</span>
+                ) : (
+                  <span className="identity-code-pill muted">Sans code vendeuse (connexion salarié)</span>
+                )}
+              </div>
+              <button type="button" className="btn-identity-change" onClick={handleChangeVendeuse}>
+                Changer de vendeuse
+              </button>
+            </div>
+          )}
+        </div>
 
-        {token && sessionHint && (
+        {sessionValid && sessionHint && (
           <div className="compte-client-session-hint">
             <p>{sessionHint}</p>
-            <a href={loginWithReturn}>Se reconnecter</a>
+            <a href={loginWithReturn}>Se reconnecter (page complète)</a>
           </div>
         )}
 
@@ -385,6 +499,7 @@ const CompteClientStandalone = () => {
               className="form-control"
               value={matchedPresetId}
               onChange={onPresetSelectChange}
+              disabled={!sessionValid}
             >
               <option value="">— Choisir un client ou saisir ci-dessous —</option>
               {presets.map((p) => (
@@ -393,7 +508,7 @@ const CompteClientStandalone = () => {
                 </option>
               ))}
             </select>
-            <p className="field-hint">Liste partagée (sauvegardée sur le serveur).</p>
+            <p className="field-hint">Liste partagée (serveur).</p>
           </div>
 
           <div className="form-group">
@@ -405,6 +520,7 @@ const CompteClientStandalone = () => {
               onChange={(e) => setFirstName(e.target.value)}
               autoComplete="given-name"
               required
+              disabled={!sessionValid}
             />
           </div>
           <div className="form-group">
@@ -416,10 +532,11 @@ const CompteClientStandalone = () => {
               onChange={(e) => setLastName(e.target.value)}
               autoComplete="family-name"
               required
+              disabled={!sessionValid}
             />
           </div>
           <div className="form-group form-group-inline">
-            <button type="button" className="btn-secondary" onClick={addCurrentToPresets}>
+            <button type="button" className="btn-secondary" onClick={addCurrentToPresets} disabled={!sessionValid}>
               Enregistrer ce client dans la liste
             </button>
           </div>
@@ -435,6 +552,7 @@ const CompteClientStandalone = () => {
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
               required
+              disabled={!sessionValid}
             />
           </div>
 
@@ -458,12 +576,12 @@ const CompteClientStandalone = () => {
                 onPointerLeave={pad.end}
               />
             </div>
-            <button type="button" className="btn-clear" onClick={pad.clear}>
+            <button type="button" className="btn-clear" onClick={pad.clear} disabled={!sessionValid}>
               Effacer la signature
             </button>
           </div>
 
-          <button type="submit" className="btn-submit" disabled={saving || !token}>
+          <button type="submit" className="btn-submit" disabled={saving || !sessionValid}>
             {saving ? 'Enregistrement…' : 'Valider le dépôt'}
           </button>
         </form>

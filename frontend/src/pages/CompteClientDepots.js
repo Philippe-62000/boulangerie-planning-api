@@ -26,6 +26,10 @@ const CompteClientDepots = () => {
   const [editingId, setEditingId] = useState(null);
   const [editFirst, setEditFirst] = useState('');
   const [editLast, setEditLast] = useState('');
+  const [newFirst, setNewFirst] = useState('');
+  const [newLast, setNewLast] = useState('');
+  const [createBusy, setCreateBusy] = useState(false);
+  const [deletingDepositId, setDeletingDepositId] = useState(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -120,6 +124,54 @@ const CompteClientDepots = () => {
     }
   };
 
+  const createPreset = async (e) => {
+    e.preventDefault();
+    const fn = newFirst.trim();
+    const ln = newLast.trim();
+    if (!fn || !ln) {
+      alert('Prénom et nom requis');
+      return;
+    }
+    setCreateBusy(true);
+    try {
+      await api.post('/account-client-presets', { site, firstName: fn, lastName: ln });
+      setNewFirst('');
+      setNewLast('');
+      await loadPresets();
+    } catch (err) {
+      alert(err.response?.data?.error || 'Erreur à la création');
+    } finally {
+      setCreateBusy(false);
+    }
+  };
+
+  const deleteDeposit = async (id) => {
+    if (!window.confirm('Supprimer ce dépôt ? (erreur de saisie)')) return;
+    setDeletingDepositId(id);
+    try {
+      await api.delete(`/account-deposits/${id}`);
+      setItems((prev) => prev.filter((row) => row._id !== id));
+    } catch (e) {
+      alert(e.response?.data?.error || 'Erreur');
+    } finally {
+      setDeletingDepositId(null);
+    }
+  };
+
+  const formatVendeur = (row) => {
+    const name = row.createdByName || row.createdByEmail || '—';
+    const code = row.registeredSaleCode;
+    if (code) {
+      return (
+        <>
+          {name}
+          <span className="ccd-sale-code"> · {code}</span>
+        </>
+      );
+    }
+    return name;
+  };
+
   const pending = items.filter((r) => !r.accountCredited || !r.putInRegister).length;
 
   return (
@@ -159,6 +211,7 @@ const CompteClientDepots = () => {
                 <th>Signature</th>
                 <th>Crédité</th>
                 <th>Caisse</th>
+                <th />
               </tr>
             </thead>
             <tbody>
@@ -171,7 +224,7 @@ const CompteClientDepots = () => {
                     </strong>
                   </td>
                   <td data-label="Montant">{Number(row.amount).toFixed(2)} €</td>
-                  <td data-label="Vendeur·se">{row.createdByName || row.createdByEmail || '—'}</td>
+                  <td data-label="Vendeur·se">{formatVendeur(row)}</td>
                   <td data-label="Signature" className="ccd-sig-cell">
                     {row.signatureImage ? (
                       <img src={row.signatureImage} alt="" className="ccd-sig-thumb" />
@@ -203,6 +256,16 @@ const CompteClientDepots = () => {
                     </label>
                     {row.putInRegisterAt && <span className="ccd-mini">{formatDate(row.putInRegisterAt)}</span>}
                   </td>
+                  <td data-label="">
+                    <button
+                      type="button"
+                      className="ccd-row-delete"
+                      disabled={deletingDepositId === row._id}
+                      onClick={() => deleteDeposit(row._id)}
+                    >
+                      Supprimer
+                    </button>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -228,11 +291,29 @@ const CompteClientDepots = () => {
               Liste utilisée sur la page <strong>Crédit compte client</strong> (même site). Les vendeuses peuvent aussi
               ajouter des clients depuis le téléphone.
             </p>
+            <form className="ccd-create-preset" onSubmit={createPreset}>
+              <span className="ccd-create-label">Nouveau client</span>
+              <input
+                className="ccd-preset-input"
+                placeholder="Nom"
+                value={newLast}
+                onChange={(e) => setNewLast(e.target.value)}
+              />
+              <input
+                className="ccd-preset-input"
+                placeholder="Prénom"
+                value={newFirst}
+                onChange={(e) => setNewFirst(e.target.value)}
+              />
+              <button type="submit" className="ccd-create-btn" disabled={createBusy}>
+                {createBusy ? '…' : 'Créer'}
+              </button>
+            </form>
             {presetsError && <div className="ccd-error">{presetsError}</div>}
             {presetsLoading ? (
               <p className="ccd-muted">Chargement…</p>
             ) : !presets.length ? (
-              <p className="ccd-muted">Aucun client enregistré pour l’instant.</p>
+              <p className="ccd-muted">Aucun autre client dans la liste — utilisez le formulaire ci-dessus pour en ajouter.</p>
             ) : (
               <div className="ccd-preset-table-wrap">
                 <table className="ccd-preset-table">

@@ -478,7 +478,8 @@ const loginBySaleCode = async (req, res) => {
         employeeId: employee._id.toString(),
         email: employee.email || '',
         name: employee.name,
-        role: 'employee'
+        role: 'employee',
+        saleCode
       },
       process.env.JWT_SECRET || 'votre-cle-secrete-ici',
       { expiresIn: '7d' }
@@ -493,6 +494,7 @@ const loginBySaleCode = async (req, res) => {
         name: employee.name,
         email: employee.email || '',
         role: 'employee',
+        saleCode,
         permissions: [
           'view_planning',
           'view_absences',

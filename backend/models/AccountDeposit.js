@@ -18,6 +18,8 @@ const accountDepositSchema = new mongoose.Schema(
     createdByEmployeeId: { type: mongoose.Schema.Types.ObjectId, ref: 'Employee', default: null },
     createdByName: { type: String, default: '' },
     createdByEmail: { type: String, default: '' },
+    /** Code vendeuse (3 chiffres) si connexion par code — pour traçabilité */
+    registeredSaleCode: { type: String, default: '', trim: true },
     accountCredited: { type: Boolean, default: false },
     accountCreditedAt: { type: Date, default: null },
     accountCreditedById: { type: mongoose.Schema.Types.ObjectId, default: null },

@@ -44,6 +44,7 @@ const authenticateEmployee = async (req, res, next) => {
       role: decoded.role,
       employeeId: decoded.role === 'admin' ? null : userId
     };
+    req.saleCode = typeof decoded.saleCode === 'string' ? decoded.saleCode : undefined;
     
     req.employeeId = decoded.role === 'admin' ? null : userId;
     req.employeeEmail = decoded.email;

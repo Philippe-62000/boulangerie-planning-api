@@ -136,6 +136,57 @@
   white-space: nowrap;
 }
 
+.ccd-sale-code {
+  color: #0d9488;
+  font-weight: 700;
+}
+
+.ccd-row-delete {
+  padding: 6px 10px;
+  font-size: 0.8rem;
+  border-radius: 6px;
+  border: 1px solid #fecaca;
+  background: #fef2f2;
+  color: #b91c1c;
+  cursor: pointer;
+}
+
+.ccd-row-delete:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.ccd-create-preset {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  padding: 0 20px 16px;
+  border-bottom: 1px solid #e2e8f0;
+  margin-bottom: 12px;
+}
+
+.ccd-create-label {
+  font-weight: 600;
+  color: #334155;
+  width: 100%;
+  margin-bottom: 4px;
+}
+
+.ccd-create-btn {
+  padding: 8px 16px;
+  border-radius: 8px;
+  border: 1px solid #0d9488;
+  background: #f0fdfa;
+  color: #0f766e;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.ccd-create-btn:disabled {
+  opacity: 0.6;
+}
+
 @media (max-width: 900px) {
   .ccd-table thead {
     display: none;

@@ -6,5 +6,6 @@ const accountDepositController = require('../controllers/accountDepositControlle
 router.post('/', authenticateEmployee, accountDepositController.create);
 router.get('/', authenticateManager, accountDepositController.list);
 router.patch('/:id', authenticateManager, accountDepositController.updateStatus);
+router.delete('/:id', authenticateManager, accountDepositController.remove);
 
 module.exports = router;

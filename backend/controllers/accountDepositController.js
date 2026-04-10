@@ -31,6 +31,7 @@ exports.create = async (req, res) => {
 
     const user = req.user || {};
     const isEmployee = user.role === 'employee';
+    const saleCodeFromJwt = typeof req.saleCode === 'string' ? req.saleCode.trim().slice(0, 3) : '';
     const doc = await AccountDeposit.create({
       site: siteVal,
       firstName: fn,
@@ -40,7 +41,8 @@ exports.create = async (req, res) => {
       signatureImage: sig,
       createdByEmployeeId: isEmployee && user.id ? user.id : null,
       createdByName: user.name || '',
-      createdByEmail: user.email || ''
+      createdByEmail: user.email || '',
+      registeredSaleCode: saleCodeFromJwt
     });
 
     return res.status(201).json({ success: true, data: doc });
@@ -117,6 +119,23 @@ exports.updateStatus = async (req, res) => {
     return res.json({ success: true, data: doc });
   } catch (e) {
     console.error('accountDeposit updateStatus:', e);
+    return res.status(500).json({ success: false, error: 'Erreur serveur' });
+  }
+};
+
+exports.remove = async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ success: false, error: 'Identifiant invalide' });
+    }
+    const doc = await AccountDeposit.findByIdAndDelete(id);
+    if (!doc) {
+      return res.status(404).json({ success: false, error: 'Dépôt introuvable' });
+    }
+    return res.json({ success: true, data: { id } });
+  } catch (e) {
+    console.error('accountDeposit remove:', e);
     return res.status(500).json({ success: false, error: 'Erreur serveur' });
   }
 };
