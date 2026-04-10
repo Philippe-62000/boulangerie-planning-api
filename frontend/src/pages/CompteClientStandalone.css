@@ -24,15 +24,101 @@
 }
 
 .compte-client-header h1 {
-  margin: 0 0 8px 0;
+  margin: 0;
   font-size: 1.5rem;
 }
 
-.compte-client-header p {
+.field-hint {
+  margin: 8px 0 0 0;
+  font-size: 0.82rem;
+  color: #64748b;
+}
+
+.compte-client-session-hint {
   margin: 0;
-  opacity: 0.95;
+  padding: 12px 20px;
+  background: #eff6ff;
+  color: #1e40af;
+  font-size: 0.9rem;
+}
+
+.compte-client-session-hint a {
+  display: inline-block;
+  margin-top: 6px;
+  font-weight: 600;
+  color: #1d4ed8;
+}
+
+.form-group-inline {
+  margin-bottom: 12px;
+}
+
+.btn-secondary {
+  width: 100%;
+  padding: 10px 14px;
+  border: 1px solid #0d9488;
+  border-radius: 10px;
+  background: #fff;
+  color: #0f766e;
   font-size: 0.95rem;
-  line-height: 1.45;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.btn-secondary:active {
+  background: #f0fdfa;
+}
+
+.compte-client-preset-list {
+  margin-bottom: 18px;
+  padding: 12px 14px;
+  background: #f8fafc;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+}
+
+.preset-list-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #64748b;
+  display: block;
+  margin-bottom: 8px;
+}
+
+.preset-chips {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  max-height: 160px;
+  overflow-y: auto;
+}
+
+.preset-chips li {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px 6px 10px;
+  background: #fff;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  font-size: 0.85rem;
+}
+
+.preset-remove {
+  border: none;
+  background: transparent;
+  color: #94a3b8;
+  font-size: 1.2rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 4px;
+}
+
+.preset-remove:hover {
+  color: #dc2626;
 }
 
 .compte-client-warning {
@@ -102,13 +188,6 @@
   font-size: 1.5rem;
   font-weight: 800;
   color: #0d9488;
-}
-
-.signature-block .signature-hint {
-  margin: 0 0 10px 0;
-  font-size: 0.88rem;
-  color: #64748b;
-  font-weight: normal;
 }
 
 .signature-wrap {

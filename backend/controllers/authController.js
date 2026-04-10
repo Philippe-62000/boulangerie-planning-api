@@ -163,7 +163,7 @@ const employeeLogin = async (req, res) => {
         role: 'employee'
       },
       process.env.JWT_SECRET || 'votre-cle-secrete-ici',
-      { expiresIn: '24h' }
+      { expiresIn: '7d' }
     );
     
     console.log('✅ Connexion réussie pour:', employee.name);
@@ -228,7 +228,7 @@ const adminLogin = async (req, res) => {
         role: 'admin'
       },
       process.env.JWT_SECRET || 'votre-cle-secrete-ici',
-      { expiresIn: '24h' }
+      { expiresIn: '7d' }
     );
     
     console.log('✅ Connexion admin réussie');
@@ -294,7 +294,7 @@ const employeeLoginReact = async (req, res) => {
         role: 'employee'
       },
       process.env.JWT_SECRET || 'votre-cle-secrete-ici',
-      { expiresIn: '24h' }
+      { expiresIn: '7d' }
     );
     
     console.log('✅ Connexion salarié réussie');
