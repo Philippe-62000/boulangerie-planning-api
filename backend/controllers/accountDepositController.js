@@ -1,7 +1,27 @@
 const mongoose = require('mongoose');
 const AccountDeposit = require('../models/AccountDeposit');
+const AccountDepositRemise = require('../models/AccountDepositRemise');
 
 const MAX_SIGNATURE_LEN = 2 * 1024 * 1024; // ~2 Mo data URL
+
+function getParisDayString(date = new Date()) {
+  // YYYY-MM-DD in Europe/Paris
+  try {
+    const parts = new Intl.DateTimeFormat('fr-CA', {
+      timeZone: 'Europe/Paris',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    }).formatToParts(date);
+    const y = parts.find((p) => p.type === 'year')?.value;
+    const m = parts.find((p) => p.type === 'month')?.value;
+    const d = parts.find((p) => p.type === 'day')?.value;
+    if (y && m && d) return `${y}-${m}-${d}`;
+  } catch {
+    /* fallback below */
+  }
+  return new Date(date).toISOString().slice(0, 10);
+}
 
 exports.create = async (req, res) => {
   try {
@@ -44,6 +64,31 @@ exports.create = async (req, res) => {
       createdByEmail: user.email || '',
       registeredSaleCode: saleCodeFromJwt
     });
+
+    // Incrémenter la "remise du jour" à chaque validation (1 dépôt = 1 ticket attendu).
+    // Important: on ne bloque pas l’enregistrement du dépôt si cette mise à jour échoue.
+    try {
+      const day = getParisDayString();
+      const existing = await AccountDepositRemise.findOne({ site: siteVal, day }).select('status declaredTicketCount').lean();
+      if (!existing || existing.status !== 'finished') {
+        if (!existing) {
+          await AccountDepositRemise.create({
+            site: siteVal,
+            day,
+            status: 'draft',
+            declaredTicketCount: 1
+          });
+        } else {
+          const current = typeof existing.declaredTicketCount === 'number' ? existing.declaredTicketCount : 0;
+          await AccountDepositRemise.updateOne(
+            { site: siteVal, day },
+            { $set: { status: 'draft', declaredTicketCount: current + 1 } }
+          );
+        }
+      }
+    } catch (e) {
+      console.error('accountDeposit create: remise increment failed:', e?.message || e);
+    }
 
     return res.status(201).json({ success: true, data: doc });
   } catch (e) {

@@ -189,6 +189,8 @@ app.use('/api/vehicle', require('./routes/vehicle'));
 console.log('✅ Routes vehicle montées (/api/vehicle/*)');
 app.use('/api/account-deposits', require('./routes/accountDeposits'));
 console.log('✅ Routes account-deposits montées (/api/account-deposits/*)');
+app.use('/api/account-deposit-remises', require('./routes/accountDepositRemises'));
+console.log('✅ Routes account-deposit-remises montées (/api/account-deposit-remises/*)');
 app.use('/api/account-client-presets', require('./routes/accountClientPresets'));
 console.log('✅ Routes account-client-presets montées (/api/account-client-presets/*)');
 

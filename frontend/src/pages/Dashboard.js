@@ -10,6 +10,8 @@ const Dashboard = () => {
   const [printingRecup, setPrintingRecup] = useState(false);
   const [vehicleSummary, setVehicleSummary] = useState(null);
   const [vehicleSummaryLoading, setVehicleSummaryLoading] = useState(false);
+  const [accountDepositRemise, setAccountDepositRemise] = useState(null);
+  const [accountDepositRemiseLoading, setAccountDepositRemiseLoading] = useState(false);
   
   // Détecter si on est sur Longuenesse ou Arras
   const isLonguenesse = window.location.pathname.startsWith('/lon');
@@ -26,6 +28,7 @@ const Dashboard = () => {
     }
     if (shouldShowVehicleRecap) {
       fetchVehicleSummary();
+      fetchAccountDepositRemise();
     }
   }, [shouldShowLosses, shouldShowVehicleRecap]);
 
@@ -119,6 +122,24 @@ const Dashboard = () => {
       setVehicleSummary(null);
     } finally {
       setVehicleSummaryLoading(false);
+    }
+  };
+
+  const fetchAccountDepositRemise = async () => {
+    try {
+      setAccountDepositRemiseLoading(true);
+      const site = window.location.pathname.startsWith('/lon') ? 'longuenesse' : 'arras';
+      const response = await api.get('/account-deposit-remises/dashboard', { params: { site } });
+      if (response.data?.success && response.data?.data) {
+        setAccountDepositRemise(response.data.data);
+      } else {
+        setAccountDepositRemise(null);
+      }
+    } catch (error) {
+      console.error('Erreur remise dépôts:', error);
+      setAccountDepositRemise(null);
+    } finally {
+      setAccountDepositRemiseLoading(false);
     }
   };
 
@@ -390,6 +411,11 @@ const Dashboard = () => {
     return new Date(dateString).toLocaleDateString('fr-FR');
   };
 
+  const formatDateTime = (dateString) => {
+    if (!dateString) return '-';
+    return new Date(dateString).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' });
+  };
+
   // Calculer les jours jusqu'à une date
   const calculateDaysUntil = (dateString) => {
     if (!dateString) return 0;
@@ -517,99 +543,154 @@ const Dashboard = () => {
           ) : !vehicleSummary ? (
             <p style={{ color: '#856404' }}>Impossible de charger les données véhicule.</p>
           ) : (
-            <>
-              <div style={{ marginBottom: '1.25rem' }}>
-                <h4 style={{ fontSize: '1rem', marginBottom: '0.5rem', color: '#444' }}>
-                  Échéances (fenêtre de rappel)
-                </h4>
-                {vehicleSummary.rappels && vehicleSummary.rappels.length > 0 ? (
-                  <ul style={{ margin: 0, paddingLeft: '1.25rem' }}>
-                    {vehicleSummary.rappels.map((r) => (
-                      <li key={r.id} style={{ marginBottom: '0.35rem' }}>
-                        <strong>{r.label}</strong> — {r.detail}
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'minmax(0, 1fr) 360px',
+                gap: '1.25rem',
+                alignItems: 'start'
+              }}
+            >
+              <div>
+                <div style={{ marginBottom: '1.25rem' }}>
+                  <h4 style={{ fontSize: '1rem', marginBottom: '0.5rem', color: '#444' }}>
+                    Échéances (fenêtre de rappel)
+                  </h4>
+                  {vehicleSummary.rappels && vehicleSummary.rappels.length > 0 ? (
+                    <ul style={{ margin: 0, paddingLeft: '1.25rem' }}>
+                      {vehicleSummary.rappels.map((r) => (
+                        <li key={r.id} style={{ marginBottom: '0.35rem' }}>
+                          <strong>{r.label}</strong> — {r.detail}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p style={{ margin: 0, color: '#6c757d' }}>
+                      Aucun rappel actif : vous n’êtes pas dans la fenêtre définie (km avant révision, jours avant
+                      révision / CT / renouvellement).
+                    </p>
+                  )}
+                </div>
+
+                {vehicleSummary.kmIncoherenceDernierTrajet && (
+                  <div
+                    style={{
+                      marginBottom: '1rem',
+                      padding: '0.65rem 0.85rem',
+                      backgroundColor: '#f8d7da',
+                      color: '#721c24',
+                      borderRadius: '8px',
+                      border: '1px solid #f5c6cb',
+                      fontWeight: 600
+                    }}
+                  >
+                    Incohérence km : le dernier trajet enregistré présente un écart (≥ 2 km) entre le km retour du
+                    trajet précédent et le km départ du suivant, comme sur la page véhicule.
+                  </div>
+                )}
+
+                <div style={{ marginBottom: '1rem' }}>
+                  <h4 style={{ fontSize: '1rem', marginBottom: '0.5rem', color: '#444' }}>
+                    Dernier trajet terminé
+                  </h4>
+                  {!vehicleSummary.dernierTrajet ? (
+                    <p style={{ margin: 0, color: '#6c757d' }}>Aucun trajet terminé enregistré.</p>
+                  ) : (
+                    <ul style={{ margin: 0, paddingLeft: '1.25rem' }}>
+                      <li>
+                        {vehicleSummary.dernierTrajet.dateRetour
+                          ? `Retour le ${formatDate(vehicleSummary.dernierTrajet.dateRetour)}`
+                          : `Départ le ${formatDate(vehicleSummary.dernierTrajet.dateDepart)}`}
+                        {vehicleSummary.dernierTrajet.conducteur
+                          ? ` — ${vehicleSummary.dernierTrajet.conducteur}`
+                          : ''}
                       </li>
-                    ))}
-                  </ul>
+                      {vehicleSummary.dernierTrajet.etatsEnDessousDe5 && (
+                        <li style={{ color: '#856404', fontWeight: 600 }}>
+                          États &lt; 5 : intérieur {vehicleSummary.dernierTrajet.etatInterieur}/5, extérieur{' '}
+                          {vehicleSummary.dernierTrajet.etatExterieur}/5 (action à prévoir)
+                        </li>
+                      )}
+                      {vehicleSummary.dernierTrajet.pleinAFaire && (
+                        <li style={{ color: '#0d6efd', fontWeight: 600 }}>Plein à faire</li>
+                      )}
+                      {vehicleSummary.dernierTrajet.autresChosesAFaire &&
+                        vehicleSummary.dernierTrajet.autresChosesAFaire.length > 0 && (
+                          <li style={{ color: '#0d6efd', fontWeight: 600 }}>
+                            Chose(s) à faire : {vehicleSummary.dernierTrajet.autresChosesAFaire.join(', ')}
+                          </li>
+                        )}
+                      <li>
+                        Photo retour :{' '}
+                        <strong>{vehicleSummary.dernierTrajet.photoUploadee ? 'Oui (uploadée)' : 'Non'}</strong>
+                      </li>
+                    </ul>
+                  )}
+                </div>
+
+                <a
+                  href={isLonguenesse ? '/lon/vehicle' : '/plan/vehicle'}
+                  style={{
+                    display: 'inline-block',
+                    padding: '8px 16px',
+                    backgroundColor: '#667eea',
+                    color: 'white',
+                    textDecoration: 'none',
+                    borderRadius: '8px',
+                    fontWeight: 600,
+                    fontSize: '0.9rem'
+                  }}
+                >
+                  Ouvrir la page véhicule
+                </a>
+              </div>
+
+              <div
+                style={{
+                  border: '1px solid #e2e8f0',
+                  borderRadius: '12px',
+                  padding: '12px 14px',
+                  background: '#fff'
+                }}
+              >
+                <h4 style={{ fontSize: '1rem', margin: 0, marginBottom: '0.5rem', color: '#444' }}>
+                  💳 Remise dépôts (aujourd’hui)
+                </h4>
+                {accountDepositRemiseLoading ? (
+                  <p style={{ margin: 0, color: '#666' }}>Chargement…</p>
+                ) : !accountDepositRemise ? (
+                  <p style={{ margin: 0, color: '#856404' }}>Données indisponibles.</p>
+                ) : accountDepositRemise.todayRemise?.status === 'finished' ? (
+                  <div style={{ display: 'grid', gap: '0.35rem' }}>
+                    <p style={{ margin: 0 }}>
+                      <strong>Remise effectuée</strong> ({accountDepositRemise.todayRemise.depositsCount} pers.,{' '}
+                      {Number(accountDepositRemise.todayRemise.depositsTotal || 0).toFixed(2)} €)
+                    </p>
+                    <p style={{ margin: 0, color: '#6c757d', fontSize: '0.9rem' }}>
+                      Tickets TPE : <strong>{accountDepositRemise.todayRemise.declaredTicketCount ?? '—'}</strong>
+                    </p>
+                    <p style={{ margin: 0, color: '#6c757d', fontSize: '0.9rem' }}>
+                      Terminée : <strong>{formatDateTime(accountDepositRemise.todayRemise.finishedAt)}</strong>
+                    </p>
+                  </div>
+                ) : accountDepositRemise.todayDeposits?.depositsCount > 0 ? (
+                  <div style={{ display: 'grid', gap: '0.35rem' }}>
+                    <p style={{ margin: 0 }}>
+                      <strong>Remise en cours</strong> : {accountDepositRemise.todayDeposits.depositsCount} pers.,{' '}
+                      {Number(accountDepositRemise.todayDeposits.depositsTotal || 0).toFixed(2)} €
+                    </p>
+                    <p style={{ margin: 0, color: '#6c757d', fontSize: '0.9rem' }}>
+                      Aller sur <a href={isLonguenesse ? '/lon/compte-client-depots' : '/plan/compte-client-depots'}>Dépôts compte client</a> pour terminer.
+                    </p>
+                  </div>
                 ) : (
                   <p style={{ margin: 0, color: '#6c757d' }}>
-                    Aucun rappel actif : vous n’êtes pas dans la fenêtre définie (km avant révision, jours avant
-                    révision / CT / renouvellement).
+                    Aucune remise aujourd’hui. Dernière remise :{' '}
+                    <strong>{accountDepositRemise.lastFinishedAt ? formatDate(accountDepositRemise.lastFinishedAt) : '—'}</strong>
                   </p>
                 )}
               </div>
-
-              {vehicleSummary.kmIncoherenceDernierTrajet && (
-                <div
-                  style={{
-                    marginBottom: '1rem',
-                    padding: '0.65rem 0.85rem',
-                    backgroundColor: '#f8d7da',
-                    color: '#721c24',
-                    borderRadius: '8px',
-                    border: '1px solid #f5c6cb',
-                    fontWeight: 600
-                  }}
-                >
-                  Incohérence km : le dernier trajet enregistré présente un écart (≥ 2 km) entre le km retour du
-                  trajet précédent et le km départ du suivant, comme sur la page véhicule.
-                </div>
-              )}
-
-              <div style={{ marginBottom: '1rem' }}>
-                <h4 style={{ fontSize: '1rem', marginBottom: '0.5rem', color: '#444' }}>
-                  Dernier trajet terminé
-                </h4>
-                {!vehicleSummary.dernierTrajet ? (
-                  <p style={{ margin: 0, color: '#6c757d' }}>Aucun trajet terminé enregistré.</p>
-                ) : (
-                  <ul style={{ margin: 0, paddingLeft: '1.25rem' }}>
-                    <li>
-                      {vehicleSummary.dernierTrajet.dateRetour
-                        ? `Retour le ${formatDate(vehicleSummary.dernierTrajet.dateRetour)}`
-                        : `Départ le ${formatDate(vehicleSummary.dernierTrajet.dateDepart)}`}
-                      {vehicleSummary.dernierTrajet.conducteur
-                        ? ` — ${vehicleSummary.dernierTrajet.conducteur}`
-                        : ''}
-                    </li>
-                    {vehicleSummary.dernierTrajet.etatsEnDessousDe5 && (
-                      <li style={{ color: '#856404', fontWeight: 600 }}>
-                        États &lt; 5 : intérieur {vehicleSummary.dernierTrajet.etatInterieur}/5, extérieur{' '}
-                        {vehicleSummary.dernierTrajet.etatExterieur}/5 (action à prévoir)
-                      </li>
-                    )}
-                    {vehicleSummary.dernierTrajet.pleinAFaire && (
-                      <li style={{ color: '#0d6efd', fontWeight: 600 }}>Plein à faire</li>
-                    )}
-                    {vehicleSummary.dernierTrajet.autresChosesAFaire &&
-                      vehicleSummary.dernierTrajet.autresChosesAFaire.length > 0 && (
-                        <li style={{ color: '#0d6efd', fontWeight: 600 }}>
-                          Chose(s) à faire : {vehicleSummary.dernierTrajet.autresChosesAFaire.join(', ')}
-                        </li>
-                      )}
-                    <li>
-                      Photo retour :{' '}
-                      <strong>{vehicleSummary.dernierTrajet.photoUploadee ? 'Oui (uploadée)' : 'Non'}</strong>
-                    </li>
-                  </ul>
-                )}
-              </div>
-
-              <a
-                href={isLonguenesse ? '/lon/vehicle' : '/plan/vehicle'}
-                style={{
-                  display: 'inline-block',
-                  padding: '8px 16px',
-                  backgroundColor: '#667eea',
-                  color: 'white',
-                  textDecoration: 'none',
-                  borderRadius: '8px',
-                  fontWeight: 600,
-                  fontSize: '0.9rem'
-                }}
-              >
-                Ouvrir la page véhicule
-              </a>
-            </>
+            </div>
           )}
         </div>
       )}
