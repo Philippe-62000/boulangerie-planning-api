@@ -7,15 +7,46 @@ import './Sidebar.css';
 const Sidebar = () => {
   // Étendu par défaut sur desktop (largeur > 768px) pour éviter que le menu semble "disparaître" au refresh
   const [isExpanded, setIsExpanded] = useState(() => typeof window !== 'undefined' && window.innerWidth > 768);
-  const [socialMenuExpanded, setSocialMenuExpanded] = useState(false);
-  const [planningMenuExpanded, setPlanningMenuExpanded] = useState(false);
-  const [venteMenuExpanded, setVenteMenuExpanded] = useState(false);
-  const [paiesMenuExpanded, setPaiesMenuExpanded] = useState(false);
-  const [facturationMenuExpanded, setFacturationMenuExpanded] = useState(false);
+  const isLonguenesse = window.location.pathname.startsWith('/lon');
+  const storageSuffix = isLonguenesse ? 'lon' : 'plan';
+  const [socialMenuExpanded, setSocialMenuExpanded] = useState(() => {
+    try {
+      return localStorage.getItem(`sidebar:${storageSuffix}:socialExpanded`) === '1';
+    } catch {
+      return false;
+    }
+  });
+  const [planningMenuExpanded, setPlanningMenuExpanded] = useState(() => {
+    try {
+      return localStorage.getItem(`sidebar:${storageSuffix}:planningExpanded`) === '1';
+    } catch {
+      return false;
+    }
+  });
+  const [venteMenuExpanded, setVenteMenuExpanded] = useState(() => {
+    try {
+      return localStorage.getItem(`sidebar:${storageSuffix}:venteExpanded`) === '1';
+    } catch {
+      return false;
+    }
+  });
+  const [paiesMenuExpanded, setPaiesMenuExpanded] = useState(() => {
+    try {
+      return localStorage.getItem(`sidebar:${storageSuffix}:paiesExpanded`) === '1';
+    } catch {
+      return false;
+    }
+  });
+  const [facturationMenuExpanded, setFacturationMenuExpanded] = useState(() => {
+    try {
+      return localStorage.getItem(`sidebar:${storageSuffix}:facturationExpanded`) === '1';
+    } catch {
+      return false;
+    }
+  });
   const [menuPermissions, setMenuPermissions] = useState([]);
   const location = useLocation();
   const { user, isAdmin, isEmployee } = useAuth();
-  const isLonguenesse = window.location.pathname.startsWith('/lon');
 
   // Sous-menus admin (comme Social) — regroupent des entrées retirées du menu plat pour l’admin uniquement
   const PLANNING_MENU_ITEMS = [
@@ -128,6 +159,26 @@ const Sidebar = () => {
     const socialPaths = ['advance-requests', 'vacation-management', 'sick-leave-management', 'mutuelle-management', 'primes'];
     if (socialPaths.some((x) => p.includes(x))) setSocialMenuExpanded(true);
   }, [location.pathname]);
+
+  // Persister l'état des sous-menus (évite "menu disparu" après refresh si le groupe était ouvert)
+  useEffect(() => {
+    try {
+      localStorage.setItem(`sidebar:${storageSuffix}:socialExpanded`, socialMenuExpanded ? '1' : '0');
+      localStorage.setItem(`sidebar:${storageSuffix}:planningExpanded`, planningMenuExpanded ? '1' : '0');
+      localStorage.setItem(`sidebar:${storageSuffix}:venteExpanded`, venteMenuExpanded ? '1' : '0');
+      localStorage.setItem(`sidebar:${storageSuffix}:paiesExpanded`, paiesMenuExpanded ? '1' : '0');
+      localStorage.setItem(`sidebar:${storageSuffix}:facturationExpanded`, facturationMenuExpanded ? '1' : '0');
+    } catch {
+      /* ignore */
+    }
+  }, [
+    storageSuffix,
+    socialMenuExpanded,
+    planningMenuExpanded,
+    venteMenuExpanded,
+    paiesMenuExpanded,
+    facturationMenuExpanded
+  ]);
 
   // Charger les permissions de menu selon le rôle utilisateur
   useEffect(() => {
@@ -266,7 +317,11 @@ const Sidebar = () => {
   };
 
   const handleMouseLeave = () => {
-    setIsExpanded(false);
+    // Sur desktop, ne pas auto-replier : sur certains appareils (ou au refresh)
+    // cela donne l’impression que des menus "disparaissent".
+    if (typeof window !== 'undefined' && window.innerWidth <= 768) {
+      setIsExpanded(false);
+    }
   };
 
 
