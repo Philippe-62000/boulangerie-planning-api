@@ -618,43 +618,8 @@ const CompteClientStandalone = () => {
               </div>
             </div>
 
-            <label className="cc-remise-ticket">
-              Nombre de tickets TPE (pour comparer)
-              <input
-                type="number"
-                min={0}
-                value={declaredTicketCount}
-                onChange={(e) => setDeclaredTicketCount(e.target.value)}
-                onBlur={saveDraftTicketCount}
-                disabled={isFinished}
-              />
-            </label>
-
-            {mismatch && (
-              <div className="cc-remise-warn">
-                Attention : tickets ({normalizedTickets}) ≠ personnes ({isFinished ? todayRemise?.depositsCount : todayDepositsCount})
-              </div>
-            )}
-
-            <div className="cc-remise-buttons">
-              {!isFinished ? (
-                <button
-                  type="button"
-                  className="cc-remise-finish"
-                  onClick={finishRemise}
-                  disabled={finishingRemise || todayDepositsCount === 0}
-                >
-                  {finishingRemise ? '…' : 'Terminer la remise du jour'}
-                </button>
-              ) : (
-                <button type="button" className="cc-remise-resume" onClick={resumeRemise} disabled={resumingRemise}>
-                  {resumingRemise ? '…' : 'Reprendre la remise (erreur)'}
-                </button>
-              )}
-            </div>
-
             <div className="cc-remise-list">
-              <div className="cc-remise-list-title">Noms et montants</div>
+              <div className="cc-remise-list-title">Noms et montants (sauvegardés)</div>
               {(isFinished ? todayRemise?.depositsSnapshot : todayDepositsSnapshot).length === 0 ? (
                 <div className="cc-remise-muted">Aucun dépôt aujourd’hui.</div>
               ) : (
@@ -764,6 +729,52 @@ const CompteClientStandalone = () => {
             {saving ? 'Enregistrement…' : 'Valider le dépôt'}
           </button>
         </form>
+
+        {sessionValid && (
+          <div className="cc-remise-footer">
+            <div className="cc-remise-footer-title">
+              Fin de tournée — remise TPE
+            </div>
+            <p className="cc-remise-footer-desc">
+              À faire une fois que tous les dépôts de la journée sont saisis.
+            </p>
+
+            <label className="cc-remise-ticket">
+              Nombre de tickets TPE (pour comparer)
+              <input
+                type="number"
+                min={0}
+                value={declaredTicketCount}
+                onChange={(e) => setDeclaredTicketCount(e.target.value)}
+                onBlur={saveDraftTicketCount}
+                disabled={isFinished}
+              />
+            </label>
+
+            {mismatch && (
+              <div className="cc-remise-warn">
+                Attention : tickets ({normalizedTickets}) ≠ personnes ({isFinished ? todayRemise?.depositsCount : todayDepositsCount})
+              </div>
+            )}
+
+            <div className="cc-remise-buttons">
+              {!isFinished ? (
+                <button
+                  type="button"
+                  className="cc-remise-finish"
+                  onClick={finishRemise}
+                  disabled={finishingRemise || todayDepositsCount === 0}
+                >
+                  {finishingRemise ? '…' : 'Terminer la remise du jour'}
+                </button>
+              ) : (
+                <button type="button" className="cc-remise-resume" onClick={resumeRemise} disabled={resumingRemise}>
+                  {resumingRemise ? '…' : 'Reprendre la remise (erreur)'}
+                </button>
+              )}
+            </div>
+          </div>
+        )}
 
         {message && <div className={`compte-client-message ${messageType}`}>{message}</div>}
       </div>
