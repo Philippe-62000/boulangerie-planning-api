@@ -24,6 +24,9 @@ const accountDepositRemiseSchema = new mongoose.Schema(
     /** Nombre de tickets TPE annoncé (pour comparaison) */
     declaredTicketCount: { type: Number, default: null, min: 0 },
 
+    /** Compteur technique : incrémenté à chaque dépôt validé (sécurise la remise en cours) */
+    progressCount: { type: Number, default: 0, min: 0 },
+
     /** Snapshot de la remise (figé à la validation) */
     depositsSnapshot: [
       {

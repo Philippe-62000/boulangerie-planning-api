@@ -65,24 +65,24 @@ exports.create = async (req, res) => {
       registeredSaleCode: saleCodeFromJwt
     });
 
-    // Incrémenter la "remise du jour" à chaque validation (1 dépôt = 1 ticket attendu).
+    // Incrémenter la "remise du jour" à chaque validation (sécurise le comptage côté serveur).
     // Important: on ne bloque pas l’enregistrement du dépôt si cette mise à jour échoue.
     try {
       const day = getParisDayString();
-      const existing = await AccountDepositRemise.findOne({ site: siteVal, day }).select('status declaredTicketCount').lean();
+      const existing = await AccountDepositRemise.findOne({ site: siteVal, day }).select('status progressCount').lean();
       if (!existing || existing.status !== 'finished') {
         if (!existing) {
           await AccountDepositRemise.create({
             site: siteVal,
             day,
             status: 'draft',
-            declaredTicketCount: 1
+            progressCount: 1
           });
         } else {
-          const current = typeof existing.declaredTicketCount === 'number' ? existing.declaredTicketCount : 0;
+          const current = typeof existing.progressCount === 'number' ? existing.progressCount : 0;
           await AccountDepositRemise.updateOne(
             { site: siteVal, day },
-            { $set: { status: 'draft', declaredTicketCount: current + 1 } }
+            { $set: { status: 'draft', progressCount: current + 1 } }
           );
         }
       }

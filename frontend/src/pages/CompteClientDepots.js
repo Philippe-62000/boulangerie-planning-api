@@ -18,12 +18,6 @@ const CompteClientDepots = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [updatingId, setUpdatingId] = useState(null);
-  const [remiseLoading, setRemiseLoading] = useState(false);
-  const [remiseError, setRemiseError] = useState('');
-  const [remiseSummary, setRemiseSummary] = useState(null);
-  const [declaredTicketCount, setDeclaredTicketCount] = useState('');
-  const [finishingRemise, setFinishingRemise] = useState(false);
-  const [resumingRemise, setResumingRemise] = useState(false);
 
   const [clientsModalOpen, setClientsModalOpen] = useState(false);
   const [presets, setPresets] = useState([]);
@@ -51,25 +45,6 @@ const CompteClientDepots = () => {
     }
   }, [site]);
 
-  const loadRemiseSummary = useCallback(async () => {
-    setRemiseLoading(true);
-    setRemiseError('');
-    try {
-      const { data } = await api.get('/account-deposit-remises/dashboard', { params: { site } });
-      const s = data?.data || null;
-      setRemiseSummary(s);
-      const todayRemise = s?.todayRemise;
-      if (todayRemise && typeof todayRemise.declaredTicketCount === 'number') {
-        setDeclaredTicketCount(String(todayRemise.declaredTicketCount));
-      }
-    } catch (e) {
-      setRemiseError(e.response?.data?.error || 'Impossible de charger la remise');
-      setRemiseSummary(null);
-    } finally {
-      setRemiseLoading(false);
-    }
-  }, [site]);
-
   const loadPresets = useCallback(async () => {
     setPresetsLoading(true);
     setPresetsError('');
@@ -87,10 +62,6 @@ const CompteClientDepots = () => {
   useEffect(() => {
     load();
   }, [load]);
-
-  useEffect(() => {
-    loadRemiseSummary();
-  }, [loadRemiseSummary]);
 
   useEffect(() => {
     if (clientsModalOpen) {
@@ -203,58 +174,6 @@ const CompteClientDepots = () => {
 
   const pending = items.filter((r) => !r.accountCredited || !r.putInRegister).length;
 
-  const todayDepositsCount = remiseSummary?.todayDeposits?.depositsCount ?? 0;
-  const todayDepositsTotal = remiseSummary?.todayDeposits?.depositsTotal ?? 0;
-  const todayDepositsSnapshot = remiseSummary?.todayDeposits?.snapshot || [];
-  const todayRemise = remiseSummary?.todayRemise || null;
-  const remiseStatus = todayRemise?.status || 'draft';
-  const isFinished = remiseStatus === 'finished';
-
-  const normalizedTickets = declaredTicketCount === '' ? null : Math.max(0, Math.floor(Number(declaredTicketCount)));
-  const mismatch =
-    normalizedTickets != null && Number.isFinite(normalizedTickets) ? normalizedTickets !== (isFinished ? todayRemise?.depositsCount : todayDepositsCount) : false;
-
-  const saveDraftTicketCount = async () => {
-    try {
-      await api.put('/account-deposit-remises/today/draft', {
-        site,
-        declaredTicketCount: declaredTicketCount === '' ? null : Number(declaredTicketCount)
-      });
-      await loadRemiseSummary();
-    } catch (e) {
-      alert(e.response?.data?.error || 'Erreur enregistrement');
-    }
-  };
-
-  const finishRemise = async () => {
-    if (!window.confirm('Terminer la remise du jour ? Cela fige la liste des dépôts et le total.')) return;
-    setFinishingRemise(true);
-    try {
-      await api.post('/account-deposit-remises/today/finish', {
-        site,
-        declaredTicketCount: declaredTicketCount === '' ? null : Number(declaredTicketCount)
-      });
-      await loadRemiseSummary();
-    } catch (e) {
-      alert(e.response?.data?.error || 'Erreur');
-    } finally {
-      setFinishingRemise(false);
-    }
-  };
-
-  const resumeRemise = async () => {
-    if (!window.confirm('Reprendre la remise du jour ? (si un dépôt manque ou erreur de validation)')) return;
-    setResumingRemise(true);
-    try {
-      await api.post('/account-deposit-remises/today/resume', { site });
-      await loadRemiseSummary();
-    } catch (e) {
-      alert(e.response?.data?.error || 'Erreur');
-    } finally {
-      setResumingRemise(false);
-    }
-  };
-
   return (
     <div className="compte-client-depots-page">
       <div className="ccd-header">
@@ -268,9 +187,6 @@ const CompteClientDepots = () => {
           <button type="button" className="ccd-manage-clients" onClick={() => setClientsModalOpen(true)}>
             Gérer les clients
           </button>
-          <button type="button" className="ccd-refresh" onClick={loadRemiseSummary} disabled={remiseLoading}>
-            {remiseLoading ? 'Remise…' : 'Actualiser remise'}
-          </button>
           <button type="button" className="ccd-refresh" onClick={load} disabled={loading}>
             {loading ? 'Chargement…' : 'Actualiser'}
           </button>
@@ -278,91 +194,6 @@ const CompteClientDepots = () => {
       </div>
 
       {error && <div className="ccd-error">{error}</div>}
-      {remiseError && <div className="ccd-error">{remiseError}</div>}
-
-      <div className="ccd-remise-card">
-        <div className="ccd-remise-head">
-          <h2>Remise du jour</h2>
-          <span className={`ccd-remise-pill ${isFinished ? 'done' : 'draft'}`}>
-            {isFinished ? 'Terminée' : 'En cours'}
-          </span>
-        </div>
-
-        <div className="ccd-remise-grid">
-          <div className="ccd-remise-metrics">
-            <div className="ccd-remise-metric">
-              <span>Personnes</span>
-              <strong>{isFinished ? (todayRemise?.depositsCount ?? 0) : todayDepositsCount}</strong>
-            </div>
-            <div className="ccd-remise-metric">
-              <span>Total</span>
-              <strong>{Number(isFinished ? (todayRemise?.depositsTotal ?? 0) : todayDepositsTotal).toFixed(2)} €</strong>
-            </div>
-            <div className="ccd-remise-metric">
-              <span>Tickets TPE</span>
-              <strong>{todayRemise?.declaredTicketCount ?? (declaredTicketCount === '' ? '—' : declaredTicketCount)}</strong>
-            </div>
-          </div>
-
-          <div className="ccd-remise-actions">
-            <label className="ccd-remise-ticket">
-              Nombre de tickets TPE (pour comparer)
-              <input
-                type="number"
-                min={0}
-                value={declaredTicketCount}
-                onChange={(e) => setDeclaredTicketCount(e.target.value)}
-                onBlur={saveDraftTicketCount}
-                disabled={isFinished}
-              />
-            </label>
-            {mismatch && (
-              <div className="ccd-remise-warn">
-                Attention : tickets ({normalizedTickets}) ≠ personnes ({isFinished ? todayRemise?.depositsCount : todayDepositsCount})
-              </div>
-            )}
-            <div className="ccd-remise-buttons">
-              {!isFinished ? (
-                <button
-                  type="button"
-                  className="ccd-remise-finish"
-                  disabled={finishingRemise || todayDepositsCount === 0}
-                  onClick={finishRemise}
-                >
-                  {finishingRemise ? '…' : 'Terminer la remise du jour'}
-                </button>
-              ) : (
-                <button type="button" className="ccd-remise-resume" disabled={resumingRemise} onClick={resumeRemise}>
-                  {resumingRemise ? '…' : 'Reprendre la remise (erreur)'}
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-
-        <div className="ccd-remise-list">
-          <p className="ccd-remise-list-title">Noms et montants</p>
-          {(isFinished ? todayRemise?.depositsSnapshot : todayDepositsSnapshot).length === 0 ? (
-            <p className="ccd-muted">Aucun dépôt aujourd’hui.</p>
-          ) : (
-            <ul>
-              {(isFinished ? todayRemise?.depositsSnapshot : todayDepositsSnapshot).map((x) => (
-                <li key={String(x.depositId || `${x.lastName}-${x.firstName}-${x.amount}`)}>
-                  <strong>
-                    {String(x.lastName || '').toUpperCase()} {x.firstName}
-                  </strong>{' '}
-                  — {Number(x.amount || 0).toFixed(2)} €
-                </li>
-              ))}
-            </ul>
-          )}
-          {isFinished && todayRemise?.finishedAt && (
-            <p className="ccd-mini">
-              Terminée le {formatDate(todayRemise.finishedAt)} {todayRemise.finishedByName ? `par ${todayRemise.finishedByName}` : ''}
-            </p>
-          )}
-        </div>
-      </div>
 
       {loading && !items.length ? (
         <p className="ccd-muted">Chargement…</p>

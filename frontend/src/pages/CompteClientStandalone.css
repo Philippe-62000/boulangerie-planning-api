@@ -151,6 +151,155 @@
   color: #1d4ed8;
 }
 
+.cc-remise-card {
+  margin: 14px 20px 0;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 14px 14px 12px;
+}
+
+.cc-remise-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+  color: #0f172a;
+}
+
+.cc-remise-refresh {
+  border: 1px solid #cbd5e1;
+  background: #fff;
+  border-radius: 10px;
+  padding: 8px 10px;
+  font-weight: 700;
+  cursor: pointer;
+  color: #475569;
+}
+
+.cc-remise-refresh:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.cc-remise-error {
+  padding: 10px 12px;
+  background: #fee2e2;
+  color: #991b1b;
+  border-radius: 10px;
+  margin-bottom: 10px;
+  font-weight: 600;
+}
+
+.cc-remise-metrics {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.cc-remise-metric {
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+}
+
+.cc-remise-metric span {
+  display: block;
+  font-size: 0.78rem;
+  color: #64748b;
+  margin-bottom: 2px;
+  font-weight: 600;
+}
+
+.cc-remise-metric strong {
+  font-size: 1.1rem;
+  color: #0f172a;
+}
+
+.cc-remise-ticket {
+  display: grid;
+  gap: 6px;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #334155;
+  margin-bottom: 10px;
+}
+
+.cc-remise-ticket input {
+  padding: 10px 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 12px;
+  font-size: 1rem;
+}
+
+.cc-remise-warn {
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: #fff7ed;
+  border: 1px solid #fdba74;
+  color: #9a3412;
+  font-weight: 800;
+  margin-bottom: 10px;
+}
+
+.cc-remise-buttons {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+
+.cc-remise-finish {
+  padding: 11px 12px;
+  border: 1px solid #0d9488;
+  background: linear-gradient(135deg, #0d9488 0%, #0f766e 100%);
+  color: #fff;
+  border-radius: 12px;
+  font-weight: 800;
+  cursor: pointer;
+  width: 100%;
+}
+
+.cc-remise-finish:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.cc-remise-resume {
+  padding: 11px 12px;
+  border: 1px solid #f59e0b;
+  background: #fffbeb;
+  color: #92400e;
+  border-radius: 12px;
+  font-weight: 800;
+  cursor: pointer;
+  width: 100%;
+}
+
+.cc-remise-list-title {
+  font-weight: 800;
+  color: #334155;
+  margin-bottom: 6px;
+}
+
+.cc-remise-list ul {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.cc-remise-list li {
+  margin-bottom: 6px;
+  color: #0f172a;
+}
+
+.cc-remise-muted {
+  color: #64748b;
+  font-weight: 600;
+}
+
 .form-group-inline {
   margin-bottom: 12px;
 }

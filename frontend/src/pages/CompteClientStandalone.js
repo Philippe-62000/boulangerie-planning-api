@@ -175,6 +175,13 @@ const CompteClientStandalone = () => {
   const [messageType, setMessageType] = useState('');
   const [sessionHint, setSessionHint] = useState('');
 
+  const [remiseLoading, setRemiseLoading] = useState(false);
+  const [remiseSummary, setRemiseSummary] = useState(null);
+  const [remiseError, setRemiseError] = useState('');
+  const [declaredTicketCount, setDeclaredTicketCount] = useState('');
+  const [finishingRemise, setFinishingRemise] = useState(false);
+  const [resumingRemise, setResumingRemise] = useState(false);
+
   const pad = useSignaturePad();
 
   const loginPath = site === 'longuenesse' ? '/lon/login' : '/plan/login';
@@ -238,13 +245,43 @@ const CompteClientStandalone = () => {
     }
   }, [apiBase, site]);
 
+  const loadRemiseSummary = useCallback(async () => {
+    const t = getStoredToken();
+    if (!t || !sessionValid) {
+      setRemiseSummary(null);
+      return;
+    }
+    setRemiseLoading(true);
+    setRemiseError('');
+    try {
+      const { data } = await axios.get(`${apiBase}/account-deposit-remises/dashboard`, {
+        params: { site },
+        headers: authHeaders(t),
+        timeout: 60000
+      });
+      const s = data?.data || null;
+      setRemiseSummary(s);
+      const todayRemise = s?.todayRemise;
+      if (todayRemise && typeof todayRemise.declaredTicketCount === 'number') {
+        setDeclaredTicketCount(String(todayRemise.declaredTicketCount));
+      }
+    } catch (e) {
+      setRemiseError(e.response?.data?.error || 'Impossible de charger la remise');
+      setRemiseSummary(null);
+    } finally {
+      setRemiseLoading(false);
+    }
+  }, [apiBase, site, sessionValid]);
+
   useEffect(() => {
     if (sessionValid) {
       fetchPresets();
+      loadRemiseSummary();
     } else {
       setPresets([]);
+      setRemiseSummary(null);
     }
-  }, [sessionValid, fetchPresets]);
+  }, [sessionValid, fetchPresets, loadRemiseSummary]);
 
   useEffect(() => {
     if (!token || !identity) {
@@ -415,6 +452,8 @@ const CompteClientStandalone = () => {
       setAmount('25');
       clearClientFields();
       pad.clear();
+      // Mettre à jour l'encart remise du jour (compteur + liste)
+      loadRemiseSummary();
     } catch (err) {
       const status = err.response?.status;
       const serverMsg = err.response?.data?.error;
@@ -428,6 +467,72 @@ const CompteClientStandalone = () => {
       setMessageType('error');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const todayDepositsCount = remiseSummary?.todayDeposits?.depositsCount ?? 0;
+  const todayDepositsTotal = remiseSummary?.todayDeposits?.depositsTotal ?? 0;
+  const todayDepositsSnapshot = remiseSummary?.todayDeposits?.snapshot || [];
+  const todayRemise = remiseSummary?.todayRemise || null;
+  const isFinished = todayRemise?.status === 'finished';
+
+  const normalizedTickets =
+    declaredTicketCount === '' ? null : Math.max(0, Math.floor(Number(declaredTicketCount)));
+  const mismatch =
+    normalizedTickets != null && Number.isFinite(normalizedTickets)
+      ? normalizedTickets !== (isFinished ? todayRemise?.depositsCount : todayDepositsCount)
+      : false;
+
+  const saveDraftTicketCount = async () => {
+    const t = getStoredToken();
+    if (!t || !sessionValid) return;
+    try {
+      await axios.put(
+        `${apiBase}/account-deposit-remises/today/draft`,
+        { site, declaredTicketCount: declaredTicketCount === '' ? null : Number(declaredTicketCount) },
+        { headers: authHeaders(t), timeout: 30000 }
+      );
+      await loadRemiseSummary();
+    } catch (e) {
+      alert(e.response?.data?.error || 'Erreur enregistrement');
+    }
+  };
+
+  const finishRemise = async () => {
+    const t = getStoredToken();
+    if (!t || !sessionValid) return;
+    if (!window.confirm('Terminer la remise du jour ?')) return;
+    setFinishingRemise(true);
+    try {
+      await axios.post(
+        `${apiBase}/account-deposit-remises/today/finish`,
+        { site, declaredTicketCount: declaredTicketCount === '' ? null : Number(declaredTicketCount) },
+        { headers: authHeaders(t), timeout: 60000 }
+      );
+      await loadRemiseSummary();
+    } catch (e) {
+      alert(e.response?.data?.error || 'Erreur');
+    } finally {
+      setFinishingRemise(false);
+    }
+  };
+
+  const resumeRemise = async () => {
+    const t = getStoredToken();
+    if (!t || !sessionValid) return;
+    if (!window.confirm('Reprendre la remise du jour ?')) return;
+    setResumingRemise(true);
+    try {
+      await axios.post(
+        `${apiBase}/account-deposit-remises/today/resume`,
+        { site },
+        { headers: authHeaders(t), timeout: 30000 }
+      );
+      await loadRemiseSummary();
+    } catch (e) {
+      alert(e.response?.data?.error || 'Erreur');
+    } finally {
+      setResumingRemise(false);
     }
   };
 
@@ -488,6 +593,80 @@ const CompteClientStandalone = () => {
           <div className="compte-client-session-hint">
             <p>{sessionHint}</p>
             <a href={loginWithReturn}>Se reconnecter (page complète)</a>
+          </div>
+        )}
+
+        {sessionValid && (
+          <div className="cc-remise-card">
+            <div className="cc-remise-head">
+              <strong>Remise du jour</strong>
+              <button type="button" className="cc-remise-refresh" onClick={loadRemiseSummary} disabled={remiseLoading}>
+                {remiseLoading ? '…' : 'Actualiser'}
+              </button>
+            </div>
+
+            {remiseError && <div className="cc-remise-error">{remiseError}</div>}
+
+            <div className="cc-remise-metrics">
+              <div className="cc-remise-metric">
+                <span>Personnes</span>
+                <strong>{isFinished ? (todayRemise?.depositsCount ?? 0) : todayDepositsCount}</strong>
+              </div>
+              <div className="cc-remise-metric">
+                <span>Total</span>
+                <strong>{Number(isFinished ? (todayRemise?.depositsTotal ?? 0) : todayDepositsTotal).toFixed(2)} €</strong>
+              </div>
+            </div>
+
+            <label className="cc-remise-ticket">
+              Nombre de tickets TPE (pour comparer)
+              <input
+                type="number"
+                min={0}
+                value={declaredTicketCount}
+                onChange={(e) => setDeclaredTicketCount(e.target.value)}
+                onBlur={saveDraftTicketCount}
+                disabled={isFinished}
+              />
+            </label>
+
+            {mismatch && (
+              <div className="cc-remise-warn">
+                Attention : tickets ({normalizedTickets}) ≠ personnes ({isFinished ? todayRemise?.depositsCount : todayDepositsCount})
+              </div>
+            )}
+
+            <div className="cc-remise-buttons">
+              {!isFinished ? (
+                <button
+                  type="button"
+                  className="cc-remise-finish"
+                  onClick={finishRemise}
+                  disabled={finishingRemise || todayDepositsCount === 0}
+                >
+                  {finishingRemise ? '…' : 'Terminer la remise du jour'}
+                </button>
+              ) : (
+                <button type="button" className="cc-remise-resume" onClick={resumeRemise} disabled={resumingRemise}>
+                  {resumingRemise ? '…' : 'Reprendre la remise (erreur)'}
+                </button>
+              )}
+            </div>
+
+            <div className="cc-remise-list">
+              <div className="cc-remise-list-title">Noms et montants</div>
+              {(isFinished ? todayRemise?.depositsSnapshot : todayDepositsSnapshot).length === 0 ? (
+                <div className="cc-remise-muted">Aucun dépôt aujourd’hui.</div>
+              ) : (
+                <ul>
+                  {(isFinished ? todayRemise?.depositsSnapshot : todayDepositsSnapshot).map((x) => (
+                    <li key={String(x.depositId || `${x.lastName}-${x.firstName}-${x.amount}`)}>
+                      <strong>{String(x.lastName || '').toUpperCase()} {x.firstName}</strong> — {Number(x.amount || 0).toFixed(2)} €
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
           </div>
         )}
 
