@@ -1,7 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import api from '../services/api';
+import { getSiteKey } from '../config/site';
+import { useAuth } from '../contexts/AuthContext';
 
 const Dashboard = () => {
+  const { isAdmin, user } = useAuth();
   const [employees, setEmployees] = useState([]);
   const [sickLeaves, setSickLeaves] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -12,10 +15,18 @@ const Dashboard = () => {
   const [vehicleSummaryLoading, setVehicleSummaryLoading] = useState(false);
   const [accountDepositRemise, setAccountDepositRemise] = useState(null);
   const [accountDepositRemiseLoading, setAccountDepositRemiseLoading] = useState(false);
-  
+  /** Compteurs pour le widget « Actions en attente » (acomptes, congés, arrêts maladie) */
+  const [pendingActions, setPendingActions] = useState({
+    advance: 0,
+    vacation: 0,
+    sickLeave: 0,
+    loading: false
+  });
+
   // Détecter si on est sur Longuenesse ou Arras
-  const isLonguenesse = window.location.pathname.startsWith('/lon');
-  const isArras = window.location.pathname.startsWith('/plan');
+  const siteKey = getSiteKey(); // 'lon' | 'plan' (fallback persistant)
+  const isLonguenesse = siteKey === 'lon';
+  const isArras = siteKey === 'plan';
   const shouldShowLosses = isLonguenesse || isArras;
   const shouldShowVehicleRecap = shouldShowLosses;
 
@@ -30,7 +41,10 @@ const Dashboard = () => {
       fetchVehicleSummary();
       fetchAccountDepositRemise();
     }
-  }, [shouldShowLosses, shouldShowVehicleRecap]);
+    if (shouldShowLosses && isAdmin()) {
+      fetchPendingActionsCounts();
+    }
+  }, [shouldShowLosses, shouldShowVehicleRecap, user?.role]);
 
   const fetchDashboardData = async () => {
     try {
@@ -108,7 +122,7 @@ const Dashboard = () => {
   const fetchVehicleSummary = async () => {
     try {
       setVehicleSummaryLoading(true);
-      const site = window.location.pathname.startsWith('/lon') ? 'longuenesse' : 'arras';
+      const site = isLonguenesse ? 'longuenesse' : 'arras';
       const response = await api.get('/vehicle/dashboard-summary', {
         params: { site }
       });
@@ -128,7 +142,7 @@ const Dashboard = () => {
   const fetchAccountDepositRemise = async () => {
     try {
       setAccountDepositRemiseLoading(true);
-      const site = window.location.pathname.startsWith('/lon') ? 'longuenesse' : 'arras';
+      const site = isLonguenesse ? 'longuenesse' : 'arras';
       const response = await api.get('/account-deposit-remises/dashboard', { params: { site } });
       if (response.data?.success && response.data?.data) {
         setAccountDepositRemise(response.data.data);
@@ -140,6 +154,43 @@ const Dashboard = () => {
       setAccountDepositRemise(null);
     } finally {
       setAccountDepositRemiseLoading(false);
+    }
+  };
+
+  const fetchPendingActionsCounts = async () => {
+    setPendingActions((s) => ({ ...s, loading: true }));
+    try {
+      const [advRes, vacRes, sickRes] = await Promise.all([
+        api.get('/advance-requests/pending'),
+        api.get('/vacation-requests', { params: { status: 'pending', limit: 1, page: 1 } }),
+        api.get('/sick-leaves', { params: { status: 'pending', limit: 1, page: 1 } })
+      ]);
+
+      const advanceCount = Array.isArray(advRes.data?.data) ? advRes.data.data.length : 0;
+      const vacationTotal = vacRes.data?.pagination?.total;
+      const vacationCount =
+        typeof vacationTotal === 'number'
+          ? vacationTotal
+          : Array.isArray(vacRes.data?.data)
+            ? vacRes.data.data.filter((r) => r.status === 'pending').length
+            : 0;
+      const sickTotal = sickRes.data?.data?.pagination?.total;
+      const sickCount =
+        typeof sickTotal === 'number'
+          ? sickTotal
+          : Array.isArray(sickRes.data?.data?.sickLeaves)
+            ? sickRes.data.data.sickLeaves.length
+            : 0;
+
+      setPendingActions({
+        advance: advanceCount,
+        vacation: vacationCount,
+        sickLeave: sickCount,
+        loading: false
+      });
+    } catch (error) {
+      console.error('Erreur chargement actions en attente:', error);
+      setPendingActions({ advance: 0, vacation: 0, sickLeave: 0, loading: false });
     }
   };
 
@@ -534,6 +585,106 @@ const Dashboard = () => {
         </div>
       )}
 
+      {/* Actions en attente (acomptes, congés, arrêts maladie) — admins uniquement, Longuenesse et Arras */}
+      {shouldShowLosses && isAdmin() && (
+        <div className="card" style={{ marginBottom: '2rem' }}>
+          <h3>📌 Actions en attente</h3>
+          {pendingActions.loading ? (
+            <p style={{ color: '#666' }}>Chargement…</p>
+          ) : (
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+                gap: '1rem'
+              }}
+            >
+              <div
+                style={{
+                  padding: '1rem',
+                  borderRadius: '8px',
+                  border: `2px solid ${pendingActions.advance > 0 ? '#ffc107' : '#c3e6cb'}`,
+                  backgroundColor: pendingActions.advance > 0 ? '#fff8e6' : '#f8fff9'
+                }}
+              >
+                <div style={{ fontSize: '0.85rem', color: '#555', marginBottom: '0.35rem' }}>
+                  Demandes d&apos;acompte
+                </div>
+                <div style={{ fontSize: '1.75rem', fontWeight: 700, color: pendingActions.advance > 0 ? '#856404' : '#155724' }}>
+                  {pendingActions.advance}
+                </div>
+                <a
+                  href={isLonguenesse ? '/lon/advance-requests' : '/plan/advance-requests'}
+                  style={{
+                    display: 'inline-block',
+                    marginTop: '0.5rem',
+                    fontSize: '0.9rem',
+                    fontWeight: 600,
+                    color: '#667eea'
+                  }}
+                >
+                  Traiter les acomptes →
+                </a>
+              </div>
+              <div
+                style={{
+                  padding: '1rem',
+                  borderRadius: '8px',
+                  border: `2px solid ${pendingActions.vacation > 0 ? '#ffc107' : '#c3e6cb'}`,
+                  backgroundColor: pendingActions.vacation > 0 ? '#fff8e6' : '#f8fff9'
+                }}
+              >
+                <div style={{ fontSize: '0.85rem', color: '#555', marginBottom: '0.35rem' }}>
+                  Demandes de congés
+                </div>
+                <div style={{ fontSize: '1.75rem', fontWeight: 700, color: pendingActions.vacation > 0 ? '#856404' : '#155724' }}>
+                  {pendingActions.vacation}
+                </div>
+                <a
+                  href={isLonguenesse ? '/lon/vacation-management' : '/plan/vacation-management'}
+                  style={{
+                    display: 'inline-block',
+                    marginTop: '0.5rem',
+                    fontSize: '0.9rem',
+                    fontWeight: 600,
+                    color: '#667eea'
+                  }}
+                >
+                  Traiter les congés →
+                </a>
+              </div>
+              <div
+                style={{
+                  padding: '1rem',
+                  borderRadius: '8px',
+                  border: `2px solid ${pendingActions.sickLeave > 0 ? '#ffc107' : '#c3e6cb'}`,
+                  backgroundColor: pendingActions.sickLeave > 0 ? '#fff8e6' : '#f8fff9'
+                }}
+              >
+                <div style={{ fontSize: '0.85rem', color: '#555', marginBottom: '0.35rem' }}>
+                  Arrêts maladie à valider
+                </div>
+                <div style={{ fontSize: '1.75rem', fontWeight: 700, color: pendingActions.sickLeave > 0 ? '#856404' : '#155724' }}>
+                  {pendingActions.sickLeave}
+                </div>
+                <a
+                  href={isLonguenesse ? '/lon/sick-leave-management' : '/plan/sick-leave-management'}
+                  style={{
+                    display: 'inline-block',
+                    marginTop: '0.5rem',
+                    fontSize: '0.9rem',
+                    fontWeight: 600,
+                    color: '#667eea'
+                  }}
+                >
+                  Traiter les arrêts maladie →
+                </a>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Récapitulatif véhicule — Longuenesse et Arras */}
       {shouldShowVehicleRecap && (
         <div className="card" style={{ marginBottom: '2rem' }}>
@@ -546,7 +697,7 @@ const Dashboard = () => {
             <div
               style={{
                 display: 'grid',
-                gridTemplateColumns: 'minmax(0, 1fr) 360px',
+                gridTemplateColumns: isLonguenesse ? 'minmax(0, 1fr) minmax(360px, 1fr)' : 'minmax(0, 1fr) 360px',
                 gap: '1.25rem',
                 alignItems: 'start'
               }}
@@ -650,7 +801,11 @@ const Dashboard = () => {
                   border: '1px solid #e2e8f0',
                   borderRadius: '12px',
                   padding: '12px 14px',
-                  background: '#fff'
+                  background: '#fff',
+                  // Sur Longuenesse, la colonne de droite est plus large : on centre cette carte dans l'espace
+                  maxWidth: isLonguenesse ? 360 : undefined,
+                  width: isLonguenesse ? '100%' : undefined,
+                  justifySelf: isLonguenesse ? 'center' : undefined
                 }}
               >
                 <h4 style={{ fontSize: '1rem', margin: 0, marginBottom: '0.5rem', color: '#444' }}>

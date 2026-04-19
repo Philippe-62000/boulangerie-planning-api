@@ -2,13 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { getApiUrl } from '../config/apiConfig';
+import { isLonguenesseSite, getSiteKey } from '../config/site';
 import './Sidebar.css';
 
 const Sidebar = () => {
   // Étendu par défaut sur desktop (largeur > 768px) pour éviter que le menu semble "disparaître" au refresh
   const [isExpanded, setIsExpanded] = useState(() => typeof window !== 'undefined' && window.innerWidth > 768);
-  const isLonguenesse = window.location.pathname.startsWith('/lon');
-  const storageSuffix = isLonguenesse ? 'lon' : 'plan';
+  const isLonguenesse = isLonguenesseSite();
+  const storageSuffix = getSiteKey();
   const [socialMenuExpanded, setSocialMenuExpanded] = useState(() => {
     try {
       return localStorage.getItem(`sidebar:${storageSuffix}:socialExpanded`) === '1';

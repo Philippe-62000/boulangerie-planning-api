@@ -42,6 +42,7 @@ import VehicleStandalone from './pages/VehicleStandalone';
 import CompteClientStandalone from './pages/CompteClientStandalone';
 import CompteClientDepots from './pages/CompteClientDepots';
 import StandaloneMenu from './pages/StandaloneMenu';
+import { getSiteBasename } from './config/site';
 
 const AppContent = () => {
   const { user, loading } = useAuth();
@@ -232,11 +233,8 @@ const AmbassadeurStandaloneRedirect = () => {
 
 function App() {
   const getBasename = () => {
-    const path = window.location.pathname;
-    if (path.startsWith('/lon')) {
-      return '/lon';
-    }
-    return import.meta.env.BASE_URL || '/plan';
+    // Basename déterminé de façon robuste (fallback localStorage si le préfixe disparaît au refresh)
+    return getSiteBasename() || (import.meta.env.BASE_URL || '/plan');
   };
 
   return (

@@ -4,6 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import './Login.css';
 
 import { getApiUrl, setStoredToken, setStoredEmployeeToken } from '../config/apiConfig';
+import { getSiteBasename } from '../config/site';
 const API_URL = getApiUrl();
 
 /** Après login, chemin React sous le basename (/lon ou /plan), ex. /compte-client-standalone */
@@ -13,7 +14,7 @@ function getPostLoginPath(searchParams) {
   try {
     const decoded = decodeURIComponent(raw);
     if (decoded.includes('://') || decoded.startsWith('//')) return '/';
-    const base = window.location.pathname.startsWith('/lon') ? '/lon' : '/plan';
+    const base = getSiteBasename();
     if (decoded.startsWith(base)) {
       const rest = decoded.slice(base.length) || '/';
       return rest.startsWith('/') ? rest : `/${rest}`;
@@ -42,8 +43,6 @@ const Login = () => {
 
   useEffect(() => {
     const checkMaintenance = async () => {
-      const path = window.location.pathname;
-      if (!path.startsWith('/lon') && !path.startsWith('/plan')) return;
       try {
         const res = await fetch(`${API_URL}/parameters/maintenance`);
         const data = await res.json();

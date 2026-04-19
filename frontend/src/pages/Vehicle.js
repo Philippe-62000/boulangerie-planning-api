@@ -2,11 +2,12 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { toast } from 'react-toastify';
 import api from '../services/api';
 import './Vehicle.css';
+import { isLonguenesseSite } from '../config/site';
 
 const MONTH_SHORT = ['janv', 'fév', 'mars', 'avr', 'mai', 'juin', 'juil', 'août', 'sept', 'oct', 'nov', 'déc'];
 
 const Vehicle = () => {
-  const site = window.location.pathname.startsWith('/lon') ? 'longuenesse' : 'arras';
+  const site = isLonguenesseSite() ? 'longuenesse' : 'arras';
 
   const now = new Date();
   const [yearMonth, setYearMonth] = useState({

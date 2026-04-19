@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import api from '../services/api';
 import './CompteClientDepots.css';
+import { isLonguenesseSite } from '../config/site';
 
 const formatDate = (d) => {
   if (!d) return '—';
@@ -13,7 +14,7 @@ const formatDate = (d) => {
 };
 
 const CompteClientDepots = () => {
-  const site = typeof window !== 'undefined' && window.location.pathname.startsWith('/lon') ? 'longuenesse' : 'arras';
+  const site = isLonguenesseSite() ? 'longuenesse' : 'arras';
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
