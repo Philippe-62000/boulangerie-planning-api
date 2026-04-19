@@ -21,6 +21,11 @@ const VehicleStandalone = () => {
 
   const [activeTrip, setActiveTrip] = useState(null);
 
+  const [destinationLabels, setDestinationLabels] = useState([]);
+  const [destModalOpen, setDestModalOpen] = useState(false);
+  const [selectedDestinations, setSelectedDestinations] = useState([]);
+  /** Lieu absent de la liste paramétrée (complément aux cases cochées) */
+  const [nouvelleDestination, setNouvelleDestination] = useState('');
   const [destination, setDestination] = useState('');
   const [kmRetour, setKmRetour] = useState('');
   const [pv, setPv] = useState(false);
@@ -39,8 +44,14 @@ const VehicleStandalone = () => {
       setLoading(true);
       setMsg('');
       try {
-        const r = await axios.get(`${apiBase}/vehicle/drivers`, { params: { site } });
-        setDrivers(r.data?.data || []);
+        const [dr, cfg] = await Promise.all([
+          axios.get(`${apiBase}/vehicle/drivers`, { params: { site } }),
+          axios.get(`${apiBase}/vehicle/config`, { params: { site } })
+        ]);
+        setDrivers(dr.data?.data || []);
+        setDestinationLabels(
+          Array.isArray(cfg.data?.data?.destinationLabels) ? cfg.data.data.destinationLabels : []
+        );
         setDriverId('');
         setPleinParId('');
       } catch (e) {
@@ -74,6 +85,8 @@ const VehicleStandalone = () => {
       setActiveTrip(trip);
       setKmRetour('');
       setDestination('');
+      setNouvelleDestination('');
+      setSelectedDestinations([]);
       setPv(false);
       setPa(false);
       setProbRem('');
@@ -94,10 +107,63 @@ const VehicleStandalone = () => {
     }
   };
 
+  const resumeLastTrip = async () => {
+    if (!driverId) {
+      setMsg('Choisissez un conducteur pour reprendre une saisie');
+      setMsgOk(false);
+      return;
+    }
+    if (activeTrip?._id) return;
+    setLoading(true);
+    setMsg('');
+    try {
+      const r = await axios.get(`${apiBase}/vehicle/trips/last-open`, { params: { site, driverId } });
+      const trip = r.data?.data || null;
+      if (!trip?._id) {
+        setMsg('Aucune saisie départ en cours trouvée pour ce conducteur.');
+        setMsgOk(false);
+        return;
+      }
+      setActiveTrip(trip);
+      setKmDepart(trip.kmDepart != null ? String(trip.kmDepart) : '');
+      setEi(trip.etatInterieur != null ? Number(trip.etatInterieur) : 3);
+      setEe(trip.etatExterieur != null ? Number(trip.etatExterieur) : 3);
+      setRemDep(trip.remarquesDepart || '');
+      setKmRetour('');
+      setDestination('');
+      setNouvelleDestination('');
+      setSelectedDestinations([]);
+      setPv(false);
+      setPa(false);
+      setProbRem('');
+      setTdLav(false);
+      setTdPneu(false);
+      setTdRev(false);
+      setTdPl(false);
+      setPleinEffectue(false);
+      setPleinParId(driverId);
+      setPhotoRetourFile(null);
+      setMsg('Dernière saisie reprise — complétez le retour ci-dessous.');
+      setMsgOk(true);
+    } catch (err) {
+      setMsg(err.response?.data?.error || 'Erreur reprise saisie');
+      setMsgOk(false);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const completeReturn = async (e) => {
     e.preventDefault();
     if (!activeTrip?._id) return;
-    if (!destination.trim()) {
+    const hasList = destinationLabels.length > 0;
+    const extraDest = nouvelleDestination.trim();
+    if (hasList && selectedDestinations.length === 0 && !extraDest) {
+      setMsg('Choisissez au moins une destination dans la liste ou saisissez une nouvelle destination');
+      setMsgOk(false);
+      return;
+    }
+    if (!hasList && !destination.trim()) {
       setMsg('Indiquez la destination');
       setMsgOk(false);
       return;
@@ -111,9 +177,8 @@ const VehicleStandalone = () => {
     setLoading(true);
     setMsg('');
     try {
-      const r = await axios.put(`${apiBase}/vehicle/trips/${activeTrip._id}/return`, {
+      const body = {
         site,
-        destination: destination.trim(),
         kmRetour: kr,
         problemeVoyantMoteur: pv,
         problemeAutre: pa,
@@ -124,7 +189,18 @@ const VehicleStandalone = () => {
         todoPlein: tdPl,
         pleinEffectue,
         pleinParEmployeeId: pleinEffectue ? (pleinParId || driverId) : undefined
-      });
+      };
+      if (destinationLabels.length > 0) {
+        const parts = [...selectedDestinations];
+        if (extraDest) {
+          const seen = new Set(parts.map((p) => p.toLowerCase()));
+          if (!seen.has(extraDest.toLowerCase())) parts.push(extraDest);
+        }
+        body.destinations = parts;
+      } else {
+        body.destination = destination.trim();
+      }
+      const r = await axios.put(`${apiBase}/vehicle/trips/${activeTrip._id}/return`, body);
       const trip = r.data?.data;
 
       if (photoRetourFile && trip?._id) {
@@ -143,6 +219,8 @@ const VehicleStandalone = () => {
           setActiveTrip(null);
           setKmDepart('');
           setRemDep('');
+          setNouvelleDestination('');
+          setSelectedDestinations([]);
           setPhotoRetourFile(null);
           setLoading(false);
           return;
@@ -154,6 +232,8 @@ const VehicleStandalone = () => {
       setActiveTrip(null);
       setKmDepart('');
       setRemDep('');
+      setNouvelleDestination('');
+      setSelectedDestinations([]);
       setPhotoRetourFile(null);
     } catch (err) {
       setMsg(err.response?.data?.error || 'Erreur');
@@ -161,6 +241,14 @@ const VehicleStandalone = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const toggleDestination = (name) => {
+    setSelectedDestinations((prev) => {
+      const i = prev.indexOf(name);
+      if (i >= 0) return prev.filter((_, j) => j !== i);
+      return [...prev, name];
+    });
   };
 
   const Rating = ({ value, onChange, label }) => (
@@ -233,9 +321,20 @@ const VehicleStandalone = () => {
                 <label>Remarques (optionnel)</label>
                 <textarea rows={2} value={remDep} onChange={(e) => setRemDep(e.target.value)} />
               </div>
-              <button type="submit" className="vs-btn vs-btn-primary" disabled={loading || !!activeTrip}>
-                {activeTrip ? 'Départ déjà enregistré' : 'Enregistrer le départ'}
-              </button>
+              <div className="vs-btn-row">
+                <button type="submit" className="vs-btn vs-btn-primary" disabled={loading || !!activeTrip}>
+                  {activeTrip ? 'Départ déjà enregistré' : 'Enregistrer le départ'}
+                </button>
+                <button
+                  type="button"
+                  className="vs-btn vs-btn-secondary"
+                  disabled={loading || !!activeTrip || !driverId}
+                  onClick={resumeLastTrip}
+                  title={!driverId ? 'Choisissez un conducteur' : 'Reprendre la dernière saisie incomplète'}
+                >
+                  Reprendre la dernière saisie
+                </button>
+              </div>
             </form>
           </div>
 
@@ -245,12 +344,85 @@ const VehicleStandalone = () => {
               <form onSubmit={completeReturn}>
                 <div className="vs-field">
                   <label>Destination</label>
-                  <input
-                    value={destination}
-                    onChange={(e) => setDestination(e.target.value)}
-                    required
-                  />
+                  {destinationLabels.length > 0 ? (
+                    <>
+                      <button
+                        type="button"
+                        className="vs-dest-trigger"
+                        onClick={() => setDestModalOpen(true)}
+                      >
+                        {selectedDestinations.length
+                          ? selectedDestinations.join(' · ')
+                          : 'Toucher pour choisir…'}
+                      </button>
+                      <p className="vs-dest-hint">
+                        {selectedDestinations.length > 0
+                          ? `${selectedDestinations.length} lieu(x) — ordre = ordre de sélection`
+                          : 'Plusieurs choix possibles pour une tournée'}
+                      </p>
+                      <div className="vs-field vs-field-nested">
+                        <label htmlFor="vs-nouvelle-dest">Nouvelle destination (si absente de la liste)</label>
+                        <input
+                          id="vs-nouvelle-dest"
+                          type="text"
+                          autoComplete="off"
+                          value={nouvelleDestination}
+                          onChange={(e) => setNouvelleDestination(e.target.value)}
+                          placeholder="Ex. client ponctuel, adresse…"
+                        />
+                      </div>
+                    </>
+                  ) : (
+                    <input
+                      value={destination}
+                      onChange={(e) => setDestination(e.target.value)}
+                      placeholder="Saisie libre (aucune liste configurée côté gestion)"
+                      required
+                    />
+                  )}
                 </div>
+
+                {destModalOpen && destinationLabels.length > 0 && (
+                  <div
+                    className="vs-modal-overlay"
+                    role="presentation"
+                    onClick={() => setDestModalOpen(false)}
+                  >
+                    <div
+                      className="vs-modal"
+                      role="dialog"
+                      aria-label="Choisir les destinations"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <h3 className="vs-modal-title">Destinations</h3>
+                      <p className="vs-modal-hint">
+                        Cochez les lieux visités pendant la tournée (plusieurs possibles).
+                      </p>
+                      <div className="vs-dest-list">
+                        {destinationLabels.map((name) => (
+                          <label
+                            key={name}
+                            className={`vs-dest-item ${selectedDestinations.includes(name) ? 'on' : ''}`}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={selectedDestinations.includes(name)}
+                              onChange={() => toggleDestination(name)}
+                            />
+                            <span>{name}</span>
+                          </label>
+                        ))}
+                      </div>
+                      <button
+                        type="button"
+                        className="vs-btn vs-btn-primary"
+                        onClick={() => setDestModalOpen(false)}
+                      >
+                        Valider
+                      </button>
+                    </div>
+                  </div>
+                )}
                 <div className="vs-field">
                   <label>Km retour (compteur)</label>
                   <input

@@ -1,0 +1,54 @@
+/* Impression / PDF (via dialogue du navigateur : Enregistrer au format PDF) */
+
+.planning-print-header {
+  display: none;
+}
+
+.planning-print-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+@media print {
+  .planning-print-toolbar,
+  .planning .card:first-of-type,
+  .planning .btn,
+  .planning input[type="time"],
+  .planning .loading {
+    display: none !important;
+  }
+
+  .planning-print-header {
+    display: block;
+    margin-bottom: 1rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 2px solid #333;
+  }
+
+  .planning-print-header h1 {
+    margin: 0;
+    font-size: 1.35rem;
+  }
+
+  .planning-print-header .sub {
+    margin: 0.35rem 0 0;
+    font-size: 0.9rem;
+    color: #444;
+  }
+
+  .planning .card {
+    box-shadow: none !important;
+    border: none !important;
+  }
+
+  .planning table {
+    font-size: 11px;
+  }
+
+  .planning .planning-shift small {
+    font-size: 9px;
+  }
+}

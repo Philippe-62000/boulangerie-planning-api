@@ -2,9 +2,12 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { toast } from 'react-toastify';
 import api from '../services/api';
 import './Vehicle.css';
+import { isLonguenesseSite } from '../config/site';
+
+const MONTH_SHORT = ['janv', 'fév', 'mars', 'avr', 'mai', 'juin', 'juil', 'août', 'sept', 'oct', 'nov', 'déc'];
 
 const Vehicle = () => {
-  const site = window.location.pathname.startsWith('/lon') ? 'longuenesse' : 'arras';
+  const site = isLonguenesseSite() ? 'longuenesse' : 'arras';
 
   const now = new Date();
   const [yearMonth, setYearMonth] = useState({
@@ -16,16 +19,24 @@ const Vehicle = () => {
   const [trips, setTrips] = useState([]);
   const [config, setConfig] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [destModalOpen, setDestModalOpen] = useState(false);
+  /** Texte brut dans la modale destinations (permet lignes vides / saisie en tête de liste) */
+  const [destTextDraft, setDestTextDraft] = useState('');
+  const [statsModalOpen, setStatsModalOpen] = useState(false);
+  const [statsYear, setStatsYear] = useState(() => new Date().getFullYear());
+  const [monthlyStats, setMonthlyStats] = useState(null);
+  const [monthlyLoading, setMonthlyLoading] = useState(false);
 
   const load = useCallback(async () => {
     try {
       setLoading(true);
+      const bust = Date.now();
       const [sRes, tRes, cRes] = await Promise.all([
-        api.get('/vehicle/stats', { params: { site } }),
+        api.get('/vehicle/stats', { params: { site, _t: bust } }),
         api.get('/vehicle/trips', {
-          params: { site, limit: 500, year: yearMonth.year, month: yearMonth.month }
+          params: { site, limit: 500, year: yearMonth.year, month: yearMonth.month, _t: bust }
         }),
-        api.get('/vehicle/config', { params: { site } })
+        api.get('/vehicle/config', { params: { site, _t: bust } })
       ]);
       setStats(sRes.data?.data || null);
       setTrips(tRes.data?.data || []);
@@ -42,6 +53,31 @@ const Vehicle = () => {
     load();
   }, [load]);
 
+  useEffect(() => {
+    if (!statsModalOpen) return;
+    let cancelled = false;
+    (async () => {
+      setMonthlyLoading(true);
+      try {
+        const r = await api.get('/vehicle/stats/monthly', {
+          params: { site, year: statsYear, _t: Date.now() }
+        });
+        if (!cancelled) setMonthlyStats(r.data?.data || null);
+      } catch (e) {
+        if (!cancelled) {
+          console.error(e);
+          toast.error(e.response?.data?.error || 'Erreur chargement statistiques mensuelles');
+          setMonthlyStats(null);
+        }
+      } finally {
+        if (!cancelled) setMonthlyLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [statsModalOpen, statsYear, site]);
+
   const saveConfig = async () => {
     if (!config) return;
     try {
@@ -55,7 +91,8 @@ const Vehicle = () => {
           rappelKmAvantRevision: config.rappelKmAvantRevision,
           rappelJoursAvantRevision: config.rappelJoursAvantRevision,
           rappelJoursAvantCT: config.rappelJoursAvantCT,
-          rappelJoursAvantRenouvellement: config.rappelJoursAvantRenouvellement
+          rappelJoursAvantRenouvellement: config.rappelJoursAvantRenouvellement,
+          destinationLabels: Array.isArray(config.destinationLabels) ? config.destinationLabels : []
         },
         { params: { site } }
       );
@@ -104,6 +141,51 @@ const Vehicle = () => {
     window.open(`${window.location.origin}${base}/vehicle-standalone.html`, '_blank');
   };
 
+  const parseDestLabelsFromDraft = (text) =>
+    String(text || '')
+      .split('\n')
+      .map((s) => s.trim())
+      .filter(Boolean);
+
+  const saveDestinationsOnly = async () => {
+    if (!config) return;
+    const destinationLabels = parseDestLabelsFromDraft(destTextDraft);
+    try {
+      await api.put(
+        '/vehicle/config',
+        {
+          controleTechniqueDate: config.controleTechniqueDate || null,
+          dateRenouvellement: config.dateRenouvellement || null,
+          prochaineRevisionKm: config.prochaineRevisionKm,
+          prochaineRevisionDate: config.prochaineRevisionDate || null,
+          rappelKmAvantRevision: config.rappelKmAvantRevision,
+          rappelJoursAvantRevision: config.rappelJoursAvantRevision,
+          rappelJoursAvantCT: config.rappelJoursAvantCT,
+          rappelJoursAvantRenouvellement: config.rappelJoursAvantRenouvellement,
+          destinationLabels
+        },
+        { params: { site } }
+      );
+      setConfig((prev) => (prev ? { ...prev, destinationLabels } : prev));
+      toast.success('Liste des destinations enregistrée');
+      setDestModalOpen(false);
+      await load();
+    } catch (e) {
+      toast.error(e.response?.data?.error || 'Erreur sauvegarde');
+    }
+  };
+
+  const deleteTripRow = async (tripId) => {
+    if (!window.confirm('Supprimer définitivement ce trajet de l’historique ?')) return;
+    try {
+      await api.delete(`/vehicle/trips/${tripId}`, { params: { site, _t: Date.now() } });
+      toast.success('Trajet supprimé');
+      await load();
+    } catch (e) {
+      toast.error(e.response?.data?.error || 'Erreur suppression');
+    }
+  };
+
   const fmtDate = (d) => (d ? new Date(d).toLocaleString('fr-FR') : '—');
   const fmtDay = (d) => (d ? new Date(d).toLocaleDateString('fr-FR') : '—');
 
@@ -124,9 +206,18 @@ const Vehicle = () => {
         Suivi des trajets, pleins, problèmes et échéances (CT, révision, renouvellement).
       </p>
 
-      <a href="#standalone" className="vehicle-link-standalone" onClick={(e) => { e.preventDefault(); openStandalone(); }}>
-        Ouvrir la page salariés (mobile)
-      </a>
+      <div className="vehicle-top-actions">
+        <a href="#standalone" className="vehicle-link-standalone" onClick={(e) => { e.preventDefault(); openStandalone(); }}>
+          Ouvrir la page salariés (mobile)
+        </a>
+        <button
+          type="button"
+          className="btn btn-secondary vehicle-btn-stats"
+          onClick={() => setStatsModalOpen(true)}
+        >
+          Statistiques km (graphique)
+        </button>
+      </div>
 
       {stats?.warnings?.length > 0 && (
         <div className="vehicle-banner" role="alert">
@@ -159,6 +250,77 @@ const Vehicle = () => {
           </strong>
         </div>
       </div>
+      <p className="vehicle-stats-footnote">
+        Totaux globaux recalculés à chaque chargement (les trajets supprimés ne sont plus comptés).
+      </p>
+
+      {statsModalOpen && (
+        <div
+          className="vehicle-modal-overlay"
+          role="presentation"
+          onClick={() => setStatsModalOpen(false)}
+        >
+          <div
+            className="vehicle-modal vehicle-modal-wide"
+            role="dialog"
+            aria-labelledby="vehicle-stats-title"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 id="vehicle-stats-title">Km par mois</h3>
+            <div className="vehicle-stats-year-row">
+              <label htmlFor="vehicle-stats-year">
+                Année
+                <select
+                  id="vehicle-stats-year"
+                  value={statsYear}
+                  onChange={(e) => setStatsYear(Number(e.target.value))}
+                >
+                  {Array.from({ length: 35 }, (_, i) => new Date().getFullYear() + 1 - i).map((y) => (
+                    <option key={y} value={y}>
+                      {y}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+            {monthlyLoading && <p className="vehicle-modal-hint">Chargement…</p>}
+            {!monthlyLoading && monthlyStats && (
+              <>
+                <p className="vehicle-km-chart-summary">
+                  <strong>{monthlyStats.year}</strong> : {Math.round(monthlyStats.yearTotalKm)} km cumulés —{' '}
+                  {monthlyStats.yearTripCount} trajet(s) terminé(s)
+                </p>
+                <div className="vehicle-km-chart" aria-label={`Histogramme km ${monthlyStats.year}`}>
+                  {(() => {
+                    const maxKm = Math.max(...monthlyStats.months.map((x) => x.km), 1);
+                    return monthlyStats.months.map((m, i) => {
+                      const pct = maxKm > 0 ? (m.km / maxKm) * 100 : 0;
+                      return (
+                        <div key={m.month} className="vehicle-km-bar-col">
+                          <div className="vehicle-km-bar-track">
+                            <div
+                              className="vehicle-km-bar-fill"
+                              style={{ height: `${pct}%` }}
+                              title={`${MONTH_SHORT[i]} : ${Math.round(m.km)} km (${m.tripCount} traj.)`}
+                            />
+                          </div>
+                          <span className="vehicle-km-bar-val">{m.km >= 1 ? Math.round(m.km) : ''}</span>
+                          <span className="vehicle-km-bar-label">{MONTH_SHORT[i]}</span>
+                        </div>
+                      );
+                    });
+                  })()}
+                </div>
+              </>
+            )}
+            <div className="vehicle-modal-actions">
+              <button type="button" className="btn btn-primary" onClick={() => setStatsModalOpen(false)}>
+                Fermer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {stats?.pleinByEmployee && Object.keys(stats.pleinByEmployee).length > 0 && (
         <div className="vehicle-section">
@@ -272,10 +434,67 @@ const Vehicle = () => {
             </label>
           </div>
         )}
-        <button type="button" className="btn btn-primary" style={{ marginTop: '1rem' }} onClick={saveConfig}>
-          Enregistrer les paramètres
-        </button>
+        <div className="vehicle-config-actions">
+          <button type="button" className="btn btn-primary" onClick={saveConfig}>
+            Enregistrer les paramètres
+          </button>
+          <button
+            type="button"
+            className="btn btn-secondary vehicle-btn-dest"
+            onClick={() => {
+              setDestTextDraft((config.destinationLabels || []).join('\n'));
+              setDestModalOpen(true);
+            }}
+          >
+            Destinations
+          </button>
+        </div>
       </div>
+
+      {destModalOpen && config && (
+        <div
+          className="vehicle-modal-overlay"
+          role="presentation"
+          onClick={() => setDestModalOpen(false)}
+        >
+          <div
+            className="vehicle-modal"
+            role="dialog"
+            aria-labelledby="vehicle-dest-title"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 id="vehicle-dest-title">Destinations (page salariés)</h3>
+            <p className="vehicle-modal-hint">
+              Une ligne = un nom affiché dans le menu de la page mobile. Les salariés peuvent en cocher plusieurs
+              pour une tournée.
+            </p>
+            <label className="vehicle-dest-label">
+              Liste des noms (une ligne par lieu — vous pouvez saisir ou coller en commençant par la première ligne)
+              <textarea
+                rows={10}
+                value={destTextDraft}
+                onChange={(e) => setDestTextDraft(e.target.value)}
+                placeholder={'Ex.\nBoulangerie X\nClient Y'}
+                spellCheck={false}
+              />
+            </label>
+            <div className="vehicle-modal-actions">
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => {
+                  setDestModalOpen(false);
+                }}
+              >
+                Annuler
+              </button>
+              <button type="button" className="btn btn-primary" onClick={saveDestinationsOnly}>
+                Enregistrer la liste
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {stats?.problemTrips?.length > 0 && (
         <div className="vehicle-section">
@@ -355,12 +574,13 @@ const Vehicle = () => {
                 <th>À faire</th>
                 <th>Fait</th>
                 <th>Photo</th>
+                <th className="vehicle-th-sticky">Suppr.</th>
               </tr>
             </thead>
             <tbody>
               {trips.length === 0 && (
                 <tr>
-                  <td colSpan={10} style={{ textAlign: 'center', color: '#888' }}>
+                  <td colSpan={11} style={{ textAlign: 'center', color: '#888' }}>
                     Aucun trajet pour ce mois
                   </td>
                 </tr>
@@ -459,6 +679,16 @@ const Vehicle = () => {
                       ) : (
                         '—'
                       )}
+                    </td>
+                    <td className="vehicle-td-sticky">
+                      <button
+                        type="button"
+                        className="vehicle-btn-delete"
+                        title="Supprimer ce trajet"
+                        onClick={() => deleteTripRow(t._id)}
+                      >
+                        ×
+                      </button>
                     </td>
                   </tr>
                 );

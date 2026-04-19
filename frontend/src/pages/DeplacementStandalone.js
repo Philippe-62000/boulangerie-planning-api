@@ -109,7 +109,6 @@ const DeplacementStandalone = () => {
       setToId('');
       setDiversDetail('');
       setDiversKm('');
-      setDiversPresetId('');
       setComment('');
     } catch (err) {
       setMessage(err.response?.data?.error || 'Erreur enregistrement');
@@ -220,7 +219,6 @@ const DeplacementStandalone = () => {
                       value={toId}
                       onChange={e => {
                         setToId(e.target.value);
-                        setDiversPresetId('');
                         setDiversDetail('');
                         setDiversKm('');
                       }}

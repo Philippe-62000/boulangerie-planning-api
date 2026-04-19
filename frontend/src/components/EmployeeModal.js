@@ -14,6 +14,17 @@ const getTutorId = (value) => {
   return '';
 };
 
+/** Aligné sur backend/models/Employee.js — inferEmployeeCategory */
+const inferCategoryFromRole = (role) => {
+  if (!role || typeof role !== 'string') return 'vente';
+  const r = role.toLowerCase();
+  if (r === 'boulanger' || r === 'apprenti boulanger') return 'boulanger';
+  if (r === 'préparateur' || r === 'apprenti préparateur' || r === 'chef prod') return 'preparation';
+  return 'vente';
+};
+
+const DAYS_OF_WEEK = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
+
 const EmployeeModal = ({ employee, onSave, onClose, employees = [] }) => {
   const [formData, setFormData] = useState({
     name: '',
@@ -22,7 +33,14 @@ const EmployeeModal = ({ employee, onSave, onClose, employees = [] }) => {
     birthDate: '',
     skills: [],
     role: 'vendeuse',
+    employeeCategory: 'vente',
     weeklyHours: 35,
+    dailyBreakMinutes: 30,
+    vendeusePlanningPreferences: {
+      preferredRestDay: '',
+      shiftPreference: 'aucune'
+    },
+    trainingDaysOutsideShop: true,
     trainingDays: [],
     contractEndDate: '',
     tutor: '',
@@ -41,6 +59,7 @@ const EmployeeModal = ({ employee, onSave, onClose, employees = [] }) => {
 
   useEffect(() => {
     if (employee) {
+      const vp = employee.vendeusePlanningPreferences || {};
       setFormData({
         name: employee.name || '',
         contractType: employee.contractType || 'CDI',
@@ -48,7 +67,14 @@ const EmployeeModal = ({ employee, onSave, onClose, employees = [] }) => {
         birthDate: employee.birthDate ? new Date(employee.birthDate).toISOString().split('T')[0] : '',
         skills: employee.skills || [],
         role: employee.role || 'vendeuse',
+        employeeCategory: employee.employeeCategory || inferCategoryFromRole(employee.role),
         weeklyHours: employee.weeklyHours || 35,
+        dailyBreakMinutes: employee.dailyBreakMinutes !== undefined && employee.dailyBreakMinutes !== null ? employee.dailyBreakMinutes : 30,
+        vendeusePlanningPreferences: {
+          preferredRestDay: vp.preferredRestDay || '',
+          shiftPreference: vp.shiftPreference || 'aucune'
+        },
+        trainingDaysOutsideShop: employee.trainingDaysOutsideShop !== false,
         trainingDays: Array.isArray(employee.trainingDays) ? employee.trainingDays : [],
         contractEndDate: employee.contractEndDate ? new Date(employee.contractEndDate).toISOString().split('T')[0] : '',
         tutor: getTutorId(employee.tutor),
@@ -72,7 +98,14 @@ const EmployeeModal = ({ employee, onSave, onClose, employees = [] }) => {
         birthDate: '',
         skills: [],
         role: 'vendeuse',
+        employeeCategory: 'vente',
         weeklyHours: 35,
+        dailyBreakMinutes: 30,
+        vendeusePlanningPreferences: {
+          preferredRestDay: '',
+          shiftPreference: 'aucune'
+        },
+        trainingDaysOutsideShop: true,
         trainingDays: [],
         contractEndDate: '',
         tutor: '',
@@ -104,17 +137,34 @@ const EmployeeModal = ({ employee, onSave, onClose, employees = [] }) => {
           [field]: value
         }
       }));
+    } else if (name === 'role') {
+      setFormData(prev => ({
+        ...prev,
+        role: value,
+        employeeCategory: inferCategoryFromRole(value)
+      }));
     } else {
       setFormData(prev => ({
         ...prev,
         ...(name === 'contractType' && value !== 'Apprentissage' ? {
           tutor: '',
           trainingDays: [],
-          contractEndDate: ''
+          contractEndDate: '',
+          trainingDaysOutsideShop: true
         } : {}),
         [name]: type === 'checkbox' ? checked : value
       }));
     }
+  };
+
+  const handleVendeusePreferenceChange = (field, value) => {
+    setFormData(prev => ({
+      ...prev,
+      vendeusePlanningPreferences: {
+        ...prev.vendeusePlanningPreferences,
+        [field]: value
+      }
+    }));
   };
 
   const handleSkillChange = (skill) => {
@@ -220,24 +270,44 @@ const EmployeeModal = ({ employee, onSave, onClose, employees = [] }) => {
 
     const tutorValue = formData.contractType === 'Apprentissage' ? getTutorId(formData.tutor) : '';
 
-    // Préparer les données pour l'envoi
+    const dailyBreak = parseInt(formData.dailyBreakMinutes, 10);
     const dataToSend = {
-      ...formData,
-      age: parseInt(formData.age),
-      weeklyHours: parseInt(formData.weeklyHours),
-      autoriseConduiteVehicule: !!formData.autoriseConduiteVehicule,
-      // S'assurer que les champs optionnels sont correctement formatés
-      contractEndDate: formData.contractEndDate || undefined,
+      name: formData.name,
+      contractType: formData.contractType,
+      age: parseInt(formData.age, 10),
       birthDate: formData.birthDate || undefined,
+      skills: formData.skills,
+      role: formData.role,
+      employeeCategory: formData.employeeCategory || inferCategoryFromRole(formData.role),
+      weeklyHours: parseInt(formData.weeklyHours, 10),
+      dailyBreakMinutes: Number.isFinite(dailyBreak) ? dailyBreak : 30,
+      trainingDays: formData.trainingDays,
+      contractEndDate: formData.contractEndDate || undefined,
       tutor: formData.contractType === 'Apprentissage' ? (tutorValue || undefined) : undefined,
-      email: formData.email || undefined
+      email: formData.email || undefined,
+      saleCode: formData.saleCode || undefined,
+      mutuelle: formData.mutuelle,
+      autoriseConduiteVehicule: !!formData.autoriseConduiteVehicule,
+      isActive: formData.isActive,
+      emergencyContact: formData.emergencyContact,
+      trainingDaysOutsideShop:
+        formData.contractType === 'Apprentissage' ? !!formData.trainingDaysOutsideShop : undefined
     };
+
+    if (formData.employeeCategory === 'vente') {
+      dataToSend.vendeusePlanningPreferences = {
+        preferredRestDay: formData.vendeusePlanningPreferences.preferredRestDay || undefined,
+        shiftPreference: formData.vendeusePlanningPreferences.shiftPreference || 'aucune'
+      };
+    } else {
+      dataToSend.vendeusePlanningPreferences = null;
+    }
 
     console.log('📤 Données préparées pour l\'envoi:', dataToSend);
     onSave(dataToSend);
   };
 
-  const daysOfWeek = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
+  const daysOfWeek = DAYS_OF_WEEK;
   const availableSkills = ['Ouverture', 'Fermeture', 'Management'];
   const roles = [
     // Vente
@@ -381,8 +451,86 @@ const EmployeeModal = ({ employee, onSave, onClose, employees = [] }) => {
                 max="39"
                 required
               />
+              {formData.employeeCategory === 'vente' && (
+                <div style={{ marginTop: '0.35rem', display: 'flex', gap: '0.35rem', flexWrap: 'wrap' }}>
+                  <button type="button" className="btn btn-outline-secondary" style={{ fontSize: '0.8rem', padding: '0.2rem 0.5rem' }} onClick={() => setFormData((p) => ({ ...p, weeklyHours: 35 }))}>35 h</button>
+                  <button type="button" className="btn btn-outline-secondary" style={{ fontSize: '0.8rem', padding: '0.2rem 0.5rem' }} onClick={() => setFormData((p) => ({ ...p, weeklyHours: 39 }))}>39 h</button>
+                </div>
+              )}
             </div>
           </div>
+
+          <div className="form-row">
+            <div className="form-group">
+              <label className="form-label">Catégorie planning *</label>
+              <select
+                name="employeeCategory"
+                value={formData.employeeCategory}
+                onChange={handleInputChange}
+                className="form-control"
+                required
+              >
+                <option value="vente">Vente</option>
+                <option value="preparation">Préparation</option>
+                <option value="boulanger">Boulanger</option>
+              </select>
+              <small className="form-text">Pôle utilisé pour la génération de planning (3 catégories magasin)</small>
+            </div>
+            <div className="form-group">
+              <label className="form-label">Pause repas / jour (minutes)</label>
+              <input
+                type="number"
+                name="dailyBreakMinutes"
+                value={formData.dailyBreakMinutes}
+                onChange={handleInputChange}
+                className="form-control"
+                min="0"
+                max="120"
+              />
+              <small className="form-text">Non comptée dans le volume horaire contractuel (souvent 30 min)</small>
+            </div>
+          </div>
+
+          {formData.employeeCategory === 'vente' && (
+            <div
+              style={{
+                marginTop: '1rem',
+                padding: '1rem',
+                border: '1px solid #e1e5e9',
+                borderRadius: '8px',
+                backgroundColor: '#fafbfc'
+              }}
+            >
+              <h3 style={{ margin: '0 0 0.75rem', fontSize: '1.05rem', color: '#333' }}>Préférences planning (vendeuses)</h3>
+              <div className="form-row">
+                <div className="form-group">
+                  <label className="form-label">Jour de repos souhaité</label>
+                  <select
+                    className="form-control"
+                    value={formData.vendeusePlanningPreferences.preferredRestDay}
+                    onChange={(e) => handleVendeusePreferenceChange('preferredRestDay', e.target.value)}
+                  >
+                    <option value="">Aucune préférence</option>
+                    {DAYS_OF_WEEK.map((d) => (
+                      <option key={d} value={d}>{d}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Préférence horaire</label>
+                  <select
+                    className="form-control"
+                    value={formData.vendeusePlanningPreferences.shiftPreference}
+                    onChange={(e) => handleVendeusePreferenceChange('shiftPreference', e.target.value)}
+                  >
+                    <option value="aucune">Aucune</option>
+                    <option value="matin">Matin</option>
+                    <option value="soir">Soir</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Champ Code Vente pour les rôles concernés */}
           {(() => {
@@ -500,6 +648,22 @@ const EmployeeModal = ({ employee, onSave, onClose, employees = [] }) => {
                     </label>
                   ))}
                 </div>
+              </div>
+
+              <div className="form-group">
+                <label style={{ display: 'flex', alignItems: 'flex-start', gap: '0.5rem', fontWeight: 500 }}>
+                  <input
+                    type="checkbox"
+                    checked={!!formData.trainingDaysOutsideShop}
+                    onChange={(e) =>
+                      setFormData((prev) => ({ ...prev, trainingDaysOutsideShop: e.target.checked }))
+                    }
+                    style={{ marginTop: '0.2rem' }}
+                  />
+                  <span>
+                    Jours de formation hors magasin (décomptés du volume hebdomadaire, pas de présence en magasin ces jours-là)
+                  </span>
+                </label>
               </div>
 
               <div className="form-group">

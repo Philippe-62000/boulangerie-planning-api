@@ -47,7 +47,8 @@ const corsOptions = {
 };
 app.use(cors(corsOptions));
 
-app.use(express.json({ limit: '10mb' }));
+// strict: false — accepte le corps JSON `null` (axios peut l’envoyer) ; sinon body-parser lève « null is not valid JSON »
+app.use(express.json({ limit: '10mb', strict: false }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 const PORT = Number(process.env.PORT) || config.PORT || 5000;
@@ -186,6 +187,12 @@ app.use('/api/chorus', require('./routes/chorus'));
 console.log('✅ Routes chorus montées (/api/chorus/*)');
 app.use('/api/vehicle', require('./routes/vehicle'));
 console.log('✅ Routes vehicle montées (/api/vehicle/*)');
+app.use('/api/account-deposits', require('./routes/accountDeposits'));
+console.log('✅ Routes account-deposits montées (/api/account-deposits/*)');
+app.use('/api/account-deposit-remises', require('./routes/accountDepositRemises'));
+console.log('✅ Routes account-deposit-remises montées (/api/account-deposit-remises/*)');
+app.use('/api/account-client-presets', require('./routes/accountClientPresets'));
+console.log('✅ Routes account-client-presets montées (/api/account-client-presets/*)');
 
 // Route racine
 app.get('/', (req, res) => {
@@ -209,11 +216,21 @@ app.get('/', (req, res) => {
   });
 });
 
-// Gestion des erreurs
+// Gestion des erreurs (détail en logs uniquement ; le client reçoit un message générique en production)
 app.use((err, req, res, next) => {
-  console.error('❌ Erreur serveur:', err.stack);
-  res.status(500).json({ 
-    error: config.NODE_ENV === 'production' ? 'Erreur serveur interne' : err.message 
+  const method = req.method || '?';
+  const path = req.originalUrl || req.url || '?';
+  const msg = err?.message || String(err);
+  const code = err?.code;
+  console.error('❌ Erreur serveur (non gérée):', {
+    message: msg,
+    code: code || undefined,
+    method,
+    path,
+    stack: err?.stack
+  });
+  res.status(500).json({
+    error: config.NODE_ENV === 'production' ? 'Erreur serveur interne' : msg
   });
 });
 

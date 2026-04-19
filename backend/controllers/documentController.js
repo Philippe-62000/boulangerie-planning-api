@@ -209,7 +209,7 @@ exports.downloadDocument = async (req, res) => {
     }
     
     // Les fiches de paie restent téléchargeables même si marquées inactives (expirées)
-    const isPayslip = document.category === 'payslip';
+    const isPayslip = typeof document.isPayslipLike === 'function' ? document.isPayslipLike() : document.category === 'payslip';
     if (!document.isActive && !isPayslip) {
       return res.status(410).json({
         success: false,

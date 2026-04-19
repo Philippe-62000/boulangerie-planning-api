@@ -163,7 +163,7 @@ const employeeLogin = async (req, res) => {
         role: 'employee'
       },
       process.env.JWT_SECRET || 'votre-cle-secrete-ici',
-      { expiresIn: '24h' }
+      { expiresIn: '7d' }
     );
     
     console.log('✅ Connexion réussie pour:', employee.name);
@@ -228,7 +228,7 @@ const adminLogin = async (req, res) => {
         role: 'admin'
       },
       process.env.JWT_SECRET || 'votre-cle-secrete-ici',
-      { expiresIn: '24h' }
+      { expiresIn: '7d' }
     );
     
     console.log('✅ Connexion admin réussie');
@@ -294,7 +294,7 @@ const employeeLoginReact = async (req, res) => {
         role: 'employee'
       },
       process.env.JWT_SECRET || 'votre-cle-secrete-ici',
-      { expiresIn: '24h' }
+      { expiresIn: '7d' }
     );
     
     console.log('✅ Connexion salarié réussie');
@@ -441,11 +441,81 @@ const changePassword = async (req, res) => {
   }
 };
 
+/**
+ * Connexion par code vendeuse (3 chiffres, champ saleCode Employee) — même JWT que connexion salarié nominative.
+ */
+const loginBySaleCode = async (req, res) => {
+  try {
+    const raw = req.body.saleCode ?? req.body.code;
+    const digits = String(raw ?? '').replace(/\D/g, '').slice(0, 3);
+    if (digits.length !== 3) {
+      return res.status(400).json({ success: false, error: 'Saisissez les 3 chiffres du code vendeuse' });
+    }
+    const saleCode = digits.padStart(3, '0');
+
+    const Employee = require('../models/Employee');
+    const employee = await Employee.findOne({ saleCode, isActive: true });
+    if (!employee) {
+      return res.status(401).json({ success: false, error: 'Code vendeuse inconnu ou inactif' });
+    }
+
+    const rolesAvecCode = [
+      'vendeuse',
+      'apprenti',
+      'Apprenti Vendeuse',
+      'manager',
+      'responsable',
+      'responsable magasin',
+      'responsable magasin adjointe'
+    ];
+    if (!rolesAvecCode.includes(employee.role)) {
+      return res.status(403).json({ success: false, error: 'Ce code ne correspond pas à une vendeuse' });
+    }
+
+    const jwt = require('jsonwebtoken');
+    const token = jwt.sign(
+      {
+        employeeId: employee._id.toString(),
+        email: employee.email || '',
+        name: employee.name,
+        role: 'employee',
+        saleCode
+      },
+      process.env.JWT_SECRET || 'votre-cle-secrete-ici',
+      { expiresIn: '7d' }
+    );
+
+    return res.json({
+      success: true,
+      message: 'Connexion réussie',
+      token,
+      user: {
+        id: employee._id.toString(),
+        name: employee.name,
+        email: employee.email || '',
+        role: 'employee',
+        saleCode,
+        permissions: [
+          'view_planning',
+          'view_absences',
+          'view_sales_stats',
+          'view_meal_expenses',
+          'view_km_expenses'
+        ]
+      }
+    });
+  } catch (error) {
+    console.error('❌ Erreur loginBySaleCode:', error);
+    return res.status(500).json({ success: false, error: 'Erreur serveur lors de la connexion' });
+  }
+};
+
 module.exports = {
   sendPasswordToEmployee,
   employeeLogin,
   adminLogin,
   employeeLoginReact,
+  loginBySaleCode,
   getEmployeeProfile,
   generateRandomPassword,
   changePassword

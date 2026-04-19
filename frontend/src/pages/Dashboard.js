@@ -1,18 +1,34 @@
 import React, { useState, useEffect } from 'react';
 import api from '../services/api';
+import { getSiteKey } from '../config/site';
+import { useAuth } from '../contexts/AuthContext';
 
 const Dashboard = () => {
+  const { isAdmin, user } = useAuth();
   const [employees, setEmployees] = useState([]);
   const [sickLeaves, setSickLeaves] = useState([]);
   const [loading, setLoading] = useState(true);
   const [pendingObligations, setPendingObligations] = useState([]);
   const [lossesStats, setLossesStats] = useState(null);
   const [printingRecup, setPrintingRecup] = useState(false);
-  
+  const [vehicleSummary, setVehicleSummary] = useState(null);
+  const [vehicleSummaryLoading, setVehicleSummaryLoading] = useState(false);
+  const [accountDepositRemise, setAccountDepositRemise] = useState(null);
+  const [accountDepositRemiseLoading, setAccountDepositRemiseLoading] = useState(false);
+  /** Compteurs pour le widget « Actions en attente » (acomptes, congés, arrêts maladie) */
+  const [pendingActions, setPendingActions] = useState({
+    advance: 0,
+    vacation: 0,
+    sickLeave: 0,
+    loading: false
+  });
+
   // Détecter si on est sur Longuenesse ou Arras
-  const isLonguenesse = window.location.pathname.startsWith('/lon');
-  const isArras = window.location.pathname.includes('/plan/');
+  const siteKey = getSiteKey(); // 'lon' | 'plan' (fallback persistant)
+  const isLonguenesse = siteKey === 'lon';
+  const isArras = siteKey === 'plan';
   const shouldShowLosses = isLonguenesse || isArras;
+  const shouldShowVehicleRecap = shouldShowLosses;
 
   useEffect(() => {
     fetchDashboardData();
@@ -21,7 +37,14 @@ const Dashboard = () => {
     if (shouldShowLosses) {
       fetchLossesStats();
     }
-  }, [shouldShowLosses]);
+    if (shouldShowVehicleRecap) {
+      fetchVehicleSummary();
+      fetchAccountDepositRemise();
+    }
+    if (shouldShowLosses && isAdmin()) {
+      fetchPendingActionsCounts();
+    }
+  }, [shouldShowLosses, shouldShowVehicleRecap, user?.role]);
 
   const fetchDashboardData = async () => {
     try {
@@ -93,6 +116,81 @@ const Dashboard = () => {
     } catch (error) {
       console.error('Erreur lors du chargement des stats pertes:', error);
       setLossesStats(null);
+    }
+  };
+
+  const fetchVehicleSummary = async () => {
+    try {
+      setVehicleSummaryLoading(true);
+      const site = isLonguenesse ? 'longuenesse' : 'arras';
+      const response = await api.get('/vehicle/dashboard-summary', {
+        params: { site }
+      });
+      if (response.data.success && response.data.data) {
+        setVehicleSummary(response.data.data);
+      } else {
+        setVehicleSummary(null);
+      }
+    } catch (error) {
+      console.error('Erreur récap véhicule:', error);
+      setVehicleSummary(null);
+    } finally {
+      setVehicleSummaryLoading(false);
+    }
+  };
+
+  const fetchAccountDepositRemise = async () => {
+    try {
+      setAccountDepositRemiseLoading(true);
+      const site = isLonguenesse ? 'longuenesse' : 'arras';
+      const response = await api.get('/account-deposit-remises/dashboard', { params: { site } });
+      if (response.data?.success && response.data?.data) {
+        setAccountDepositRemise(response.data.data);
+      } else {
+        setAccountDepositRemise(null);
+      }
+    } catch (error) {
+      console.error('Erreur remise dépôts:', error);
+      setAccountDepositRemise(null);
+    } finally {
+      setAccountDepositRemiseLoading(false);
+    }
+  };
+
+  const fetchPendingActionsCounts = async () => {
+    setPendingActions((s) => ({ ...s, loading: true }));
+    try {
+      const [advRes, vacRes, sickRes] = await Promise.all([
+        api.get('/advance-requests/pending'),
+        api.get('/vacation-requests', { params: { status: 'pending', limit: 1, page: 1 } }),
+        api.get('/sick-leaves', { params: { status: 'pending', limit: 1, page: 1 } })
+      ]);
+
+      const advanceCount = Array.isArray(advRes.data?.data) ? advRes.data.data.length : 0;
+      const vacationTotal = vacRes.data?.pagination?.total;
+      const vacationCount =
+        typeof vacationTotal === 'number'
+          ? vacationTotal
+          : Array.isArray(vacRes.data?.data)
+            ? vacRes.data.data.filter((r) => r.status === 'pending').length
+            : 0;
+      const sickTotal = sickRes.data?.data?.pagination?.total;
+      const sickCount =
+        typeof sickTotal === 'number'
+          ? sickTotal
+          : Array.isArray(sickRes.data?.data?.sickLeaves)
+            ? sickRes.data.data.sickLeaves.length
+            : 0;
+
+      setPendingActions({
+        advance: advanceCount,
+        vacation: vacationCount,
+        sickLeave: sickCount,
+        loading: false
+      });
+    } catch (error) {
+      console.error('Erreur chargement actions en attente:', error);
+      setPendingActions({ advance: 0, vacation: 0, sickLeave: 0, loading: false });
     }
   };
 
@@ -303,7 +401,8 @@ const Dashboard = () => {
           sickLeave: {
             isOnSickLeave: true,
             startDate: activeSickLeave.startDate,
-            endDate: activeSickLeave.endDate
+            endDate: activeSickLeave.endDate,
+            therapeuticPartTime: !!activeSickLeave.therapeuticPartTime
           }
         };
       }
@@ -361,6 +460,11 @@ const Dashboard = () => {
   const formatDate = (dateString) => {
     if (!dateString) return '-';
     return new Date(dateString).toLocaleDateString('fr-FR');
+  };
+
+  const formatDateTime = (dateString) => {
+    if (!dateString) return '-';
+    return new Date(dateString).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' });
   };
 
   // Calculer les jours jusqu'à une date
@@ -481,6 +585,271 @@ const Dashboard = () => {
         </div>
       )}
 
+      {/* Actions en attente (acomptes, congés, arrêts maladie) — admins uniquement, Longuenesse et Arras */}
+      {shouldShowLosses && isAdmin() && (
+        <div className="card" style={{ marginBottom: '2rem' }}>
+          <h3>📌 Actions en attente</h3>
+          {pendingActions.loading ? (
+            <p style={{ color: '#666' }}>Chargement…</p>
+          ) : (
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+                gap: '1rem'
+              }}
+            >
+              <div
+                style={{
+                  padding: '1rem',
+                  borderRadius: '8px',
+                  border: `2px solid ${pendingActions.advance > 0 ? '#ffc107' : '#c3e6cb'}`,
+                  backgroundColor: pendingActions.advance > 0 ? '#fff8e6' : '#f8fff9'
+                }}
+              >
+                <div style={{ fontSize: '0.85rem', color: '#555', marginBottom: '0.35rem' }}>
+                  Demandes d&apos;acompte
+                </div>
+                <div style={{ fontSize: '1.75rem', fontWeight: 700, color: pendingActions.advance > 0 ? '#856404' : '#155724' }}>
+                  {pendingActions.advance}
+                </div>
+                <a
+                  href={isLonguenesse ? '/lon/advance-requests' : '/plan/advance-requests'}
+                  style={{
+                    display: 'inline-block',
+                    marginTop: '0.5rem',
+                    fontSize: '0.9rem',
+                    fontWeight: 600,
+                    color: '#667eea'
+                  }}
+                >
+                  Traiter les acomptes →
+                </a>
+              </div>
+              <div
+                style={{
+                  padding: '1rem',
+                  borderRadius: '8px',
+                  border: `2px solid ${pendingActions.vacation > 0 ? '#ffc107' : '#c3e6cb'}`,
+                  backgroundColor: pendingActions.vacation > 0 ? '#fff8e6' : '#f8fff9'
+                }}
+              >
+                <div style={{ fontSize: '0.85rem', color: '#555', marginBottom: '0.35rem' }}>
+                  Demandes de congés
+                </div>
+                <div style={{ fontSize: '1.75rem', fontWeight: 700, color: pendingActions.vacation > 0 ? '#856404' : '#155724' }}>
+                  {pendingActions.vacation}
+                </div>
+                <a
+                  href={isLonguenesse ? '/lon/vacation-management' : '/plan/vacation-management'}
+                  style={{
+                    display: 'inline-block',
+                    marginTop: '0.5rem',
+                    fontSize: '0.9rem',
+                    fontWeight: 600,
+                    color: '#667eea'
+                  }}
+                >
+                  Traiter les congés →
+                </a>
+              </div>
+              <div
+                style={{
+                  padding: '1rem',
+                  borderRadius: '8px',
+                  border: `2px solid ${pendingActions.sickLeave > 0 ? '#ffc107' : '#c3e6cb'}`,
+                  backgroundColor: pendingActions.sickLeave > 0 ? '#fff8e6' : '#f8fff9'
+                }}
+              >
+                <div style={{ fontSize: '0.85rem', color: '#555', marginBottom: '0.35rem' }}>
+                  Arrêts maladie à valider
+                </div>
+                <div style={{ fontSize: '1.75rem', fontWeight: 700, color: pendingActions.sickLeave > 0 ? '#856404' : '#155724' }}>
+                  {pendingActions.sickLeave}
+                </div>
+                <a
+                  href={isLonguenesse ? '/lon/sick-leave-management' : '/plan/sick-leave-management'}
+                  style={{
+                    display: 'inline-block',
+                    marginTop: '0.5rem',
+                    fontSize: '0.9rem',
+                    fontWeight: 600,
+                    color: '#667eea'
+                  }}
+                >
+                  Traiter les arrêts maladie →
+                </a>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Récapitulatif véhicule — Longuenesse et Arras */}
+      {shouldShowVehicleRecap && (
+        <div className="card" style={{ marginBottom: '2rem' }}>
+          <h3>🚗 Récapitulatif véhicule</h3>
+          {vehicleSummaryLoading ? (
+            <p style={{ color: '#666' }}>Chargement…</p>
+          ) : !vehicleSummary ? (
+            <p style={{ color: '#856404' }}>Impossible de charger les données véhicule.</p>
+          ) : (
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: isLonguenesse ? 'minmax(0, 1fr) minmax(360px, 1fr)' : 'minmax(0, 1fr) 360px',
+                gap: '1.25rem',
+                alignItems: 'start'
+              }}
+            >
+              <div>
+                <div style={{ marginBottom: '1.25rem' }}>
+                  <h4 style={{ fontSize: '1rem', marginBottom: '0.5rem', color: '#444' }}>
+                    Échéances (fenêtre de rappel)
+                  </h4>
+                  {vehicleSummary.rappels && vehicleSummary.rappels.length > 0 ? (
+                    <ul style={{ margin: 0, paddingLeft: '1.25rem' }}>
+                      {vehicleSummary.rappels.map((r) => (
+                        <li key={r.id} style={{ marginBottom: '0.35rem' }}>
+                          <strong>{r.label}</strong> — {r.detail}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p style={{ margin: 0, color: '#6c757d' }}>
+                      Aucun rappel actif : vous n’êtes pas dans la fenêtre définie (km avant révision, jours avant
+                      révision / CT / renouvellement).
+                    </p>
+                  )}
+                </div>
+
+                {vehicleSummary.kmIncoherenceDernierTrajet && (
+                  <div
+                    style={{
+                      marginBottom: '1rem',
+                      padding: '0.65rem 0.85rem',
+                      backgroundColor: '#f8d7da',
+                      color: '#721c24',
+                      borderRadius: '8px',
+                      border: '1px solid #f5c6cb',
+                      fontWeight: 600
+                    }}
+                  >
+                    Incohérence km : le dernier trajet enregistré présente un écart (≥ 2 km) entre le km retour du
+                    trajet précédent et le km départ du suivant, comme sur la page véhicule.
+                  </div>
+                )}
+
+                <div style={{ marginBottom: '1rem' }}>
+                  <h4 style={{ fontSize: '1rem', marginBottom: '0.5rem', color: '#444' }}>
+                    Dernier trajet terminé
+                  </h4>
+                  {!vehicleSummary.dernierTrajet ? (
+                    <p style={{ margin: 0, color: '#6c757d' }}>Aucun trajet terminé enregistré.</p>
+                  ) : (
+                    <ul style={{ margin: 0, paddingLeft: '1.25rem' }}>
+                      <li>
+                        {vehicleSummary.dernierTrajet.dateRetour
+                          ? `Retour le ${formatDate(vehicleSummary.dernierTrajet.dateRetour)}`
+                          : `Départ le ${formatDate(vehicleSummary.dernierTrajet.dateDepart)}`}
+                        {vehicleSummary.dernierTrajet.conducteur
+                          ? ` — ${vehicleSummary.dernierTrajet.conducteur}`
+                          : ''}
+                      </li>
+                      {vehicleSummary.dernierTrajet.etatsEnDessousDe5 && (
+                        <li style={{ color: '#856404', fontWeight: 600 }}>
+                          États &lt; 5 : intérieur {vehicleSummary.dernierTrajet.etatInterieur}/5, extérieur{' '}
+                          {vehicleSummary.dernierTrajet.etatExterieur}/5 (action à prévoir)
+                        </li>
+                      )}
+                      {vehicleSummary.dernierTrajet.pleinAFaire && (
+                        <li style={{ color: '#0d6efd', fontWeight: 600 }}>Plein à faire</li>
+                      )}
+                      {vehicleSummary.dernierTrajet.autresChosesAFaire &&
+                        vehicleSummary.dernierTrajet.autresChosesAFaire.length > 0 && (
+                          <li style={{ color: '#0d6efd', fontWeight: 600 }}>
+                            Chose(s) à faire : {vehicleSummary.dernierTrajet.autresChosesAFaire.join(', ')}
+                          </li>
+                        )}
+                      <li>
+                        Photo retour :{' '}
+                        <strong>{vehicleSummary.dernierTrajet.photoUploadee ? 'Oui (uploadée)' : 'Non'}</strong>
+                      </li>
+                    </ul>
+                  )}
+                </div>
+
+                <a
+                  href={isLonguenesse ? '/lon/vehicle' : '/plan/vehicle'}
+                  style={{
+                    display: 'inline-block',
+                    padding: '8px 16px',
+                    backgroundColor: '#667eea',
+                    color: 'white',
+                    textDecoration: 'none',
+                    borderRadius: '8px',
+                    fontWeight: 600,
+                    fontSize: '0.9rem'
+                  }}
+                >
+                  Ouvrir la page véhicule
+                </a>
+              </div>
+
+              <div
+                style={{
+                  border: '1px solid #e2e8f0',
+                  borderRadius: '12px',
+                  padding: '12px 14px',
+                  background: '#fff',
+                  // Sur Longuenesse, la colonne de droite est plus large : on centre cette carte dans l'espace
+                  maxWidth: isLonguenesse ? 360 : undefined,
+                  width: isLonguenesse ? '100%' : undefined,
+                  justifySelf: isLonguenesse ? 'center' : undefined
+                }}
+              >
+                <h4 style={{ fontSize: '1rem', margin: 0, marginBottom: '0.5rem', color: '#444' }}>
+                  💳 Remise dépôts (aujourd’hui)
+                </h4>
+                {accountDepositRemiseLoading ? (
+                  <p style={{ margin: 0, color: '#666' }}>Chargement…</p>
+                ) : !accountDepositRemise ? (
+                  <p style={{ margin: 0, color: '#856404' }}>Données indisponibles.</p>
+                ) : accountDepositRemise.todayRemise?.status === 'finished' ? (
+                  <div style={{ display: 'grid', gap: '0.35rem' }}>
+                    <p style={{ margin: 0 }}>
+                      <strong>Remise effectuée</strong> ({accountDepositRemise.todayRemise.depositsCount} pers.,{' '}
+                      {Number(accountDepositRemise.todayRemise.depositsTotal || 0).toFixed(2)} €)
+                    </p>
+                    <p style={{ margin: 0, color: '#6c757d', fontSize: '0.9rem' }}>
+                      Tickets TPE : <strong>{accountDepositRemise.todayRemise.declaredTicketCount ?? '—'}</strong>
+                    </p>
+                    <p style={{ margin: 0, color: '#6c757d', fontSize: '0.9rem' }}>
+                      Terminée : <strong>{formatDateTime(accountDepositRemise.todayRemise.finishedAt)}</strong>
+                    </p>
+                  </div>
+                ) : accountDepositRemise.todayDeposits?.depositsCount > 0 ? (
+                  <div style={{ display: 'grid', gap: '0.35rem' }}>
+                    <p style={{ margin: 0 }}>
+                      <strong>Remise en cours</strong> : {accountDepositRemise.todayDeposits.depositsCount} pers.,{' '}
+                      {Number(accountDepositRemise.todayDeposits.depositsTotal || 0).toFixed(2)} €
+                    </p>
+                    <p style={{ margin: 0, color: '#6c757d', fontSize: '0.9rem' }}>
+                      Aller sur <a href={isLonguenesse ? '/lon/compte-client-depots' : '/plan/compte-client-depots'}>Dépôts compte client</a> pour terminer.
+                    </p>
+                  </div>
+                ) : (
+                  <p style={{ margin: 0, color: '#6c757d' }}>
+                    Aucune remise aujourd’hui. Dernière remise :{' '}
+                    <strong>{accountDepositRemise.lastFinishedAt ? formatDate(accountDepositRemise.lastFinishedAt) : '—'}</strong>
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Récapitulatif : Arrêts maladie */}
       <div className="card" style={{ marginBottom: '2rem' }}>
         <h3>🏥 Récapitulatif : Arrêts maladie</h3>
@@ -494,6 +863,7 @@ const Dashboard = () => {
                   <th>Nom</th>
                   <th>Date de reprise</th>
                   <th>Jours avant reprise</th>
+                  <th>Temps partiel thérapeutique</th>
                 </tr>
               </thead>
               <tbody>
@@ -572,6 +942,13 @@ const Dashboard = () => {
                             </span>
                           );
                         })()}
+                      </td>
+                      <td>
+                        {employee.sickLeave?.therapeuticPartTime ? (
+                          <span style={{ color: '#0d6efd', fontWeight: '600' }}>Oui</span>
+                        ) : (
+                          <span style={{ color: '#6c757d' }}>Non</span>
+                        )}
                       </td>
                     </tr>
                   );

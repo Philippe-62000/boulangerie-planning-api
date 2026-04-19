@@ -2,25 +2,64 @@ import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { getApiUrl } from '../config/apiConfig';
+import { isLonguenesseSite, getSiteKey } from '../config/site';
 import './Sidebar.css';
 
 const Sidebar = () => {
   // Étendu par défaut sur desktop (largeur > 768px) pour éviter que le menu semble "disparaître" au refresh
   const [isExpanded, setIsExpanded] = useState(() => typeof window !== 'undefined' && window.innerWidth > 768);
-  const [socialMenuExpanded, setSocialMenuExpanded] = useState(false);
-  const [venteMenuExpanded, setVenteMenuExpanded] = useState(false);
-  const [paiesMenuExpanded, setPaiesMenuExpanded] = useState(false);
-  const [facturationMenuExpanded, setFacturationMenuExpanded] = useState(false);
+  const isLonguenesse = isLonguenesseSite();
+  const storageSuffix = getSiteKey();
+  const [socialMenuExpanded, setSocialMenuExpanded] = useState(() => {
+    try {
+      return localStorage.getItem(`sidebar:${storageSuffix}:socialExpanded`) === '1';
+    } catch {
+      return false;
+    }
+  });
+  const [planningMenuExpanded, setPlanningMenuExpanded] = useState(() => {
+    try {
+      return localStorage.getItem(`sidebar:${storageSuffix}:planningExpanded`) === '1';
+    } catch {
+      return false;
+    }
+  });
+  const [venteMenuExpanded, setVenteMenuExpanded] = useState(() => {
+    try {
+      return localStorage.getItem(`sidebar:${storageSuffix}:venteExpanded`) === '1';
+    } catch {
+      return false;
+    }
+  });
+  const [paiesMenuExpanded, setPaiesMenuExpanded] = useState(() => {
+    try {
+      return localStorage.getItem(`sidebar:${storageSuffix}:paiesExpanded`) === '1';
+    } catch {
+      return false;
+    }
+  });
+  const [facturationMenuExpanded, setFacturationMenuExpanded] = useState(() => {
+    try {
+      return localStorage.getItem(`sidebar:${storageSuffix}:facturationExpanded`) === '1';
+    } catch {
+      return false;
+    }
+  });
   const [menuPermissions, setMenuPermissions] = useState([]);
   const location = useLocation();
   const { user, isAdmin, isEmployee } = useAuth();
-  const isLonguenesse = window.location.pathname.startsWith('/lon');
 
   // Sous-menus admin (comme Social) — regroupent des entrées retirées du menu plat pour l’admin uniquement
+  const PLANNING_MENU_ITEMS = [
+    { path: '/planning', label: 'Génération du planning', icon: '🎯', menuId: 'planning' },
+    { path: '/constraints', label: 'Contraintes hebdomadaires', icon: '📋', menuId: 'constraints' }
+  ];
+
   const VENTE_MENU_ITEMS = [
     { path: '/sales-stats', label: 'Stats Vente', icon: '💰', menuId: 'sales-stats' },
     { path: '/ambassadeur', label: 'Ambassadeur', icon: '⭐', menuId: 'ambassadeur' },
-    { path: '/plateaux-repas', label: 'Plateaux repas', icon: '🍽️', menuId: 'plateaux-repas' }
+    { path: '/plateaux-repas', label: 'Plateaux repas', icon: '🍽️', menuId: 'plateaux-repas' },
+    { path: '/commandes-en-ligne', label: 'Commandes en ligne', icon: '🛒', menuId: 'commandes-en-ligne' }
   ];
 
   const PAIES_MENU_ITEMS = [
@@ -31,10 +70,12 @@ const Sidebar = () => {
   const FACTURATION_MENU_ITEMS = [
     { path: '/ticket-restaurant', label: 'Ticket restaurant', icon: '🎫', menuId: 'ticket-restaurant' },
     { path: '/product-exchanges', label: 'Échanges entre boulangeries', icon: '🔄', menuId: 'product-exchanges' },
-    { path: '/chorus', label: 'Chorus', icon: '🎵', menuId: 'chorus', longuenesseOnly: true }
+    { path: '/chorus', label: 'Chorus', icon: '🎵', menuId: 'chorus', longuenesseOnly: true },
+    { path: '/compte-client-depots', label: 'Dépôts compte client', icon: '💳', menuId: 'compte-client-depots', longuenesseOnly: true }
   ];
 
   const ADMIN_GROUPED_MENU_IDS = new Set([
+    ...PLANNING_MENU_ITEMS,
     ...VENTE_MENU_ITEMS,
     ...PAIES_MENU_ITEMS,
     ...FACTURATION_MENU_ITEMS
@@ -77,6 +118,7 @@ const Sidebar = () => {
         { menuId: 'frais-km-responsable', isVisibleToAdmin: true, isVisibleToEmployee: false },
         { menuId: 'plateaux-repas', isVisibleToAdmin: true, isVisibleToEmployee: false },
         { menuId: 'chorus', isVisibleToAdmin: true, isVisibleToEmployee: false },
+        { menuId: 'compte-client-depots', isVisibleToAdmin: true, isVisibleToEmployee: false },
         { menuId: 'vehicle', isVisibleToAdmin: true, isVisibleToEmployee: false }
       ];
     } else {
@@ -102,6 +144,7 @@ const Sidebar = () => {
         { menuId: 'frais-km-responsable', isVisibleToAdmin: false, isVisibleToEmployee: false },
         { menuId: 'plateaux-repas', isVisibleToAdmin: false, isVisibleToEmployee: false },
         { menuId: 'chorus', isVisibleToAdmin: false, isVisibleToEmployee: false },
+        { menuId: 'compte-client-depots', isVisibleToAdmin: false, isVisibleToEmployee: false },
         { menuId: 'vehicle', isVisibleToAdmin: false, isVisibleToEmployee: false }
       ];
     }
@@ -110,12 +153,33 @@ const Sidebar = () => {
   // Auto-expandre les sous-menus admin quand on est sur une de leurs pages
   useEffect(() => {
     const p = location.pathname;
+    if (PLANNING_MENU_ITEMS.some((i) => p.includes(i.path))) setPlanningMenuExpanded(true);
     if (VENTE_MENU_ITEMS.some((i) => p.includes(i.path))) setVenteMenuExpanded(true);
     if (PAIES_MENU_ITEMS.some((i) => p.includes(i.path))) setPaiesMenuExpanded(true);
     if (FACTURATION_MENU_ITEMS.some((i) => p.includes(i.path))) setFacturationMenuExpanded(true);
     const socialPaths = ['advance-requests', 'vacation-management', 'sick-leave-management', 'mutuelle-management', 'primes'];
     if (socialPaths.some((x) => p.includes(x))) setSocialMenuExpanded(true);
   }, [location.pathname]);
+
+  // Persister l'état des sous-menus (évite "menu disparu" après refresh si le groupe était ouvert)
+  useEffect(() => {
+    try {
+      localStorage.setItem(`sidebar:${storageSuffix}:socialExpanded`, socialMenuExpanded ? '1' : '0');
+      localStorage.setItem(`sidebar:${storageSuffix}:planningExpanded`, planningMenuExpanded ? '1' : '0');
+      localStorage.setItem(`sidebar:${storageSuffix}:venteExpanded`, venteMenuExpanded ? '1' : '0');
+      localStorage.setItem(`sidebar:${storageSuffix}:paiesExpanded`, paiesMenuExpanded ? '1' : '0');
+      localStorage.setItem(`sidebar:${storageSuffix}:facturationExpanded`, facturationMenuExpanded ? '1' : '0');
+    } catch {
+      /* ignore */
+    }
+  }, [
+    storageSuffix,
+    socialMenuExpanded,
+    planningMenuExpanded,
+    venteMenuExpanded,
+    paiesMenuExpanded,
+    facturationMenuExpanded
+  ]);
 
   // Charger les permissions de menu selon le rôle utilisateur
   useEffect(() => {
@@ -186,7 +250,7 @@ const Sidebar = () => {
     { path: '/ticket-restaurant', label: 'Ticket restaurant', icon: '🎫', menuId: 'ticket-restaurant' },
     { path: '/employee-dashboard', label: 'Mes Documents', icon: '📁', menuId: 'employee-dashboard' },
     { path: '/ambassadeur', label: 'Ambassadeur', icon: '⭐', menuId: 'ambassadeur' },
-    { path: '/commandes-en-ligne', label: 'Commandes en ligne', icon: '🛒', menuId: 'commandes-en-ligne', longuenesseOnly: true },
+    { path: '/commandes-en-ligne', label: 'Commandes en ligne', icon: '🛒', menuId: 'commandes-en-ligne' },
     { path: '/product-exchanges', label: 'Échanges entre boulangeries', icon: '🔄', menuId: 'product-exchanges' },
     { path: '/frais-km-responsable', label: 'Frais KM Responsable', icon: '🚗', menuId: 'frais-km-responsable' },
     { path: '/plateaux-repas', label: 'Plateaux repas', icon: '🍽️', menuId: 'plateaux-repas' },
@@ -199,7 +263,7 @@ const Sidebar = () => {
     if (!user) return false;
 
     // Frais KM Responsable / Véhicule : toujours visibles pour l’admin (évite masquage si permission BDD absente ou désactivée par erreur)
-    if (isAdmin() && (menuId === 'frais-km-responsable' || menuId === 'vehicle')) return true;
+    if (isAdmin() && (menuId === 'frais-km-responsable' || menuId === 'vehicle' || menuId === 'compte-client-depots')) return true;
 
     // Permissions pas encore chargées : éviter menu vide (sous-menus + Véhicule invisibles)
     if (menuPermissions.length === 0) {
@@ -254,7 +318,11 @@ const Sidebar = () => {
   };
 
   const handleMouseLeave = () => {
-    setIsExpanded(false);
+    // Sur desktop, ne pas auto-replier : sur certains appareils (ou au refresh)
+    // cela donne l’impression que des menus "disparaissent".
+    if (typeof window !== 'undefined' && window.innerWidth <= 768) {
+      setIsExpanded(false);
+    }
   };
 
 
@@ -288,6 +356,38 @@ const Sidebar = () => {
             <span className="nav-label">{item.label}</span>
           </Link>
         ))}
+        {/* Sous-menu admin : Planning */}
+        {isAdmin() && filterSubmenuForAdmin(PLANNING_MENU_ITEMS).length > 0 && (
+          <div className="nav-group admin-submenu">
+            <button
+              type="button"
+              className={`nav-item nav-group-toggle ${planningMenuExpanded ? 'expanded' : ''} ${PLANNING_MENU_ITEMS.some((i) => location.pathname.includes(i.path)) ? 'active' : ''}`}
+              onClick={() => {
+                setIsExpanded(true);
+                setPlanningMenuExpanded((v) => !v);
+              }}
+              onMouseEnter={() => isExpanded && setPlanningMenuExpanded(true)}
+            >
+              <span className="nav-icon">📅</span>
+              <span className="nav-label">Planning</span>
+              <span className="nav-chevron">{planningMenuExpanded ? '▼' : '▶'}</span>
+            </button>
+            {planningMenuExpanded && (
+              <div className="nav-submenu">
+                {filterSubmenuForAdmin(PLANNING_MENU_ITEMS).map((item) => (
+                  <Link
+                    key={item.path}
+                    to={item.path}
+                    className={`nav-item nav-subitem ${location.pathname.includes(item.path) ? 'active' : ''}`}
+                  >
+                    <span className="nav-icon">{item.icon}</span>
+                    <span className="nav-label">{item.label}</span>
+                  </Link>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
         {/* Sous-menus admin : Vente, Paies, Facturation */}
         {isAdmin() && filterSubmenuForAdmin(VENTE_MENU_ITEMS).length > 0 && (
           <div className="nav-group admin-submenu">
@@ -436,7 +536,7 @@ const Sidebar = () => {
             </div>
           )}
         </div>
-        <div className="version-info">v2.0</div>
+        <div className="version-info">v2.1</div>
       </div>
     </div>
   );

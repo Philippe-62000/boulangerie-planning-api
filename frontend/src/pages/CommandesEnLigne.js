@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { toast } from 'react-toastify';
 import api from '../services/api';
-import { getApiUrl } from '../config/apiConfig';
+import { getApiUrl, getOnlineOrdersCity } from '../config/apiConfig';
 import './CommandesEnLigne.css';
 
 const MONTH_NAMES = ['Janvier', 'Fevrier', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Aout', 'Septembre', 'Octobre', 'Novembre', 'Decembre'];
@@ -26,7 +26,7 @@ const CommandesEnLigne = () => {
   const [googleEmail, setGoogleEmail] = useState('');
   const printRef = useRef();
 
-  const city = 'longuenesse';
+  const city = getOnlineOrdersCity();
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -106,7 +106,11 @@ const CommandesEnLigne = () => {
     } catch (err) {
       console.error(err);
       const msg = err.response?.data?.error || 'Erreur lors du chargement des commandes';
-      toast.error(msg);
+      if (err.response?.status === 403 || err.response?.data?.code === 'OAUTH_INSUFFICIENT_SCOPES') {
+        toast.error(msg, { autoClose: 15000 });
+      } else {
+        toast.error(msg);
+      }
       setOrders([]);
     } finally {
       setLoadingOrders(false);
@@ -122,7 +126,12 @@ const CommandesEnLigne = () => {
       setShowMonthlySummary(true);
     } catch (err) {
       console.error(err);
-      toast.error('Erreur lors du chargement du récapitulatif');
+      const msg = err.response?.data?.error || 'Erreur lors du chargement du récapitulatif';
+      if (err.response?.status === 403 || err.response?.data?.code === 'OAUTH_INSUFFICIENT_SCOPES') {
+        toast.error(msg, { autoClose: 15000 });
+      } else {
+        toast.error(msg);
+      }
     }
   };
 
@@ -149,7 +158,7 @@ const CommandesEnLigne = () => {
 
   const handleSyncTabs = async (id) => {
     try {
-      await api.post(`/online-orders/links/${id}/sync-tabs`, null, { params: { city } });
+      await api.post(`/online-orders/links/${id}/sync-tabs`, {}, { params: { city } });
       toast.success('Onglets synchronisés (Mars, Avril, etc.)');
       loadLinks();
     } catch (err) {

@@ -277,6 +277,36 @@
   color: #666;
 }
 
+.login-sale-code {
+  border-top: 1px solid #e8e8e8;
+  padding-top: 20px;
+  margin-top: 16px;
+}
+
+.login-sale-code h3 {
+  margin: 0 0 8px 0;
+  font-size: 1.1rem;
+  color: #333;
+}
+
+.login-sale-hint {
+  font-size: 0.88rem;
+  color: #555;
+  margin: 0 0 12px 0;
+  line-height: 1.45;
+}
+
+.login-sale-input .password-field {
+  font-size: 1.25rem;
+  letter-spacing: 0.2em;
+  text-align: center;
+}
+
+.sale-code-btn {
+  margin-top: 12px;
+  width: 100%;
+}
+
 @media (max-width: 600px) {
   .login-card {
     margin: 10px;

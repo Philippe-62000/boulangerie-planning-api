@@ -159,6 +159,12 @@ const sickLeaveSchema = new mongoose.Schema({
     }
   },
   
+  /** Temps partiel thérapeutique (case cochée côté salarié) */
+  therapeuticPartTime: {
+    type: Boolean,
+    default: false
+  },
+
   // Métadonnées
   createdAt: {
     type: Date,

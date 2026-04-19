@@ -39,6 +39,10 @@ import PlateauxRepasStandalone from './pages/PlateauxRepasStandalone';
 import Chorus from './pages/Chorus';
 import Vehicle from './pages/Vehicle';
 import VehicleStandalone from './pages/VehicleStandalone';
+import CompteClientStandalone from './pages/CompteClientStandalone';
+import CompteClientDepots from './pages/CompteClientDepots';
+import StandaloneMenu from './pages/StandaloneMenu';
+import { getSiteBasename } from './config/site';
 
 const AppContent = () => {
   const { user, loading } = useAuth();
@@ -202,6 +206,11 @@ const AppContent = () => {
                 <Vehicle />
               </ProtectedRoute>
             } />
+            <Route path="/compte-client-depots" element={
+              <ProtectedRoute adminOnly={true}>
+                <CompteClientDepots />
+              </ProtectedRoute>
+            } />
           </Routes>
         </main>
       </div>
@@ -224,11 +233,8 @@ const AmbassadeurStandaloneRedirect = () => {
 
 function App() {
   const getBasename = () => {
-    const path = window.location.pathname;
-    if (path.startsWith('/lon')) {
-      return '/lon';
-    }
-    return import.meta.env.BASE_URL || '/plan';
+    // Basename déterminé de façon robuste (fallback localStorage si le préfixe disparaît au refresh)
+    return getSiteBasename() || (import.meta.env.BASE_URL || '/plan');
   };
 
   return (
@@ -243,6 +249,10 @@ function App() {
           <Route path="/plateaux-repas-standalone.html" element={<PlateauxRepasStandalone />} />
           <Route path="/vehicle-standalone" element={<VehicleStandalone />} />
           <Route path="/vehicle-standalone.html" element={<VehicleStandalone />} />
+          <Route path="/compte-client-standalone" element={<CompteClientStandalone />} />
+          <Route path="/compte-client-standalone.html" element={<CompteClientStandalone />} />
+          <Route path="/menu-standalone" element={<StandaloneMenu />} />
+          <Route path="/menu-standalone.html" element={<StandaloneMenu />} />
           <Route path="/*" element={<AppContent />} />
         </Routes>
     </Router>

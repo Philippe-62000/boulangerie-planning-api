@@ -271,6 +271,15 @@ menuPermissionsSchema.statics.createDefaultPermissions = async function() {
         order: 21
       },
       {
+        menuId: 'compte-client-depots',
+        menuName: 'Dépôts compte client',
+        menuPath: '/compte-client-depots',
+        isVisibleToAdmin: true,
+        isVisibleToEmployee: false,
+        requiredPermissions: ['manage_parameters'],
+        order: 21.5
+      },
+      {
         menuId: 'vehicle',
         menuName: 'Véhicule',
         menuPath: '/vehicle',

@@ -5,6 +5,23 @@ const googleOAuthController = require('./googleOAuthController');
 
 const MONTH_NAMES = ['Janvier', 'Fevrier', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Aout', 'Septembre', 'Octobre', 'Novembre', 'Decembre'];
 
+/** Message exploitable pour les erreurs googleapis / Gaxios (souvent sans .message utile). */
+function extractGoogleApiErrorMessage(err) {
+  if (!err) return 'Erreur inconnue';
+  if (typeof err === 'string') return err;
+  const m = err.message;
+  if (m && String(m).trim()) return String(m);
+  const g = err.response?.data?.error;
+  if (typeof g === 'string') return g;
+  if (g?.message) return String(g.message);
+  if (err.response?.data?.error_description) return String(err.response.data.error_description);
+  try {
+    const d = err.response?.data;
+    if (d) return JSON.stringify(d);
+  } catch (_) {}
+  return 'Erreur Google API';
+}
+
 // Alias pour matcher les onglets avec des noms variés (ex: "March" en anglais, "Mar", "03 - Mars")
 const MONTH_ALIASES = {
   'Janvier': ['janvier', 'january', 'jan'],
@@ -46,6 +63,27 @@ function delay(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
+/** Données commandes en ligne + OAuth : stockées sous `longuenesse` même sur l’API Arras. */
+const ONLINE_ORDERS_CITY_FALLBACK = 'longuenesse';
+
+async function findOAuthTokenForCity(city) {
+  const c = (city || ONLINE_ORDERS_CITY_FALLBACK).toLowerCase();
+  let token = await GoogleOAuthToken.findOne({ city: c });
+  if (!token?.refreshToken && c !== ONLINE_ORDERS_CITY_FALLBACK) {
+    token = await GoogleOAuthToken.findOne({ city: ONLINE_ORDERS_CITY_FALLBACK });
+  }
+  return token;
+}
+
+async function findOnlineOrderLinks(city) {
+  const c = (city || ONLINE_ORDERS_CITY_FALLBACK).toLowerCase();
+  let links = await OnlineOrderLink.find({ city: c }).sort({ order: 1, className: 1 });
+  if (links.length === 0 && c !== ONLINE_ORDERS_CITY_FALLBACK) {
+    links = await OnlineOrderLink.find({ city: ONLINE_ORDERS_CITY_FALLBACK }).sort({ order: 1, className: 1 });
+  }
+  return links;
+}
+
 // Extraire l'ID du spreadsheet depuis une URL Google Sheets
 function extractSpreadsheetId(url) {
   const match = url.match(/\/d\/([a-zA-Z0-9-_]+)/);
@@ -62,7 +100,7 @@ function extractGidFromUrl(url) {
 async function getLinks(req, res) {
   try {
     const city = (req.query.city || 'longuenesse').toLowerCase();
-    const links = await OnlineOrderLink.find({ city }).sort({ order: 1, className: 1 });
+    const links = await findOnlineOrderLinks(city);
     res.json({ success: true, data: links });
   } catch (error) {
     console.error('Erreur getLinks:', error);
@@ -127,10 +165,26 @@ async function fetchMonthGidsFromTabs(spreadsheetId, city) {
   return monthGids;
 }
 
+/** Met à jour monthGids en base si le mois demandé n’est pas encore mappé (ex. nouvel onglet Avril sans « Sync onglets »). */
+async function ensureMonthGidForMonth(link, monthName, city) {
+  if (link.monthGids?.[monthName]) return link;
+  try {
+    const fresh = await fetchMonthGidsFromTabs(link.spreadsheetId, city);
+    if (Object.keys(fresh).length > 0) {
+      const merged = { ...(link.monthGids || {}), ...fresh };
+      link.monthGids = merged;
+      await OnlineOrderLink.findByIdAndUpdate(link._id, { monthGids: merged });
+    }
+  } catch (e) {
+    console.warn(`ensureMonthGidForMonth (${link.className}):`, e.message);
+  }
+  return link;
+}
+
 // Ajouter un lien
 async function addLink(req, res) {
   try {
-    const { spreadsheetUrl, className, city = 'longuenesse' } = req.body;
+    const { spreadsheetUrl, className } = req.body;
     const spreadsheetId = extractSpreadsheetId(spreadsheetUrl || req.body.spreadsheetId);
     if (!spreadsheetId) {
       return res.status(400).json({ success: false, error: 'URL ou ID de spreadsheet invalide' });
@@ -138,7 +192,7 @@ async function addLink(req, res) {
     if (!className || !className.trim()) {
       return res.status(400).json({ success: false, error: 'Nom de la classe requis' });
     }
-    const cityLower = city.toLowerCase();
+    const cityLower = ONLINE_ORDERS_CITY_FALLBACK;
     const count = await OnlineOrderLink.countDocuments({ city: cityLower });
     let monthGids = {};
     try {
@@ -214,21 +268,29 @@ async function syncLinkTabs(req, res) {
     try {
       monthGids = await fetchMonthGidsFromTabs(link.spreadsheetId, city);
     } catch (fetchErr) {
-      const msg = fetchErr.message || fetchErr.error || String(fetchErr);
-      const errCode = fetchErr.code || fetchErr.status;
+      const msg = extractGoogleApiErrorMessage(fetchErr);
+      const httpStatus = fetchErr.response?.status;
+      const errCode = fetchErr.code || fetchErr.status || httpStatus;
       if (msg.includes('non connecté') || msg.includes('Connecter Google') || msg.includes('refresh_token') || msg.includes('invalid_grant')) {
         return res.status(401).json({ success: false, error: msg || 'Compte Google non connecté. Cliquez sur "Connecter Google" pour autoriser l\'accès aux feuilles.' });
       }
       if (msg.includes('non configurée') || msg.includes('GOOGLE_CLIENT')) {
         return res.status(503).json({ success: false, error: msg });
       }
-      if (errCode === 404 || msg.includes('Unable to parse range') || msg.includes('not found') || msg.includes('404')) {
+      if (httpStatus === 403 || msg.includes('PERMISSION_DENIED') || msg.includes('insufficient')) {
+        return res.status(403).json({
+          success: false,
+          error:
+            'Accès refusé par Google (403). Vérifiez que le tableur est partagé en lecture avec le compte Google connecté sur « Commandes en ligne », puis réessayez.'
+        });
+      }
+      if (errCode === 404 || httpStatus === 404 || msg.includes('Unable to parse range') || msg.includes('not found') || msg.includes('NOT_FOUND') || msg.includes('404')) {
         return res.status(404).json({ success: false, error: 'Feuille Google non trouvée ou accès refusé. Vérifiez que la feuille est partagée avec le compte Google connecté.' });
       }
       if (msg.includes('rateLimitExceeded') || msg.includes('RESOURCE_EXHAUSTED') || msg.includes('429')) {
         return res.status(429).json({ success: false, error: 'Quota Google dépassé. Réessayez dans quelques minutes.' });
       }
-      console.error('Erreur fetchMonthGidsFromTabs:', fetchErr.message, fetchErr.stack);
+      console.error('Erreur fetchMonthGidsFromTabs:', msg, fetchErr.stack || fetchErr);
       return res.status(500).json({ success: false, error: msg || 'Erreur lors de la récupération des onglets Google.' });
     }
     if (Object.keys(monthGids).length > 0) {
@@ -241,10 +303,24 @@ async function syncLinkTabs(req, res) {
       }
     }
     await link.save();
-    res.json({ success: true, data: link });
+    // Objet plain : évite les erreurs de sérialisation JSON (réf. circulaires / doc Mongoose) qui masquent la vraie erreur.
+    res.json({
+      success: true,
+      data: {
+        _id: link._id,
+        city: link.city,
+        spreadsheetId: link.spreadsheetId,
+        className: link.className,
+        spreadsheetUrl: link.spreadsheetUrl,
+        monthGids: link.monthGids && typeof link.monthGids === 'object' ? { ...link.monthGids } : {},
+        order: link.order,
+        createdAt: link.createdAt,
+        updatedAt: link.updatedAt
+      }
+    });
   } catch (error) {
     console.error('Erreur syncLinkTabs:', error);
-    const msg = error.message || 'Erreur serveur interne';
+    const msg = extractGoogleApiErrorMessage(error) || error.message || 'Erreur serveur interne';
     if (msg.includes('non connecté') || msg.includes('Connecter Google')) {
       return res.status(401).json({ success: false, error: msg });
     }
@@ -280,22 +356,48 @@ async function updateLinksOrder(req, res) {
 
 // Obtenir un client OAuth authentifié pour une ville
 async function getAuthenticatedClient(city) {
-  const token = await GoogleOAuthToken.findOne({ city: (city || 'longuenesse').toLowerCase() });
+  const token = await findOAuthTokenForCity(city);
   if (!token?.refreshToken) {
     throw new Error('Compte Google non connecté. Cliquez sur "Connecter Google" pour autoriser l\'accès aux feuilles partagées.');
   }
   const oauth2Client = googleOAuthController.getOAuth2Client();
+  // Ne pas réutiliser accessToken/expiry en base : un vieux jeton peut avoir été émis sans scope Sheets
+  // (ex. ancien flux) et provoquer « insufficient authentication scopes » jusqu’à expiration.
   oauth2Client.setCredentials({
-    refresh_token: token.refreshToken,
-    access_token: token.accessToken,
-    expiry_date: token.expiryDate?.getTime()
+    refresh_token: token.refreshToken
   });
   await oauth2Client.getAccessToken();
   return oauth2Client;
 }
 
+/** Trouve un onglet par nom de mois (Mars, Avril…) — titres avec espaces (« Mars ») gérés. */
+function findSheetByMonthName(sheetsList, monthName) {
+  if (!monthName || !MONTH_NAMES.includes(monthName)) return null;
+  const search = monthName.toLowerCase().trim();
+  let targetSheet = sheetsList.find(
+    s => s.properties?.title && s.properties.title.toLowerCase().trim() === search
+  );
+  if (!targetSheet) {
+    targetSheet = sheetsList.find(
+      s => s.properties?.title && s.properties.title.toLowerCase().trim().includes(search)
+    );
+  }
+  if (!targetSheet) {
+    const aliases = MONTH_ALIASES[monthName] || [];
+    for (const alias of aliases) {
+      targetSheet = sheetsList.find(s => {
+        const t = (s.properties?.title || '').toLowerCase().trim();
+        return t === alias || t.includes(alias);
+      });
+      if (targetSheet) break;
+    }
+  }
+  return targetSheet || null;
+}
+
 // Récupérer les données d'un Google Sheet via l'API OAuth (avec cache pour respecter le quota)
-async function fetchSheetData(spreadsheetId, rangeOrGid, city) {
+// fallbackMonthName : si le gid en base est périmé, retrouver l’onglet par le mois (ex. Avril)
+async function fetchSheetData(spreadsheetId, rangeOrGid, city, fallbackMonthName = null) {
   const cacheKey = `${city}:${spreadsheetId}:${String(rangeOrGid || '')}`;
   const cached = getCachedSheetData(cacheKey);
   if (cached) return cached;
@@ -305,8 +407,12 @@ async function fetchSheetData(spreadsheetId, rangeOrGid, city) {
   const spreadsheet = await sheets.spreadsheets.get({ spreadsheetId });
   const sheetsList = spreadsheet.data.sheets || [];
   let targetSheet = null;
+  let fixedSheetId = undefined;
   if (typeof rangeOrGid === 'string' && /^\d+$/.test(rangeOrGid)) {
-    targetSheet = sheetsList.find(s => String(s.properties.sheetId) === rangeOrGid);
+    targetSheet = sheetsList.find(s => {
+      const sid = s.properties?.sheetId;
+      return sid != null && String(sid) === String(rangeOrGid);
+    });
   } else if (typeof rangeOrGid === 'string') {
     const search = rangeOrGid.toLowerCase().trim();
     // Correspondance exacte
@@ -331,6 +437,15 @@ async function fetchSheetData(spreadsheetId, rangeOrGid, city) {
       }
     }
   }
+  // Gid numérique en base ne correspond plus à un onglet (copie / onglet recréé) : résoudre par nom du mois
+  if (!targetSheet && typeof rangeOrGid === 'string' && /^\d+$/.test(rangeOrGid) && fallbackMonthName) {
+    const fb = findSheetByMonthName(sheetsList, fallbackMonthName);
+    if (fb) {
+      targetSheet = fb;
+      const sid = fb.properties?.sheetId;
+      if (sid != null) fixedSheetId = String(sid);
+    }
+  }
   if (!targetSheet) {
     // Fallback pour TP EC Jeudi (spreadsheet connu) : Mars = gid 466543188
     const KNOWN_MARS_GIDS = { '12ziNmTVtEaswdW8hjk3XOUyF4vhSf-JkrQZiEqD5Pv4': '466543188' };
@@ -339,7 +454,16 @@ async function fetchSheetData(spreadsheetId, rangeOrGid, city) {
     }
   }
   if (!targetSheet) {
-    targetSheet = sheetsList[0];
+    const hint =
+      typeof rangeOrGid === 'string' && MONTH_NAMES.includes(rangeOrGid)
+        ? ` Ouvrez « Liens » → « Sync onglets » pour ce classeur après ajout d’un onglet ${rangeOrGid}.`
+        : '';
+    throw new Error(
+      `Onglet introuvable pour la feuille (${String(rangeOrGid)}).${hint} Titres présents : ${sheetsList
+        .map(s => s.properties?.title)
+        .filter(Boolean)
+        .join(', ')}`
+    );
   }
   const sheetTitle = (targetSheet?.properties?.title || 'Sheet1').trim();
   const sheetId = targetSheet?.properties?.sheetId;
@@ -373,6 +497,7 @@ async function fetchSheetData(spreadsheetId, rangeOrGid, city) {
     }
   }
   const result = { values, sheetTitle };
+  if (fixedSheetId != null) result.fixedSheetId = fixedSheetId;
   setCachedSheetData(cacheKey, result);
   return result;
 }
@@ -500,6 +625,18 @@ function parseDateFromCell(str, defaultYear) {
   return null;
 }
 
+/** Parse YYYY-MM-DD sans décalage fuseau (évite les erreurs de jour avec new Date(iso). */
+function parseIsoDatePartsLocal(dateStr) {
+  if (!dateStr || typeof dateStr !== 'string') return null;
+  const m = dateStr.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+  if (!m) return null;
+  return {
+    year: parseInt(m[1], 10),
+    month: parseInt(m[2], 10),
+    day: parseInt(m[3], 10)
+  };
+}
+
 // Filtrer les commandes pour une date donnée (jour + mois + année)
 function filterOrdersForDay(orders, targetDay, targetMonth, targetYear) {
   return orders.filter(o => {
@@ -523,40 +660,69 @@ function filterOrdersForDay(orders, targetDay, targetMonth, targetYear) {
 }
 
 // Récupérer les commandes du jour
+function isGoogleOAuthScopeError(err) {
+  const m = String(err?.message || err || '');
+  return /insufficient|authentication scopes|Insufficient Permission|ACCESS_TOKEN_SCOPE_INSUFFICIENT/i.test(m);
+}
+
 async function getOrdersForDay(req, res) {
   try {
     const { date } = req.query; // YYYY-MM-DD
     const city = (req.query.city || 'longuenesse').toLowerCase();
-    const targetDate = date ? new Date(date) : new Date();
-    const targetDay = targetDate.getDate();
-    const targetMonth = targetDate.getMonth() + 1;
-    const targetYear = targetDate.getFullYear();
+    const parts = date && parseIsoDatePartsLocal(date);
+    let targetDay;
+    let targetMonth;
+    let targetYear;
+    if (parts) {
+      targetDay = parts.day;
+      targetMonth = parts.month;
+      targetYear = parts.year;
+    } else {
+      const targetDate = new Date();
+      targetDay = targetDate.getDate();
+      targetMonth = targetDate.getMonth() + 1;
+      targetYear = targetDate.getFullYear();
+    }
     const monthName = MONTH_NAMES[targetMonth - 1];
-    const links = await OnlineOrderLink.find({ city }).sort({ order: 1 });
+    const links = await findOnlineOrderLinks(city);
     const allOrders = [];
     // TP EC Jeudi : Mars utilise toujours le gid 466543188 (onglet Mars)
     const TP_EC_JEUDI_MARS_GID = { '12ziNmTVtEaswdW8hjk3XOUyF4vhSf-JkrQZiEqD5Pv4': '466543188' };
     for (let i = 0; i < links.length; i++) {
       if (i > 0) await delay(800); // Espacement pour respecter le quota API (60 req/min)
-      const link = links[i];
+      let link = links[i];
       try {
+        link = await ensureMonthGidForMonth(link, monthName, city);
         let sheetRef = link.monthGids?.[monthName] || monthName;
         if (monthName === 'Mars' && TP_EC_JEUDI_MARS_GID[link.spreadsheetId]) {
           sheetRef = TP_EC_JEUDI_MARS_GID[link.spreadsheetId];
         }
-        const { values } = await fetchSheetData(link.spreadsheetId, sheetRef, city);
+        const { values, fixedSheetId } = await fetchSheetData(link.spreadsheetId, sheetRef, city, monthName);
+        if (fixedSheetId != null) {
+          await OnlineOrderLink.findByIdAndUpdate(link._id, { $set: { [`monthGids.${monthName}`]: fixedSheetId } });
+          link.monthGids = { ...(link.monthGids || {}), [monthName]: fixedSheetId };
+        }
         const className = values[0]?.[0] || link.className;
         const orders = parseOrdersFromSheet(values, className);
         const dayOrders = filterOrdersForDay(orders, targetDay, targetMonth, targetYear);
         allOrders.push(...dayOrders.map(o => ({ ...o, className: className || link.className })));
       } catch (err) {
         console.error(`Erreur fetch sheet ${link.className}:`, err.message);
+        if (isGoogleOAuthScopeError(err)) {
+          return res.status(403).json({
+            success: false,
+            code: 'OAUTH_INSUFFICIENT_SCOPES',
+            error:
+              'Connexion Google : droits insuffisants sur les feuilles. Utilisez « Déconnecter », puis « Connecter Google » et acceptez l’accès aux Sheets (et Drive). Si le problème continue, vérifiez l’écran de consentement OAuth dans Google Cloud.'
+          });
+        }
       }
     }
+    const dateIso = `${targetYear}-${String(targetMonth).padStart(2, '0')}-${String(targetDay).padStart(2, '0')}`;
     res.json({
       success: true,
       data: {
-        date: targetDate.toISOString().split('T')[0],
+        date: dateIso,
         day: targetDay,
         month: targetMonth,
         orders: allOrders
@@ -576,19 +742,24 @@ async function getMonthlySummary(req, res) {
     const targetMonth = parseInt(month, 10) || new Date().getMonth() + 1;
     const targetYear = parseInt(year, 10) || new Date().getFullYear();
     const monthName = MONTH_NAMES[targetMonth - 1];
-    const links = await OnlineOrderLink.find({ city }).sort({ order: 1 });
+    const links = await findOnlineOrderLinks(city);
     const byClass = {};
     let total = 0;
     const TP_EC_JEUDI_MARS_GID = { '12ziNmTVtEaswdW8hjk3XOUyF4vhSf-JkrQZiEqD5Pv4': '466543188' };
     for (let i = 0; i < links.length; i++) {
       if (i > 0) await delay(800); // Espacement pour respecter le quota API (60 req/min)
-      const link = links[i];
+      let link = links[i];
       try {
+        link = await ensureMonthGidForMonth(link, monthName, city);
         let sheetRef = link.monthGids?.[monthName] || monthName;
         if (monthName === 'Mars' && TP_EC_JEUDI_MARS_GID[link.spreadsheetId]) {
           sheetRef = TP_EC_JEUDI_MARS_GID[link.spreadsheetId];
         }
-        const { values } = await fetchSheetData(link.spreadsheetId, sheetRef, city);
+        const { values, fixedSheetId } = await fetchSheetData(link.spreadsheetId, sheetRef, city, monthName);
+        if (fixedSheetId != null) {
+          await OnlineOrderLink.findByIdAndUpdate(link._id, { $set: { [`monthGids.${monthName}`]: fixedSheetId } });
+          link.monthGids = { ...(link.monthGids || {}), [monthName]: fixedSheetId };
+        }
         const className = values[0]?.[0] || link.className;
         const orders = parseOrdersFromSheet(values, className);
         const count = orders.filter(o => o.day || o.name || o.order).length;
@@ -596,6 +767,14 @@ async function getMonthlySummary(req, res) {
         total += count;
       } catch (err) {
         console.error(`Erreur fetch sheet ${link.className}:`, err.message);
+        if (isGoogleOAuthScopeError(err)) {
+          return res.status(403).json({
+            success: false,
+            code: 'OAUTH_INSUFFICIENT_SCOPES',
+            error:
+              'Connexion Google : droits insuffisants sur les feuilles. Utilisez « Déconnecter », puis « Connecter Google » et acceptez l’accès aux Sheets (et Drive).'
+          });
+        }
         byClass[link.className] = 0;
       }
     }

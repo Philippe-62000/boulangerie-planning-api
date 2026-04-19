@@ -1,10 +1,22 @@
 const { google } = require('googleapis');
 const GoogleOAuthToken = require('../models/GoogleOAuthToken');
 
+/**
+ * Accès Google Sheets (lecture + écriture) + profil email.
+ * `spreadsheets.readonly` peut provoquer « insufficient authentication scopes » selon les tokens
+ * ou la config GCP ; le scope complet `spreadsheets` est requis pour l’API Sheets v4.
+ * Après changement de scopes : déconnecter puis reconnecter Google sur la page Commandes.
+ */
 const SCOPES = [
-  'https://www.googleapis.com/auth/spreadsheets.readonly',
+  'https://www.googleapis.com/auth/spreadsheets',
+  'https://www.googleapis.com/auth/drive.readonly',
   'https://www.googleapis.com/auth/userinfo.email'
 ];
+
+function commandesEnLignePath(city) {
+  const c = (city || 'longuenesse').toLowerCase();
+  return c === 'arras' ? '/plan/commandes-en-ligne' : '/lon/commandes-en-ligne';
+}
 
 function getOAuth2Client() {
   const clientId = process.env.GOOGLE_CLIENT_ID;
@@ -39,7 +51,8 @@ async function initiateAuth(req, res) {
     res.redirect(authUrl);
   } catch (error) {
     console.error('Erreur initiateAuth:', error);
-    const redirectTo = req.query.return_url || req.query.returnUrl || buildFrontendUrl('/lon/commandes-en-ligne');
+    const city = (req.query.city || 'longuenesse').toLowerCase();
+    const redirectTo = req.query.return_url || req.query.returnUrl || buildFrontendUrl(commandesEnLignePath(city));
     const sep = redirectTo.includes('?') ? '&' : '?';
     res.redirect(`${redirectTo}${sep}google_error=${encodeURIComponent(error.message)}`);
   }
@@ -48,9 +61,6 @@ async function initiateAuth(req, res) {
 async function handleCallback(req, res) {
   try {
     const { code, state } = req.query;
-    if (!code) {
-      return res.redirect(buildFrontendUrl('/lon/commandes-en-ligne?google_error=no_code'));
-    }
     let city = 'longuenesse';
     let returnUrl = '';
     try {
@@ -58,6 +68,9 @@ async function handleCallback(req, res) {
       city = decoded.city || city;
       returnUrl = decoded.returnUrl || decoded.return_url || '';
     } catch (_) {}
+    if (!code) {
+      return res.redirect(buildFrontendUrl(`${commandesEnLignePath(city)}?google_error=no_code`));
+    }
     const oauth2Client = getOAuth2Client();
     const { tokens } = await oauth2Client.getToken(code);
     if (!tokens.refresh_token) {
@@ -67,32 +80,45 @@ async function handleCallback(req, res) {
     oauth2Client.setCredentials(tokens);
     const userInfo = await oauth2.userinfo.get();
     const email = userInfo.data?.email || '';
+    const grantedScopes = typeof tokens.scope === 'string' ? tokens.scope : '';
+    console.log('✅ Google OAuth connecté:', { city, email, scopes: grantedScopes });
+    if (grantedScopes && !grantedScopes.includes('spreadsheets')) {
+      console.warn('⚠️ Le jeton Google ne contient pas le scope spreadsheets — reconnectez-vous ou vérifiez l’écran de consentement OAuth (GCP).');
+    }
     await GoogleOAuthToken.findOneAndUpdate(
       { city },
       {
         refreshToken: tokens.refresh_token,
-        accessToken: tokens.access_token || '',
-        expiryDate: tokens.expiry_date ? new Date(tokens.expiry_date) : null,
-        email
+        accessToken: '',
+        expiryDate: null,
+        email,
+        grantedScopes
       },
       { upsert: true, new: true }
     );
-    const redirectTo = returnUrl || buildFrontendUrl('/lon/commandes-en-ligne?google_connected=1');
+    const redirectTo = returnUrl || buildFrontendUrl(`${commandesEnLignePath(city)}?google_connected=1`);
     res.redirect(redirectTo);
   } catch (error) {
     console.error('Erreur handleCallback:', error);
-    res.redirect(buildFrontendUrl(`/lon/commandes-en-ligne?google_error=${encodeURIComponent(error.message)}`));
+    let cityErr = 'longuenesse';
+    try {
+      const decoded = JSON.parse(Buffer.from(req.query.state || '{}', 'base64').toString());
+      cityErr = decoded.city || cityErr;
+    } catch (_) {}
+    res.redirect(buildFrontendUrl(`${commandesEnLignePath(cityErr)}?google_error=${encodeURIComponent(error.message)}`));
   }
 }
 
 async function getAuthStatus(req, res) {
   try {
-    const city = (req.query.city || 'longuenesse').toLowerCase();
-    const token = await GoogleOAuthToken.findOne({ city });
+    const token =
+      (await GoogleOAuthToken.findOne({ city: 'longuenesse' })) ||
+      (await GoogleOAuthToken.findOne({ city: 'arras' }));
     res.json({
       success: true,
       connected: !!token?.refreshToken,
-      email: token?.email || ''
+      email: token?.email || '',
+      grantedScopes: token?.grantedScopes || ''
     });
   } catch (error) {
     console.error('Erreur getAuthStatus:', error);
@@ -102,8 +128,9 @@ async function getAuthStatus(req, res) {
 
 async function disconnect(req, res) {
   try {
-    const city = (req.query.city || req.body?.city || 'longuenesse').toLowerCase();
-    await GoogleOAuthToken.deleteOne({ city });
+    // Un seul compte Google pour l’école : supprimer longuenesse + arras (évite jetons obsolètes après changements de routes)
+    const result = await GoogleOAuthToken.deleteMany({ city: { $in: ['longuenesse', 'arras'] } });
+    console.log(`🗑️ Google OAuth déconnecté (${result.deletedCount} entrée(s))`);
     res.json({ success: true });
   } catch (error) {
     console.error('Erreur disconnect:', error);
