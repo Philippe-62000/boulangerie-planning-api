@@ -31,6 +31,7 @@ import Primes from './pages/Primes';
 import MutuelleManagement from './pages/MutuelleManagement';
 import Ambassadeur from './pages/Ambassadeur';
 import CommandesEnLigne from './pages/CommandesEnLigne';
+import CommandeLivraisonEntreprises from './pages/CommandeLivraisonEntreprises';
 import ProductExchanges from './pages/ProductExchanges';
 import ResponsableKmExpenses from './pages/ResponsableKmExpenses';
 import DeplacementStandalone from './pages/DeplacementStandalone';
@@ -179,6 +180,11 @@ const AppContent = () => {
             <Route path="/commandes-en-ligne" element={
               <ProtectedRoute>
                 <CommandesEnLigne />
+              </ProtectedRoute>
+            } />
+            <Route path="/commande-livraison" element={
+              <ProtectedRoute>
+                <CommandeLivraisonEntreprises />
               </ProtectedRoute>
             } />
             <Route path="/product-exchanges" element={

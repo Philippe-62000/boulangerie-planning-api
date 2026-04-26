@@ -59,7 +59,8 @@ const Sidebar = () => {
     { path: '/sales-stats', label: 'Stats Vente', icon: '💰', menuId: 'sales-stats' },
     { path: '/ambassadeur', label: 'Ambassadeur', icon: '⭐', menuId: 'ambassadeur' },
     { path: '/plateaux-repas', label: 'Plateaux repas', icon: '🍽️', menuId: 'plateaux-repas' },
-    { path: '/commandes-en-ligne', label: 'Commandes en ligne', icon: '🛒', menuId: 'commandes-en-ligne' }
+    { path: '/commandes-en-ligne', label: 'Commandes en ligne', icon: '🛒', menuId: 'commandes-en-ligne' },
+    { path: '/commande-livraison', label: 'Commande livraison', icon: '🚚', menuId: 'commande-livraison', longuenesseOnly: true }
   ];
 
   const PAIES_MENU_ITEMS = [
@@ -114,6 +115,7 @@ const Sidebar = () => {
         { menuId: 'employee-dashboard', isVisibleToAdmin: false, isVisibleToEmployee: true },
         { menuId: 'ambassadeur', isVisibleToAdmin: true, isVisibleToEmployee: false },
         { menuId: 'commandes-en-ligne', isVisibleToAdmin: true, isVisibleToEmployee: true },
+        { menuId: 'commande-livraison', isVisibleToAdmin: true, isVisibleToEmployee: true },
         { menuId: 'product-exchanges', isVisibleToAdmin: true, isVisibleToEmployee: false },
         { menuId: 'frais-km-responsable', isVisibleToAdmin: true, isVisibleToEmployee: false },
         { menuId: 'plateaux-repas', isVisibleToAdmin: true, isVisibleToEmployee: false },
@@ -140,6 +142,7 @@ const Sidebar = () => {
         { menuId: 'primes', isVisibleToAdmin: false, isVisibleToEmployee: false },
         { menuId: 'ambassadeur', isVisibleToAdmin: false, isVisibleToEmployee: false },
         { menuId: 'commandes-en-ligne', isVisibleToAdmin: false, isVisibleToEmployee: true },
+        { menuId: 'commande-livraison', isVisibleToAdmin: false, isVisibleToEmployee: true },
         { menuId: 'product-exchanges', isVisibleToAdmin: false, isVisibleToEmployee: false },
         { menuId: 'frais-km-responsable', isVisibleToAdmin: false, isVisibleToEmployee: false },
         { menuId: 'plateaux-repas', isVisibleToAdmin: false, isVisibleToEmployee: false },
@@ -251,6 +254,7 @@ const Sidebar = () => {
     { path: '/employee-dashboard', label: 'Mes Documents', icon: '📁', menuId: 'employee-dashboard' },
     { path: '/ambassadeur', label: 'Ambassadeur', icon: '⭐', menuId: 'ambassadeur' },
     { path: '/commandes-en-ligne', label: 'Commandes en ligne', icon: '🛒', menuId: 'commandes-en-ligne' },
+    { path: '/commande-livraison', label: 'Commande livraison', icon: '🚚', menuId: 'commande-livraison', longuenesseOnly: true },
     { path: '/product-exchanges', label: 'Échanges entre boulangeries', icon: '🔄', menuId: 'product-exchanges' },
     { path: '/frais-km-responsable', label: 'Frais KM Responsable', icon: '🚗', menuId: 'frais-km-responsable' },
     { path: '/plateaux-repas', label: 'Plateaux repas', icon: '🍽️', menuId: 'plateaux-repas' },

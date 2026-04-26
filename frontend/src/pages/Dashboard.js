@@ -22,6 +22,7 @@ const Dashboard = () => {
     sickLeave: 0,
     loading: false
   });
+  const [partnerOrdersPending, setPartnerOrdersPending] = useState({ count: 0, loading: false });
 
   // Détecter si on est sur Longuenesse ou Arras
   const siteKey = getSiteKey(); // 'lon' | 'plan' (fallback persistant)
@@ -44,7 +45,21 @@ const Dashboard = () => {
     if (shouldShowLosses && isAdmin()) {
       fetchPendingActionsCounts();
     }
+    fetchPartnerOrdersPending();
   }, [shouldShowLosses, shouldShowVehicleRecap, user?.role]);
+
+  const fetchPartnerOrdersPending = async () => {
+    setPartnerOrdersPending((s) => ({ ...s, loading: true }));
+    try {
+      const site = isLonguenesse ? 'longuenesse' : 'arras';
+      const res = await api.get('/partner-orders/pending-count', { params: { site } });
+      const count = Number(res.data?.data?.count || 0);
+      setPartnerOrdersPending({ count, loading: false });
+    } catch (e) {
+      console.error('Erreur pending commandes entreprises:', e);
+      setPartnerOrdersPending({ count: 0, loading: false });
+    }
+  };
 
   const fetchDashboardData = async () => {
     try {
@@ -680,6 +695,44 @@ const Dashboard = () => {
                   Traiter les arrêts maladie →
                 </a>
               </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Commandes entreprises — admin + salarié (lecture) */}
+      {shouldShowLosses && (
+        <div className="card" style={{ marginBottom: '2rem' }}>
+          <h3>🚚 Commandes entreprises</h3>
+          {partnerOrdersPending.loading ? (
+            <p style={{ color: '#666' }}>Chargement…</p>
+          ) : (
+            <div
+              style={{
+                padding: '1rem',
+                borderRadius: '8px',
+                border: `2px solid ${partnerOrdersPending.count > 0 ? '#ffc107' : '#c3e6cb'}`,
+                backgroundColor: partnerOrdersPending.count > 0 ? '#fff8e6' : '#f8fff9'
+              }}
+            >
+              <div style={{ fontSize: '0.85rem', color: '#555', marginBottom: '0.35rem' }}>
+                Commandes en attente (non traitées)
+              </div>
+              <div style={{ fontSize: '1.75rem', fontWeight: 700, color: partnerOrdersPending.count > 0 ? '#856404' : '#155724' }}>
+                {partnerOrdersPending.count}
+              </div>
+              <a
+                href={isLonguenesse ? '/lon/commande-livraison' : '/plan/commande-livraison'}
+                style={{
+                  display: 'inline-block',
+                  marginTop: '0.5rem',
+                  fontSize: '0.9rem',
+                  fontWeight: 600,
+                  color: '#667eea'
+                }}
+              >
+                Voir les commandes →
+              </a>
             </div>
           )}
         </div>

@@ -148,9 +148,35 @@ const authenticateClientPro = async (req, res, next) => {
   }
 };
 
+// Middleware d'authentification pour les entreprises partenaires (commandes petits-déjeuners/déjeuners)
+const authenticatePartnerCompany = async (req, res, next) => {
+  try {
+    const token = req.header('Authorization')?.replace('Bearer ', '');
+    if (!token) {
+      return res.status(401).json({ success: false, error: 'Token requis' });
+    }
+    const jwt = require('jsonwebtoken');
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'votre-cle-secrete-ici');
+    if (decoded.role !== 'partner_company') {
+      return res.status(403).json({ success: false, error: 'Accès non autorisé' });
+    }
+    req.partnerCompanyId = decoded.companyId;
+    req.partnerCompanyEmail = decoded.email;
+    req.partnerCompanyName = decoded.name;
+    req.partnerCompanySite = decoded.site;
+    next();
+  } catch (error) {
+    if (error.name === 'TokenExpiredError') {
+      return res.status(401).json({ success: false, error: 'Token expiré', expired: true });
+    }
+    res.status(401).json({ success: false, error: 'Token invalide' });
+  }
+};
+
 module.exports = {
   authenticateEmployee,
   authenticateManager,
-  authenticateClientPro
+  authenticateClientPro,
+  authenticatePartnerCompany
 };
 
