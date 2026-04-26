@@ -2,6 +2,16 @@ import React, { useEffect, useMemo, useState } from 'react';
 import api from '../services/api';
 import { getSiteKey } from '../config/site';
 
+const safeClone = (obj) => {
+  try {
+    // `structuredClone` peut être indisponible selon navigateur/runtime
+    if (typeof structuredClone === 'function') return structuredClone(obj);
+  } catch {
+    // fallback ci-dessous
+  }
+  return JSON.parse(JSON.stringify(obj));
+};
+
 const statusLabels = {
   submitted: 'Envoyée',
   acknowledged: 'Pris en compte',
@@ -142,7 +152,7 @@ const CommandeLivraisonEntreprises = () => {
   const updateFormulaField = (mealType, tier, field, value) => {
     setFormulas((prev) => {
       if (!prev) return prev;
-      const next = structuredClone(prev);
+      const next = safeClone(prev);
       next[mealType] = next[mealType] || {};
       next[mealType][tier] = next[mealType][tier] || {};
       next[mealType][tier][field] = value;
