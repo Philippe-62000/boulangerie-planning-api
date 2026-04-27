@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import partnerApi from '../services/partnerApi';
+import api from '../services/api';
 import { getSiteKey } from '../config/site';
 
 const safeClone = (obj) => {
@@ -40,7 +40,7 @@ const CommandeLivraisonEntreprises = () => {
   const load = async () => {
     setLoading(true);
     try {
-      const res = await partnerApi.get('/partner-orders-internal', { params: { site, status: filterStatus } });
+      const res = await api.get('/partner-orders/internal', { params: { site, status: filterStatus } });
       setOrders(Array.isArray(res.data?.data) ? res.data.data : []);
     } catch (e) {
       console.error(e);
@@ -53,7 +53,7 @@ const CommandeLivraisonEntreprises = () => {
   const loadCompanies = async () => {
     setCompaniesLoading(true);
     try {
-      const res = await partnerApi.get('/partner-admin-companies', { params: { site } });
+      const res = await api.get('/partner-admin/companies', { params: { site } });
       setCompanies(Array.isArray(res.data?.data) ? res.data.data : []);
     } catch (e) {
       console.error(e);
@@ -76,7 +76,7 @@ const CommandeLivraisonEntreprises = () => {
         alert('Nom et email requis.');
         return;
       }
-      const res = await partnerApi.post('/partner-admin-companies', payload, { params: { site } });
+      const res = await api.post('/partner-admin/companies', payload, { params: { site } });
       const pwd = res.data?.password;
       setCreatedPassword(pwd || null);
       setNewCompany({ name: '', phone: '', email: '' });
@@ -89,14 +89,8 @@ const CommandeLivraisonEntreprises = () => {
 
   const sendInvite = async (companyId) => {
     try {
-      const res = await partnerApi.post('/partner-admin-send-invite', { site }, { params: { site, id: companyId } });
-      const pwd = res.data?.password;
-      const warning = res.data?.warning;
-      if (pwd) {
-        alert(warning ? `Mot de passe généré (email non envoyé): ${pwd}\n${warning}` : `Mot de passe envoyé: ${pwd}`);
-      } else {
-        alert('Invite envoyée.');
-      }
+      await api.post(`/partner-admin/companies/${companyId}/send-invite`, { site }, { params: { site } });
+      alert('Email envoyé.');
       await loadCompanies();
     } catch (e) {
       console.error(e);
@@ -107,7 +101,7 @@ const CommandeLivraisonEntreprises = () => {
   const loadFormulas = async () => {
     setFormulasLoading(true);
     try {
-      const res = await partnerApi.get('/partner-admin-formulas', { params: { site } });
+      const res = await api.get('/partner-admin/formulas', { params: { site } });
       setFormulas(res.data?.data || null);
     } catch (e) {
       console.error(e);
@@ -121,7 +115,7 @@ const CommandeLivraisonEntreprises = () => {
   const saveFormulas = async () => {
     try {
       if (!formulas) return;
-      await partnerApi.put('/partner-admin-formulas', formulas, { params: { site } });
+      await api.put('/partner-admin/formulas', formulas, { params: { site } });
       alert('Formules enregistrées.');
       await loadFormulas();
     } catch (e) {
@@ -147,7 +141,7 @@ const CommandeLivraisonEntreprises = () => {
 
   const updateStatus = async (orderId, nextStatus) => {
     try {
-      await partnerApi.patch('/partner-admin-orders-status', { status: nextStatus, site }, { params: { site, id: orderId } });
+      await api.patch(`/partner-admin/orders/${orderId}/status`, { status: nextStatus }, { params: { site } });
       await load();
     } catch (e) {
       console.error(e);
