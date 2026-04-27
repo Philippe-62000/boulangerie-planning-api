@@ -9,6 +9,42 @@ const getSite = (req) => (req.query.site || req.body.site || 'longuenesse').toLo
 const siteMap = { lon: 'longuenesse', plan: 'arras' };
 const normalizeSite = (s) => siteMap[s] || (s === 'arras' ? 'arras' : 'longuenesse');
 
+async function syncCompanyToVercel({ site, name, phone, email, password }) {
+  const base = process.env.PARTNER_ORDER_APP_URL || 'https://commande-longuenesse.vercel.app';
+  const secret = process.env.PARTNER_INTERNAL_SECRET;
+  if (!secret) {
+    console.warn('⚠️ PARTNER_INTERNAL_SECRET manquant: sync Vercel ignorée');
+    return { skipped: true };
+  }
+  const url = `${String(base).replace(/\\/$/, '')}/api/internal-upsert-company?site=${encodeURIComponent(site)}`;
+  const r = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-Internal-Secret': secret },
+    body: JSON.stringify({ site, name, phone, email, password })
+  });
+  const data = await r.json().catch(() => null);
+  if (!r.ok) throw new Error(data?.error || `Sync Vercel échouée (${r.status})`);
+  return data;
+}
+
+async function syncPasswordToVercel({ site, email, password }) {
+  const base = process.env.PARTNER_ORDER_APP_URL || 'https://commande-longuenesse.vercel.app';
+  const secret = process.env.PARTNER_INTERNAL_SECRET;
+  if (!secret) {
+    console.warn('⚠️ PARTNER_INTERNAL_SECRET manquant: sync Vercel ignorée');
+    return { skipped: true };
+  }
+  const url = `${String(base).replace(/\\/$/, '')}/api/internal-reset-company-password?site=${encodeURIComponent(site)}`;
+  const r = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-Internal-Secret': secret },
+    body: JSON.stringify({ site, email, password })
+  });
+  const data = await r.json().catch(() => null);
+  if (!r.ok) throw new Error(data?.error || `Sync Vercel mot de passe échouée (${r.status})`);
+  return data;
+}
+
 const generateRandomPassword = () => {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789';
   let password = '';
@@ -129,13 +165,22 @@ const adminCreateCompany = async (req, res) => {
     if (!name || !email) return res.status(400).json({ success: false, error: 'Nom et email requis' });
 
     const password = generateRandomPassword();
+    const site = normalizeSite(getSite(req));
     const company = await PartnerCompany.create({
       name: String(name).trim(),
       phone: phone ? String(phone).trim() : '',
       email: String(email).toLowerCase().trim(),
       password,
-      active: true
+      active: true,
+      site
     });
+
+    // Sync vers Vercel (pour login entreprise instantané)
+    try {
+      await syncCompanyToVercel({ site, name: company.name, phone: company.phone, email: company.email, password });
+    } catch (e) {
+      console.error('⚠️ Sync Vercel (create company) échouée:', e.message);
+    }
 
     res.json({ success: true, data: { id: company._id, name: company.name, email: company.email, phone: company.phone }, password });
   } catch (err) {
@@ -154,6 +199,13 @@ const adminSendInvite = async (req, res) => {
     const newPassword = generateRandomPassword();
     company.password = newPassword;
     await company.save();
+
+    // Sync mot de passe vers Vercel (pour login entreprise instantané)
+    try {
+      await syncPasswordToVercel({ site, email: company.email, password: newPassword });
+    } catch (e) {
+      console.error('⚠️ Sync Vercel (reset password) échouée:', e.message);
+    }
 
     const orderAppUrl = process.env.PARTNER_ORDER_APP_URL || 'https://commande-longuenesse.vercel.app';
     const subject = `Accès Commande en ligne - ${company.name}`;
