@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import api from '../services/api';
+import partnerApi from '../services/partnerApi';
 import { getSiteKey } from '../config/site';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -52,7 +53,7 @@ const Dashboard = () => {
     setPartnerOrdersPending((s) => ({ ...s, loading: true }));
     try {
       const site = isLonguenesse ? 'longuenesse' : 'arras';
-      const res = await api.get('/partner-orders/pending-count', { params: { site } });
+      const res = await partnerApi.get('/partner-orders-pending-count', { params: { site } });
       const count = Number(res.data?.data?.count || 0);
       setPartnerOrdersPending({ count, loading: false });
     } catch (e) {
