@@ -11,15 +11,15 @@ const normalizeSite = (s) => siteMap[s] || (s === 'arras' ? 'arras' : 'longuenes
 
 async function syncCompanyToVercel({ site, name, phone, email, password }) {
   const base = process.env.PARTNER_ORDER_APP_URL || 'https://commande-longuenesse.vercel.app';
-  const secret = process.env.PARTNER_INTERNAL_SECRET;
+  const secret = process.env.INTERNAL_API_SECRET || process.env.PARTNER_INTERNAL_SECRET;
   if (!secret) {
-    console.warn('⚠️ PARTNER_INTERNAL_SECRET manquant: sync Vercel ignorée');
+    console.warn('⚠️ INTERNAL_API_SECRET manquant: sync Vercel ignorée');
     return { skipped: true };
   }
-  const url = `${String(base).replace(/\\/$/, '')}/api/internal-upsert-company?site=${encodeURIComponent(site)}`;
+  const url = `${String(base).replace(/\/+$/, '')}/api/internal-upsert-company?site=${encodeURIComponent(site)}`;
   const r = await fetch(url, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'X-Internal-Secret': secret },
+    headers: { 'Content-Type': 'application/json', 'x-internal-secret': secret },
     body: JSON.stringify({ site, name, phone, email, password })
   });
   const data = await r.json().catch(() => null);
@@ -29,15 +29,15 @@ async function syncCompanyToVercel({ site, name, phone, email, password }) {
 
 async function syncPasswordToVercel({ site, email, password }) {
   const base = process.env.PARTNER_ORDER_APP_URL || 'https://commande-longuenesse.vercel.app';
-  const secret = process.env.PARTNER_INTERNAL_SECRET;
+  const secret = process.env.INTERNAL_API_SECRET || process.env.PARTNER_INTERNAL_SECRET;
   if (!secret) {
-    console.warn('⚠️ PARTNER_INTERNAL_SECRET manquant: sync Vercel ignorée');
+    console.warn('⚠️ INTERNAL_API_SECRET manquant: sync Vercel ignorée');
     return { skipped: true };
   }
-  const url = `${String(base).replace(/\\/$/, '')}/api/internal-reset-company-password?site=${encodeURIComponent(site)}`;
+  const url = `${String(base).replace(/\/+$/, '')}/api/internal-reset-company-password?site=${encodeURIComponent(site)}`;
   const r = await fetch(url, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'X-Internal-Secret': secret },
+    headers: { 'Content-Type': 'application/json', 'x-internal-secret': secret },
     body: JSON.stringify({ site, email, password })
   });
   const data = await r.json().catch(() => null);
