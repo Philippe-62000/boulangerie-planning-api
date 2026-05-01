@@ -15,6 +15,24 @@ function requireInternalSecret(req) {
   return !!expected && !!got && String(got) === String(expected);
 }
 
+async function pullOrdersFromVercel({ site, status }) {
+  const base = process.env.PARTNER_ORDER_APP_URL || 'https://commande-longuenesse.vercel.app';
+  const secret = process.env.INTERNAL_API_SECRET;
+  if (!secret) return { skipped: true, reason: 'INTERNAL_API_SECRET manquant' };
+
+  const url = new URL(`${String(base).replace(/\/+$/, '')}/api/internal-list-orders`);
+  url.searchParams.set('site', site);
+  if (status) url.searchParams.set('status', status);
+
+  const r = await fetch(url.toString(), {
+    method: 'GET',
+    headers: { 'x-internal-secret': secret }
+  });
+  const data = await r.json().catch(() => null);
+  if (!r.ok) throw new Error(data?.error || `Pull Vercel échoué (${r.status})`);
+  return data;
+}
+
 async function syncCompanyToVercel({ site, name, phone, email, password }) {
   const base = process.env.PARTNER_ORDER_APP_URL || 'https://commande-longuenesse.vercel.app';
   const secret = process.env.INTERNAL_API_SECRET || process.env.PARTNER_INTERNAL_SECRET;
@@ -389,6 +407,46 @@ const internalListOrders = async (req, res) => {
   try {
     const site = normalizeSite(getSite(req));
     const status = req.query.status;
+
+    // Pull latest orders from Vercel (best-effort) so Filmara stays in sync
+    try {
+      const pulled = await pullOrdersFromVercel({ site, status });
+      const list = Array.isArray(pulled?.data) ? pulled.data : [];
+      for (const o of list) {
+        const sourceId = o?._id ? String(o._id) : null;
+        if (!sourceId) continue;
+
+        const companyEmail = o?.companyEmail ? String(o.companyEmail).toLowerCase().trim() : null;
+        const company = companyEmail ? await PartnerCompany.findOne({ site, email: companyEmail, active: true }) : null;
+        if (!company) continue;
+
+        await PartnerOrder.updateOne(
+          { source: 'vercel', sourceId },
+          {
+            $setOnInsert: {
+              site,
+              companyId: company._id,
+              source: 'vercel',
+              sourceId,
+              createdAt: o.createdAt ? new Date(o.createdAt) : new Date()
+            },
+            $set: {
+              fulfillment: o.fulfillment,
+              datetime: o.datetime ? new Date(o.datetime) : null,
+              mealType: o.mealType,
+              tier: o.tier,
+              itemsSnapshot: o.itemsSnapshot,
+              status: o.status || 'submitted',
+              statusUpdatedAt: o.statusUpdatedAt ? new Date(o.statusUpdatedAt) : new Date()
+            }
+          },
+          { upsert: true }
+        );
+      }
+    } catch (e) {
+      console.error('⚠️ Pull commandes Vercel échoué:', e.message);
+    }
+
     const q = { site };
     if (status) q.status = status;
     const orders = await PartnerOrder.find(q).sort({ statusUpdatedAt: -1, datetime: -1 }).limit(500);
