@@ -9,6 +9,12 @@ const getSite = (req) => (req.query.site || req.body.site || 'longuenesse').toLo
 const siteMap = { lon: 'longuenesse', plan: 'arras' };
 const normalizeSite = (s) => siteMap[s] || (s === 'arras' ? 'arras' : 'longuenesse');
 
+function requireInternalSecret(req) {
+  const expected = process.env.INTERNAL_API_SECRET;
+  const got = req.headers['x-internal-secret'];
+  return !!expected && !!got && String(got) === String(expected);
+}
+
 async function syncCompanyToVercel({ site, name, phone, email, password }) {
   const base = process.env.PARTNER_ORDER_APP_URL || 'https://commande-longuenesse.vercel.app';
   const secret = process.env.INTERNAL_API_SECRET || process.env.PARTNER_INTERNAL_SECRET;
@@ -154,6 +160,68 @@ const createMyOrder = async (req, res) => {
     res.json({ success: true, data: order });
   } catch (err) {
     console.error('❌ createMyOrder:', err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+};
+
+// --- Internal: receive orders pushed from Vercel quick-order app ---
+const internalUpsertOrderFromVercel = async (req, res) => {
+  try {
+    if (!requireInternalSecret(req)) {
+      return res.status(401).json({ success: false, error: 'Secret interne requis' });
+    }
+
+    const site = normalizeSite(getSite(req));
+    const vercelOrderId = req.body?.vercelOrderId ? String(req.body.vercelOrderId) : null;
+    const companyEmail = req.body?.companyEmail ? String(req.body.companyEmail).toLowerCase().trim() : null;
+    const fulfillment = String(req.body?.fulfillment || '');
+    const datetime = String(req.body?.datetime || '');
+    const mealType = String(req.body?.mealType || '');
+    const tier = String(req.body?.tier || '');
+    const itemsSnapshot = req.body?.itemsSnapshot || null;
+
+    if (!vercelOrderId || !companyEmail) {
+      return res.status(400).json({ success: false, error: 'Champs requis: vercelOrderId, companyEmail' });
+    }
+    if (!fulfillment || !datetime || !mealType || !tier || !itemsSnapshot) {
+      return res
+        .status(400)
+        .json({ success: false, error: 'Champs requis: fulfillment, datetime, mealType, tier, itemsSnapshot' });
+    }
+
+    const dt = new Date(datetime);
+    if (Number.isNaN(dt.getTime())) return res.status(400).json({ success: false, error: 'Date/heure invalide' });
+
+    const company = await PartnerCompany.findOne({ site, email: companyEmail, active: true });
+    if (!company) return res.status(404).json({ success: false, error: 'Entreprise non trouvée' });
+
+    const update = {
+      $setOnInsert: {
+        site,
+        companyId: company._id,
+        source: 'vercel',
+        sourceId: vercelOrderId,
+        createdAt: new Date()
+      },
+      $set: {
+        fulfillment,
+        datetime: dt,
+        mealType,
+        tier,
+        itemsSnapshot,
+        status: 'submitted',
+        statusUpdatedAt: new Date()
+      }
+    };
+
+    const saved = await PartnerOrder.findOneAndUpdate({ source: 'vercel', sourceId: vercelOrderId }, update, {
+      new: true,
+      upsert: true
+    });
+
+    return res.json({ success: true, data: saved });
+  } catch (err) {
+    console.error('❌ internalUpsertOrderFromVercel:', err);
     res.status(500).json({ success: false, error: err.message });
   }
 };
@@ -335,6 +403,7 @@ module.exports = {
   partnerMe,
   listMyOrders,
   createMyOrder,
+  internalUpsertOrderFromVercel,
   adminCreateCompany,
   adminSendInvite,
   adminListCompanies,
