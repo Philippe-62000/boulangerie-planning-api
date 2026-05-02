@@ -128,11 +128,31 @@ const adminCreateCompany = async (req, res) => {
     const { name, phone, email } = req.body;
     if (!name || !email) return res.status(400).json({ success: false, error: 'Nom et email requis' });
 
+    const emailNorm = String(email).toLowerCase().trim();
     const password = generateRandomPassword();
+
+    const existing = await PartnerCompany.findOne({ email: emailNorm });
+    if (existing) {
+      if (existing.active) {
+        return res.status(400).json({ success: false, error: 'Cet email existe déjà' });
+      }
+      existing.name = String(name).trim();
+      existing.phone = phone ? String(phone).trim() : '';
+      existing.password = password;
+      existing.active = true;
+      await existing.save();
+      return res.json({
+        success: true,
+        data: { id: existing._id, name: existing.name, email: existing.email, phone: existing.phone },
+        password,
+        reactivated: true
+      });
+    }
+
     const company = await PartnerCompany.create({
       name: String(name).trim(),
       phone: phone ? String(phone).trim() : '',
-      email: String(email).toLowerCase().trim(),
+      email: emailNorm,
       password,
       active: true
     });
@@ -140,6 +160,20 @@ const adminCreateCompany = async (req, res) => {
     res.json({ success: true, data: { id: company._id, name: company.name, email: company.email, phone: company.phone }, password });
   } catch (err) {
     if (err.code === 11000) return res.status(400).json({ success: false, error: 'Cet email existe déjà' });
+    res.status(500).json({ success: false, error: err.message });
+  }
+};
+
+const adminDeleteCompany = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const company = await PartnerCompany.findById(id);
+    if (!company) return res.status(404).json({ success: false, error: 'Entreprise non trouvée' });
+    company.active = false;
+    await company.save();
+    return res.json({ success: true });
+  } catch (err) {
+    console.error('❌ adminDeleteCompany:', err);
     res.status(500).json({ success: false, error: err.message });
   }
 };
@@ -292,6 +326,7 @@ module.exports = {
   listMyOrders,
   createMyOrder,
   adminCreateCompany,
+  adminDeleteCompany,
   adminSendInvite,
   adminListCompanies,
   adminListOrders,

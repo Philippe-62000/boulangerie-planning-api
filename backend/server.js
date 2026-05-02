@@ -46,6 +46,7 @@ const corsOptions = {
   allowedHeaders: ['Content-Type', 'Authorization', 'Origin', 'X-Requested-With', 'Accept']
 };
 app.use(cors(corsOptions));
+app.options('*', cors(corsOptions));
 
 // strict: false — accepte le corps JSON `null` (axios peut l’envoyer) ; sinon body-parser lève « null is not valid JSON »
 app.use(express.json({ limit: '10mb', strict: false }));

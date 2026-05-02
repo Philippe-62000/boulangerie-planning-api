@@ -10,6 +10,38 @@ const statusLabels = {
   cancelled: 'Annulé'
 };
 
+/** Textarea « une ligne = un élément » : garde la ligne vide finale tant que l'utilisateur vient d'appuyer sur Entrée. */
+function multilineToStringList(raw) {
+  const s = String(raw ?? '');
+  const endsWithNl = s.endsWith('\n');
+  const parts = s.split('\n');
+  const out = [];
+  for (let i = 0; i < parts.length; i++) {
+    const line = parts[i];
+    const isLast = i === parts.length - 1;
+    if (line.trim().length > 0) out.push(line);
+    else if (isLast && endsWithNl) out.push(line);
+  }
+  return out;
+}
+
+function sanitizeFormulaPayloadForSave(data) {
+  const next = structuredClone(data);
+  const listFields = ['items', 'miniViennoiserieOptions', 'juiceOptions'];
+  for (const meal of ['breakfast', 'lunch']) {
+    for (const tier of ['eco', 'classic', 'premium']) {
+      const t = next[meal]?.[tier];
+      if (!t) continue;
+      for (const f of listFields) {
+        if (Array.isArray(t[f])) {
+          t[f] = t[f].map((x) => String(x)).filter((x) => x.trim().length > 0);
+        }
+      }
+    }
+  }
+  return next;
+}
+
 const CommandeLivraisonEntreprises = () => {
   const siteKey = getSiteKey(); // lon | plan
   const site = siteKey === 'lon' ? 'longuenesse' : 'arras';
@@ -124,7 +156,8 @@ const CommandeLivraisonEntreprises = () => {
   const saveFormulas = async () => {
     try {
       if (!formulas) return;
-      await api.put('/partner-admin/formulas', formulas, { params: { site } });
+      const payload = sanitizeFormulaPayloadForSave(formulas);
+      await api.put('/partner-admin/formulas', payload, { params: { site } });
       alert('Formules enregistrées.');
       await loadFormulas();
     } catch (e) {
@@ -175,17 +208,12 @@ const CommandeLivraisonEntreprises = () => {
   };
 
   const updateFormulaItems = (mealType, tier, textareaValue) => {
-    // Conserve espaces et ponctuation dans chaque ligne ; retire seulement les lignes entièrement vides
-    const items = String(textareaValue || '')
-      .split('\n')
-      .filter((line) => line.trim().length > 0);
+    const items = multilineToStringList(textareaValue);
     updateFormulaField(mealType, tier, 'items', items);
   };
 
   const updateFormulaStringList = (mealType, tier, field, textareaValue) => {
-    const items = String(textareaValue || '')
-      .split('\n')
-      .filter((line) => line.trim().length > 0);
+    const items = multilineToStringList(textareaValue);
     updateFormulaField(mealType, tier, field, items);
   };
   return (
@@ -371,6 +399,12 @@ const CommandeLivraisonEntreprises = () => {
                     <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'flex-start' }}>
                       <button onClick={() => sendInvite(c.id)} style={{ padding: '8px 12px', borderRadius: '8px' }}>
                         Envoyer mot de passe
+                      </button>
+                      <button
+                        onClick={() => deleteCompany(c)}
+                        style={{ padding: '8px 12px', borderRadius: '8px', border: '1px solid #dc2626', color: '#b91c1c', background: '#fff' }}
+                      >
+                        Supprimer
                       </button>
                     </div>
                   </div>

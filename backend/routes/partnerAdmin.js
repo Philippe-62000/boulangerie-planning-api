@@ -4,6 +4,7 @@ const controller = require('../controllers/partnerCompanyController');
 const { authenticateManager } = require('../middleware/auth');
 
 router.post('/companies', authenticateManager, controller.adminCreateCompany);
+router.delete('/companies/:id', authenticateManager, controller.adminDeleteCompany);
 router.post('/companies/:id/send-invite', authenticateManager, controller.adminSendInvite);
 router.get('/companies', authenticateManager, controller.adminListCompanies);
 
