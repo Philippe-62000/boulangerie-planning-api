@@ -20,7 +20,10 @@ const partnerOrderSchema = new mongoose.Schema(
       label: { type: String, default: '' },
       priceCents: { type: Number, default: 0 },
       description: { type: String, default: '' },
-      items: [{ type: String }]
+      items: [{ type: String }],
+      quantity: { type: Number, default: 1 },
+      remarks: { type: String, default: '' },
+      selections: { type: mongoose.Schema.Types.Mixed, default: undefined }
     },
 
     status: {

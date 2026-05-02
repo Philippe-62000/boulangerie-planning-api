@@ -168,6 +168,14 @@ const CommandeLivraisonEntreprises = () => {
     updateFormulaField(mealType, tier, 'items', items);
   };
 
+  const updateFormulaStringList = (mealType, tier, field, textareaValue) => {
+    const items = String(textareaValue || '')
+      .split('\n')
+      .map((s) => s.trim())
+      .filter(Boolean);
+    updateFormulaField(mealType, tier, field, items);
+  };
+
   return (
     <div className="card">
       <h2 style={{ marginTop: 0 }}>🚚 Commandes Livraison (Entreprises)</h2>
@@ -398,11 +406,43 @@ const CommandeLivraisonEntreprises = () => {
                             onChange={(e) => updateFormulaField(mealType, tier, 'description', e.target.value)}
                           />
                           <textarea
-                            placeholder="Items (1 par ligne)"
+                            placeholder="Items (1 par ligne) — contenu de référence de la box / formule"
                             style={{ marginTop: 8, width: '100%', minHeight: 90 }}
                             value={Array.isArray(f.items) ? f.items.join('\n') : ''}
                             onChange={(e) => updateFormulaItems(mealType, tier, e.target.value)}
                           />
+                          {mealType === 'breakfast' ? (
+                            <>
+                              <input
+                                placeholder="Ligne café / thé thermos (affichée au client)"
+                                style={{ marginTop: 8, width: '100%' }}
+                                value={f.coffeeTeaLine || ''}
+                                onChange={(e) => updateFormulaField(mealType, tier, 'coffeeTeaLine', e.target.value)}
+                              />
+                              <textarea
+                                placeholder="Mini-viennoiseries au choix (1 par ligne — le client saisit une quantité par ligne)"
+                                style={{ marginTop: 8, width: '100%', minHeight: 70 }}
+                                value={Array.isArray(f.miniViennoiserieOptions) ? f.miniViennoiserieOptions.join('\n') : ''}
+                                onChange={(e) => updateFormulaStringList(mealType, tier, 'miniViennoiserieOptions', e.target.value)}
+                              />
+                              <textarea
+                                placeholder="Jus pressés au choix (1 par ligne)"
+                                style={{ marginTop: 8, width: '100%', minHeight: 60 }}
+                                value={Array.isArray(f.juiceOptions) ? f.juiceOptions.join('\n') : ''}
+                                onChange={(e) => updateFormulaStringList(mealType, tier, 'juiceOptions', e.target.value)}
+                              />
+                            </>
+                          ) : null}
+                          {mealType === 'lunch' ? (
+                            <label style={{ display: 'flex', gap: 8, marginTop: 10, alignItems: 'center' }}>
+                              <input
+                                type="checkbox"
+                                checked={!!f.lunchShowDietCounts}
+                                onChange={(e) => updateFormulaField(mealType, tier, 'lunchShowDietCounts', e.target.checked)}
+                              />
+                              <span>Proposer les compteurs végétarien / hallal / sans lactose sur le site de commande</span>
+                            </label>
+                          ) : null}
                         </div>
                       );
                     })}

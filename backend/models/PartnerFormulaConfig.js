@@ -5,7 +5,15 @@ const tierSchema = new mongoose.Schema(
     label: { type: String, required: true, trim: true },
     priceCents: { type: Number, required: true, min: 0 },
     description: { type: String, default: '', trim: true },
-    items: [{ type: String, trim: true }]
+    items: [{ type: String, trim: true }],
+    /** Ligne affichée au client (café / thé thermos) */
+    coffeeTeaLine: { type: String, default: '', trim: true },
+    /** Choix paramétrables : une ligne = une mini-viennoiserie au choix */
+    miniViennoiserieOptions: [{ type: String, trim: true }],
+    /** Jus pressés au choix */
+    juiceOptions: [{ type: String, trim: true }],
+    /** Déjeuner : afficher les compteurs végétarien / hallal / sans lactose */
+    lunchShowDietCounts: { type: Boolean, default: false }
   },
   { _id: false }
 );
