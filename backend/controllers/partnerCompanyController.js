@@ -159,7 +159,23 @@ const adminCreateCompany = async (req, res) => {
 
     res.json({ success: true, data: { id: company._id, name: company.name, email: company.email, phone: company.phone }, password });
   } catch (err) {
-    if (err.code === 11000) return res.status(400).json({ success: false, error: 'Cet email existe déjà' });
+    if (err.code === 11000) {
+      const dup = await PartnerCompany.findOne({ email: emailNorm });
+      if (dup && !dup.active) {
+        dup.name = String(name).trim();
+        dup.phone = phone ? String(phone).trim() : '';
+        dup.password = password;
+        dup.active = true;
+        await dup.save();
+        return res.json({
+          success: true,
+          data: { id: dup._id, name: dup.name, email: dup.email, phone: dup.phone },
+          password,
+          reactivated: true
+        });
+      }
+      return res.status(400).json({ success: false, error: 'Cet email existe déjà' });
+    }
     res.status(500).json({ success: false, error: err.message });
   }
 };
@@ -167,8 +183,20 @@ const adminCreateCompany = async (req, res) => {
 const adminDeleteCompany = async (req, res) => {
   try {
     const { id } = req.params;
+    const permanent =
+      req.query.permanent === '1' ||
+      req.query.permanent === 'true' ||
+      req.query.hard === '1' ||
+      req.query.hard === 'true';
+
     const company = await PartnerCompany.findById(id);
     if (!company) return res.status(404).json({ success: false, error: 'Entreprise non trouvée' });
+
+    if (permanent) {
+      await PartnerCompany.findByIdAndDelete(id);
+      return res.json({ success: true, permanent: true });
+    }
+
     company.active = false;
     await company.save();
     return res.json({ success: true });

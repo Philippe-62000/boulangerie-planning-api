@@ -104,6 +104,9 @@ const CommandeLivraisonEntreprises = () => {
       const res = await api.post('/partner-admin/companies', payload, { params: { site } });
       const pwd = res.data?.password;
       setCreatedPassword(pwd || null);
+      if (res.data?.reactivated) {
+        alert('Compte existant réactivé avec cet e-mail (nouveau mot de passe affiché ci-dessous).');
+      }
       setNewCompany({ name: '', phone: '', email: '' });
       await loadCompanies();
     } catch (e) {
@@ -137,6 +140,27 @@ const CommandeLivraisonEntreprises = () => {
     } catch (e) {
       console.error(e);
       alert(e?.response?.data?.error || 'Suppression impossible (droits admin requis).');
+    }
+  };
+
+  const permanentlyDeleteCompany = async (company) => {
+    try {
+      const ok = window.confirm(
+        `Supprimer DÉFINITIVEMENT « ${company.name} » (${company.email}) ?\n\n` +
+          `L’enregistrement sera effacé de la base : vous pourrez recréer un compte avec la même adresse e-mail.\n` +
+          `Les anciennes commandes peuvent rester liées à l’ancien identifiant technique.`
+      );
+      if (!ok) return;
+      const companyId = company.id || company._id;
+      if (!companyId) {
+        alert('Identifiant entreprise manquant.');
+        return;
+      }
+      await api.delete(`/partner-admin/companies/${companyId}`, { params: { site, permanent: true } });
+      await loadCompanies();
+    } catch (e) {
+      console.error(e);
+      alert(e?.response?.data?.error || 'Suppression définitive impossible (droits admin requis).');
     }
   };
   const loadFormulas = async () => {
@@ -375,6 +399,11 @@ const CommandeLivraisonEntreprises = () => {
             <div style={{ marginTop: 8, color: '#666', fontSize: 13 }}>
               Ensuite clique “Envoyer mot de passe” sur la ligne de l’entreprise pour envoyer l’email avec le lien Vercel.
             </div>
+            <div style={{ marginTop: 8, color: '#92400e', fontSize: 13 }}>
+              Si une ancienne adresse est « déjà utilisée » alors que le compte a été retiré : coche « Afficher les comptes
+              désactivés », puis utilise « Effacer de la base (e-mail libéré) » sur la ligne concernée, ou réactivez-le avec
+              « Créer » (même e-mail).
+            </div>
           </div>
 
           {companiesLoading ? (
@@ -405,6 +434,13 @@ const CommandeLivraisonEntreprises = () => {
                         style={{ padding: '8px 12px', borderRadius: '8px', border: '1px solid #dc2626', color: '#b91c1c', background: '#fff' }}
                       >
                         Supprimer
+                      </button>
+                      <button
+                        onClick={() => permanentlyDeleteCompany(c)}
+                        style={{ padding: '8px 12px', borderRadius: '8px', border: '1px solid #7f1d1d', color: '#7f1d1d', background: '#fef2f2' }}
+                        title="Efface la fiche en base Mongo : l’e-mail redevient disponible pour une nouvelle création"
+                      >
+                        Effacer de la base (e-mail libéré)
                       </button>
                     </div>
                   </div>
