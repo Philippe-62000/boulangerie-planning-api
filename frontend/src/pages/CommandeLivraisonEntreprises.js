@@ -98,6 +98,18 @@ const CommandeLivraisonEntreprises = () => {
     }
   };
 
+  const deleteCompany = async (company) => {
+    try {
+      const ok = window.confirm(`Désactiver le compte entreprise « ${company.name} » (${company.email}) ?`);
+      if (!ok) return;
+      await api.delete(`/partner-admin/companies/${company.id}`, { params: { site } });
+      await loadCompanies();
+    } catch (e) {
+      console.error(e);
+      alert(e?.response?.data?.error || 'Suppression impossible (droits admin requis).');
+    }
+  };
+
   const loadFormulas = async () => {
     setFormulasLoading(true);
     try {
@@ -350,6 +362,12 @@ const CommandeLivraisonEntreprises = () => {
                       <button onClick={() => sendInvite(c.id)} style={{ padding: '8px 12px', borderRadius: '8px' }}>
                         Envoyer mot de passe
                       </button>
+                      <button
+                        onClick={() => deleteCompany(c)}
+                        style={{ padding: '8px 12px', borderRadius: '8px', background: '#fff1f2', border: '1px solid #fecdd3' }}
+                      >
+                        Supprimer
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -399,12 +417,15 @@ const CommandeLivraisonEntreprises = () => {
                               onChange={(e) => updateFormulaField(mealType, tier, 'priceCents', Number(e.target.value || 0))}
                             />
                           </div>
-                          <input
-                            placeholder="Description"
-                            style={{ marginTop: 8, width: '100%' }}
+                          <textarea
+                            placeholder="Description (peut être multi-ligne)"
+                            style={{ marginTop: 8, width: '100%', minHeight: 60 }}
                             value={f.description || ''}
                             onChange={(e) => updateFormulaField(mealType, tier, 'description', e.target.value)}
                           />
+                          <div style={{ marginTop: 6, color: '#666', fontSize: 12 }}>
+                            Astuce : pour mettre un choix par ligne (ex: « pain chocolat »), utilise les zones textarea ci-dessous.
+                          </div>
                           <textarea
                             placeholder="Items (1 par ligne) — contenu de référence de la box / formule"
                             style={{ marginTop: 8, width: '100%', minHeight: 90 }}

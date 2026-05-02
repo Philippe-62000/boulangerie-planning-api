@@ -51,6 +51,24 @@ async function syncCompanyToVercel({ site, name, phone, email, password }) {
   return data;
 }
 
+async function syncCompanyActiveToVercel({ site, name, phone, email, active }) {
+  const base = process.env.PARTNER_ORDER_APP_URL || 'https://commande-longuenesse.vercel.app';
+  const secret = process.env.INTERNAL_API_SECRET || process.env.PARTNER_INTERNAL_SECRET;
+  if (!secret) {
+    console.warn('⚠️ INTERNAL_API_SECRET manquant: sync Vercel ignorée');
+    return { skipped: true };
+  }
+  const url = `${String(base).replace(/\/+$/, '')}/api/internal-upsert-company?site=${encodeURIComponent(site)}`;
+  const r = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-internal-secret': secret },
+    body: JSON.stringify({ site, name, phone, email, active: !!active })
+  });
+  const data = await r.json().catch(() => null);
+  if (!r.ok) throw new Error(data?.error || `Sync Vercel échouée (${r.status})`);
+  return data;
+}
+
 async function syncPasswordToVercel({ site, email, password }) {
   const base = process.env.PARTNER_ORDER_APP_URL || 'https://commande-longuenesse.vercel.app';
   const secret = process.env.INTERNAL_API_SECRET || process.env.PARTNER_INTERNAL_SECRET;
@@ -339,6 +357,36 @@ const adminListCompanies = async (req, res) => {
   }
 };
 
+const adminDeleteCompany = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const site = normalizeSite(getSite(req));
+    const company = await PartnerCompany.findById(id);
+    if (!company) return res.status(404).json({ success: false, error: 'Entreprise non trouvée' });
+
+    company.active = false;
+    await company.save();
+
+    // Sync désactivation vers Vercel (pour empêcher le login)
+    try {
+      await syncCompanyActiveToVercel({
+        site,
+        name: company.name,
+        phone: company.phone || '',
+        email: company.email,
+        active: false
+      });
+    } catch (e) {
+      console.error('⚠️ Sync Vercel (deactivate company) échouée:', e.message);
+    }
+
+    return res.json({ success: true });
+  } catch (err) {
+    console.error('❌ adminDeleteCompany:', err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+};
+
 const adminListOrders = async (req, res) => {
   try {
     const site = normalizeSite(getSite(req));
@@ -465,6 +513,7 @@ module.exports = {
   adminCreateCompany,
   adminSendInvite,
   adminListCompanies,
+  adminDeleteCompany,
   adminListOrders,
   adminUpdateOrderStatus,
   adminGetFormulas,
