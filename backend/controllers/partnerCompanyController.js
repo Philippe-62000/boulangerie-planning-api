@@ -182,8 +182,16 @@ const adminSendInvite = async (req, res) => {
 const adminListCompanies = async (req, res) => {
   try {
     const q = {};
+    // Par défaut: masquer les entreprises désactivées ("Supprimer")
+    // Pour tout voir: ?active=all
+    // Pour filtrer explicitement: ?active=true|false
     if (req.query.active === 'true') q.active = true;
-    if (req.query.active === 'false') q.active = false;
+    else if (req.query.active === 'false') q.active = false;
+    else if (req.query.active === 'all') {
+      // pas de filtre active
+    } else {
+      q.active = true;
+    }
     const companies = await PartnerCompany.find(q).sort({ active: -1, name: 1 }).limit(500);
     res.json({
       success: true,

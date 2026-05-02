@@ -21,6 +21,7 @@ const CommandeLivraisonEntreprises = () => {
   const [tab, setTab] = useState('orders'); // orders | companies | formulas
   const [companies, setCompanies] = useState([]);
   const [companiesLoading, setCompaniesLoading] = useState(false);
+  const [showInactiveCompanies, setShowInactiveCompanies] = useState(false);
   const [newCompany, setNewCompany] = useState({ name: '', phone: '', email: '' });
   const [createdPassword, setCreatedPassword] = useState(null);
 
@@ -43,7 +44,9 @@ const CommandeLivraisonEntreprises = () => {
   const loadCompanies = async () => {
     setCompaniesLoading(true);
     try {
-      const res = await api.get('/partner-admin/companies', { params: { site } });
+      const res = await api.get('/partner-admin/companies', {
+        params: { site, active: showInactiveCompanies ? 'all' : 'true' }
+      });
       setCompanies(Array.isArray(res.data?.data) ? res.data.data : []);
     } catch (e) {
       console.error(e);
@@ -88,6 +91,22 @@ const CommandeLivraisonEntreprises = () => {
     }
   };
 
+  const deleteCompany = async (company) => {
+    try {
+      const ok = window.confirm(`Désactiver le compte entreprise « ${company.name} » (${company.email}) ?`);
+      if (!ok) return;
+      const companyId = company.id || company._id;
+      if (!companyId) {
+        alert('Identifiant entreprise manquant.');
+        return;
+      }
+      await api.delete(`/partner-admin/companies/${companyId}`, { params: { site } });
+      await loadCompanies();
+    } catch (e) {
+      console.error(e);
+      alert(e?.response?.data?.error || 'Suppression impossible (droits admin requis).');
+    }
+  };
   const loadFormulas = async () => {
     setFormulasLoading(true);
     try {
@@ -125,6 +144,11 @@ const CommandeLivraisonEntreprises = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab, site]);
 
+  useEffect(() => {
+    if (tab === 'companies') loadCompanies();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showInactiveCompanies]);
+
   const grouped = useMemo(() => {
     return orders;
   }, [orders]);
@@ -151,13 +175,19 @@ const CommandeLivraisonEntreprises = () => {
   };
 
   const updateFormulaItems = (mealType, tier, textareaValue) => {
+    // Conserve espaces et ponctuation dans chaque ligne ; retire seulement les lignes entièrement vides
     const items = String(textareaValue || '')
       .split('\n')
-      .map((s) => s.trim())
-      .filter(Boolean);
+      .filter((line) => line.trim().length > 0);
     updateFormulaField(mealType, tier, 'items', items);
   };
 
+  const updateFormulaStringList = (mealType, tier, field, textareaValue) => {
+    const items = String(textareaValue || '')
+      .split('\n')
+      .filter((line) => line.trim().length > 0);
+    updateFormulaField(mealType, tier, field, items);
+  };
   return (
     <div className="card">
       <h2 style={{ marginTop: 0 }}>🚚 Commandes Livraison (Entreprises)</h2>
@@ -272,6 +302,16 @@ const CommandeLivraisonEntreprises = () => {
 
       {tab === 'companies' && (
         <div style={{ display: 'grid', gap: '0.75rem' }}>
+          <label style={{ display: 'flex', gap: 10, alignItems: 'center', color: '#444' }}>
+            <input
+              type="checkbox"
+              checked={showInactiveCompanies}
+              onChange={(e) => setShowInactiveCompanies(e.target.checked)}
+            />
+            <span>
+              Afficher les comptes désactivés (après « Supprimer », ils sont masqués par défaut)
+            </span>
+          </label>
           <div style={{ border: '1px solid #e5e5e5', borderRadius: '10px', padding: '12px', background: '#fff' }}>
             <div style={{ fontWeight: 800, marginBottom: 8 }}>Créer une entreprise (génère un mot de passe)</div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.5rem' }}>
@@ -381,18 +421,50 @@ const CommandeLivraisonEntreprises = () => {
                               onChange={(e) => updateFormulaField(mealType, tier, 'priceCents', Number(e.target.value || 0))}
                             />
                           </div>
-                          <input
-                            placeholder="Description"
-                            style={{ marginTop: 8, width: '100%' }}
+                          <textarea
+                            placeholder="Description (peut être multi-ligne)"
+                            style={{ marginTop: 8, width: '100%', minHeight: 60 }}
                             value={f.description || ''}
                             onChange={(e) => updateFormulaField(mealType, tier, 'description', e.target.value)}
                           />
                           <textarea
-                            placeholder="Items (1 par ligne)"
+                            placeholder="Items (1 par ligne) — contenu de référence de la box / formule"
                             style={{ marginTop: 8, width: '100%', minHeight: 90 }}
                             value={Array.isArray(f.items) ? f.items.join('\n') : ''}
                             onChange={(e) => updateFormulaItems(mealType, tier, e.target.value)}
                           />
+                          {mealType === 'breakfast' ? (
+                            <>
+                              <textarea
+                                placeholder="Ligne café / thé thermos (affichée au client) — espaces autorisés"
+                                style={{ marginTop: 8, width: '100%', minHeight: 44 }}
+                                value={f.coffeeTeaLine || ''}
+                                onChange={(e) => updateFormulaField(mealType, tier, 'coffeeTeaLine', e.target.value)}
+                              />
+                              <textarea
+                                placeholder="Mini-viennoiseries au choix : 1 ligne = 1 produit (espaces autorisés, ex: « pain chocolat »)"
+                                style={{ marginTop: 8, width: '100%', minHeight: 70 }}
+                                value={Array.isArray(f.miniViennoiserieOptions) ? f.miniViennoiserieOptions.join('\n') : ''}
+                                onChange={(e) => updateFormulaStringList(mealType, tier, 'miniViennoiserieOptions', e.target.value)}
+                              />
+                              <textarea
+                                placeholder="Jus pressés au choix : 1 ligne = 1 jus (espaces autorisés)"
+                                style={{ marginTop: 8, width: '100%', minHeight: 60 }}
+                                value={Array.isArray(f.juiceOptions) ? f.juiceOptions.join('\n') : ''}
+                                onChange={(e) => updateFormulaStringList(mealType, tier, 'juiceOptions', e.target.value)}
+                              />
+                            </>
+                          ) : null}
+                          {mealType === 'lunch' ? (
+                            <label style={{ display: 'flex', gap: 8, marginTop: 10, alignItems: 'center' }}>
+                              <input
+                                type="checkbox"
+                                checked={!!f.lunchShowDietCounts}
+                                onChange={(e) => updateFormulaField(mealType, tier, 'lunchShowDietCounts', e.target.checked)}
+                              />
+                              <span>Proposer les compteurs végétarien / hallal / sans lactose sur le site de commande</span>
+                            </label>
+                          ) : null}
                         </div>
                       );
                     })}
