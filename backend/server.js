@@ -46,6 +46,8 @@ const corsOptions = {
   allowedHeaders: ['Content-Type', 'Authorization', 'Origin', 'X-Requested-With', 'Accept']
 };
 app.use(cors(corsOptions));
+// Répondre explicitement aux requêtes preflight (OPTIONS) pour éviter les 404 sur DELETE/PUT/PATCH
+app.options('*', cors(corsOptions));
 
 // strict: false — accepte le corps JSON `null` (axios peut l’envoyer) ; sinon body-parser lève « null is not valid JSON »
 app.use(express.json({ limit: '10mb', strict: false }));
