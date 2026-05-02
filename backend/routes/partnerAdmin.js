@@ -4,6 +4,8 @@ const controller = require('../controllers/partnerCompanyController');
 const { authenticateManager } = require('../middleware/auth');
 
 router.post('/companies', authenticateManager, controller.adminCreateCompany);
+/** Purge définitive par e-mail : doit être avant /companies/:id (DELETE /companies ?email=&permanent=true) */
+router.delete('/companies', authenticateManager, controller.adminPurgePartnerCompanyByEmail);
 router.delete('/companies/:id', authenticateManager, controller.adminDeleteCompany);
 router.post('/companies/:id/send-invite', authenticateManager, controller.adminSendInvite);
 router.get('/companies', authenticateManager, controller.adminListCompanies);

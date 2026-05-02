@@ -180,6 +180,46 @@ const adminCreateCompany = async (req, res) => {
   }
 };
 
+/**
+ * DELETE /companies?email=…&permanent=true
+ * Suppression définitive par e-mail (évite les soucis d’ObjectId / query sur DELETE …/:id).
+ */
+const adminPurgePartnerCompanyByEmail = async (req, res) => {
+  try {
+    const emailRaw = req.query.email;
+    const permanent =
+      req.query.permanent === '1' ||
+      req.query.permanent === 'true' ||
+      req.query.hard === '1' ||
+      req.query.hard === 'true';
+
+    if (!emailRaw || !permanent) {
+      return res.status(400).json({
+        success: false,
+        error: 'Utilisez permanent=true et le paramètre email pour effacer définitivement une entreprise.'
+      });
+    }
+
+    const emailNorm = String(emailRaw).toLowerCase().trim();
+    const deleted = await PartnerCompany.findOneAndDelete({ email: emailNorm });
+    if (!deleted) {
+      return res.status(404).json({
+        success: false,
+        error: `Aucune entreprise en base pour l’e-mail ${emailNorm}.`
+      });
+    }
+
+    return res.json({
+      success: true,
+      permanent: true,
+      email: deleted.email
+    });
+  } catch (err) {
+    console.error('❌ adminPurgePartnerCompanyByEmail:', err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+};
+
 const adminDeleteCompany = async (req, res) => {
   try {
     const { id } = req.params;
@@ -189,13 +229,16 @@ const adminDeleteCompany = async (req, res) => {
       req.query.hard === '1' ||
       req.query.hard === 'true';
 
-    const company = await PartnerCompany.findById(id);
-    if (!company) return res.status(404).json({ success: false, error: 'Entreprise non trouvée' });
-
     if (permanent) {
-      await PartnerCompany.findByIdAndDelete(id);
+      const deleted = await PartnerCompany.findByIdAndDelete(id);
+      if (!deleted) {
+        return res.status(404).json({ success: false, error: 'Entreprise non trouvée (suppression définitive)' });
+      }
       return res.json({ success: true, permanent: true });
     }
+
+    const company = await PartnerCompany.findById(id);
+    if (!company) return res.status(404).json({ success: false, error: 'Entreprise non trouvée' });
 
     company.active = false;
     await company.save();
@@ -354,6 +397,7 @@ module.exports = {
   listMyOrders,
   createMyOrder,
   adminCreateCompany,
+  adminPurgePartnerCompanyByEmail,
   adminDeleteCompany,
   adminSendInvite,
   adminListCompanies,

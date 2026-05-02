@@ -151,12 +151,18 @@ const CommandeLivraisonEntreprises = () => {
           `Les anciennes commandes peuvent rester liées à l’ancien identifiant technique.`
       );
       if (!ok) return;
-      const companyId = company.id || company._id;
-      if (!companyId) {
-        alert('Identifiant entreprise manquant.');
+      const emailNorm = String(company.email || '').toLowerCase().trim();
+      if (!emailNorm) {
+        alert('E-mail manquant sur cette ligne.');
         return;
       }
-      await api.delete(`/partner-admin/companies/${companyId}`, { params: { site, permanent: true } });
+      // Suppression par e-mail (plus fiable que l’ObjectId dans l’URL sur certains navigateurs / proxies)
+      const res = await api.delete('/partner-admin/companies', {
+        params: { site, email: emailNorm, permanent: 'true' }
+      });
+      if (res.data?.success) {
+        alert(`Compte effacé de la base pour ${emailNorm}. Vous pouvez recréer avec cet e-mail.`);
+      }
       await loadCompanies();
     } catch (e) {
       console.error(e);
