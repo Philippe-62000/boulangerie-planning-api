@@ -3,8 +3,10 @@ const router = express.Router();
 const controller = require('../controllers/partnerCompanyController');
 const { authenticateManager } = require('../middleware/auth');
 
+/** Purge définitive par e-mail (POST — évite 404 si DELETE /companies n’est pas exposé) */
+router.post('/companies/purge', authenticateManager, controller.adminPurgePartnerCompanyByEmailPost);
 router.post('/companies', authenticateManager, controller.adminCreateCompany);
-/** Purge définitive par e-mail : doit être avant /companies/:id (DELETE /companies ?email=&permanent=true) */
+/** Compat. DELETE /companies ?email=&permanent=true */
 router.delete('/companies', authenticateManager, controller.adminPurgePartnerCompanyByEmail);
 router.delete('/companies/:id', authenticateManager, controller.adminDeleteCompany);
 router.post('/companies/:id/send-invite', authenticateManager, controller.adminSendInvite);

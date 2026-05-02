@@ -180,27 +180,12 @@ const adminCreateCompany = async (req, res) => {
   }
 };
 
-/**
- * DELETE /companies?email=…&permanent=true
- * Suppression définitive par e-mail (évite les soucis d’ObjectId / query sur DELETE …/:id).
- */
-const adminPurgePartnerCompanyByEmail = async (req, res) => {
+/** Logique partagée : efface la fiche PartnerCompany pour cet e-mail (libère l’index unique). */
+const purgePartnerCompanyByEmailNorm = async (emailNorm, res) => {
   try {
-    const emailRaw = req.query.email;
-    const permanent =
-      req.query.permanent === '1' ||
-      req.query.permanent === 'true' ||
-      req.query.hard === '1' ||
-      req.query.hard === 'true';
-
-    if (!emailRaw || !permanent) {
-      return res.status(400).json({
-        success: false,
-        error: 'Utilisez permanent=true et le paramètre email pour effacer définitivement une entreprise.'
-      });
+    if (!emailNorm) {
+      return res.status(400).json({ success: false, error: 'E-mail requis.' });
     }
-
-    const emailNorm = String(emailRaw).toLowerCase().trim();
     const deleted = await PartnerCompany.findOneAndDelete({ email: emailNorm });
     if (!deleted) {
       return res.status(404).json({
@@ -208,16 +193,44 @@ const adminPurgePartnerCompanyByEmail = async (req, res) => {
         error: `Aucune entreprise en base pour l’e-mail ${emailNorm}.`
       });
     }
-
     return res.json({
       success: true,
       permanent: true,
       email: deleted.email
     });
   } catch (err) {
-    console.error('❌ adminPurgePartnerCompanyByEmail:', err);
-    res.status(500).json({ success: false, error: err.message });
+    console.error('❌ purgePartnerCompanyByEmailNorm:', err);
+    return res.status(500).json({ success: false, error: err.message });
   }
+};
+
+/**
+ * DELETE /companies?email=…&permanent=true (compat.)
+ * Certains hébergeurs / proxies ne routent pas DELETE sur la « collection » → préférer POST /companies/purge.
+ */
+const adminPurgePartnerCompanyByEmail = async (req, res) => {
+  const emailRaw = req.query.email;
+  const permanent =
+    req.query.permanent === '1' ||
+    req.query.permanent === 'true' ||
+    req.query.hard === '1' ||
+    req.query.hard === 'true';
+
+  if (!emailRaw || !permanent) {
+    return res.status(400).json({
+      success: false,
+      error: 'Utilisez permanent=true et le paramètre email pour effacer définitivement une entreprise.'
+    });
+  }
+
+  const emailNorm = String(emailRaw).toLowerCase().trim();
+  return purgePartnerCompanyByEmailNorm(emailNorm, res);
+};
+
+/** POST /companies/purge { email } — route recommandée (évite 404 sur DELETE /companies). */
+const adminPurgePartnerCompanyByEmailPost = async (req, res) => {
+  const emailNorm = String(req.body?.email || '').toLowerCase().trim();
+  return purgePartnerCompanyByEmailNorm(emailNorm, res);
 };
 
 const adminDeleteCompany = async (req, res) => {
@@ -398,6 +411,7 @@ module.exports = {
   createMyOrder,
   adminCreateCompany,
   adminPurgePartnerCompanyByEmail,
+  adminPurgePartnerCompanyByEmailPost,
   adminDeleteCompany,
   adminSendInvite,
   adminListCompanies,

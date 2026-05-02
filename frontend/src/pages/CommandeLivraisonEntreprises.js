@@ -156,11 +156,13 @@ const CommandeLivraisonEntreprises = () => {
         alert('E-mail manquant sur cette ligne.');
         return;
       }
-      // Suppression par e-mail (plus fiable que l’ObjectId dans l’URL sur certains navigateurs / proxies)
-      const res = await api.delete('/partner-admin/companies', {
-        params: { site, email: emailNorm, permanent: 'true' }
-      });
-      if (res.data?.success) {
+      // POST /companies/purge : DELETE sur la collection renvoie souvent 404 sur Render / proxies
+      const purgeRes = await api.post(
+        '/partner-admin/companies/purge',
+        { email: emailNorm },
+        { params: { site } }
+      );
+      if (purgeRes.data?.success) {
         alert(`Compte effacé de la base pour ${emailNorm}. Vous pouvez recréer avec cet e-mail.`);
       }
       await loadCompanies();
