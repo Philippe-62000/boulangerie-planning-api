@@ -156,9 +156,9 @@ const CommandeLivraisonEntreprises = () => {
         alert('E-mail manquant sur cette ligne.');
         return;
       }
-      // POST /companies/purge : DELETE sur la collection renvoie souvent 404 sur Render / proxies
+      // Route courte sur le serveur (évite « Route non trouvée » si /partner-admin/companies/purge n’est pas déployée)
       const purgeRes = await api.post(
-        '/partner-admin/companies/purge',
+        '/partner-company-purge',
         { email: emailNorm },
         { params: { site } }
       );

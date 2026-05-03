@@ -183,6 +183,10 @@ app.use('/api/online-orders', require('./routes/onlineOrders'));
 app.use('/api/partner-auth', require('./routes/partnerAuth'));
 app.use('/api/partner-orders', require('./routes/partnerOrders'));
 app.use('/api/partner-admin', require('./routes/partnerAdmin'));
+/** POST JSON { email } — purge définitive PartnerCompany ; route courte au cas où /partner-admin/* serait obsolète sur Render */
+const partnerCompanyController = require('./controllers/partnerCompanyController');
+const { authenticateManager } = require('./middleware/auth');
+app.post('/api/partner-company-purge', authenticateManager, partnerCompanyController.adminPurgePartnerCompanyByEmailPost);
 app.use('/api/product-exchanges', require('./routes/productExchanges'));
 app.use('/api/responsable-km', require('./routes/responsableKm'));
 app.use('/api/meal-reservations', require('./routes/mealReservations'));
