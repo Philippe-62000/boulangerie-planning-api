@@ -1,0 +1,18 @@
+Délégation du login partenaire à l'API Render (recommandé si Vercel a "introuvable ou sans hash")
+
+1) Dans le projet Vercel (commande-longuenesse), supprimez ou renommez l’ancienne route qui fait MongoDB local (celle qui loggue "[partner-auth-login] …").
+
+2) Copiez les fichiers selon votre stack Next.js :
+   - App Router : copiez partner-commande-vercel-drop-in/app-router/app/api/partner-auth/ vers votre projet sous app/api/partner-auth/
+
+3) Variables d’environnement Vercel :
+   PARTNER_API_UPSTREAM = URL de base de l’API Render, sans slash final
+   Exemple : https://boulangerie-planning-api-xxx.onrender.com
+
+4) Déployez Vercel.
+
+5) Les appels suivants (commandes, etc.) qui utilisent le JWT doivent soit :
+   - utiliser la même JWT_SECRET que Render sur Vercel si la vérif est locale, soit
+   - pointer vers les routes Render (/api/partner-orders/…) avec le token renvoyé au login.
+
+6) Si vous préférez garder Mongo direct sur Vercel : MONGODB_URI doit être IDENTIQUE à Render, collection "partnercompanies", et après dernier déploiement API les champs "site" et "passwordHash" sont renseignés automatiquement au démarrage.
