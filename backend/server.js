@@ -156,8 +156,24 @@ mongoose.connect(config.MONGODB_URI, {
         `✅ PartnerCompany: champ site renseigné pour ${r.modifiedCount} fiche(s) (anciennes données sans site ; défaut longuenesse)`
       );
     }
+    const r2 = await PartnerCompany.collection.updateMany(
+      {
+        $or: [
+          { passwordHash: { $exists: false } },
+          { passwordHash: null },
+          { passwordHash: '' }
+        ],
+        password: { $exists: true, $nin: [null, ''] }
+      },
+      [{ $set: { passwordHash: '$password' } }]
+    );
+    if (r2.modifiedCount > 0) {
+      console.log(
+        `✅ PartnerCompany: passwordHash aligné sur password pour ${r2.modifiedCount} fiche(s) (compat. lecture directe Mongo / Vercel)`
+      );
+    }
   } catch (error) {
-    console.error('❌ PartnerCompany site backfill:', error);
+    console.error('❌ PartnerCompany backfill (site / passwordHash):', error);
   }
 
   if (!process.env.PARTNER_ORDER_APP_SYNC_URL || !process.env.PARTNER_ORDER_APP_SYNC_SECRET) {

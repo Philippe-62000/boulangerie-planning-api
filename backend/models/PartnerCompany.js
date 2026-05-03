@@ -15,10 +15,12 @@ const partnerCompanySchema = new mongoose.Schema(
       index: true
     },
     password: { type: String, required: true, select: false },
+    /** Copie du hash bcrypt (même valeur que `password`) pour les clients qui lisent Mongo en direct et attendent ce nom (ex. app Vercel). */
+    passwordHash: { type: String, required: false, select: false },
     active: { type: Boolean, default: true },
     lastLoginAt: { type: Date, default: null }
   },
-  { timestamps: true }
+  { timestamps: true, collection: 'partnercompanies' }
 );
 
 partnerCompanySchema.index({ email: 1 }, { unique: true });
@@ -29,6 +31,7 @@ partnerCompanySchema.pre('save', async function preSave(next) {
   try {
     const salt = await bcrypt.genSalt(10);
     this.password = await bcrypt.hash(this.password, salt);
+    this.passwordHash = this.password;
     next();
   } catch (err) {
     next(err);
