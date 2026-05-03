@@ -15,6 +15,7 @@ app.use(compression());
 const allowedOrigins = [
   'https://www.filmara.fr',
   'https://filmara.fr',
+  'https://commande-longuenesse.vercel.app',
   'http://localhost:3000',
   'http://localhost:3001'
 ];
@@ -142,6 +143,27 @@ mongoose.connect(config.MONGODB_URI, {
     console.log('⏰ Rappels mutuelle programmés (tous les lundis à 9h)');
   } catch (error) {
     console.error('❌ Erreur programmation rappels mutuelle:', error);
+  }
+
+  try {
+    const PartnerCompany = require('./models/PartnerCompany');
+    const r = await PartnerCompany.updateMany(
+      { $or: [{ site: { $exists: false } }, { site: null }, { site: '' }] },
+      { $set: { site: 'longuenesse' } }
+    );
+    if (r.modifiedCount > 0) {
+      console.log(
+        `✅ PartnerCompany: champ site renseigné pour ${r.modifiedCount} fiche(s) (anciennes données sans site ; défaut longuenesse)`
+      );
+    }
+  } catch (error) {
+    console.error('❌ PartnerCompany site backfill:', error);
+  }
+
+  if (!process.env.PARTNER_ORDER_APP_SYNC_URL || !process.env.PARTNER_ORDER_APP_SYNC_SECRET) {
+    console.log(
+      'ℹ️ Synchro commande Vercel désactivée (PARTNER_ORDER_APP_SYNC_* absent). Utiliser le même MONGODB_URI sur Vercel que sur Render, ou configurer la synchro.'
+    );
   }
 })
 .catch(err => console.error('❌ Erreur de connexion MongoDB:', err));
