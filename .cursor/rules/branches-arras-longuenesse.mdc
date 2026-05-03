@@ -1,0 +1,32 @@
+---
+description: Branches Git (Arras vs Longuenesse) et cibles de déploiement Render / OVH
+alwaysApply: true
+---
+
+# Branches : Arras (`main`) et Longuenesse (`longuenesse`)
+
+## Règle de base
+
+| Branche        | Site / URL Filmara     | API Render (voir `frontend/src/config/apiConfig.js`) | Usage |
+|----------------|------------------------|------------------------------------------------------|--------|
+| **`main`**     | Arras — `/plan/…`      | `boulangerie-planning-api-4-pbfy.onrender.com`      | Plan / salariés Arras, déploiement OVH plan si concerné |
+| **`longuenesse`** | Longuenesse — `/lon/…` | `boulangerie-planning-api-3.onrender.com`          | Commandes entreprises Longuenesse, **dossier** `deploy-frontend-lon/` |
+
+- **Render** : le service **api-3** doit suivre la branche **`longuenesse`** ; le service **api-4** (ou équivalent Arras) la branche **`main`**. Vérifier dans *Settings → Build & Deploy → Branch*.
+- **Ne pas supposer** que `main` et `longuenesse` sont identiques : des correctifs peuvent exister sur une seule branche tant qu’on n’a pas mergé.
+
+## Synchroniser Longuenesse avec le travail fait sur `main`
+
+Quand une correction doit aussi servir sur Longuenesse (ex. API partenaire, purge e-mail) :
+
+1. `git checkout longuenesse && git pull`
+2. `git merge main -X theirs` (en cas de conflits sur le code partenaire, privilégier le contenu de `main` si c’est la source de vérité)
+3. `git push origin longuenesse`
+4. Déclencher un **déploiement** du service **api-3** sur Render.
+
+Reciproquement, une feature **uniquement** Longuenesse peut vivre sur `longuenesse` ; la reporter sur `main` seulement si Arras en a besoin (`git checkout main && git merge longuenesse` ou cherry-pick ciblé).
+
+## Front OVH
+
+- Longuenesse : build `deploy-frontend-lon-ovh-no-pause.bat` → contenu de **`deploy-frontend-lon/`** vers `/lon/` sur OVH.
+- Ne pas mélanger les assets `/plan/` et `/lon/`.
