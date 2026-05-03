@@ -46,6 +46,9 @@ const partnerLogin = async (req, res) => {
     const emailNorm = String(email).toLowerCase().trim();
     const company = await PartnerCompany.findOne({ email: emailNorm }).select('+password');
     if (!company) return res.status(401).json({ success: false, error: 'Identifiants incorrects' });
+    if (company.site && normalizeSite(String(company.site)) !== site) {
+      return res.status(401).json({ success: false, error: 'Identifiants incorrects' });
+    }
     if (!company.active) {
       return res.status(403).json({
         success: false,
@@ -148,6 +151,7 @@ const adminCreateCompany = async (req, res) => {
       }
       existing.name = String(name).trim();
       existing.phone = phone ? String(phone).trim() : '';
+      existing.site = site;
       existing.password = password;
       existing.active = true;
       await existing.save();
@@ -173,6 +177,7 @@ const adminCreateCompany = async (req, res) => {
       name: String(name).trim(),
       phone: phone ? String(phone).trim() : '',
       email: emailNorm,
+      site,
       password,
       active: true
     });
@@ -195,6 +200,7 @@ const adminCreateCompany = async (req, res) => {
       if (dup && !dup.active) {
         dup.name = String(name).trim();
         dup.phone = phone ? String(phone).trim() : '';
+        dup.site = site;
         dup.password = password;
         dup.active = true;
         await dup.save();
@@ -315,6 +321,7 @@ const adminSendInvite = async (req, res) => {
     if (!company) return res.status(404).json({ success: false, error: 'Entreprise non trouvée' });
 
     const newPassword = generateRandomPassword();
+    company.site = site;
     company.password = newPassword;
     await company.save();
 
@@ -373,6 +380,7 @@ const adminListCompanies = async (req, res) => {
         name: c.name,
         email: c.email,
         phone: c.phone,
+        site: c.site || 'longuenesse',
         active: c.active,
         lastLoginAt: c.lastLoginAt
       }))
