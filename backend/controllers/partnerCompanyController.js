@@ -4,6 +4,7 @@ const PartnerCompany = require('../models/PartnerCompany');
 const PartnerOrder = require('../models/PartnerOrder');
 const PartnerFormulaConfig = require('../models/PartnerFormulaConfig');
 const emailService = require('../services/emailService');
+const partnerOrderAppSync = require('../services/partnerOrderAppSync');
 
 const getSite = (req) => (req.query.site || req.body.site || 'longuenesse').toLowerCase();
 const siteMap = { lon: 'longuenesse', plan: 'arras' };
@@ -42,8 +43,16 @@ const partnerLogin = async (req, res) => {
     if (!email || !password) {
       return res.status(400).json({ success: false, error: 'Email et mot de passe requis' });
     }
-    const company = await PartnerCompany.findOne({ email: String(email).toLowerCase().trim(), active: true }).select('+password');
+    const emailNorm = String(email).toLowerCase().trim();
+    const company = await PartnerCompany.findOne({ email: emailNorm }).select('+password');
     if (!company) return res.status(401).json({ success: false, error: 'Identifiants incorrects' });
+    if (!company.active) {
+      return res.status(403).json({
+        success: false,
+        error:
+          'Ce compte entreprise est désactivé. Si vous venez de le recréer, attendez la synchro ou utilisez le même mot de passe que sur la fiche admin ; sinon contactez la boulangerie.'
+      });
+    }
     const valid = await bcrypt.compare(password, company.password);
     if (!valid) return res.status(401).json({ success: false, error: 'Identifiants incorrects' });
 
@@ -128,6 +137,7 @@ const adminCreateCompany = async (req, res) => {
     const { name, phone, email } = req.body;
     if (!name || !email) return res.status(400).json({ success: false, error: 'Nom et email requis' });
 
+    const site = normalizeSite(getSite(req));
     const emailNorm = String(email).toLowerCase().trim();
     const password = generateRandomPassword();
 
@@ -141,6 +151,16 @@ const adminCreateCompany = async (req, res) => {
       existing.password = password;
       existing.active = true;
       await existing.save();
+      setImmediate(() =>
+        partnerOrderAppSync.syncUpsert({
+          site,
+          name: existing.name,
+          phone: existing.phone || '',
+          email: existing.email,
+          active: true,
+          plainPassword: password
+        })
+      );
       return res.json({
         success: true,
         data: { id: existing._id, name: existing.name, email: existing.email, phone: existing.phone },
@@ -157,6 +177,17 @@ const adminCreateCompany = async (req, res) => {
       active: true
     });
 
+    setImmediate(() =>
+      partnerOrderAppSync.syncUpsert({
+        site,
+        name: company.name,
+        phone: company.phone || '',
+        email: company.email,
+        active: true,
+        plainPassword: password
+      })
+    );
+
     res.json({ success: true, data: { id: company._id, name: company.name, email: company.email, phone: company.phone }, password });
   } catch (err) {
     if (err.code === 11000) {
@@ -167,6 +198,16 @@ const adminCreateCompany = async (req, res) => {
         dup.password = password;
         dup.active = true;
         await dup.save();
+        setImmediate(() =>
+          partnerOrderAppSync.syncUpsert({
+            site,
+            name: dup.name,
+            phone: dup.phone || '',
+            email: dup.email,
+            active: true,
+            plainPassword: password
+          })
+        );
         return res.json({
           success: true,
           data: { id: dup._id, name: dup.name, email: dup.email, phone: dup.phone },
@@ -193,6 +234,7 @@ const purgePartnerCompanyByEmailNorm = async (emailNorm, res) => {
         error: `Aucune entreprise en base pour l’e-mail ${emailNorm}.`
       });
     }
+    setImmediate(() => partnerOrderAppSync.syncDelete({ email: deleted.email }));
     return res.json({
       success: true,
       permanent: true,
@@ -247,14 +289,17 @@ const adminDeleteCompany = async (req, res) => {
       if (!deleted) {
         return res.status(404).json({ success: false, error: 'Entreprise non trouvée (suppression définitive)' });
       }
+      setImmediate(() => partnerOrderAppSync.syncDelete({ email: deleted.email }));
       return res.json({ success: true, permanent: true });
     }
 
     const company = await PartnerCompany.findById(id);
     if (!company) return res.status(404).json({ success: false, error: 'Entreprise non trouvée' });
 
+    const site = normalizeSite(getSite(req));
     company.active = false;
     await company.save();
+    setImmediate(() => partnerOrderAppSync.syncDeactivate({ site, email: company.email }));
     return res.json({ success: true });
   } catch (err) {
     console.error('❌ adminDeleteCompany:', err);
@@ -290,6 +335,16 @@ const adminSendInvite = async (req, res) => {
     if (!r?.success) {
       return res.status(500).json({ success: false, error: r?.error || 'Email non envoyé' });
     }
+    setImmediate(() =>
+      partnerOrderAppSync.syncUpsert({
+        site,
+        name: company.name,
+        phone: company.phone || '',
+        email: company.email,
+        active: true,
+        plainPassword: newPassword
+      })
+    );
     res.json({ success: true });
   } catch (err) {
     console.error('❌ adminSendInvite:', err);
