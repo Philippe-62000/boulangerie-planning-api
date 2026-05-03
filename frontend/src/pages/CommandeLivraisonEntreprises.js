@@ -165,10 +165,27 @@ const CommandeLivraisonEntreprises = () => {
       if (purgeRes.data?.success) {
         alert(`Compte effacé de la base pour ${emailNorm}. Vous pouvez recréer avec cet e-mail.`);
       }
-      await loadCompanies();
+      try {
+        await loadCompanies();
+      } catch (reloadErr) {
+        console.error(reloadErr);
+        alert(
+          'La suppression a peut‑être réussi, mais la liste n’a pas pu être rechargée. Rafraîchissez la page (F5).'
+        );
+      }
     } catch (e) {
       console.error(e);
-      alert(e?.response?.data?.error || 'Suppression définitive impossible (droits admin requis).');
+      const st = e?.response?.status;
+      const msg = e?.response?.data?.error;
+      if (st === 404 || msg === 'Route non trouvée') {
+        alert(
+          'L’API Longuenesse sur Render (boulangerie-planning-api-3) n’a pas encore la route de purge — d’où « Route non trouvée ».\n\n' +
+            'Dans Render : ouvrez le service api-3 → Manual Deploy → Deploy latest commit (branche main).\n\n' +
+            'Vérifiez ensuite : https://boulangerie-planning-api-3.onrender.com/health doit afficher une version ≥ 1.0.1 (pas 1.0.0).'
+        );
+      } else {
+        alert(msg || 'Suppression définitive impossible (droits admin requis).');
+      }
     }
   };
   const loadFormulas = async () => {
