@@ -27,7 +27,16 @@ function multilineToStringList(raw) {
 
 function sanitizeFormulaPayloadForSave(data) {
   const next = structuredClone(data);
-  const listFields = ['items', 'miniViennoiserieOptions', 'juiceOptions'];
+  const listFields = [
+    'items',
+    'miniViennoiserieOptions',
+    'juiceOptions',
+    'lunchEntreeOptions',
+    'lunchPlatOptions',
+    'lunchBoissonOptions',
+    'lunchDessertOptions',
+    'lunchCollationOptions'
+  ];
   for (const meal of ['breakfast', 'lunch']) {
     for (const tier of ['eco', 'classic', 'premium']) {
       const t = next[meal]?.[tier];
@@ -346,7 +355,7 @@ const CommandeLivraisonEntreprises = () => {
                       </div>
                       {Array.isArray(o.itemsSnapshot?.items) && o.itemsSnapshot.items.length > 0 && (
                         <ul style={{ margin: '6px 0 0', paddingLeft: '18px' }}>
-                          {o.itemsSnapshot.items.slice(0, 8).map((it, idx) => (
+                          {o.itemsSnapshot.items.slice(0, 40).map((it, idx) => (
                             <li key={idx} style={{ color: '#555' }}>
                               {it}
                             </li>
@@ -551,14 +560,49 @@ const CommandeLivraisonEntreprises = () => {
                             </>
                           ) : null}
                           {mealType === 'lunch' ? (
-                            <label style={{ display: 'flex', gap: 8, marginTop: 10, alignItems: 'center' }}>
-                              <input
-                                type="checkbox"
-                                checked={!!f.lunchShowDietCounts}
-                                onChange={(e) => updateFormulaField(mealType, tier, 'lunchShowDietCounts', e.target.checked)}
+                            <>
+                              <label style={{ display: 'flex', gap: 8, marginTop: 10, alignItems: 'center' }}>
+                                <input
+                                  type="checkbox"
+                                  checked={!!f.lunchShowDietCounts}
+                                  onChange={(e) => updateFormulaField(mealType, tier, 'lunchShowDietCounts', e.target.checked)}
+                                />
+                                <span>Proposer les compteurs végétarien / hallal / sans lactose sur le site de commande</span>
+                              </label>
+                              <div style={{ marginTop: 12, fontWeight: 700, color: '#374151' }}>
+                                Produits au choix (comme mini-viennoiseries) — 1 ligne = 1 produit
+                              </div>
+                              <textarea
+                                placeholder="Entrées au choix : 1 ligne = 1 produit"
+                                style={{ marginTop: 8, width: '100%', minHeight: 56 }}
+                                value={Array.isArray(f.lunchEntreeOptions) ? f.lunchEntreeOptions.join('\n') : ''}
+                                onChange={(e) => updateFormulaStringList(mealType, tier, 'lunchEntreeOptions', e.target.value)}
                               />
-                              <span>Proposer les compteurs végétarien / hallal / sans lactose sur le site de commande</span>
-                            </label>
+                              <textarea
+                                placeholder="Plats au choix : 1 ligne = 1 produit"
+                                style={{ marginTop: 8, width: '100%', minHeight: 56 }}
+                                value={Array.isArray(f.lunchPlatOptions) ? f.lunchPlatOptions.join('\n') : ''}
+                                onChange={(e) => updateFormulaStringList(mealType, tier, 'lunchPlatOptions', e.target.value)}
+                              />
+                              <textarea
+                                placeholder="Boissons au choix : 1 ligne = 1 produit"
+                                style={{ marginTop: 8, width: '100%', minHeight: 56 }}
+                                value={Array.isArray(f.lunchBoissonOptions) ? f.lunchBoissonOptions.join('\n') : ''}
+                                onChange={(e) => updateFormulaStringList(mealType, tier, 'lunchBoissonOptions', e.target.value)}
+                              />
+                              <textarea
+                                placeholder="Desserts au choix : 1 ligne = 1 produit"
+                                style={{ marginTop: 8, width: '100%', minHeight: 56 }}
+                                value={Array.isArray(f.lunchDessertOptions) ? f.lunchDessertOptions.join('\n') : ''}
+                                onChange={(e) => updateFormulaStringList(mealType, tier, 'lunchDessertOptions', e.target.value)}
+                              />
+                              <textarea
+                                placeholder="Collations au choix : 1 ligne = 1 produit"
+                                style={{ marginTop: 8, width: '100%', minHeight: 56 }}
+                                value={Array.isArray(f.lunchCollationOptions) ? f.lunchCollationOptions.join('\n') : ''}
+                                onChange={(e) => updateFormulaStringList(mealType, tier, 'lunchCollationOptions', e.target.value)}
+                              />
+                            </>
                           ) : null}
                         </div>
                       );

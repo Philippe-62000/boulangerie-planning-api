@@ -9,7 +9,13 @@ const tierSchema = new mongoose.Schema(
     coffeeTeaLine: { type: String, default: '' },
     miniViennoiserieOptions: [{ type: String, trim: true }],
     juiceOptions: [{ type: String, trim: true }],
-    lunchShowDietCounts: { type: Boolean, default: false }
+    lunchShowDietCounts: { type: Boolean, default: false },
+    /** Listes de produits au choix (1 ligne = 1 nom) — même principe que mini-viennoiseries. */
+    lunchEntreeOptions: [{ type: String, trim: true }],
+    lunchPlatOptions: [{ type: String, trim: true }],
+    lunchBoissonOptions: [{ type: String, trim: true }],
+    lunchDessertOptions: [{ type: String, trim: true }],
+    lunchCollationOptions: [{ type: String, trim: true }]
   },
   { _id: false }
 );
