@@ -14,7 +14,7 @@ module.exports = {
 
   // Configuration de l'application
   APP_NAME: 'Planning Boulangerie',
-  APP_VERSION: '1.0.0',
+  APP_VERSION: '1.0.1',
 
   // Configuration CORS
   CORS_ORIGIN: ['https://www.filmara.fr', 'http://localhost:3000'],

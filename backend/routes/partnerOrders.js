@@ -7,9 +7,6 @@ const { authenticateEmployee } = require('../middleware/auth');
 router.get('/my', authenticatePartnerCompany, controller.listMyOrders);
 router.post('/my', authenticatePartnerCompany, controller.createMyOrder);
 
-// Internal push from Vercel quick-order app (secret-based)
-router.post('/internal-from-vercel', controller.internalUpsertOrderFromVercel);
-
 // Internal (salariés/admin) for dashboard + listing (read-only)
 router.get('/pending-count', authenticateEmployee, controller.internalPendingCount);
 router.get('/internal', authenticateEmployee, controller.internalListOrders);

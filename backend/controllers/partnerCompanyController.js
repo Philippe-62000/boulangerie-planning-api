@@ -9,84 +9,6 @@ const getSite = (req) => (req.query.site || req.body.site || 'longuenesse').toLo
 const siteMap = { lon: 'longuenesse', plan: 'arras' };
 const normalizeSite = (s) => siteMap[s] || (s === 'arras' ? 'arras' : 'longuenesse');
 
-function requireInternalSecret(req) {
-  const expected = process.env.INTERNAL_API_SECRET;
-  const got = req.headers['x-internal-secret'];
-  return !!expected && !!got && String(got) === String(expected);
-}
-
-async function pullOrdersFromVercel({ site, status }) {
-  const base = process.env.PARTNER_ORDER_APP_URL || 'https://commande-longuenesse.vercel.app';
-  const secret = process.env.INTERNAL_API_SECRET;
-  if (!secret) return { skipped: true, reason: 'INTERNAL_API_SECRET manquant' };
-
-  const url = new URL(`${String(base).replace(/\/+$/, '')}/api/internal-list-orders`);
-  url.searchParams.set('site', site);
-  if (status) url.searchParams.set('status', status);
-
-  const r = await fetch(url.toString(), {
-    method: 'GET',
-    headers: { 'x-internal-secret': secret }
-  });
-  const data = await r.json().catch(() => null);
-  if (!r.ok) throw new Error(data?.error || `Pull Vercel échoué (${r.status})`);
-  return data;
-}
-
-async function syncCompanyToVercel({ site, name, phone, email, password }) {
-  const base = process.env.PARTNER_ORDER_APP_URL || 'https://commande-longuenesse.vercel.app';
-  const secret = process.env.INTERNAL_API_SECRET || process.env.PARTNER_INTERNAL_SECRET;
-  if (!secret) {
-    console.warn('⚠️ INTERNAL_API_SECRET manquant: sync Vercel ignorée');
-    return { skipped: true };
-  }
-  const url = `${String(base).replace(/\/+$/, '')}/api/internal-upsert-company?site=${encodeURIComponent(site)}`;
-  const r = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'x-internal-secret': secret },
-    body: JSON.stringify({ site, name, phone, email, password })
-  });
-  const data = await r.json().catch(() => null);
-  if (!r.ok) throw new Error(data?.error || `Sync Vercel échouée (${r.status})`);
-  return data;
-}
-
-async function syncCompanyActiveToVercel({ site, name, phone, email, active }) {
-  const base = process.env.PARTNER_ORDER_APP_URL || 'https://commande-longuenesse.vercel.app';
-  const secret = process.env.INTERNAL_API_SECRET || process.env.PARTNER_INTERNAL_SECRET;
-  if (!secret) {
-    console.warn('⚠️ INTERNAL_API_SECRET manquant: sync Vercel ignorée');
-    return { skipped: true };
-  }
-  const url = `${String(base).replace(/\/+$/, '')}/api/internal-upsert-company?site=${encodeURIComponent(site)}`;
-  const r = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'x-internal-secret': secret },
-    body: JSON.stringify({ site, name, phone, email, active: !!active })
-  });
-  const data = await r.json().catch(() => null);
-  if (!r.ok) throw new Error(data?.error || `Sync Vercel échouée (${r.status})`);
-  return data;
-}
-
-async function syncPasswordToVercel({ site, email, password }) {
-  const base = process.env.PARTNER_ORDER_APP_URL || 'https://commande-longuenesse.vercel.app';
-  const secret = process.env.INTERNAL_API_SECRET || process.env.PARTNER_INTERNAL_SECRET;
-  if (!secret) {
-    console.warn('⚠️ INTERNAL_API_SECRET manquant: sync Vercel ignorée');
-    return { skipped: true };
-  }
-  const url = `${String(base).replace(/\/+$/, '')}/api/internal-reset-company-password?site=${encodeURIComponent(site)}`;
-  const r = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'x-internal-secret': secret },
-    body: JSON.stringify({ site, email, password })
-  });
-  const data = await r.json().catch(() => null);
-  if (!r.ok) throw new Error(data?.error || `Sync Vercel mot de passe échouée (${r.status})`);
-  return data;
-}
-
 const generateRandomPassword = () => {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789';
   let password = '';
@@ -200,95 +122,142 @@ const createMyOrder = async (req, res) => {
   }
 };
 
-// --- Internal: receive orders pushed from Vercel quick-order app ---
-const internalUpsertOrderFromVercel = async (req, res) => {
-  try {
-    if (!requireInternalSecret(req)) {
-      return res.status(401).json({ success: false, error: 'Secret interne requis' });
-    }
-
-    const site = normalizeSite(getSite(req));
-    const vercelOrderId = req.body?.vercelOrderId ? String(req.body.vercelOrderId) : null;
-    const companyEmail = req.body?.companyEmail ? String(req.body.companyEmail).toLowerCase().trim() : null;
-    const fulfillment = String(req.body?.fulfillment || '');
-    const datetime = String(req.body?.datetime || '');
-    const mealType = String(req.body?.mealType || '');
-    const tier = String(req.body?.tier || '');
-    const itemsSnapshot = req.body?.itemsSnapshot || null;
-
-    if (!vercelOrderId || !companyEmail) {
-      return res.status(400).json({ success: false, error: 'Champs requis: vercelOrderId, companyEmail' });
-    }
-    if (!fulfillment || !datetime || !mealType || !tier || !itemsSnapshot) {
-      return res
-        .status(400)
-        .json({ success: false, error: 'Champs requis: fulfillment, datetime, mealType, tier, itemsSnapshot' });
-    }
-
-    const dt = new Date(datetime);
-    if (Number.isNaN(dt.getTime())) return res.status(400).json({ success: false, error: 'Date/heure invalide' });
-
-    const company = await PartnerCompany.findOne({ site, email: companyEmail, active: true });
-    if (!company) return res.status(404).json({ success: false, error: 'Entreprise non trouvée' });
-
-    const update = {
-      $setOnInsert: {
-        site,
-        companyId: company._id,
-        source: 'vercel',
-        sourceId: vercelOrderId,
-        createdAt: new Date()
-      },
-      $set: {
-        fulfillment,
-        datetime: dt,
-        mealType,
-        tier,
-        itemsSnapshot,
-        status: 'submitted',
-        statusUpdatedAt: new Date()
-      }
-    };
-
-    const saved = await PartnerOrder.findOneAndUpdate({ source: 'vercel', sourceId: vercelOrderId }, update, {
-      new: true,
-      upsert: true
-    });
-
-    return res.json({ success: true, data: saved });
-  } catch (err) {
-    console.error('❌ internalUpsertOrderFromVercel:', err);
-    res.status(500).json({ success: false, error: err.message });
-  }
-};
-
 // --- Admin ---
 const adminCreateCompany = async (req, res) => {
   try {
     const { name, phone, email } = req.body;
     if (!name || !email) return res.status(400).json({ success: false, error: 'Nom et email requis' });
 
+    const emailNorm = String(email).toLowerCase().trim();
     const password = generateRandomPassword();
-    const site = normalizeSite(getSite(req));
+
+    const existing = await PartnerCompany.findOne({ email: emailNorm });
+    if (existing) {
+      if (existing.active) {
+        return res.status(400).json({ success: false, error: 'Cet email existe déjà' });
+      }
+      existing.name = String(name).trim();
+      existing.phone = phone ? String(phone).trim() : '';
+      existing.password = password;
+      existing.active = true;
+      await existing.save();
+      return res.json({
+        success: true,
+        data: { id: existing._id, name: existing.name, email: existing.email, phone: existing.phone },
+        password,
+        reactivated: true
+      });
+    }
+
     const company = await PartnerCompany.create({
       name: String(name).trim(),
       phone: phone ? String(phone).trim() : '',
-      email: String(email).toLowerCase().trim(),
+      email: emailNorm,
       password,
-      active: true,
-      site
+      active: true
     });
-
-    // Sync vers Vercel (pour login entreprise instantané)
-    try {
-      await syncCompanyToVercel({ site, name: company.name, phone: company.phone, email: company.email, password });
-    } catch (e) {
-      console.error('⚠️ Sync Vercel (create company) échouée:', e.message);
-    }
 
     res.json({ success: true, data: { id: company._id, name: company.name, email: company.email, phone: company.phone }, password });
   } catch (err) {
-    if (err.code === 11000) return res.status(400).json({ success: false, error: 'Cet email existe déjà' });
+    if (err.code === 11000) {
+      const dup = await PartnerCompany.findOne({ email: emailNorm });
+      if (dup && !dup.active) {
+        dup.name = String(name).trim();
+        dup.phone = phone ? String(phone).trim() : '';
+        dup.password = password;
+        dup.active = true;
+        await dup.save();
+        return res.json({
+          success: true,
+          data: { id: dup._id, name: dup.name, email: dup.email, phone: dup.phone },
+          password,
+          reactivated: true
+        });
+      }
+      return res.status(400).json({ success: false, error: 'Cet email existe déjà' });
+    }
+    res.status(500).json({ success: false, error: err.message });
+  }
+};
+
+/** Logique partagée : efface la fiche PartnerCompany pour cet e-mail (libère l’index unique). */
+const purgePartnerCompanyByEmailNorm = async (emailNorm, res) => {
+  try {
+    if (!emailNorm) {
+      return res.status(400).json({ success: false, error: 'E-mail requis.' });
+    }
+    const deleted = await PartnerCompany.findOneAndDelete({ email: emailNorm });
+    if (!deleted) {
+      return res.status(404).json({
+        success: false,
+        error: `Aucune entreprise en base pour l’e-mail ${emailNorm}.`
+      });
+    }
+    return res.json({
+      success: true,
+      permanent: true,
+      email: deleted.email
+    });
+  } catch (err) {
+    console.error('❌ purgePartnerCompanyByEmailNorm:', err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+};
+
+/**
+ * DELETE /companies?email=…&permanent=true (compat.)
+ * Certains hébergeurs / proxies ne routent pas DELETE sur la « collection » → préférer POST /companies/purge.
+ */
+const adminPurgePartnerCompanyByEmail = async (req, res) => {
+  const emailRaw = req.query.email;
+  const permanent =
+    req.query.permanent === '1' ||
+    req.query.permanent === 'true' ||
+    req.query.hard === '1' ||
+    req.query.hard === 'true';
+
+  if (!emailRaw || !permanent) {
+    return res.status(400).json({
+      success: false,
+      error: 'Utilisez permanent=true et le paramètre email pour effacer définitivement une entreprise.'
+    });
+  }
+
+  const emailNorm = String(emailRaw).toLowerCase().trim();
+  return purgePartnerCompanyByEmailNorm(emailNorm, res);
+};
+
+/** POST /companies/purge { email } — route recommandée (évite 404 sur DELETE /companies). */
+const adminPurgePartnerCompanyByEmailPost = async (req, res) => {
+  const emailNorm = String(req.body?.email || '').toLowerCase().trim();
+  return purgePartnerCompanyByEmailNorm(emailNorm, res);
+};
+
+const adminDeleteCompany = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const permanent =
+      req.query.permanent === '1' ||
+      req.query.permanent === 'true' ||
+      req.query.hard === '1' ||
+      req.query.hard === 'true';
+
+    if (permanent) {
+      const deleted = await PartnerCompany.findByIdAndDelete(id);
+      if (!deleted) {
+        return res.status(404).json({ success: false, error: 'Entreprise non trouvée (suppression définitive)' });
+      }
+      return res.json({ success: true, permanent: true });
+    }
+
+    const company = await PartnerCompany.findById(id);
+    if (!company) return res.status(404).json({ success: false, error: 'Entreprise non trouvée' });
+
+    company.active = false;
+    await company.save();
+    return res.json({ success: true });
+  } catch (err) {
+    console.error('❌ adminDeleteCompany:', err);
     res.status(500).json({ success: false, error: err.message });
   }
 };
@@ -303,13 +272,6 @@ const adminSendInvite = async (req, res) => {
     const newPassword = generateRandomPassword();
     company.password = newPassword;
     await company.save();
-
-    // Sync mot de passe vers Vercel (pour login entreprise instantané)
-    try {
-      await syncPasswordToVercel({ site, email: company.email, password: newPassword });
-    } catch (e) {
-      console.error('⚠️ Sync Vercel (reset password) échouée:', e.message);
-    }
 
     const orderAppUrl = process.env.PARTNER_ORDER_APP_URL || 'https://commande-longuenesse.vercel.app';
     const subject = `Accès Commande en ligne - ${company.name}`;
@@ -361,36 +323,6 @@ const adminListCompanies = async (req, res) => {
       }))
     });
   } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-};
-
-const adminDeleteCompany = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const site = normalizeSite(getSite(req));
-    const company = await PartnerCompany.findById(id);
-    if (!company) return res.status(404).json({ success: false, error: 'Entreprise non trouvée' });
-
-    company.active = false;
-    await company.save();
-
-    // Sync désactivation vers Vercel (pour empêcher le login)
-    try {
-      await syncCompanyActiveToVercel({
-        site,
-        name: company.name,
-        phone: company.phone || '',
-        email: company.email,
-        active: false
-      });
-    } catch (e) {
-      console.error('⚠️ Sync Vercel (deactivate company) échouée:', e.message);
-    }
-
-    return res.json({ success: true });
-  } catch (err) {
-    console.error('❌ adminDeleteCompany:', err);
     res.status(500).json({ success: false, error: err.message });
   }
 };
@@ -463,46 +395,6 @@ const internalListOrders = async (req, res) => {
   try {
     const site = normalizeSite(getSite(req));
     const status = req.query.status;
-
-    // Pull latest orders from Vercel (best-effort) so Filmara stays in sync
-    try {
-      const pulled = await pullOrdersFromVercel({ site, status });
-      const list = Array.isArray(pulled?.data) ? pulled.data : [];
-      for (const o of list) {
-        const sourceId = o?._id ? String(o._id) : null;
-        if (!sourceId) continue;
-
-        const companyEmail = o?.companyEmail ? String(o.companyEmail).toLowerCase().trim() : null;
-        const company = companyEmail ? await PartnerCompany.findOne({ site, email: companyEmail, active: true }) : null;
-        if (!company) continue;
-
-        await PartnerOrder.updateOne(
-          { source: 'vercel', sourceId },
-          {
-            $setOnInsert: {
-              site,
-              companyId: company._id,
-              source: 'vercel',
-              sourceId,
-              createdAt: o.createdAt ? new Date(o.createdAt) : new Date()
-            },
-            $set: {
-              fulfillment: o.fulfillment,
-              datetime: o.datetime ? new Date(o.datetime) : null,
-              mealType: o.mealType,
-              tier: o.tier,
-              itemsSnapshot: o.itemsSnapshot,
-              status: o.status || 'submitted',
-              statusUpdatedAt: o.statusUpdatedAt ? new Date(o.statusUpdatedAt) : new Date()
-            }
-          },
-          { upsert: true }
-        );
-      }
-    } catch (e) {
-      console.error('⚠️ Pull commandes Vercel échoué:', e.message);
-    }
-
     const q = { site };
     if (status) q.status = status;
     const orders = await PartnerOrder.find(q).sort({ statusUpdatedAt: -1, datetime: -1 }).limit(500);
@@ -517,11 +409,12 @@ module.exports = {
   partnerMe,
   listMyOrders,
   createMyOrder,
-  internalUpsertOrderFromVercel,
   adminCreateCompany,
+  adminPurgePartnerCompanyByEmail,
+  adminPurgePartnerCompanyByEmailPost,
+  adminDeleteCompany,
   adminSendInvite,
   adminListCompanies,
-  adminDeleteCompany,
   adminListOrders,
   adminUpdateOrderStatus,
   adminGetFormulas,

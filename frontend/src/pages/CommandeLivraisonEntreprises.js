@@ -2,16 +2,6 @@ import React, { useEffect, useMemo, useState } from 'react';
 import api from '../services/api';
 import { getSiteKey } from '../config/site';
 
-const safeClone = (obj) => {
-  try {
-    // `structuredClone` peut être indisponible selon navigateur/runtime
-    if (typeof structuredClone === 'function') return structuredClone(obj);
-  } catch {
-    // fallback ci-dessous
-  }
-  return JSON.parse(JSON.stringify(obj));
-};
-
 const statusLabels = {
   submitted: 'Envoyée',
   acknowledged: 'Pris en compte',
@@ -19,6 +9,38 @@ const statusLabels = {
   paid: 'Payé',
   cancelled: 'Annulé'
 };
+
+/** Textarea « une ligne = un élément » : garde la ligne vide finale tant que l'utilisateur vient d'appuyer sur Entrée. */
+function multilineToStringList(raw) {
+  const s = String(raw ?? '');
+  const endsWithNl = s.endsWith('\n');
+  const parts = s.split('\n');
+  const out = [];
+  for (let i = 0; i < parts.length; i++) {
+    const line = parts[i];
+    const isLast = i === parts.length - 1;
+    if (line.trim().length > 0) out.push(line);
+    else if (isLast && endsWithNl) out.push(line);
+  }
+  return out;
+}
+
+function sanitizeFormulaPayloadForSave(data) {
+  const next = structuredClone(data);
+  const listFields = ['items', 'miniViennoiserieOptions', 'juiceOptions'];
+  for (const meal of ['breakfast', 'lunch']) {
+    for (const tier of ['eco', 'classic', 'premium']) {
+      const t = next[meal]?.[tier];
+      if (!t) continue;
+      for (const f of listFields) {
+        if (Array.isArray(t[f])) {
+          t[f] = t[f].map((x) => String(x)).filter((x) => x.trim().length > 0);
+        }
+      }
+    }
+  }
+  return next;
+}
 
 const CommandeLivraisonEntreprises = () => {
   const siteKey = getSiteKey(); // lon | plan
@@ -82,6 +104,9 @@ const CommandeLivraisonEntreprises = () => {
       const res = await api.post('/partner-admin/companies', payload, { params: { site } });
       const pwd = res.data?.password;
       setCreatedPassword(pwd || null);
+      if (res.data?.reactivated) {
+        alert('Compte existant réactivé avec cet e-mail (nouveau mot de passe affiché ci-dessous).');
+      }
       setNewCompany({ name: '', phone: '', email: '' });
       await loadCompanies();
     } catch (e) {
@@ -118,6 +143,51 @@ const CommandeLivraisonEntreprises = () => {
     }
   };
 
+  const permanentlyDeleteCompany = async (company) => {
+    try {
+      const ok = window.confirm(
+        `Supprimer DÉFINITIVEMENT « ${company.name} » (${company.email}) ?\n\n` +
+          `L’enregistrement sera effacé de la base : vous pourrez recréer un compte avec la même adresse e-mail.\n` +
+          `Les anciennes commandes peuvent rester liées à l’ancien identifiant technique.`
+      );
+      if (!ok) return;
+      const emailNorm = String(company.email || '').toLowerCase().trim();
+      if (!emailNorm) {
+        alert('E-mail manquant sur cette ligne.');
+        return;
+      }
+      // Route courte sur le serveur (évite « Route non trouvée » si /partner-admin/companies/purge n’est pas déployée)
+      const purgeRes = await api.post(
+        '/partner-company-purge',
+        { email: emailNorm },
+        { params: { site } }
+      );
+      if (purgeRes.data?.success) {
+        alert(`Compte effacé de la base pour ${emailNorm}. Vous pouvez recréer avec cet e-mail.`);
+      }
+      try {
+        await loadCompanies();
+      } catch (reloadErr) {
+        console.error(reloadErr);
+        alert(
+          'La suppression a peut‑être réussi, mais la liste n’a pas pu être rechargée. Rafraîchissez la page (F5).'
+        );
+      }
+    } catch (e) {
+      console.error(e);
+      const st = e?.response?.status;
+      const msg = e?.response?.data?.error;
+      if (st === 404 || msg === 'Route non trouvée') {
+        alert(
+          'L’API Longuenesse sur Render (boulangerie-planning-api-3) n’a pas encore la route de purge — d’où « Route non trouvée ».\n\n' +
+            'Dans Render : ouvrez le service api-3 → Manual Deploy → Deploy latest commit (branche main).\n\n' +
+            'Vérifiez ensuite : https://boulangerie-planning-api-3.onrender.com/health doit afficher une version ≥ 1.0.1 (pas 1.0.0).'
+        );
+      } else {
+        alert(msg || 'Suppression définitive impossible (droits admin requis).');
+      }
+    }
+  };
   const loadFormulas = async () => {
     setFormulasLoading(true);
     try {
@@ -135,7 +205,8 @@ const CommandeLivraisonEntreprises = () => {
   const saveFormulas = async () => {
     try {
       if (!formulas) return;
-      await api.put('/partner-admin/formulas', formulas, { params: { site } });
+      const payload = sanitizeFormulaPayloadForSave(formulas);
+      await api.put('/partner-admin/formulas', payload, { params: { site } });
       alert('Formules enregistrées.');
       await loadFormulas();
     } catch (e) {
@@ -177,7 +248,7 @@ const CommandeLivraisonEntreprises = () => {
   const updateFormulaField = (mealType, tier, field, value) => {
     setFormulas((prev) => {
       if (!prev) return prev;
-      const next = safeClone(prev);
+      const next = structuredClone(prev);
       next[mealType] = next[mealType] || {};
       next[mealType][tier] = next[mealType][tier] || {};
       next[mealType][tier][field] = value;
@@ -186,20 +257,14 @@ const CommandeLivraisonEntreprises = () => {
   };
 
   const updateFormulaItems = (mealType, tier, textareaValue) => {
-    // Conserve espaces et ponctuation dans chaque ligne ; retire seulement les lignes entièrement vides
-    const items = String(textareaValue || '')
-      .split('\n')
-      .filter((line) => line.trim().length > 0);
+    const items = multilineToStringList(textareaValue);
     updateFormulaField(mealType, tier, 'items', items);
   };
 
   const updateFormulaStringList = (mealType, tier, field, textareaValue) => {
-    const items = String(textareaValue || '')
-      .split('\n')
-      .filter((line) => line.trim().length > 0);
+    const items = multilineToStringList(textareaValue);
     updateFormulaField(mealType, tier, field, items);
   };
-
   return (
     <div className="card">
       <h2 style={{ marginTop: 0 }}>🚚 Commandes Livraison (Entreprises)</h2>
@@ -359,6 +424,11 @@ const CommandeLivraisonEntreprises = () => {
             <div style={{ marginTop: 8, color: '#666', fontSize: 13 }}>
               Ensuite clique “Envoyer mot de passe” sur la ligne de l’entreprise pour envoyer l’email avec le lien Vercel.
             </div>
+            <div style={{ marginTop: 8, color: '#92400e', fontSize: 13 }}>
+              Si une ancienne adresse est « déjà utilisée » alors que le compte a été retiré : coche « Afficher les comptes
+              désactivés », puis utilise « Effacer de la base (e-mail libéré) » sur la ligne concernée, ou réactivez-le avec
+              « Créer » (même e-mail).
+            </div>
           </div>
 
           {companiesLoading ? (
@@ -386,9 +456,16 @@ const CommandeLivraisonEntreprises = () => {
                       </button>
                       <button
                         onClick={() => deleteCompany(c)}
-                        style={{ padding: '8px 12px', borderRadius: '8px', background: '#fff1f2', border: '1px solid #fecdd3' }}
+                        style={{ padding: '8px 12px', borderRadius: '8px', border: '1px solid #dc2626', color: '#b91c1c', background: '#fff' }}
                       >
                         Supprimer
+                      </button>
+                      <button
+                        onClick={() => permanentlyDeleteCompany(c)}
+                        style={{ padding: '8px 12px', borderRadius: '8px', border: '1px solid #7f1d1d', color: '#7f1d1d', background: '#fef2f2' }}
+                        title="Efface la fiche en base Mongo : l’e-mail redevient disponible pour une nouvelle création"
+                      >
+                        Effacer de la base (e-mail libéré)
                       </button>
                     </div>
                   </div>
@@ -445,9 +522,6 @@ const CommandeLivraisonEntreprises = () => {
                             value={f.description || ''}
                             onChange={(e) => updateFormulaField(mealType, tier, 'description', e.target.value)}
                           />
-                          <div style={{ marginTop: 6, color: '#666', fontSize: 12 }}>
-                            Astuce : pour mettre un choix par ligne (ex: « pain chocolat »), utilise les zones textarea ci-dessous.
-                          </div>
                           <textarea
                             placeholder="Items (1 par ligne) — contenu de référence de la box / formule"
                             style={{ marginTop: 8, width: '100%', minHeight: 90 }}
