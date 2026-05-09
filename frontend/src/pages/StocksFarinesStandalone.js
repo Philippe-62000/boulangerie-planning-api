@@ -16,8 +16,21 @@ const StocksFarinesStandalone = () => {
   const [urgentReason, setUrgentReason] = useState('');
   const [message, setMessage] = useState(null);
   const [sending, setSending] = useState(false);
+  const [lastSend, setLastSend] = useState({ at: null, byName: '' });
 
   const activeFlours = useMemo(() => flours.filter((f) => f.isActive !== false), [flours]);
+
+  const fetchInventoryMeta = async () => {
+    try {
+      const invRes = await api.get('/stocks/flours/inventory', { params: { siteKey } });
+      const inv = invRes.data?.data || {};
+      const at = inv.lastEntryAt || inv.updatedAt || null;
+      setLastSend({ at, byName: String(inv.updatedByName || '').trim() });
+    } catch (e) {
+      console.error(e);
+      setLastSend({ at: null, byName: '' });
+    }
+  };
 
   useEffect(() => {
     const load = async () => {
@@ -26,6 +39,7 @@ const StocksFarinesStandalone = () => {
           api.get('/employees'),
           api.get('/stocks/flours/config', { params: { siteKey } })
         ]);
+        await fetchInventoryMeta();
 
         const empData = empRes.data?.data || empRes.data;
         setEmployees(Array.isArray(empData) ? empData : []);
@@ -83,6 +97,7 @@ const StocksFarinesStandalone = () => {
         setValues({});
         setUrgent(false);
         setUrgentReason('');
+        await fetchInventoryMeta();
       } else {
         setMessage({ type: 'error', text: res.data?.error || 'Erreur lors de l’envoi.' });
       }
@@ -94,11 +109,30 @@ const StocksFarinesStandalone = () => {
     }
   };
 
+  const lastSendLine = () => {
+    const iso = lastSend.at;
+    const byName = lastSend.byName;
+    if (!iso) return 'Dernier envoi : aucun pour l’instant.';
+    const d = new Date(iso);
+    const label = Number.isNaN(d.getTime())
+      ? String(iso)
+      : d.toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' });
+    const dayMs = 86400000;
+    const a = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    const t = new Date();
+    const b = new Date(t.getFullYear(), t.getMonth(), t.getDate());
+    const days = Math.round((b - a) / dayMs);
+    const jourTxt = days <= 0 ? "aujourd'hui" : days === 1 ? 'hier' : `il y a ${days} jours`;
+    const par = byName && String(byName).trim() ? ` — par ${String(byName).trim()}` : '';
+    return `Dernier envoi : ${label} (${jourTxt})${par}`;
+  };
+
   return (
     <div className="stocks-standalone">
       <div className="stocks-standalone-card">
         <h1>📦 Stocks Farines</h1>
         <p className="subtitle">Site: {siteLabel}</p>
+        <p className="last-send-line">{lastSendLine()}</p>
 
         {message && <div className={`msg ${message.type}`}>{message.text}</div>}
 

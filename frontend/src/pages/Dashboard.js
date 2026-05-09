@@ -24,7 +24,15 @@ const Dashboard = () => {
     loading: false
   });
   const [partnerOrdersPending, setPartnerOrdersPending] = useState({ count: 0, loading: false });
-  const [flourStocksWidget, setFlourStocksWidget] = useState({ loading: false, items: [], error: null });
+  const [flourStocksWidget, setFlourStocksWidget] = useState({
+    loading: false,
+    items: [],
+    error: null,
+    lastEntryAt: null,
+    updatedByName: ''
+  });
+  /** false = uniquement farines rouges ; true = toutes */
+  const [flourStocksShowAll, setFlourStocksShowAll] = useState(false);
 
   // Détecter si on est sur Longuenesse ou Arras
   const siteKey = getSiteKey(); // 'lon' | 'plan' (fallback persistant)
@@ -54,7 +62,11 @@ const Dashboard = () => {
   }, [shouldShowLosses, shouldShowVehicleRecap, user?.role]);
 
   const fetchFlourStocksWidget = async () => {
-    setFlourStocksWidget((s) => ({ ...s, loading: true, error: null }));
+    setFlourStocksWidget((s) => ({
+      ...s,
+      loading: true,
+      error: null
+    }));
     try {
       const siteKey = getSiteKey(); // 'lon'|'plan'
       const [cfgRes, invRes, paramsRes] = await Promise.all([
@@ -66,6 +78,8 @@ const Dashboard = () => {
       const configs = Array.isArray(cfgRes.data?.data) ? cfgRes.data.data : [];
       const inventory = invRes.data?.data || { items: [] };
       const invItems = Array.isArray(inventory?.items) ? inventory.items : [];
+      const lastEntryAt = inventory.lastEntryAt || inventory.updatedAt || null;
+      const updatedByName = String(inventory.updatedByName || '').trim();
       const params = Array.isArray(paramsRes.data) ? paramsRes.data : [];
       const sacksPerPalletName = `whiteFlourSacksPerPallet_${siteKey}`;
       const sacksPerPalletRaw = params.find((p) => p.name === sacksPerPalletName)?.stringValue;
@@ -109,11 +123,41 @@ const Dashboard = () => {
           return a.name.localeCompare(b.name, 'fr');
         });
 
-      setFlourStocksWidget({ loading: false, items, error: null });
+      setFlourStocksWidget({
+        loading: false,
+        items,
+        error: null,
+        lastEntryAt,
+        updatedByName
+      });
     } catch (e) {
       console.error('Erreur widget stocks farines:', e);
-      setFlourStocksWidget({ loading: false, items: [], error: 'Erreur chargement stocks farines' });
+      setFlourStocksWidget({
+        loading: false,
+        items: [],
+        error: 'Erreur chargement stocks farines',
+        lastEntryAt: null,
+        updatedByName: ''
+      });
     }
+  };
+
+  const formatLastStockSendLine = (iso, byName) => {
+    if (!iso) {
+      return 'Dernier envoi : aucun pour l’instant.';
+    }
+    const d = new Date(iso);
+    const label = Number.isNaN(d.getTime())
+      ? String(iso)
+      : d.toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' });
+    const dayMs = 86400000;
+    const a = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    const t = new Date();
+    const b = new Date(t.getFullYear(), t.getMonth(), t.getDate());
+    const days = Math.round((b - a) / dayMs);
+    const jourTxt = days <= 0 ? "aujourd'hui" : days === 1 ? 'hier' : `il y a ${days} jours`;
+    const par = byName && String(byName).trim() ? ` — par ${String(byName).trim()}` : '';
+    return `Dernier envoi : ${label} (${jourTxt})${par}`;
   };
 
   const formatDailyConsumption = (daily) => {
@@ -787,12 +831,17 @@ const Dashboard = () => {
       {/* Stocks farines — Longuenesse et Arras */}
       {shouldShowLosses && (
         <div className="card" style={{ marginBottom: '2rem' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
-            <h3 style={{ margin: 0 }}>📦 Stocks farines</h3>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem', flexWrap: 'wrap' }}>
+            <div style={{ flex: '1 1 240px', minWidth: 0 }}>
+              <h3 style={{ margin: 0 }}>📦 Stocks farines</h3>
+              <div style={{ marginTop: 6, fontSize: '0.9rem', color: '#555', lineHeight: 1.35 }}>
+                {formatLastStockSendLine(flourStocksWidget.lastEntryAt, flourStocksWidget.updatedByName)}
+              </div>
+            </div>
             {isAdmin() && (
               <a
                 href={isLonguenesse ? '/lon/stocks' : '/plan/stocks'}
-                style={{ fontSize: '0.9rem', fontWeight: 700, color: '#667eea' }}
+                style={{ fontSize: '0.9rem', fontWeight: 700, color: '#667eea', whiteSpace: 'nowrap' }}
               >
                 Paramètres stocks →
               </a>
@@ -805,9 +854,51 @@ const Dashboard = () => {
             <p style={{ color: '#856404' }}>{flourStocksWidget.error}</p>
           ) : flourStocksWidget.items.length === 0 ? (
             <p style={{ color: '#666' }}>Aucune farine configurée.</p>
-          ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '0.75rem', marginTop: '0.75rem' }}>
-              {flourStocksWidget.items.map((it) => {
+          ) : (() => {
+            const allItems = flourStocksWidget.items;
+            const redItems = allItems.filter((it) => it.status === 'red');
+            const visibleItems = flourStocksShowAll ? allItems : redItems;
+            const hasNonRed = allItems.some((it) => it.status !== 'red');
+
+            return (
+              <>
+                {hasNonRed && (
+                  <div style={{ marginTop: '0.65rem' }}>
+                    <button
+                      type="button"
+                      onClick={() => setFlourStocksShowAll((v) => !v)}
+                      style={{
+                        padding: '0.45rem 0.85rem',
+                        fontSize: '0.88rem',
+                        fontWeight: 600,
+                        borderRadius: '8px',
+                        border: '1px solid #667eea',
+                        background: flourStocksShowAll ? '#f0f2ff' : '#fff',
+                        color: '#667eea',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      {flourStocksShowAll
+                        ? 'Afficher uniquement les alertes (rouge)'
+                        : 'Voir toutes les farines'}
+                    </button>
+                  </div>
+                )}
+
+                {!flourStocksShowAll && visibleItems.length === 0 ? (
+                  <p style={{ color: '#555', marginTop: '0.75rem' }}>
+                    Aucune farine en alerte critique (rouge).
+                  </p>
+                ) : (
+                  <div
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
+                      gap: '0.75rem',
+                      marginTop: '0.75rem'
+                    }}
+                  >
+                    {visibleItems.map((it) => {
                 const color =
                   it.status === 'green' ? '#155724' : it.status === 'orange' ? '#856404' : it.status === 'red' ? '#721c24' : '#555';
                 const border =
@@ -837,8 +928,11 @@ const Dashboard = () => {
                   </div>
                 );
               })}
-            </div>
-          )}
+                  </div>
+                )}
+              </>
+            );
+          })()}
         </div>
       )}
 
