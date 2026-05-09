@@ -4,6 +4,7 @@ import { getSiteKey } from '../config/site';
 import './Stocks.css';
 
 const DAYS = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
+const QUICK_FRACTIONS = ['1/2', '1/3', '1/4', '1/5', '1/6', '1/7'];
 
 const Stocks = () => {
   const siteKey = getSiteKey(); // 'lon' | 'plan'
@@ -73,8 +74,9 @@ const Stocks = () => {
         _id: f._id,
         name: f.name,
         unit: f.unit,
-        dailyConsumptionSacks: Number(f.dailyConsumptionSacks || 0),
-        criticalThresholdSacks: Number(f.criticalThresholdSacks || 0),
+        dailyConsumptionSacks: f.dailyConsumptionSacks ?? 0,
+        criticalThresholdSacks: f.criticalThresholdSacks ?? 0,
+        supplierType: f.supplierType || 'standard',
         isActive: !!f.isActive,
         order: Number(f.order || 0)
       }));
@@ -241,6 +243,7 @@ const Stocks = () => {
                   <tr>
                     <th>Nom</th>
                     <th>Unité</th>
+                    <th>Fournisseur</th>
                     <th>Conso/j (sacs)</th>
                     <th>Seuil critique (sacs)</th>
                     <th>Actif</th>
@@ -262,17 +265,48 @@ const Stocks = () => {
                       </td>
                       <td>{f.unit === 'pallets_and_sacks' ? 'Palettes + sacs' : 'Sacs'}</td>
                       <td>
-                        <input
+                        <select
                           className="stocks-input"
-                          value={String(f.dailyConsumptionSacks ?? 0)}
+                          value={f.supplierType || 'standard'}
                           onChange={(e) => {
                             const v = e.target.value;
-                            setFlours((prev) =>
-                              prev.map((x) => (x === f ? { ...x, dailyConsumptionSacks: v } : x))
-                            );
+                            setFlours((prev) => prev.map((x) => (x === f ? { ...x, supplierType: v } : x)));
                           }}
-                          inputMode="numeric"
-                        />
+                        >
+                          <option value="standard">Standard</option>
+                          <option value="next_day">Commande veille → lendemain</option>
+                        </select>
+                      </td>
+                      <td>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 6 }}>
+                          <input
+                            className="stocks-input"
+                            value={String(f.dailyConsumptionSacks ?? 0)}
+                            onChange={(e) => {
+                              const v = e.target.value;
+                              setFlours((prev) =>
+                                prev.map((x) => (x === f ? { ...x, dailyConsumptionSacks: v } : x))
+                              );
+                            }}
+                            inputMode="decimal"
+                            placeholder="ex: 0.5 ou 1/3"
+                          />
+                          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                            {QUICK_FRACTIONS.map((fr) => (
+                              <button
+                                key={fr}
+                                type="button"
+                                className="stocks-btn"
+                                style={{ padding: '6px 10px' }}
+                                onClick={() =>
+                                  setFlours((prev) => prev.map((x) => (x === f ? { ...x, dailyConsumptionSacks: fr } : x)))
+                                }
+                              >
+                                {fr}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
                       </td>
                       <td>
                         <input
@@ -284,7 +318,7 @@ const Stocks = () => {
                               prev.map((x) => (x === f ? { ...x, criticalThresholdSacks: v } : x))
                             );
                           }}
-                          inputMode="numeric"
+                          inputMode="decimal"
                         />
                       </td>
                       <td style={{ textAlign: 'center' }}>

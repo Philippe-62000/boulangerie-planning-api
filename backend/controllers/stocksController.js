@@ -14,9 +14,12 @@ const DEFAULT_FLOURS = [
   { name: 'FARINE BLANCHE', unit: 'pallets_and_sacks' },
   { name: 'FARINE CAMPAGNE', unit: 'sacks' },
   { name: 'FARINE COMPLET T150', unit: 'sacks' },
+  { name: 'FARINE GRAINES CHIA', unit: 'sacks', supplierType: 'next_day' },
   { name: 'FARINE GRAINS ANCIENS', unit: 'sacks' },
   { name: 'FARINE LEVAIN LIQUIDE', unit: 'sacks' },
   { name: 'FARINE MAIS', unit: 'sacks' },
+  { name: 'MIX PAIN DE MIE', unit: 'sacks', supplierType: 'next_day' },
+  { name: 'MIX BRIOCHE', unit: 'sacks', supplierType: 'next_day' },
   { name: 'FARINE PAVE ANGE', unit: 'sacks' },
   { name: 'FARINE SEIGLE', unit: 'sacks' },
   { name: 'FARINE SEMOULE', unit: 'sacks' },
@@ -24,6 +27,21 @@ const DEFAULT_FLOURS = [
 ];
 
 const parseSiteKey = (v) => (v === 'lon' || v === 'plan' ? v : null);
+
+function parseNumberOrFraction(value, fallback = 0) {
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  const s = String(value ?? '').trim().replace(',', '.');
+  if (!s) return fallback;
+  const fractionMatch = s.match(/^(\d+(?:\.\d+)?)\s*\/\s*(\d+(?:\.\d+)?)$/);
+  if (fractionMatch) {
+    const num = Number(fractionMatch[1]);
+    const den = Number(fractionMatch[2]);
+    if (Number.isFinite(num) && Number.isFinite(den) && den !== 0) return num / den;
+    return fallback;
+  }
+  const n = Number(s);
+  return Number.isFinite(n) ? n : fallback;
+}
 
 async function ensureParameter({ name, displayName, stringValue, booleanValue }) {
   const existing = await Parameter.findOne({ name });
@@ -75,17 +93,22 @@ function stockToSacks({ unit, sacks, pallets, sacksPerPallet }) {
 }
 
 async function ensureDefaultFlours(siteKey) {
-  const count = await FlourConfig.countDocuments({ siteKey });
-  if (count > 0) return;
+  // Ajoute les entrées manquantes sans écraser la config existante
+  const existing = await FlourConfig.find({ siteKey }).select('name');
+  const existingNames = new Set(existing.map((d) => d.name));
+  const missing = DEFAULT_FLOURS.filter((f) => !existingNames.has(f.name));
+  if (missing.length === 0) return;
 
-  const docs = DEFAULT_FLOURS.map((f, idx) => ({
+  const baseOrder = existing.length;
+  const docs = missing.map((f, idx) => ({
     siteKey,
     name: f.name,
     unit: f.unit,
+    supplierType: f.supplierType || 'standard',
     dailyConsumptionSacks: 0,
     criticalThresholdSacks: 0,
     isActive: true,
-    order: idx
+    order: baseOrder + idx
   }));
   await FlourConfig.insertMany(docs, { ordered: false });
 }
@@ -136,13 +159,14 @@ const putFlourConfigBatch = async (req, res) => {
       .map((x) => {
         const id = x._id || x.id;
         const update = {
-          dailyConsumptionSacks: Math.max(0, Number(x.dailyConsumptionSacks || 0)),
-          criticalThresholdSacks: Math.max(0, Number(x.criticalThresholdSacks || 0)),
+          dailyConsumptionSacks: Math.max(0, parseNumberOrFraction(x.dailyConsumptionSacks, 0)),
+          criticalThresholdSacks: Math.max(0, parseNumberOrFraction(x.criticalThresholdSacks, 0)),
           isActive: typeof x.isActive === 'boolean' ? x.isActive : true,
           order: Number.isFinite(Number(x.order)) ? Number(x.order) : 0
         };
         if (typeof x.name === 'string' && x.name.trim()) update.name = x.name.trim();
         if (x.unit === 'sacks' || x.unit === 'pallets_and_sacks') update.unit = x.unit;
+        if (x.supplierType === 'standard' || x.supplierType === 'next_day') update.supplierType = x.supplierType;
 
         if (id) {
           return {
