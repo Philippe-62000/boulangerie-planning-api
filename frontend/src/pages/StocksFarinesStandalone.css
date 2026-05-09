@@ -21,6 +21,13 @@
   color: #666;
 }
 
+.last-send-line {
+  margin: 6px 0 0;
+  font-size: 0.95rem;
+  color: #444;
+  line-height: 1.35;
+}
+
 .block {
   margin: 12px 0;
   padding: 14px;

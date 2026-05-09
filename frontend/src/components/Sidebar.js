@@ -268,8 +268,15 @@ const Sidebar = () => {
   const hasPermission = (menuId) => {
     if (!user) return false;
 
-    // Frais KM Responsable / Véhicule : toujours visibles pour l’admin (évite masquage si permission BDD absente ou désactivée par erreur)
-    if (isAdmin() && (menuId === 'frais-km-responsable' || menuId === 'vehicle' || menuId === 'compte-client-depots')) return true;
+    // Frais KM Responsable / Véhicule / Stocks : toujours visibles pour l’admin (évite masquage si permission BDD absente ou désactivée par erreur)
+    if (
+      isAdmin() &&
+      (menuId === 'frais-km-responsable' ||
+        menuId === 'vehicle' ||
+        menuId === 'compte-client-depots' ||
+        menuId === 'stocks')
+    )
+      return true;
 
     // Permissions pas encore chargées : éviter menu vide (sous-menus + Véhicule invisibles)
     if (menuPermissions.length === 0) {

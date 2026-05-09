@@ -88,6 +88,16 @@
   border-color: #5eead4;
 }
 
+.standalone-menu-link--stocks {
+  background: #f5f3ff;
+  border-color: #ddd6fe;
+}
+
+.standalone-menu-link--stocks:hover {
+  background: #ede9fe;
+  border-color: #c4b5fd;
+}
+
 .standalone-menu-icon {
   font-size: 2rem;
   line-height: 1;

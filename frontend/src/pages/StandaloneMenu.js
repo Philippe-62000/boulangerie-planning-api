@@ -47,6 +47,26 @@ const StandaloneMenu = () => {
               ›
             </span>
           </Link>
+
+          <a
+            className="standalone-menu-link standalone-menu-link--stocks"
+            href={
+              typeof window !== 'undefined' && window.location.pathname.startsWith('/lon')
+                ? '/lon/stocks-farines-standalone.html'
+                : '/plan/stocks-farines-standalone.html'
+            }
+          >
+            <span className="standalone-menu-icon" aria-hidden="true">
+              📦
+            </span>
+            <span className="standalone-menu-text">
+              <span className="standalone-menu-title">Stocks farines</span>
+              <span className="standalone-menu-desc">Saisie terrain sans connexion</span>
+            </span>
+            <span className="standalone-menu-chevron" aria-hidden="true">
+              ›
+            </span>
+          </a>
         </nav>
       </div>
     </div>
