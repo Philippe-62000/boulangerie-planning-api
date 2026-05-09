@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Stocks Farines</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      padding: 18px;
+      color: #333;
+    }
+    .container {
+      max-width: 760px;
+      margin: 0 auto;
+      background: #fff;
+      border-radius: 14px;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.12);
+      padding: 18px;
+    }
+    h1 { margin: 0 0 6px; font-size: 1.6rem; }
+    .subtitle { color: #666; margin: 0 0 6px; }
+    .last-send-line { color: #444; margin: 0 0 14px; font-size: 0.95rem; line-height: 1.35; }
+    .card {
+      border: 1px solid #e1e5e9;
+      border-radius: 12px;
+      padding: 14px;
+      margin: 12px 0;
+      background: #fff;
+    }
+    label { display: block; font-weight: 600; margin-bottom: 6px; }
+    select, input, textarea {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid #e1e5e9;
+      border-radius: 10px;
+      font-size: 1rem;
+    }
+    textarea { min-height: 80px; resize: vertical; }
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    @media (max-width: 700px) { .row { grid-template-columns: 1fr; } }
+    .flour-row {
+      display: grid;
+      grid-template-columns: 1fr 140px 140px;
+      gap: 10px;
+      align-items: center;
+      padding: 10px 0;
+      border-bottom: 1px solid #eef1f4;
+    }
+    .flour-row:last-child { border-bottom: 0; }
+    .flour-name { font-weight: 650; }
+    .muted { color: #666; font-size: 0.9rem; }
+    .btn {
+      width: 100%;
+      border: none;
+      border-radius: 10px;
+      padding: 12px 14px;
+      font-weight: 700;
+      cursor: pointer;
+      color: #fff;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    }
+    .btn:disabled { opacity: 0.7; cursor: not-allowed; }
+    .message {
+      padding: 12px;
+      border-radius: 10px;
+      margin: 10px 0;
+      font-weight: 600;
+    }
+    .message.success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+    .message.error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+    .urgent-row { display: flex; align-items: center; gap: 10px; }
+    .urgent-row input[type="checkbox"] { width: auto; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>📦 Stocks Farines</h1>
+    <p class="subtitle" id="siteSubtitle"></p>
+    <p class="last-send-line" id="lastSendLine">Dernier envoi : …</p>
+
+    <div id="messageContainer"></div>
+
+    <div class="card">
+      <label for="employeeName">Nom *</label>
+      <select id="employeeName" required>
+        <option value="">Chargement…</option>
+      </select>
+      <div class="muted" style="margin-top:8px">
+        Pas besoin de connexion : choisissez votre nom puis envoyez l’état des stocks.
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="urgent-row">
+        <input type="checkbox" id="urgent" />
+        <label for="urgent" style="margin:0">Urgence</label>
+      </div>
+      <div id="urgentReasonWrap" style="display:none; margin-top:10px">
+        <label for="urgentReason">Pourquoi ? *</label>
+        <textarea id="urgentReason" placeholder="Expliquez la raison de l'urgence"></textarea>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3 style="margin:0 0 10px">Farines</h3>
+      <div class="muted" style="margin-bottom:10px">
+        Saisissez les sacs. Pour <strong>FARINE BLANCHE</strong>, saisissez <strong>palettes + sacs</strong>.
+      </div>
+      <div id="floursContainer"></div>
+    </div>
+
+    <button id="submitBtn" class="btn">Envoyer les stocks</button>
+  </div>
+
+  <script>
+    const isLon = (window.location.pathname || '').startsWith('/lon');
+    const siteKey = isLon ? 'lon' : 'plan';
+    const siteLabel = isLon ? 'Longuenesse' : 'Arras';
+    document.getElementById('siteSubtitle').textContent = `Site: ${siteLabel}`;
+
+    const API_URL = isLon
+      ? 'https://boulangerie-planning-api-3.onrender.com/api'
+      : 'https://boulangerie-planning-api-4-pbfy.onrender.com/api';
+
+    const messageContainer = document.getElementById('messageContainer');
+    const floursContainer = document.getElementById('floursContainer');
+    const employeeSelect = document.getElementById('employeeName');
+    const urgentCheckbox = document.getElementById('urgent');
+    const urgentReasonWrap = document.getElementById('urgentReasonWrap');
+    const urgentReason = document.getElementById('urgentReason');
+    const submitBtn = document.getElementById('submitBtn');
+
+    let configs = [];
+
+    function formatLastSendLine(iso, byName) {
+      if (!iso) return 'Dernier envoi : aucun pour l’instant.';
+      const d = new Date(iso);
+      const label = Number.isNaN(d.getTime())
+        ? String(iso)
+        : d.toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' });
+      const dayMs = 86400000;
+      const a = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+      const t = new Date();
+      const b = new Date(t.getFullYear(), t.getMonth(), t.getDate());
+      const days = Math.round((b - a) / dayMs);
+      const jourTxt = days <= 0 ? "aujourd'hui" : days === 1 ? 'hier' : `il y a ${days} jours`;
+      const par = byName && String(byName).trim() ? ` — par ${String(byName).trim()}` : '';
+      return `Dernier envoi : ${label} (${jourTxt})${par}`;
+    }
+
+    async function loadLastSend() {
+      const el = document.getElementById('lastSendLine');
+      try {
+        const res = await fetch(`${API_URL}/stocks/flours/inventory?siteKey=${encodeURIComponent(siteKey)}`);
+        const data = await res.json();
+        const inv = data && data.success && data.data ? data.data : {};
+        const at = inv.lastEntryAt || inv.updatedAt || null;
+        const byName = String(inv.updatedByName || '').trim();
+        el.textContent = formatLastSendLine(at, byName);
+      } catch (e) {
+        console.error(e);
+        el.textContent = 'Dernier envoi : erreur de chargement.';
+      }
+    }
+
+    function showMessage(text, type) {
+      messageContainer.innerHTML = `<div class="message ${type}">${text}</div>`;
+      setTimeout(() => { messageContainer.innerHTML = ''; }, 6000);
+    }
+
+    urgentCheckbox.addEventListener('change', () => {
+      urgentReasonWrap.style.display = urgentCheckbox.checked ? 'block' : 'none';
+    });
+
+    async function loadEmployees() {
+      try {
+        const res = await fetch(`${API_URL}/employees`);
+        const data = await res.json();
+        const employees = (data && data.success && Array.isArray(data.data)) ? data.data : (Array.isArray(data) ? data : []);
+        employeeSelect.innerHTML = '<option value="">Sélectionnez votre nom</option>';
+        employees
+          .filter(e => e && e.name)
+          .sort((a,b) => String(a.name).localeCompare(String(b.name), 'fr'))
+          .forEach(emp => {
+            const opt = document.createElement('option');
+            opt.value = emp.name;
+            opt.textContent = emp.name;
+            employeeSelect.appendChild(opt);
+          });
+      } catch (e) {
+        console.error(e);
+        employeeSelect.innerHTML = '<option value="">Erreur chargement employés</option>';
+      }
+    }
+
+    function renderFlours() {
+      floursContainer.innerHTML = '';
+      configs.forEach(cfg => {
+        const row = document.createElement('div');
+        row.className = 'flour-row';
+
+        const left = document.createElement('div');
+        left.innerHTML = `<div class="flour-name">${cfg.name}</div><div class="muted">${cfg.unit === 'pallets_and_sacks' ? 'Palettes + sacs' : 'Sacs'}</div>`;
+
+        const sacksInput = document.createElement('input');
+        sacksInput.type = 'number';
+        sacksInput.min = '0';
+        sacksInput.step = '1';
+        sacksInput.placeholder = 'Sacs';
+        sacksInput.dataset.flourId = cfg._id;
+        sacksInput.dataset.field = 'sacks';
+
+        const palletsInput = document.createElement('input');
+        palletsInput.type = 'number';
+        palletsInput.min = '0';
+        palletsInput.step = '1';
+        palletsInput.placeholder = 'Palettes';
+        palletsInput.dataset.flourId = cfg._id;
+        palletsInput.dataset.field = 'pallets';
+        palletsInput.style.display = cfg.unit === 'pallets_and_sacks' ? 'block' : 'none';
+
+        row.appendChild(left);
+        row.appendChild(palletsInput);
+        row.appendChild(sacksInput);
+        floursContainer.appendChild(row);
+      });
+    }
+
+    async function loadConfigs() {
+      const res = await fetch(`${API_URL}/stocks/flours/config?siteKey=${siteKey}`);
+      const data = await res.json();
+      configs = (data && data.success && Array.isArray(data.data)) ? data.data.filter(c => c.isActive !== false) : [];
+      renderFlours();
+    }
+
+    function collectItems() {
+      const itemsById = new Map();
+      document.querySelectorAll('input[data-flour-id]').forEach(inp => {
+        const id = inp.dataset.flourId;
+        const field = inp.dataset.field;
+        const v = Math.max(0, Number(inp.value || 0));
+        if (!itemsById.has(id)) itemsById.set(id, { flourConfigId: id, sacks: 0, pallets: 0 });
+        itemsById.get(id)[field] = v;
+      });
+      return Array.from(itemsById.values());
+    }
+
+    async function submit() {
+      const createdByName = employeeSelect.value.trim();
+      if (!createdByName) {
+        showMessage('Veuillez sélectionner votre nom.', 'error');
+        return;
+      }
+      const urgent = urgentCheckbox.checked;
+      const urgentReasonText = urgentReason.value.trim();
+      if (urgent && !urgentReasonText) {
+        showMessage('Merci de préciser la raison de l’urgence.', 'error');
+        return;
+      }
+
+      const items = collectItems();
+      if (!items || items.length === 0) {
+        showMessage('Aucune farine à envoyer.', 'error');
+        return;
+      }
+
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Envoi…';
+      try {
+        const res = await fetch(`${API_URL}/stocks/flours/entry`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            siteKey,
+            createdByName,
+            createdByEmail: '',
+            urgent,
+            urgentReason: urgentReasonText,
+            items
+          })
+        });
+        const data = await res.json();
+        if (data && data.success) {
+          showMessage('Stocks envoyés avec succès.', 'success');
+          document.querySelectorAll('input[data-flour-id]').forEach(inp => inp.value = '');
+          urgentCheckbox.checked = false;
+          urgentReasonWrap.style.display = 'none';
+          urgentReason.value = '';
+          await loadLastSend();
+        } else {
+          showMessage((data && (data.error || data.message)) || 'Erreur lors de l’envoi.', 'error');
+        }
+      } catch (e) {
+        console.error(e);
+        showMessage('Erreur réseau lors de l’envoi.', 'error');
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Envoyer les stocks';
+      }
+    }
+
+    submitBtn.addEventListener('click', submit);
+    document.addEventListener('DOMContentLoaded', async () => {
+      await Promise.all([loadEmployees(), loadConfigs(), loadLastSend()]);
+    });
+  </script>
+</body>
+</html>

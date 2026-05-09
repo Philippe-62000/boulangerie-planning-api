@@ -28,5 +28,6 @@ Reciproquement, une feature **uniquement** Longuenesse peut vivre sur `longuenes
 
 ## Front OVH
 
+- **Arras** : `deploy-frontend-ovh.bat` → dossier **`deploy-ovh/`** à uploader vers **`/plan/`** sur OVH (également `upload-deploy-frontend-ovh.bat` en Robocopy vers le partage FTP).
 - Longuenesse : build `deploy-frontend-lon-ovh-no-pause.bat` → contenu de **`deploy-frontend-lon/`** vers `/lon/` sur OVH.
 - Ne pas mélanger les assets `/plan/` et `/lon/`.
