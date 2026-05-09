@@ -43,6 +43,8 @@ import VehicleStandalone from './pages/VehicleStandalone';
 import CompteClientStandalone from './pages/CompteClientStandalone';
 import CompteClientDepots from './pages/CompteClientDepots';
 import StandaloneMenu from './pages/StandaloneMenu';
+import Stocks from './pages/Stocks';
+import StocksFarinesStandalone from './pages/StocksFarinesStandalone';
 import { getSiteBasename } from './config/site';
 
 const AppContent = () => {
@@ -111,6 +113,11 @@ const AppContent = () => {
             <Route path="/parameters" element={
               <ProtectedRoute adminOnly={true}>
                 <Parameters />
+              </ProtectedRoute>
+            } />
+            <Route path="/stocks" element={
+              <ProtectedRoute adminOnly={true}>
+                <Stocks />
               </ProtectedRoute>
             } />
             <Route path="/employee-status-print" element={
@@ -251,6 +258,8 @@ function App() {
           <Route path="/login" element={<Login />} />
           <Route path="/deplacement-standalone" element={<DeplacementStandalone />} />
           <Route path="/deplacement-standalone.html" element={<DeplacementStandalone />} />
+          <Route path="/stocks-farines-standalone" element={<StocksFarinesStandalone />} />
+          <Route path="/stocks-farines-standalone.html" element={<StocksFarinesStandalone />} />
           <Route path="/plateaux-repas-standalone" element={<PlateauxRepasStandalone />} />
           <Route path="/plateaux-repas-standalone.html" element={<PlateauxRepasStandalone />} />
           <Route path="/vehicle-standalone" element={<VehicleStandalone />} />

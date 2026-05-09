@@ -221,6 +221,7 @@ app.use('/api/online-orders', require('./routes/onlineOrders'));
 app.use('/api/partner-auth', require('./routes/partnerAuth'));
 app.use('/api/partner-orders', require('./routes/partnerOrders'));
 app.use('/api/partner-admin', require('./routes/partnerAdmin'));
+app.use('/api/stocks', require('./routes/stocks'));
 /** POST JSON { email } — purge définitive PartnerCompany ; route courte au cas où /partner-admin/* serait obsolète sur Render */
 const partnerCompanyController = require('./controllers/partnerCompanyController');
 const { authenticateManager } = require('./middleware/auth');

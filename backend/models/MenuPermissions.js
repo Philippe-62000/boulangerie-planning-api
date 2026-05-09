@@ -118,6 +118,15 @@ menuPermissionsSchema.statics.createDefaultPermissions = async function() {
         order: 6
       },
       {
+        menuId: 'stocks',
+        menuName: 'Stocks',
+        menuPath: '/stocks',
+        isVisibleToAdmin: true,
+        isVisibleToEmployee: false,
+        requiredPermissions: ['manage_parameters'],
+        order: 6.5
+      },
+      {
         menuId: 'employee-status',
         menuName: 'État Salariés',
         menuPath: '/employee-status',
