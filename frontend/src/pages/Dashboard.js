@@ -108,6 +108,22 @@ const Dashboard = () => {
     }
   };
 
+  const formatDailyConsumption = (daily) => {
+    const n = Number(daily);
+    if (!Number.isFinite(n) || n < 0) return '0';
+
+    // Affichage en fraction si ça correspond à 1/2..1/7 (tolérance flottante)
+    const eps = 1e-9;
+    for (let d = 2; d <= 7; d++) {
+      const v = 1 / d;
+      if (Math.abs(n - v) < eps) return `1/${d}`;
+    }
+
+    // Sinon, afficher avec 2 décimales max sans zéros inutiles
+    const s = n.toFixed(2);
+    return s.replace(/\.00$/, '').replace(/(\.\d)0$/, '$1');
+  };
+
   const fetchPartnerOrdersPending = async () => {
     setPartnerOrdersPending((s) => ({ ...s, loading: true }));
     try {
@@ -807,7 +823,8 @@ const Dashboard = () => {
                       <div style={{ fontWeight: 800, color }}>{days} j</div>
                     </div>
                     <div style={{ marginTop: 6, fontSize: '0.9rem', color: '#555' }}>
-                      Stock: <strong>{it.stockSacksTotal}</strong> sacs — Conso/j: <strong>{it.daily}</strong>
+                      Stock: <strong>{it.stockSacksTotal}</strong> sacs — Conso/j:{' '}
+                      <strong>{formatDailyConsumption(it.daily)}</strong>
                     </div>
                   </div>
                 );
