@@ -24,6 +24,7 @@ const Dashboard = () => {
     loading: false
   });
   const [partnerOrdersPending, setPartnerOrdersPending] = useState({ count: 0, loading: false });
+  const [flourStocksWidget, setFlourStocksWidget] = useState({ loading: false, items: [], error: null });
 
   // Détecter si on est sur Longuenesse ou Arras
   const siteKey = getSiteKey(); // 'lon' | 'plan' (fallback persistant)
@@ -47,7 +48,65 @@ const Dashboard = () => {
       fetchPendingActionsCounts();
     }
     fetchPartnerOrdersPending();
+    if (shouldShowLosses) {
+      fetchFlourStocksWidget();
+    }
   }, [shouldShowLosses, shouldShowVehicleRecap, user?.role]);
+
+  const fetchFlourStocksWidget = async () => {
+    setFlourStocksWidget((s) => ({ ...s, loading: true, error: null }));
+    try {
+      const siteKey = getSiteKey(); // 'lon'|'plan'
+      const [cfgRes, invRes, paramsRes] = await Promise.all([
+        api.get('/stocks/flours/config', { params: { siteKey } }),
+        api.get('/stocks/flours/inventory', { params: { siteKey } }),
+        api.get('/parameters')
+      ]);
+
+      const configs = Array.isArray(cfgRes.data?.data) ? cfgRes.data.data : [];
+      const inventory = invRes.data?.data || { items: [] };
+      const invItems = Array.isArray(inventory?.items) ? inventory.items : [];
+      const params = Array.isArray(paramsRes.data) ? paramsRes.data : [];
+      const sacksPerPalletName = `whiteFlourSacksPerPallet_${siteKey}`;
+      const sacksPerPalletRaw = params.find((p) => p.name === sacksPerPalletName)?.stringValue;
+      const sacksPerPalletNum = Number(String(sacksPerPalletRaw || '').trim());
+      const sacksPerPallet = Number.isFinite(sacksPerPalletNum) && sacksPerPalletNum > 0 ? sacksPerPalletNum : 50;
+
+      const invById = new Map(invItems.map((it) => [String(it.flourConfigId), it]));
+
+      const items = configs
+        .filter((c) => c && c.isActive !== false)
+        .map((cfg) => {
+          const inv = invById.get(String(cfg._id)) || { sacks: 0, pallets: 0 };
+          const sacks = Math.max(0, Number(inv.sacks || 0));
+          const pallets = Math.max(0, Number(inv.pallets || 0));
+          const stockSacksTotal =
+            cfg.unit === 'pallets_and_sacks' ? pallets * sacksPerPallet + sacks : sacks;
+          const daily = Math.max(0, Number(cfg.dailyConsumptionSacks || 0));
+          const daysRemaining = daily > 0 ? stockSacksTotal / daily : null;
+          let status = 'na';
+          if (typeof daysRemaining === 'number' && Number.isFinite(daysRemaining)) {
+            if (daysRemaining > 10) status = 'green';
+            else if (daysRemaining >= 7) status = 'orange';
+            else status = 'red';
+          }
+          return {
+            flourConfigId: cfg._id,
+            name: cfg.name,
+            stockSacksTotal,
+            daily,
+            daysRemaining,
+            status
+          };
+        })
+        .sort((a, b) => a.name.localeCompare(b.name, 'fr'));
+
+      setFlourStocksWidget({ loading: false, items, error: null });
+    } catch (e) {
+      console.error('Erreur widget stocks farines:', e);
+      setFlourStocksWidget({ loading: false, items: [], error: 'Erreur chargement stocks farines' });
+    }
+  };
 
   const fetchPartnerOrdersPending = async () => {
     setPartnerOrdersPending((s) => ({ ...s, loading: true }));
@@ -696,6 +755,63 @@ const Dashboard = () => {
                   Traiter les arrêts maladie →
                 </a>
               </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Stocks farines — Longuenesse et Arras */}
+      {shouldShowLosses && (
+        <div className="card" style={{ marginBottom: '2rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+            <h3 style={{ margin: 0 }}>📦 Stocks farines</h3>
+            {isAdmin() && (
+              <a
+                href={isLonguenesse ? '/lon/stocks' : '/plan/stocks'}
+                style={{ fontSize: '0.9rem', fontWeight: 700, color: '#667eea' }}
+              >
+                Paramètres stocks →
+              </a>
+            )}
+          </div>
+
+          {flourStocksWidget.loading ? (
+            <p style={{ color: '#666' }}>Chargement…</p>
+          ) : flourStocksWidget.error ? (
+            <p style={{ color: '#856404' }}>{flourStocksWidget.error}</p>
+          ) : flourStocksWidget.items.length === 0 ? (
+            <p style={{ color: '#666' }}>Aucune farine configurée.</p>
+          ) : (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '0.75rem', marginTop: '0.75rem' }}>
+              {flourStocksWidget.items.map((it) => {
+                const color =
+                  it.status === 'green' ? '#155724' : it.status === 'orange' ? '#856404' : it.status === 'red' ? '#721c24' : '#555';
+                const border =
+                  it.status === 'green' ? '#c3e6cb' : it.status === 'orange' ? '#ffeeba' : it.status === 'red' ? '#f5c6cb' : '#e1e5e9';
+                const bg =
+                  it.status === 'green' ? '#f8fff9' : it.status === 'orange' ? '#fff8e6' : it.status === 'red' ? '#fff5f5' : '#f8f9fa';
+                const days =
+                  typeof it.daysRemaining === 'number' && Number.isFinite(it.daysRemaining) ? it.daysRemaining.toFixed(1) : 'N/A';
+                return (
+                  <div
+                    key={String(it.flourConfigId)}
+                    style={{
+                      padding: '0.85rem',
+                      borderRadius: '10px',
+                      border: `2px solid ${border}`,
+                      backgroundColor: bg
+                    }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.75rem' }}>
+                      <div style={{ fontWeight: 800 }}>{it.name}</div>
+                      <div style={{ fontWeight: 800, color }}>{days} j</div>
+                    </div>
+                    <div style={{ marginTop: 6, fontSize: '0.9rem', color: '#555' }}>
+                      Stock: <strong>{it.stockSacksTotal}</strong> sacs — Conso/j: <strong>{it.daily}</strong>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>

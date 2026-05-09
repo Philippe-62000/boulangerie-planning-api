@@ -1,0 +1,156 @@
+.stocks-page {
+  padding: 20px;
+}
+
+.stocks-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.stocks-subtitle {
+  color: #666;
+  margin-top: 4px;
+}
+
+.stocks-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.stocks-tab {
+  border: 1px solid #e1e5e9;
+  background: #fff;
+  border-radius: 10px;
+  padding: 10px 12px;
+  cursor: pointer;
+}
+
+.stocks-tab.active {
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.12);
+}
+
+.stocks-section h2 {
+  margin: 0 0 12px 0;
+}
+
+.stocks-card {
+  background: #fff;
+  border: 1px solid #e1e5e9;
+  border-radius: 12px;
+  padding: 14px;
+  margin-bottom: 12px;
+}
+
+.stocks-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.stocks-form-row {
+  display: grid;
+  grid-template-columns: 180px 1fr auto;
+  gap: 10px;
+  align-items: center;
+}
+
+.stocks-input {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid #e1e5e9;
+  border-radius: 10px;
+}
+
+.stocks-btn {
+  border: 1px solid #e1e5e9;
+  background: #f8f9fa;
+  border-radius: 10px;
+  padding: 8px 12px;
+  cursor: pointer;
+}
+
+.stocks-btn.primary {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-color: transparent;
+  color: #fff;
+}
+
+.stocks-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.stocks-hint {
+  margin-top: 8px;
+  color: #666;
+  font-size: 0.9rem;
+}
+
+.stocks-days {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.stocks-day {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid #e1e5e9;
+  border-radius: 999px;
+  background: #fff;
+  user-select: none;
+}
+
+.stocks-day.checked {
+  border-color: #667eea;
+  background: rgba(102, 126, 234, 0.08);
+}
+
+.stocks-actions {
+  margin-top: 12px;
+}
+
+.stocks-table-wrap {
+  overflow: auto;
+  border-radius: 10px;
+  border: 1px solid #e1e5e9;
+}
+
+.stocks-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 720px;
+}
+
+.stocks-table th,
+.stocks-table td {
+  border-bottom: 1px solid #eef1f4;
+  padding: 10px;
+  vertical-align: middle;
+}
+
+.stocks-table th {
+  background: #f8f9fa;
+  text-align: left;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+@media (max-width: 768px) {
+  .stocks-form-row {
+    grid-template-columns: 1fr;
+  }
+}
+
