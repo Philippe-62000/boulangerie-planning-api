@@ -862,6 +862,28 @@ const Dashboard = () => {
 
             return (
               <>
+                <div style={{ marginTop: '0.5rem', fontSize: '0.88rem', color: '#444', lineHeight: 1.4 }}>
+                  {flourStocksShowAll ? (
+                    <>
+                      Affichage : <strong>toutes les farines</strong> ({allItems.length})
+                    </>
+                  ) : redItems.length === 0 ? (
+                    <>
+                      Affichage : <strong>alertes rouges uniquement</strong> — aucune parmi les {allItems.length} farine
+                      {allItems.length > 1 ? 's' : ''} au catalogue.
+                    </>
+                  ) : redItems.length === allItems.length ? (
+                    <>
+                      Affichage : <strong>alertes rouges uniquement</strong> — les {allItems.length} farine
+                      {allItems.length > 1 ? 's sont' : ' est'} en alerte critique (liste complète affichée).
+                    </>
+                  ) : (
+                    <>
+                      Affichage : <strong>alertes rouges uniquement</strong> ({redItems.length} sur {allItems.length}{' '}
+                      farine{allItems.length > 1 ? 's' : ''}).
+                    </>
+                  )}
+                </div>
                 {hasNonRed && (
                   <div style={{ marginTop: '0.65rem' }}>
                     <button

@@ -45,6 +45,16 @@ const Sidebar = () => {
       return false;
     }
   });
+  /** Ouvert par défaut pour que « Stocks farines » soit visible sans chercher (Arras / Longuenesse). */
+  const [stocksMenuExpanded, setStocksMenuExpanded] = useState(() => {
+    try {
+      const v = localStorage.getItem(`sidebar:${storageSuffix}:stocksExpanded`);
+      if (v === null) return true;
+      return v === '1';
+    } catch {
+      return true;
+    }
+  });
   const [menuPermissions, setMenuPermissions] = useState([]);
   const location = useLocation();
   const { user, isAdmin, isEmployee } = useAuth();
@@ -75,12 +85,15 @@ const Sidebar = () => {
     { path: '/compte-client-depots', label: 'Dépôts compte client', icon: '💳', menuId: 'compte-client-depots', longuenesseOnly: true }
   ];
 
-  const ADMIN_GROUPED_MENU_IDS = new Set([
-    ...PLANNING_MENU_ITEMS,
-    ...VENTE_MENU_ITEMS,
-    ...PAIES_MENU_ITEMS,
-    ...FACTURATION_MENU_ITEMS
-  ].map((i) => i.menuId));
+  const STOCKS_MENU_ITEMS = [
+    { path: '/stocks', label: 'Stocks farines', icon: '📦', menuId: 'stocks' }
+  ];
+
+  const ADMIN_GROUPED_MENU_IDS = new Set(
+    [...PLANNING_MENU_ITEMS, ...VENTE_MENU_ITEMS, ...PAIES_MENU_ITEMS, ...FACTURATION_MENU_ITEMS, ...STOCKS_MENU_ITEMS].map(
+      (i) => i.menuId
+    )
+  );
 
   // Menus regroupés sous "Social" (visible uniquement pour l'admin)
   const SOCIAL_MENU_ITEMS = [
@@ -161,6 +174,7 @@ const Sidebar = () => {
     if (VENTE_MENU_ITEMS.some((i) => p.includes(i.path))) setVenteMenuExpanded(true);
     if (PAIES_MENU_ITEMS.some((i) => p.includes(i.path))) setPaiesMenuExpanded(true);
     if (FACTURATION_MENU_ITEMS.some((i) => p.includes(i.path))) setFacturationMenuExpanded(true);
+    if (STOCKS_MENU_ITEMS.some((i) => p.includes(i.path))) setStocksMenuExpanded(true);
     const socialPaths = ['advance-requests', 'vacation-management', 'sick-leave-management', 'mutuelle-management', 'primes'];
     if (socialPaths.some((x) => p.includes(x))) setSocialMenuExpanded(true);
   }, [location.pathname]);
@@ -173,6 +187,7 @@ const Sidebar = () => {
       localStorage.setItem(`sidebar:${storageSuffix}:venteExpanded`, venteMenuExpanded ? '1' : '0');
       localStorage.setItem(`sidebar:${storageSuffix}:paiesExpanded`, paiesMenuExpanded ? '1' : '0');
       localStorage.setItem(`sidebar:${storageSuffix}:facturationExpanded`, facturationMenuExpanded ? '1' : '0');
+      localStorage.setItem(`sidebar:${storageSuffix}:stocksExpanded`, stocksMenuExpanded ? '1' : '0');
     } catch {
       /* ignore */
     }
@@ -182,7 +197,8 @@ const Sidebar = () => {
     planningMenuExpanded,
     venteMenuExpanded,
     paiesMenuExpanded,
-    facturationMenuExpanded
+    facturationMenuExpanded,
+    stocksMenuExpanded
   ]);
 
   // Charger les permissions de menu selon le rôle utilisateur
@@ -251,7 +267,6 @@ const Sidebar = () => {
     { path: '/recup', label: 'Heures de récup', icon: '⏱️', menuId: 'recup' },
     { path: '/employee-status-print', label: 'Imprimer État', icon: '🖨️', menuId: 'employee-status-print' },
     { path: '/parameters', label: 'Paramètres', icon: '⚙️', menuId: 'parameters' },
-    { path: '/stocks', label: 'Stocks', icon: '📦', menuId: 'stocks' },
     { path: '/ticket-restaurant', label: 'Ticket restaurant', icon: '🎫', menuId: 'ticket-restaurant' },
     { path: '/employee-dashboard', label: 'Mes Documents', icon: '📁', menuId: 'employee-dashboard' },
     { path: '/ambassadeur', label: 'Ambassadeur', icon: '⭐', menuId: 'ambassadeur' },
@@ -388,6 +403,38 @@ const Sidebar = () => {
             {planningMenuExpanded && (
               <div className="nav-submenu">
                 {filterSubmenuForAdmin(PLANNING_MENU_ITEMS).map((item) => (
+                  <Link
+                    key={item.path}
+                    to={item.path}
+                    className={`nav-item nav-subitem ${location.pathname.includes(item.path) ? 'active' : ''}`}
+                  >
+                    <span className="nav-icon">{item.icon}</span>
+                    <span className="nav-label">{item.label}</span>
+                  </Link>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+        {/* Sous-menu admin : Stocks farines (visible Arras + Longuenesse, section dédiée) */}
+        {isAdmin() && filterSubmenuForAdmin(STOCKS_MENU_ITEMS).length > 0 && (
+          <div className="nav-group admin-submenu">
+            <button
+              type="button"
+              className={`nav-item nav-group-toggle ${stocksMenuExpanded ? 'expanded' : ''} ${STOCKS_MENU_ITEMS.some((i) => location.pathname.includes(i.path)) ? 'active' : ''}`}
+              onClick={() => {
+                setIsExpanded(true);
+                setStocksMenuExpanded((v) => !v);
+              }}
+              onMouseEnter={() => isExpanded && setStocksMenuExpanded(true)}
+            >
+              <span className="nav-icon">📦</span>
+              <span className="nav-label">Stocks</span>
+              <span className="nav-chevron">{stocksMenuExpanded ? '▼' : '▶'}</span>
+            </button>
+            {stocksMenuExpanded && (
+              <div className="nav-submenu">
+                {filterSubmenuForAdmin(STOCKS_MENU_ITEMS).map((item) => (
                   <Link
                     key={item.path}
                     to={item.path}
