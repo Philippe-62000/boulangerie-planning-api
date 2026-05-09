@@ -98,7 +98,15 @@ const Dashboard = () => {
             status
           };
         })
-        .sort((a, b) => a.name.localeCompare(b.name, 'fr'));
+        .sort((a, b) => {
+          const ad = typeof a.daysRemaining === 'number' && Number.isFinite(a.daysRemaining) ? a.daysRemaining : null;
+          const bd = typeof b.daysRemaining === 'number' && Number.isFinite(b.daysRemaining) ? b.daysRemaining : null;
+          if (ad === null && bd === null) return a.name.localeCompare(b.name, 'fr');
+          if (ad === null) return 1; // N/A en bas
+          if (bd === null) return -1;
+          if (ad !== bd) return ad - bd; // plus petit d'abord
+          return a.name.localeCompare(b.name, 'fr');
+        });
 
       setFlourStocksWidget({ loading: false, items, error: null });
     } catch (e) {
