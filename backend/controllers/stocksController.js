@@ -30,7 +30,11 @@ const parseSiteKey = (v) => (v === 'lon' || v === 'plan' ? v : null);
 
 function parseNumberOrFraction(value, fallback = 0) {
   if (typeof value === 'number' && Number.isFinite(value)) return value;
-  const s = String(value ?? '').trim().replace(',', '.');
+  const s = String(value ?? '')
+    .trim()
+    .replace(',', '.')
+    // Certains claviers mobiles utilisent un slash "fraction" (U+2044) ou fullwidth (U+FF0F)
+    .replace(/[⁄／]/g, '/');
   if (!s) return fallback;
   const fractionMatch = s.match(/^(\d+(?:\.\d+)?)\s*\/\s*(\d+(?:\.\d+)?)$/);
   if (fractionMatch) {
