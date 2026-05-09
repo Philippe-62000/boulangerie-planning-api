@@ -29,6 +29,12 @@ const flourConfigSchema = new mongoose.Schema(
       default: 0,
       min: 0
     },
+    supplierType: {
+      type: String,
+      enum: ['standard', 'next_day'],
+      default: 'standard',
+      index: true
+    },
     isActive: {
       type: Boolean,
       default: true,
