@@ -125,7 +125,7 @@
 
     const API_URL = isLon
       ? 'https://boulangerie-planning-api-3.onrender.com/api'
-      : 'https://boulangerie-planning-api-4-pbfy.onrender.com/api';
+      : 'https://boulangerie-planning-api-3.onrender.com/api';
 
     const messageContainer = document.getElementById('messageContainer');
     const floursContainer = document.getElementById('floursContainer');
@@ -287,7 +287,6 @@
         const data = await res.json();
         if (data && data.success) {
           showMessage('Stocks envoyés avec succès.', 'success');
-          // reset numbers only
           document.querySelectorAll('input[data-flour-id]').forEach(inp => inp.value = '');
           urgentCheckbox.checked = false;
           urgentReasonWrap.style.display = 'none';
@@ -312,4 +311,3 @@
   </script>
 </body>
 </html>
-

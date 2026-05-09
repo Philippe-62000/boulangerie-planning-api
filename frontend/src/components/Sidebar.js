@@ -45,10 +45,13 @@ const Sidebar = () => {
       return false;
     }
   });
-  /** Ouvert par défaut pour que « Stocks farines » soit visible sans chercher (Arras / Longuenesse). */
+  /**
+   * Groupe « Stocks » : même structure Arras (/plan) et Longuenesse (/lon) — parent + sous-menus.
+   * Clé v2 : évite un ancien état « replié » sur Lon qui ne montrait que le bouton parent (sans sous-menu visible).
+   */
   const [stocksMenuExpanded, setStocksMenuExpanded] = useState(() => {
     try {
-      const v = localStorage.getItem(`sidebar:${storageSuffix}:stocksExpanded`);
+      const v = localStorage.getItem(`sidebar:${storageSuffix}:stocksGroupExpanded`);
       if (v === null) return true;
       return v === '1';
     } catch {
@@ -85,8 +88,16 @@ const Sidebar = () => {
     { path: '/compte-client-depots', label: 'Dépôts compte client', icon: '💳', menuId: 'compte-client-depots', longuenesseOnly: true }
   ];
 
-  const STOCKS_MENU_ITEMS = [
+  /** Liens communs sous la rubrique « Stocks » (admin — même UX Arras / Longuenesse). */
+  const STOCKS_MENU_ITEMS_COMMON = [
     { path: '/stocks', label: 'Stocks farines', icon: '📦', menuId: 'stocks' }
+  ];
+  /** Entrées admin supplémentaires uniquement sur Longuenesse (future évolution ; tableau vide = menu identique à Arras). */
+  const STOCKS_MENU_ITEMS_LON_EXTRA = [];
+
+  const STOCKS_MENU_ITEMS = [
+    ...STOCKS_MENU_ITEMS_COMMON,
+    ...(isLonguenesse ? STOCKS_MENU_ITEMS_LON_EXTRA : [])
   ];
 
   const ADMIN_GROUPED_MENU_IDS = new Set(
@@ -187,7 +198,7 @@ const Sidebar = () => {
       localStorage.setItem(`sidebar:${storageSuffix}:venteExpanded`, venteMenuExpanded ? '1' : '0');
       localStorage.setItem(`sidebar:${storageSuffix}:paiesExpanded`, paiesMenuExpanded ? '1' : '0');
       localStorage.setItem(`sidebar:${storageSuffix}:facturationExpanded`, facturationMenuExpanded ? '1' : '0');
-      localStorage.setItem(`sidebar:${storageSuffix}:stocksExpanded`, stocksMenuExpanded ? '1' : '0');
+      localStorage.setItem(`sidebar:${storageSuffix}:stocksGroupExpanded`, stocksMenuExpanded ? '1' : '0');
     } catch {
       /* ignore */
     }
@@ -416,7 +427,7 @@ const Sidebar = () => {
             )}
           </div>
         )}
-        {/* Sous-menu admin : Stocks farines (visible Arras + Longuenesse, section dédiée) */}
+        {/* Sous-menu admin : Stocks → Stocks farines (+ entrées Lon dans STOCKS_MENU_ITEMS_LON_EXTRA si besoin) */}
         {isAdmin() && filterSubmenuForAdmin(STOCKS_MENU_ITEMS).length > 0 && (
           <div className="nav-group admin-submenu">
             <button
