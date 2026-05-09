@@ -220,11 +220,25 @@ const updateEmployee = async (req, res) => {
     // ⚠️ IMPORTANT: Supprimer le champ password du body pour éviter de l'écraser
     const updateData = { ...req.body };
     delete updateData.password;
+
+    // Le frontend envoie explicitement null pour les salariés hors vente ; Mongoose ne peut pas
+    // caster null sur le sous-schéma vendeusePlanningPreferences → ValidationError 400.
+    const shouldUnsetVendeusePrefs =
+      Object.prototype.hasOwnProperty.call(req.body, 'vendeusePlanningPreferences') &&
+      req.body.vendeusePlanningPreferences === null;
+    if (shouldUnsetVendeusePrefs) {
+      delete updateData.vendeusePlanningPreferences;
+    }
     
     console.log('🔐 Champ password préservé lors de la mise à jour');
     
     // Mettre à jour les champs
     Object.assign(employee, updateData);
+
+    if (shouldUnsetVendeusePrefs) {
+      employee.vendeusePlanningPreferences = undefined;
+      employee.markModified('vendeusePlanningPreferences');
+    }
     
     // Sauvegarder (cela déclenchera le middleware pre('save') pour générer le code vente si nécessaire)
     await employee.save();

@@ -300,7 +300,7 @@ const EmployeeModal = ({ employee, onSave, onClose, employees = [] }) => {
         shiftPreference: formData.vendeusePlanningPreferences.shiftPreference || 'aucune'
       };
     } else {
-      dataToSend.vendeusePlanningPreferences = null;
+      // Hors vente : ne pas envoyer ce champ (null provoquait une ValidationError Mongoose sur le sous-schéma).
     }
 
     console.log('📤 Données préparées pour l\'envoi:', dataToSend);
