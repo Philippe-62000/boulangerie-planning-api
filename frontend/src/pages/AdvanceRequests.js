@@ -98,6 +98,27 @@ const AdvanceRequests = () => {
     setShowEditModal(true);
   };
 
+  // Suppression définitive (soft delete côté backend, sans envoi d'email au salarié).
+  const handleDelete = async (request) => {
+    const ok = window.confirm(
+      `🗑️ Supprimer définitivement la demande d'acompte de ${request.employeeName} `
+      + `(${request.amount} € — ${request.deductionMonth}) ?\n\n`
+      + 'Aucun email ne sera envoyé au salarié. Cette action est irréversible.'
+    );
+    if (!ok) return;
+    try {
+      const response = await api.delete(`/advance-requests/${request._id}`);
+      if (response.data.success) {
+        toast.success('Demande supprimée');
+        await fetchAdvanceRequests();
+        await fetchAdvanceStats();
+      }
+    } catch (error) {
+      console.error('Erreur suppression demande acompte:', error);
+      toast.error('Erreur lors de la suppression');
+    }
+  };
+
   const handleCloseEditModal = () => {
     setShowEditModal(false);
     setSelectedAdvanceRequest(null);
@@ -465,6 +486,14 @@ const AdvanceRequests = () => {
                     </button>
                   </>
                 )}
+                {/* Suppression définitive disponible quel que soit le statut, sans email */}
+                <button
+                  className="btn btn-dark btn-sm"
+                  title="Supprimer la demande sans envoyer d'email au salarié"
+                  onClick={() => handleDelete(request)}
+                >
+                  🗑️ Supprimer
+                </button>
               </div>
             </div>
           ))

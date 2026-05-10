@@ -248,6 +248,26 @@ const VacationRequestAdmin = () => {
     }
   };
 
+  // Suppression définitive (sans envoi d'email au salarié) — utile pour les doublons / erreurs.
+  const handleDelete = async (request) => {
+    const ok = window.confirm(
+      `🗑️ Supprimer définitivement la demande de congés de ${request.employeeName} `
+      + `(${formatDate(request.startDate)} → ${formatDate(request.endDate)}) ?\n\n`
+      + 'Aucun email ne sera envoyé au salarié. Cette action est irréversible.'
+    );
+    if (!ok) return;
+    try {
+      const response = await api.delete(`/vacation-requests/${request._id}`);
+      if (response.data.success) {
+        toast.success('Demande supprimée');
+        fetchVacationRequests();
+      }
+    } catch (error) {
+      console.error('Erreur suppression demande congés:', error);
+      toast.error('Erreur lors de la suppression');
+    }
+  };
+
   const getStatusBadge = (status) => {
     const badges = {
       pending: { text: 'En attente', class: 'badge-warning', icon: '⏳' },
@@ -440,6 +460,14 @@ const VacationRequestAdmin = () => {
                       🚫 Annuler
                     </button>
                   )}
+                  {/* Suppression définitive disponible quel que soit le statut, sans email */}
+                  <button
+                    onClick={() => handleDelete(request)}
+                    className="btn btn-dark btn-action"
+                    title="Supprimer la demande sans envoyer d'email au salarié"
+                  >
+                    🗑️ Supprimer
+                  </button>
                 </div>
               </div>
             ))}

@@ -12,6 +12,8 @@ router.patch('/:id/validate', vacationRequestController.validateVacationRequest)
 router.patch('/:id/accept', vacationRequestController.validateVacationRequest);
 router.patch('/:id/reject', vacationRequestController.rejectVacationRequest);
 router.patch('/:id/cancel', vacationRequestController.cancelVacationRequest);
+// Suppression définitive d'une demande (sans envoi d'email au salarié)
+router.delete('/:id', vacationRequestController.deleteVacationRequest);
 
 // Route pour forcer la synchronisation des congés
 router.post('/sync-employees', vacationRequestController.syncVacationsWithEmployees);

@@ -394,6 +394,40 @@ const cancelVacationRequest = async (req, res) => {
   }
 };
 
+/**
+ * Supprimer définitivement une demande de congés (admin).
+ * Aucune notification e-mail envoyée — utile pour effacer une demande
+ * créée par erreur ou un doublon, sans alerter le salarié.
+ */
+const deleteVacationRequest = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const vacationRequest = await VacationRequest.findById(id);
+    if (!vacationRequest) {
+      return res.status(404).json({
+        success: false,
+        error: 'Demande de congés non trouvée'
+      });
+    }
+
+    await VacationRequest.findByIdAndDelete(id);
+
+    console.log(`🗑️ Demande de congés supprimée (sans email): ${id} — ${vacationRequest.employeeName}`);
+
+    res.json({
+      success: true,
+      message: 'Demande supprimée avec succès'
+    });
+  } catch (error) {
+    console.error('❌ Erreur suppression demande congés:', error.message);
+    res.status(500).json({
+      success: false,
+      error: 'Erreur lors de la suppression de la demande'
+    });
+  }
+};
+
 // Modifier une demande de congés
 const updateVacationRequest = async (req, res) => {
   try {
@@ -596,5 +630,6 @@ module.exports = {
   rejectVacationRequest,
   cancelVacationRequest,
   updateVacationRequest,
+  deleteVacationRequest,
   syncVacationsWithEmployees
 };
