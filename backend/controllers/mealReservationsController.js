@@ -7,6 +7,7 @@ const Parameter = require('../models/Parameters');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const emailService = require('../services/emailService');
+const { getJwtSecret } = require('../utils/jwtSecret');
 
 const getSite = (req) => (req.query.site || req.body.site || 'longuenesse').toLowerCase();
 const siteMap = { lon: 'longuenesse', plan: 'arras' };
@@ -30,7 +31,7 @@ const clientProLogin = async (req, res) => {
     }
     const token = jwt.sign(
       { clientProId: client._id, login: client.login, role: 'client_pro', site: client.site },
-      process.env.JWT_SECRET || 'votre-cle-secrete-ici',
+      getJwtSecret(),
       { expiresIn: '7d' }
     );
     res.json({

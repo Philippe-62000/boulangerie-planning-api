@@ -1,4 +1,7 @@
 const mongoose = require('mongoose');
+const bcrypt = require('bcryptjs');
+
+const BCRYPT_PATTERN = /^\$2[aby]\$\d+\$/;
 
 const userSchema = new mongoose.Schema({
   username: {
@@ -47,6 +50,47 @@ const userSchema = new mongoose.Schema({
 }, {
   timestamps: true
 });
+
+/**
+ * Hash le mot de passe à chaque modification, sauf s'il l'est déjà (préfixe bcrypt).
+ * Permet la migration automatique d'anciens enregistrements stockés en clair.
+ */
+userSchema.pre('save', async function preSave(next) {
+  if (!this.isModified('password')) return next();
+  if (typeof this.password !== 'string' || this.password.length === 0) return next();
+  if (BCRYPT_PATTERN.test(this.password)) return next();
+  try {
+    const salt = await bcrypt.genSalt(10);
+    this.password = await bcrypt.hash(this.password, salt);
+    next();
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
+ * Compare un mot de passe en clair au hash stocké.
+ * Si le hash en base est encore en clair (anciens enregistrements), accepte la
+ * comparaison directe puis re-hashe pour la prochaine fois (migration silencieuse).
+ *
+ * @returns {Promise<boolean>}
+ */
+userSchema.methods.comparePassword = async function comparePassword(plain) {
+  if (!plain || !this.password) return false;
+  if (BCRYPT_PATTERN.test(this.password)) {
+    return bcrypt.compare(plain, this.password);
+  }
+  if (this.password === plain) {
+    this.password = plain;
+    try {
+      await this.save();
+    } catch (err) {
+      console.error('[User.comparePassword] migration plain->bcrypt KO:', err.message);
+    }
+    return true;
+  }
+  return false;
+};
 
 // Méthode statique pour créer les utilisateurs par défaut
 userSchema.statics.createDefaultUsers = async function() {

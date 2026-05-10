@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const authController = require('../controllers/authController');
+const { getJwtSecret } = require('../utils/jwtSecret');
 
 // Middleware d'authentification pour les salariés
 const authenticateEmployee = async (req, res, next) => {
@@ -17,7 +18,7 @@ const authenticateEmployee = async (req, res, next) => {
     const jwt = require('jsonwebtoken');
     
     try {
-      const decoded = jwt.verify(token, process.env.JWT_SECRET || 'votre-cle-secrete-ici');
+      const decoded = jwt.verify(token, getJwtSecret());
       
       console.log('🔍 Token décodé:', decoded);
       

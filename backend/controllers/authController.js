@@ -2,6 +2,7 @@ const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const Employee = require('../models/Employee');
 const emailService = require('../services/emailService');
+const { getJwtSecret } = require('../utils/jwtSecret');
 
 // Générer un mot de passe aléatoire
 const generateRandomPassword = () => {
@@ -162,7 +163,7 @@ const employeeLogin = async (req, res) => {
         name: employee.name,
         role: 'employee'
       },
-      process.env.JWT_SECRET || 'votre-cle-secrete-ici',
+      getJwtSecret(),
       { expiresIn: '7d' }
     );
     
@@ -211,8 +212,9 @@ const adminLogin = async (req, res) => {
       });
     }
     
-    // Vérifier le mot de passe (comparaison directe car pas hashé dans User)
-    if (adminUser.password !== password) {
+    // Vérification bcrypt (avec migration automatique des anciens mdp en clair)
+    const isAdminPasswordValid = await adminUser.comparePassword(password);
+    if (!isAdminPasswordValid) {
       return res.status(401).json({
         success: false,
         error: 'Mot de passe administrateur incorrect'
@@ -227,7 +229,7 @@ const adminLogin = async (req, res) => {
         name: adminUser.name,
         role: 'admin'
       },
-      process.env.JWT_SECRET || 'votre-cle-secrete-ici',
+      getJwtSecret(),
       { expiresIn: '7d' }
     );
     
@@ -277,8 +279,9 @@ const employeeLoginReact = async (req, res) => {
       });
     }
     
-    // Vérifier le mot de passe (comparaison directe car pas hashé dans User)
-    if (employeeUser.password !== password) {
+    // Vérification bcrypt (avec migration automatique des anciens mdp en clair)
+    const isEmployeePasswordValid = await employeeUser.comparePassword(password);
+    if (!isEmployeePasswordValid) {
       return res.status(401).json({
         success: false,
         error: 'Mot de passe salarié incorrect'
@@ -293,7 +296,7 @@ const employeeLoginReact = async (req, res) => {
         name: employeeUser.name,
         role: 'employee'
       },
-      process.env.JWT_SECRET || 'votre-cle-secrete-ici',
+      getJwtSecret(),
       { expiresIn: '7d' }
     );
     
@@ -481,7 +484,7 @@ const loginBySaleCode = async (req, res) => {
         role: 'employee',
         saleCode
       },
-      process.env.JWT_SECRET || 'votre-cle-secrete-ici',
+      getJwtSecret(),
       { expiresIn: '7d' }
     );
 

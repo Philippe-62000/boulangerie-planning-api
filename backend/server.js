@@ -5,6 +5,16 @@ const helmet = require('helmet');
 const compression = require('compression');
 const config = require('./config');
 
+// Vérification précoce du secret JWT (évite de démarrer en prod avec une clé faible).
+try {
+  const { getJwtSecret } = require('./utils/jwtSecret');
+  getJwtSecret();
+  console.log('🔐 JWT_SECRET validé.');
+} catch (err) {
+  console.error('💥 Impossible de démarrer:', err.message);
+  process.exit(1);
+}
+
 const app = express();
 
 // Middleware de sécurité pour la production

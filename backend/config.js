@@ -6,8 +6,11 @@ module.exports = {
   // Base de données MongoDB
   MONGODB_URI: process.env.MONGODB_URI || 'mongodb+srv://phimjc:ZDOPZA2Kd8ylewoR@cluster0.4huietv.mongodb.net/boulangerie-planning?retryWrites=true&w=majority',
 
-  // Clé secrète pour JWT (à changer en production)
-  JWT_SECRET: process.env.JWT_SECRET || 'votre-cle-secrete-ici',
+  // Clé secrète JWT — voir backend/utils/jwtSecret.js. Pas de fallback hard-codé,
+  // sinon un attaquant pourrait forger des tokens. Lire la variable au runtime.
+  get JWT_SECRET() {
+    return require('./utils/jwtSecret').getJwtSecret();
+  },
 
   // Google API Key pour Commandes en ligne (Google Sheets) - Longuenesse
   GOOGLE_API_KEY: process.env.GOOGLE_API_KEY || '',

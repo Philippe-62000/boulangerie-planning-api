@@ -1,3 +1,5 @@
+const { getJwtSecret } = require('../utils/jwtSecret');
+
 // Middleware d'authentification pour les salariés
 const authenticateEmployee = async (req, res, next) => {
   try {
@@ -15,7 +17,7 @@ const authenticateEmployee = async (req, res, next) => {
     }
     
     const jwt = require('jsonwebtoken');
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'votre-cle-secrete-ici');
+    const decoded = jwt.verify(token, getJwtSecret());
     
     console.log('🔍 Token décodé:', { 
       role: decoded.role, 
@@ -85,7 +87,7 @@ const authenticateManager = async (req, res, next) => {
     }
     
     const jwt = require('jsonwebtoken');
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'votre-cle-secrete-ici');
+    const decoded = jwt.verify(token, getJwtSecret());
     
     // Accepter seulement 'admin' pour les routes manager
     if (decoded.role !== 'admin') {
@@ -132,7 +134,7 @@ const authenticateClientPro = async (req, res, next) => {
       return res.status(401).json({ success: false, error: 'Token requis' });
     }
     const jwt = require('jsonwebtoken');
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'votre-cle-secrete-ici');
+    const decoded = jwt.verify(token, getJwtSecret());
     if (decoded.role !== 'client_pro') {
       return res.status(403).json({ success: false, error: 'Accès non autorisé' });
     }
@@ -156,7 +158,7 @@ const authenticatePartnerCompany = async (req, res, next) => {
       return res.status(401).json({ success: false, error: 'Token requis' });
     }
     const jwt = require('jsonwebtoken');
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'votre-cle-secrete-ici');
+    const decoded = jwt.verify(token, getJwtSecret());
     if (decoded.role !== 'partner_company') {
       return res.status(403).json({ success: false, error: 'Accès non autorisé' });
     }

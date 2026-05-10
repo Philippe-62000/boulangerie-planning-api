@@ -5,6 +5,7 @@ const PartnerOrder = require('../models/PartnerOrder');
 const PartnerFormulaConfig = require('../models/PartnerFormulaConfig');
 const emailService = require('../services/emailService');
 const partnerOrderAppSync = require('../services/partnerOrderAppSync');
+const { getJwtSecret } = require('../utils/jwtSecret');
 
 const getSite = (req) => (req.query.site || req.body.site || 'longuenesse').toLowerCase();
 const siteMap = { lon: 'longuenesse', plan: 'arras' };
@@ -64,7 +65,7 @@ const partnerLogin = async (req, res) => {
 
     const token = jwt.sign(
       { role: 'partner_company', companyId: company._id, email: company.email, name: company.name, site },
-      process.env.JWT_SECRET || 'votre-cle-secrete-ici',
+      getJwtSecret(),
       { expiresIn: '30d' }
     );
 

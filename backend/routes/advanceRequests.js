@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const advanceRequestController = require('../controllers/advanceRequestController');
+const { getJwtSecret } = require('../utils/jwtSecret');
 
 // Middleware d'authentification pour les salariés
 const authenticateEmployee = async (req, res, next) => {
@@ -15,7 +16,7 @@ const authenticateEmployee = async (req, res, next) => {
     }
     
     const jwt = require('jsonwebtoken');
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'votre-cle-secrete-ici');
+    const decoded = jwt.verify(token, getJwtSecret());
     
     if (decoded.role !== 'employee') {
       return res.status(403).json({
@@ -59,7 +60,7 @@ const authenticateManager = async (req, res, next) => {
     }
     
     const jwt = require('jsonwebtoken');
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'votre-cle-secrete-ici');
+    const decoded = jwt.verify(token, getJwtSecret());
     
     if (!['manager', 'admin'].includes(decoded.role)) {
       return res.status(403).json({
