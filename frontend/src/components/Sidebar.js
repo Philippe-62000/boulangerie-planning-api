@@ -90,7 +90,8 @@ const Sidebar = () => {
 
   /** Liens communs sous la rubrique « Stocks » (admin — même UX Arras / Longuenesse). */
   const STOCKS_MENU_ITEMS_COMMON = [
-    { path: '/stocks', label: 'Stocks farines', icon: '📦', menuId: 'stocks' }
+    { path: '/stocks', label: 'Stocks farines', icon: '📦', menuId: 'stocks' },
+    { path: '/positive', label: 'Positive (IA)', icon: '📷', menuId: 'positive' }
   ];
   /** Entrées admin supplémentaires uniquement sur Longuenesse (future évolution ; tableau vide = menu identique à Arras). */
   const STOCKS_MENU_ITEMS_LON_EXTRA = [];
@@ -132,6 +133,7 @@ const Sidebar = () => {
         { menuId: 'employee-status-print', isVisibleToAdmin: true, isVisibleToEmployee: false },
         { menuId: 'parameters', isVisibleToAdmin: true, isVisibleToEmployee: false },
         { menuId: 'stocks', isVisibleToAdmin: true, isVisibleToEmployee: false },
+        { menuId: 'positive', isVisibleToAdmin: true, isVisibleToEmployee: true },
         { menuId: 'sick-leave-management', isVisibleToAdmin: true, isVisibleToEmployee: false },
         { menuId: 'mutuelle-management', isVisibleToAdmin: true, isVisibleToEmployee: false },
         { menuId: 'vacation-management', isVisibleToAdmin: true, isVisibleToEmployee: false },
@@ -168,6 +170,7 @@ const Sidebar = () => {
         { menuId: 'ambassadeur', isVisibleToAdmin: false, isVisibleToEmployee: false },
         { menuId: 'commandes-en-ligne', isVisibleToAdmin: false, isVisibleToEmployee: true },
         { menuId: 'commande-livraison', isVisibleToAdmin: false, isVisibleToEmployee: true },
+        { menuId: 'positive', isVisibleToAdmin: false, isVisibleToEmployee: true },
         { menuId: 'product-exchanges', isVisibleToAdmin: false, isVisibleToEmployee: false },
         { menuId: 'frais-km-responsable', isVisibleToAdmin: false, isVisibleToEmployee: false },
         { menuId: 'plateaux-repas', isVisibleToAdmin: false, isVisibleToEmployee: false },
@@ -287,7 +290,8 @@ const Sidebar = () => {
     { path: '/frais-km-responsable', label: 'Frais KM Responsable', icon: '🚗', menuId: 'frais-km-responsable' },
     { path: '/plateaux-repas', label: 'Plateaux repas', icon: '🍽️', menuId: 'plateaux-repas' },
     { path: '/chorus', label: 'Chorus', icon: '🎵', menuId: 'chorus', longuenesseOnly: true },
-    { path: '/vehicle', label: 'Véhicule', icon: '🚗', menuId: 'vehicle' }
+    { path: '/vehicle', label: 'Véhicule', icon: '🚗', menuId: 'vehicle' },
+    { path: '/positive', label: 'Positive (IA)', icon: '📷', menuId: 'positive' }
   ];
 
   // Vérifier si un menu a la permission pour le rôle actuel

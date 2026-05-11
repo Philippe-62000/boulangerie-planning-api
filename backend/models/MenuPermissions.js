@@ -127,6 +127,15 @@ menuPermissionsSchema.statics.createDefaultPermissions = async function() {
         order: 6.5
       },
       {
+        menuId: 'positive',
+        menuName: 'Positive (comptage IA)',
+        menuPath: '/positive',
+        isVisibleToAdmin: true,
+        isVisibleToEmployee: true,
+        requiredPermissions: [],
+        order: 6.6
+      },
+      {
         menuId: 'employee-status',
         menuName: 'État Salariés',
         menuPath: '/employee-status',

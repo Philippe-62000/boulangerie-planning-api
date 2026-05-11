@@ -45,6 +45,7 @@ import CompteClientDepots from './pages/CompteClientDepots';
 import StandaloneMenu from './pages/StandaloneMenu';
 import Stocks from './pages/Stocks';
 import StocksFarinesStandalone from './pages/StocksFarinesStandalone';
+import Positive from './pages/Positive';
 import { getSiteBasename } from './config/site';
 
 const AppContent = () => {
@@ -118,6 +119,11 @@ const AppContent = () => {
             <Route path="/stocks" element={
               <ProtectedRoute adminOnly={true}>
                 <Stocks />
+              </ProtectedRoute>
+            } />
+            <Route path="/positive" element={
+              <ProtectedRoute>
+                <Positive />
               </ProtectedRoute>
             } />
             <Route path="/employee-status-print" element={
