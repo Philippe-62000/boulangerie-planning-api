@@ -57,7 +57,9 @@ const VacationRequestAdmin = () => {
       setLoading(true);
       console.log('📅 Récupération des demandes de congés...');
       
-      const response = await api.get('/vacation-requests');
+      const response = await api.get('/vacation-requests', {
+        params: { planning: true, limit: 5000 }
+      });
       
       if (response.data.success) {
         setVacationRequests(response.data.data);

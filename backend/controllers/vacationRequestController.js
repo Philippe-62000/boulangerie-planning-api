@@ -6,18 +6,36 @@ const sftpService = require('../services/sftpService');
 // Récupérer toutes les demandes de congés
 const getAllVacationRequests = async (req, res) => {
   try {
-    const { status, page = 1, limit = 20, city = 'Arras' } = req.query;
-    
-    let query = { city: city };
+    const { status, page = 1, city, planning } = req.query;
+    const isPlanning = planning === 'true' || planning === '1';
+
+    // Planning annuel : toutes les demandes du site (pas de pagination à 20)
+    const limit = isPlanning
+      ? Math.min(Number(req.query.limit) || 5000, 5000)
+      : Math.min(Number(req.query.limit) || 20, 500);
+
+    let query = {};
+    // Planning annuel : pas de filtre ville (une base par magasin sur Render)
+    if (!isPlanning && city && city !== 'all') {
+      const cities = String(city)
+        .split(',')
+        .map((c) => c.trim())
+        .filter(Boolean);
+      if (cities.length === 1) {
+        query.city = cities[0];
+      } else if (cities.length > 1) {
+        query.city = { $in: cities };
+      }
+    }
     if (status) {
       query.status = status;
     }
-    
+
     const vacationRequests = await VacationRequest.find(query)
       .sort({ uploadDate: -1 })
-      .limit(limit * 1)
-      .skip((page - 1) * limit);
-    
+      .limit(limit)
+      .skip(isPlanning ? 0 : (page - 1) * limit);
+
     const total = await VacationRequest.countDocuments(query);
     
     res.json({
@@ -70,7 +88,13 @@ const createVacationRequest = async (req, res) => {
     console.log('📝 Création nouvelle demande de congés...');
     
     // Vérification des données requises
-    const { employeeName, employeeEmail, startDate, endDate, reason, precisions, city = 'Arras' } = req.body;
+    let { employeeName, employeeEmail, startDate, endDate, reason, precisions, city } = req.body;
+
+    if (!city) {
+      const Site = require('../models/Site');
+      const siteDoc = await Site.findOne({ isActive: true }).select('city');
+      city = siteDoc?.city || 'Arras';
+    }
     
     if (!employeeName || !employeeEmail || !startDate || !endDate) {
       return res.status(400).json({

@@ -45,3 +45,6 @@ export const isArrasSite = () => getSiteKey() === 'plan';
 
 export const getSiteBasename = () => (getSiteKey() === 'lon' ? '/lon' : '/plan');
 
+/** Ville enregistrée sur les demandes de congés (champ `city` en base). */
+export const getVacationCity = () => (getSiteKey() === 'lon' ? 'Longuenesse' : 'Arras');
+

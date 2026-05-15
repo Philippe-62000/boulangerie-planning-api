@@ -3,6 +3,14 @@ import api from '../services/api';
 import { toast } from 'react-toastify';
 import './VacationPlanning.css';
 
+const normalizePersonName = (name) =>
+  String(name || '')
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\s+/g, ' ');
+
 const VacationPlanning = () => {
   const [vacationRequests, setVacationRequests] = useState([]);
   const [employees, setEmployees] = useState([]);
@@ -19,11 +27,14 @@ const VacationPlanning = () => {
       const employeesData = employeesResponse.data.success ? employeesResponse.data.data : employeesResponse.data;
       setEmployees(employeesData);
       
-      // Récupérer les demandes de congés validées (exclure les annulées)
-      const vacationResponse = await api.get('/vacation-requests');
+      // Toutes les congés validés du magasin (évite la limite API à 20 + filtre ville Arras par défaut)
+      const vacationResponse = await api.get('/vacation-requests', {
+        params: { planning: true, limit: 5000 }
+      });
       const allVacationData = vacationResponse.data.success ? vacationResponse.data.data : vacationResponse.data;
-      // Filtrer pour ne garder que les validées (pas les annulées)
-      const vacationData = allVacationData.filter(req => req.status === 'validated');
+      const vacationData = (Array.isArray(allVacationData) ? allVacationData : []).filter(
+        (req) => req.status === 'validated'
+      );
       setVacationRequests(vacationData);
       
     } catch (error) {
@@ -86,8 +97,7 @@ const VacationPlanning = () => {
     currentDate.setHours(12, 0, 0, 0); // Milieu de journée pour éviter les problèmes
     
     const vacation = vacationRequests.find(req => {
-      if (req.employeeName !== employee.name) return false;
-      // Status validated uniquement (les annulées sont déjà filtrées dans fetchData)
+      if (normalizePersonName(req.employeeName) !== normalizePersonName(employee.name)) return false;
       if (req.status !== 'validated') return false;
       
       // Parser les dates sans tenir compte du fuseau horaire
