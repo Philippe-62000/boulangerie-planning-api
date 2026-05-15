@@ -1,0 +1,362 @@
+.commande-tgt-page {
+  padding: 1rem 1.25rem 2rem;
+  max-width: 1100px;
+}
+
+.commande-tgt-header {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.commande-tgt-header h1 {
+  margin: 0 0 0.25rem;
+  font-size: 1.5rem;
+}
+
+.commande-tgt-subtitle {
+  margin: 0;
+  color: #444;
+  font-weight: 600;
+}
+
+.commande-tgt-hint {
+  margin: 0.35rem 0 0;
+  color: #666;
+  font-size: 0.9rem;
+}
+
+.commande-tgt-formula {
+  font-style: italic;
+}
+
+.commande-tgt-table .col-conso,
+.commande-tgt-table .col-prev {
+  width: 3.2rem;
+  background: #f8fafc;
+  font-weight: 600;
+  color: #2e5c8a;
+}
+
+.prev-qty {
+  display: inline-block;
+  padding: 0.15rem 0.35rem;
+  background: #e8f0fe;
+  border-radius: 6px;
+}
+
+.prev-qty::after {
+  content: none;
+}
+
+.btn-file {
+  cursor: pointer;
+  margin: 0;
+}
+
+.hidden-file {
+  display: none;
+}
+
+.commande-tgt-header-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.commande-tgt-tabs {
+  display: flex;
+  gap: 0.35rem;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+}
+
+.commande-tgt-tab {
+  padding: 0.5rem 1rem;
+  border: 1px solid #dde2e8;
+  background: #f5f7fa;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.95rem;
+}
+
+.commande-tgt-tab.active {
+  background: #4a6cf7;
+  color: #fff;
+  border-color: #4a6cf7;
+}
+
+.commande-tgt-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+  align-items: center;
+}
+
+.commande-tgt-toolbar input[type='search'],
+.commande-tgt-toolbar select {
+  padding: 0.5rem 0.75rem;
+  border: 1px solid #dde2e8;
+  border-radius: 8px;
+  font-size: 1rem;
+  min-width: 140px;
+}
+
+.commande-tgt-alert {
+  padding: 0.65rem 1rem;
+  border-radius: 8px;
+  margin-bottom: 1rem;
+}
+
+.commande-tgt-alert-success {
+  background: #e8f5e9;
+  color: #2e7d32;
+}
+
+.commande-tgt-alert-error {
+  background: #ffebee;
+  color: #c62828;
+}
+
+.commande-tgt-group {
+  margin-bottom: 1.5rem;
+}
+
+.commande-tgt-group-title {
+  margin: 0 0 0.5rem;
+  font-size: 1.1rem;
+  color: #333;
+  border-bottom: 2px solid #4a6cf7;
+  padding-bottom: 0.25rem;
+}
+
+.commande-tgt-table-wrap {
+  overflow-x: auto;
+}
+
+.commande-tgt-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.95rem;
+}
+
+.commande-tgt-table th,
+.commande-tgt-table td {
+  border: 1px solid #e8ecf0;
+  padding: 0.45rem 0.5rem;
+  vertical-align: middle;
+}
+
+.commande-tgt-table th {
+  background: #f0f3f8;
+  text-align: left;
+  font-weight: 600;
+}
+
+.commande-tgt-table .col-num {
+  width: 4.5rem;
+  text-align: center;
+}
+
+.commande-tgt-table .col-last {
+  width: 4rem;
+  color: #555;
+  background: #fafbfc;
+}
+
+.commande-tgt-table .col-order {
+  width: 5.5rem;
+}
+
+.col-product .product-name {
+  display: block;
+  font-weight: 500;
+}
+
+.col-product .product-code {
+  display: block;
+  font-size: 0.8rem;
+  color: #888;
+}
+
+.qty-input {
+  width: 100%;
+  max-width: 5rem;
+  padding: 0.55rem 0.35rem;
+  font-size: 1.1rem;
+  text-align: center;
+  border: 1px solid #c5cdd8;
+  border-radius: 8px;
+  -moz-appearance: textfield;
+}
+
+.qty-input::-webkit-outer-spin-button,
+.qty-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.qty-input-order {
+  font-weight: 700;
+  border-color: #4a6cf7;
+  background: #f8f9ff;
+}
+
+.commande-tgt-footer {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-top: 1.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid #eee;
+  position: sticky;
+  bottom: 0;
+  background: #fff;
+  padding-bottom: 0.5rem;
+  z-index: 5;
+}
+
+.commande-tgt-loading,
+.commande-tgt-empty,
+.commande-tgt-info {
+  color: #666;
+  padding: 1rem 0;
+}
+
+.commande-tgt-recap-meta {
+  margin-bottom: 1rem;
+  font-weight: 600;
+}
+
+.config-block {
+  margin-bottom: 2rem;
+  padding: 1rem;
+  border: 1px solid #e8ecf0;
+  border-radius: 12px;
+  background: #fafbfc;
+}
+
+.config-block h3 {
+  margin-top: 0;
+}
+
+.config-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+  align-items: center;
+}
+
+.config-row input,
+.config-row select,
+.config-block textarea {
+  flex: 1;
+  min-width: 120px;
+  padding: 0.5rem 0.65rem;
+  border: 1px solid #dde2e8;
+  border-radius: 8px;
+  font-size: 1rem;
+}
+
+.config-row-product {
+  display: grid;
+  grid-template-columns: 1fr 100px 160px;
+}
+
+.config-block textarea {
+  width: 100%;
+  margin-bottom: 0.75rem;
+  font-family: monospace;
+  font-size: 0.85rem;
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  white-space: nowrap;
+}
+
+.btn {
+  padding: 0.55rem 1rem;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  font-size: 0.95rem;
+}
+
+.btn-primary {
+  background: #4a6cf7;
+  color: #fff;
+}
+
+.btn-secondary {
+  background: #eef1f6;
+  color: #333;
+  border: 1px solid #dde2e8;
+}
+
+.btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.print-only {
+  display: none;
+}
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
+
+  .print-only {
+    display: inline !important;
+  }
+
+  .commande-tgt-print-title {
+    display: block !important;
+    margin-bottom: 1rem;
+  }
+
+  .commande-tgt-page {
+    padding: 0;
+    max-width: none;
+  }
+
+  .commande-tgt-group {
+    break-inside: avoid;
+  }
+
+  .qty-input {
+    display: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .commande-tgt-header-actions {
+    width: 100%;
+  }
+
+  .commande-tgt-header-actions .btn {
+    flex: 1;
+  }
+
+  .config-row-product {
+    grid-template-columns: 1fr;
+  }
+
+  .commande-tgt-table .col-num {
+    width: 3.5rem;
+  }
+
+  .qty-input {
+    font-size: 1.25rem;
+    padding: 0.65rem 0.25rem;
+  }
+}

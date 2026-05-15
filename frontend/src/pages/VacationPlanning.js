@@ -290,8 +290,10 @@ const VacationPlanning = () => {
                       >
                         {isVisible && (
                           <div className="day-content">
-                            <span className="day-value">{day}</span>
-                            <span className="day-letter">{dayInitial}</span>
+                            <div className="day-date-row">
+                              <span className="day-value">{day}</span>
+                              <span className="day-letter">{dayInitial}</span>
+                            </div>
                             {/* Afficher les initiales des employés en congé */}
                             {employeesOnVacation.length > 0 && (
                               <div className="vacation-initials">

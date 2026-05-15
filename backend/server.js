@@ -234,6 +234,8 @@ app.use('/api/partner-admin', require('./routes/partnerAdmin'));
 app.use('/api/stocks', require('./routes/stocks'));
 app.use('/api/positive', require('./routes/positive'));
 console.log('✅ Routes positive montées (/api/positive/*)');
+app.use('/api/supplier-orders', require('./routes/supplierOrder'));
+console.log('✅ Routes supplier-orders montées (/api/supplier-orders/*)');
 /** POST JSON { email } — purge définitive PartnerCompany ; route courte au cas où /partner-admin/* serait obsolète sur Render */
 const partnerCompanyController = require('./controllers/partnerCompanyController');
 const { authenticateManager } = require('./middleware/auth');

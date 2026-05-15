@@ -91,7 +91,8 @@ const Sidebar = () => {
   /** Liens communs sous la rubrique « Stocks » (admin — même UX Arras / Longuenesse). */
   const STOCKS_MENU_ITEMS_COMMON = [
     { path: '/stocks', label: 'Stocks farines', icon: '📦', menuId: 'stocks' },
-    { path: '/positive', label: 'Positive (IA)', icon: '📷', menuId: 'positive' }
+    { path: '/positive', label: 'Positive (IA)', icon: '📷', menuId: 'positive' },
+    { path: '/commande-tgt', label: 'Commande TGT', icon: '🛒', menuId: 'commande-tgt' }
   ];
   /** Entrées admin supplémentaires uniquement sur Longuenesse (future évolution ; tableau vide = menu identique à Arras). */
   const STOCKS_MENU_ITEMS_LON_EXTRA = [];
@@ -134,6 +135,7 @@ const Sidebar = () => {
         { menuId: 'parameters', isVisibleToAdmin: true, isVisibleToEmployee: false },
         { menuId: 'stocks', isVisibleToAdmin: true, isVisibleToEmployee: false },
         { menuId: 'positive', isVisibleToAdmin: true, isVisibleToEmployee: true },
+        { menuId: 'commande-tgt', isVisibleToAdmin: true, isVisibleToEmployee: true },
         { menuId: 'sick-leave-management', isVisibleToAdmin: true, isVisibleToEmployee: false },
         { menuId: 'mutuelle-management', isVisibleToAdmin: true, isVisibleToEmployee: false },
         { menuId: 'vacation-management', isVisibleToAdmin: true, isVisibleToEmployee: false },
@@ -336,6 +338,16 @@ const Sidebar = () => {
   const filterSubmenuForAdmin = (items) =>
     items.filter((item) => !(item.longuenesseOnly && !isLonguenesse));
 
+  /**
+   * Entrées sous « Stocks » selon les permissions menu.
+   * Pour les salariés, « Positive (IA) » reste dans le menu plat : on ne le duplique pas sous Stocks.
+   */
+  const visibleStocksSubitems = filterSubmenuForAdmin(STOCKS_MENU_ITEMS).filter((item) => {
+    if (!hasPermission(item.menuId)) return false;
+    if (isEmployee() && item.menuId === 'positive') return false;
+    return true;
+  });
+
   // Filtrer les menus principaux ; pour l’admin, retirer les entrées regroupées (Vente, Paies, Facturation)
   const getFilteredMenuItems = () => {
     if (!user) return [];
@@ -431,8 +443,8 @@ const Sidebar = () => {
             )}
           </div>
         )}
-        {/* Sous-menu admin : Stocks → Stocks farines (+ entrées Lon dans STOCKS_MENU_ITEMS_LON_EXTRA si besoin) */}
-        {isAdmin() && filterSubmenuForAdmin(STOCKS_MENU_ITEMS).length > 0 && (
+        {/* Sous-menu Stocks : admin toujours ; salarié si permission menu (ex. Stocks farines — Longuenesse / Arras). */}
+        {(isAdmin() || isEmployee()) && visibleStocksSubitems.length > 0 && (
           <div className="nav-group admin-submenu">
             <button
               type="button"
@@ -449,7 +461,7 @@ const Sidebar = () => {
             </button>
             {stocksMenuExpanded && (
               <div className="nav-submenu">
-                {filterSubmenuForAdmin(STOCKS_MENU_ITEMS).map((item) => (
+                {visibleStocksSubitems.map((item) => (
                   <Link
                     key={item.path}
                     to={item.path}

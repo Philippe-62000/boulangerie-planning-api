@@ -136,6 +136,15 @@ menuPermissionsSchema.statics.createDefaultPermissions = async function() {
         order: 6.6
       },
       {
+        menuId: 'commande-tgt',
+        menuName: 'Commande TGT',
+        menuPath: '/commande-tgt',
+        isVisibleToAdmin: true,
+        isVisibleToEmployee: true,
+        requiredPermissions: [],
+        order: 6.65
+      },
+      {
         menuId: 'employee-status',
         menuName: 'État Salariés',
         menuPath: '/employee-status',

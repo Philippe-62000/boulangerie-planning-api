@@ -45,7 +45,9 @@ import CompteClientDepots from './pages/CompteClientDepots';
 import StandaloneMenu from './pages/StandaloneMenu';
 import Stocks from './pages/Stocks';
 import StocksFarinesStandalone from './pages/StocksFarinesStandalone';
+import MenuPermissionGate from './components/MenuPermissionGate';
 import Positive from './pages/Positive';
+import CommandeTGT from './pages/CommandeTGT';
 import { getSiteBasename } from './config/site';
 
 const AppContent = () => {
@@ -117,13 +119,22 @@ const AppContent = () => {
               </ProtectedRoute>
             } />
             <Route path="/stocks" element={
-              <ProtectedRoute adminOnly={true}>
-                <Stocks />
+              <ProtectedRoute>
+                <MenuPermissionGate menuId="stocks">
+                  <Stocks />
+                </MenuPermissionGate>
               </ProtectedRoute>
             } />
             <Route path="/positive" element={
               <ProtectedRoute>
                 <Positive />
+              </ProtectedRoute>
+            } />
+            <Route path="/commande-tgt" element={
+              <ProtectedRoute>
+                <MenuPermissionGate menuId="commande-tgt">
+                  <CommandeTGT />
+                </MenuPermissionGate>
               </ProtectedRoute>
             } />
             <Route path="/employee-status-print" element={

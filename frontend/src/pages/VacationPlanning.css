@@ -161,7 +161,7 @@
   font-weight: bold;
   padding: 8px 4px !important;
   font-size: 11px;
-  min-width: 60px;
+  min-width: 72px;
 }
 
 .employee-header {
@@ -187,11 +187,17 @@
   min-width: 40px;
 }
 
+.calendar-table td.calendar-day-cell {
+  text-align: left;
+  vertical-align: top;
+}
+
 .calendar-day-cell {
-  min-width: 60px;
-  min-height: 25px;
-  padding: 3px !important;
-  text-align: center;
+  min-width: 72px;
+  min-height: 44px;
+  padding: 4px !important;
+  text-align: left;
+  vertical-align: top;
   position: relative;
 }
 
@@ -206,44 +212,59 @@
 .day-content {
   display: flex;
   flex-direction: column;
-  align-items: center;
+  align-items: stretch;
   justify-content: flex-start;
   position: relative;
   min-height: 100%;
+  width: 100%;
+}
+
+.day-date-row {
+  display: flex;
+  flex-direction: row;
+  align-items: baseline;
+  justify-content: flex-start;
+  gap: 4px;
+  width: 100%;
+  flex-shrink: 0;
 }
 
 .day-value {
   font-weight: bold;
   font-size: 11px;
-  line-height: 1;
+  line-height: 1.1;
 }
 
 .day-letter {
-  font-size: 9px;
+  font-size: 10px;
   color: #666;
-  line-height: 1;
-  margin-top: 1px;
+  line-height: 1.1;
+  margin-top: 0;
 }
 
 .vacation-initials {
   display: flex;
   flex-wrap: wrap;
-  gap: 2px;
-  margin-top: 2px;
-  justify-content: center;
-  align-items: center;
+  gap: 3px 4px;
+  margin-top: 4px;
+  justify-content: flex-start;
+  align-items: flex-start;
+  align-content: flex-start;
   width: 100%;
+  flex: 1;
+  /* Hauteur ~2 lignes de badges pour laisser la place à une police plus grande */
+  min-height: 2.6em;
 }
 
 .employee-initial {
-  font-size: 8px;
+  font-size: 11px;
   font-weight: bold;
-  padding: 1px 3px;
-  border-radius: 2px;
+  padding: 2px 5px;
+  border-radius: 3px;
   border: 1px solid #333;
-  line-height: 1.2;
+  line-height: 1.25;
   display: inline-block;
-  min-width: 12px;
+  min-width: 1.75em;
   text-align: center;
 }
 
@@ -377,9 +398,20 @@
     print-color-adjust: exact;
   }
   
+  .calendar-table td.calendar-day-cell {
+    text-align: left !important;
+    vertical-align: top !important;
+  }
+
   .calendar-day-cell {
-    padding: 2px !important;
-    min-height: 20px;
+    padding: 2px 3px !important;
+    min-height: 36px;
+    min-width: 0;
+  }
+
+  .vacation-initials {
+    min-height: 2.2em;
+    margin-top: 2px;
   }
   
   .day-value {
@@ -387,12 +419,13 @@
   }
   
   .day-letter {
-    font-size: 7px !important;
+    font-size: 8px !important;
   }
   
   .employee-initial {
-    font-size: 7px !important;
-    padding: 1px 2px !important;
+    font-size: 9px !important;
+    padding: 1px 3px !important;
+    line-height: 1.2 !important;
   }
   
   /* Éviter les sauts de page dans les lignes */
