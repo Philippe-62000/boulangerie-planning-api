@@ -2,11 +2,26 @@
 
 const MS_PER_DAY = 86400000;
 
-export function daysElapsedSince(date, refDate = new Date()) {
-  if (!date) return 0;
-  const t0 = new Date(date).getTime();
-  if (!Number.isFinite(t0)) return 0;
-  return Math.max(0, (refDate.getTime() - t0) / MS_PER_DAY);
+function startOfCalendarDay(d) {
+  const x = new Date(d);
+  return new Date(x.getFullYear(), x.getMonth(), x.getDate());
+}
+
+export function calendarDaysBetween(startDate, refDate = new Date()) {
+  if (!startDate) return 0;
+  const a = startOfCalendarDay(startDate);
+  const b = startOfCalendarDay(refDate);
+  return Math.max(0, Math.round((b.getTime() - a.getTime()) / MS_PER_DAY));
+}
+
+/** 0 le jour de l'inventaire, 1 à partir du lendemain. */
+export function consumptionDeductionDaysSinceCount(countDate, refDate = new Date()) {
+  return Math.max(0, calendarDaysBetween(countDate, refDate) - 1);
+}
+
+export function roundQty2(n) {
+  if (n == null || !Number.isFinite(Number(n))) return null;
+  return Math.round(Number(n) * 100) / 100;
 }
 
 export function stockToSacks({ unit, sacks, pallets, sacksPerPallet }) {
@@ -19,10 +34,10 @@ export function stockToSacks({ unit, sacks, pallets, sacksPerPallet }) {
   return s;
 }
 
-export function computeTheoreticalStockSacks(physicalStockSacks, dailyConsumption, daysElapsed) {
+export function computeTheoreticalStockSacks(physicalStockSacks, dailyConsumption, deductionDays) {
   const physical = Math.max(0, Number(physicalStockSacks) || 0);
   const daily = Math.max(0, Number(dailyConsumption) || 0);
-  const days = Math.max(0, Number(daysElapsed) || 0);
+  const days = Math.max(0, Number(deductionDays) || 0);
   return Math.max(0, physical - days * daily);
 }
 
@@ -41,27 +56,27 @@ export function buildFlourStocksStatusClient({
 }) {
   const invById = new Map((inventory?.items || []).map((it) => [String(it.flourConfigId), it]));
   const lastFullCountAt = inventory?.lastFullCountAt || inventory?.lastEntryAt || null;
-  const daysSinceFullCount = daysElapsedSince(lastFullCountAt);
-  const daysSinceFullCountInt = Math.floor(daysSinceFullCount);
+  const calendarDaysSinceCount = calendarDaysBetween(lastFullCountAt);
+  const deductionDays = consumptionDeductionDaysSinceCount(lastFullCountAt);
   const interval = Number(countIntervalDays) > 0 ? Math.floor(Number(countIntervalDays)) : 5;
-  const physicalCountDue = !lastFullCountAt || daysSinceFullCountInt >= interval;
-  const daysUntilCountDue = physicalCountDue ? 0 : Math.max(0, interval - daysSinceFullCountInt);
+  const physicalCountDue = !lastFullCountAt || calendarDaysSinceCount >= interval;
+  const daysUntilCountDue = physicalCountDue ? 0 : Math.max(0, interval - calendarDaysSinceCount);
 
   const items = (configs || [])
     .filter((c) => c && c.isActive !== false)
     .map((cfg) => {
       const inv = invById.get(String(cfg._id)) || { sacks: 0, pallets: 0 };
-      const stockPhysicalSacks = stockToSacks({
-        unit: cfg.unit,
-        sacks: inv.sacks,
-        pallets: inv.pallets,
-        sacksPerPallet
-      });
+      const stockPhysicalSacks = roundQty2(
+        stockToSacks({
+          unit: cfg.unit,
+          sacks: inv.sacks,
+          pallets: inv.pallets,
+          sacksPerPallet
+        })
+      );
       const daily = Math.max(0, Number(cfg.dailyConsumptionSacks || 0));
-      const stockTheoreticalSacks = computeTheoreticalStockSacks(
-        stockPhysicalSacks,
-        daily,
-        daysSinceFullCount
+      const stockTheoreticalSacks = roundQty2(
+        computeTheoreticalStockSacks(stockPhysicalSacks, daily, deductionDays)
       );
       const daysRemaining = daily > 0 ? stockTheoreticalSacks / daily : null;
       return {
@@ -71,7 +86,7 @@ export function buildFlourStocksStatusClient({
         stockTheoreticalSacks,
         stockSacksTotal: stockTheoreticalSacks,
         daily,
-        daysRemaining,
+        daysRemaining: daysRemaining != null ? roundQty2(daysRemaining) : null,
         status: statusFromDaysRemaining(daysRemaining)
       };
     });
@@ -95,7 +110,8 @@ export function buildFlourStocksStatusClient({
       lastFullCountAt,
       updatedByName: String(inventory?.updatedByName || '').trim(),
       physicalCountIntervalDays: interval,
-      daysSinceFullCount: Math.round(daysSinceFullCount * 10) / 10,
+      daysSinceFullCount: calendarDaysSinceCount,
+      consumptionDeductionDays: deductionDays,
       physicalCountDue,
       daysUntilCountDue
     }

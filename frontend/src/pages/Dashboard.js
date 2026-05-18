@@ -220,6 +220,12 @@ const Dashboard = () => {
     return `Dernier envoi : ${label} (${jourTxt})${par}`;
   };
 
+  const formatStockQty = (qty) => {
+    const n = Number(qty);
+    if (!Number.isFinite(n)) return '—';
+    return n.toFixed(2);
+  };
+
   const formatDailyConsumption = (daily) => {
     const n = Number(daily);
     if (!Number.isFinite(n) || n < 0) return '0';
@@ -1029,13 +1035,12 @@ const Dashboard = () => {
                       <div style={{ fontWeight: 800, color }}>{days} j</div>
                     </div>
                     <div style={{ marginTop: 6, fontSize: '0.9rem', color: '#555' }}>
-                      Stock théorique: <strong>{it.stockTheoreticalSacks ?? it.stockSacksTotal}</strong> sacs
+                      Stock théorique:{' '}
+                      <strong>{formatStockQty(it.stockTheoreticalSacks ?? it.stockSacksTotal)}</strong> sacs
                       {typeof it.stockPhysicalSacks === 'number' &&
-                      it.stockPhysicalSacks !== (it.stockTheoreticalSacks ?? it.stockSacksTotal) ? (
-                        <>
-                          {' '}
-                          (réel saisi: {it.stockPhysicalSacks})
-                        </>
+                      formatStockQty(it.stockPhysicalSacks) !==
+                        formatStockQty(it.stockTheoreticalSacks ?? it.stockSacksTotal) ? (
+                        <> (réel saisi: {formatStockQty(it.stockPhysicalSacks)})</>
                       ) : null}
                       — Conso/j: <strong>{formatDailyConsumption(it.daily)}</strong>
                     </div>

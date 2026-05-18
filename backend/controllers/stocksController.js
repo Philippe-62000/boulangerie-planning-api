@@ -99,11 +99,27 @@ function stockToSacks({ unit, sacks, pallets, sacksPerPallet }) {
 const MS_PER_DAY = 86400000;
 const DEFAULT_PHYSICAL_COUNT_INTERVAL_DAYS = 5;
 
-function daysElapsedSince(date, refDate = new Date()) {
-  if (!date) return 0;
-  const t0 = new Date(date).getTime();
-  if (!Number.isFinite(t0)) return 0;
-  return Math.max(0, (refDate.getTime() - t0) / MS_PER_DAY);
+function startOfCalendarDay(d) {
+  const x = new Date(d);
+  return new Date(x.getFullYear(), x.getMonth(), x.getDate());
+}
+
+/** Jours calendaires entre deux dates (0 = même jour). */
+function calendarDaysBetween(startDate, refDate = new Date()) {
+  if (!startDate) return 0;
+  const a = startOfCalendarDay(startDate);
+  const b = startOfCalendarDay(refDate);
+  return Math.max(0, Math.round((b.getTime() - a.getTime()) / MS_PER_DAY));
+}
+
+/** Jours de conso à déduire : 0 le jour de l'inventaire, 1 à partir du lendemain. */
+function consumptionDeductionDaysSinceCount(countDate, refDate = new Date()) {
+  return Math.max(0, calendarDaysBetween(countDate, refDate) - 1);
+}
+
+function roundQty2(n) {
+  if (n == null || !Number.isFinite(Number(n))) return null;
+  return Math.round(Number(n) * 100) / 100;
 }
 
 async function getPhysicalCountIntervalDays(siteKey) {
@@ -148,26 +164,26 @@ async function buildFlourStocksStatus(siteKey) {
 
   const invById = new Map((inventory?.items || []).map((it) => [String(it.flourConfigId), it]));
   const lastFullCountAt = inventory?.lastFullCountAt || inventory?.lastEntryAt || null;
-  const daysSinceFullCount = daysElapsedSince(lastFullCountAt);
-  const daysSinceFullCountInt = Math.floor(daysSinceFullCount);
-  const physicalCountDue = !lastFullCountAt || daysSinceFullCountInt >= countIntervalDays;
+  const calendarDaysSinceCount = calendarDaysBetween(lastFullCountAt);
+  const deductionDays = consumptionDeductionDaysSinceCount(lastFullCountAt);
+  const physicalCountDue = !lastFullCountAt || calendarDaysSinceCount >= countIntervalDays;
   const daysUntilCountDue = physicalCountDue
     ? 0
-    : Math.max(0, countIntervalDays - daysSinceFullCountInt);
+    : Math.max(0, countIntervalDays - calendarDaysSinceCount);
 
   const items = configs.map((cfg) => {
     const inv = invById.get(String(cfg._id)) || { sacks: 0, pallets: 0 };
-    const stockPhysicalSacks = stockToSacks({
-      unit: cfg.unit,
-      sacks: inv.sacks,
-      pallets: inv.pallets,
-      sacksPerPallet
-    });
+    const stockPhysicalSacks = roundQty2(
+      stockToSacks({
+        unit: cfg.unit,
+        sacks: inv.sacks,
+        pallets: inv.pallets,
+        sacksPerPallet
+      })
+    );
     const daily = Math.max(0, Number(cfg.dailyConsumptionSacks || 0));
-    const stockTheoreticalSacks = computeTheoreticalStockSacks(
-      stockPhysicalSacks,
-      daily,
-      daysSinceFullCount
+    const stockTheoreticalSacks = roundQty2(
+      computeTheoreticalStockSacks(stockPhysicalSacks, daily, deductionDays)
     );
     const daysRemaining = daysRemainingFromStock(stockTheoreticalSacks, daily);
     return {
@@ -177,7 +193,7 @@ async function buildFlourStocksStatus(siteKey) {
       stockTheoreticalSacks,
       stockSacksTotal: stockTheoreticalSacks,
       daily,
-      daysRemaining,
+      daysRemaining: daysRemaining != null ? roundQty2(daysRemaining) : null,
       status: statusFromDaysRemaining(daysRemaining)
     };
   });
@@ -201,7 +217,8 @@ async function buildFlourStocksStatus(siteKey) {
       lastFullCountAt,
       updatedByName: String(inventory?.updatedByName || '').trim(),
       physicalCountIntervalDays: countIntervalDays,
-      daysSinceFullCount: Math.round(daysSinceFullCount * 10) / 10,
+      daysSinceFullCount: calendarDaysSinceCount,
+      consumptionDeductionDays: deductionDays,
       physicalCountDue,
       daysUntilCountDue
     }
@@ -504,7 +521,7 @@ const postFlourEntry = async (req, res) => {
     const now = new Date();
     const spamWindowMs = 48 * 60 * 60 * 1000;
     const countAnchor = prevInventory?.lastFullCountAt || prevInventory?.lastEntryAt || null;
-    const daysBeforeEntry = daysElapsedSince(countAnchor, now);
+    const daysBeforeEntry = consumptionDeductionDaysSinceCount(countAnchor, now);
 
     for (const cfg of configs) {
       const id = String(cfg._id);
