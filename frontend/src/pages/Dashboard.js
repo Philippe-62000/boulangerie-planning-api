@@ -2,11 +2,69 @@ import React, { useState, useEffect } from 'react';
 import api from '../services/api';
 import partnerApi from '../services/partnerApi';
 import { getSiteKey } from '../config/site';
+import { buildFlourStocksStatusClient } from '../utils/flourStockStatus';
 import { useAuth } from '../contexts/AuthContext';
+
+const normalizePersonName = (name) =>
+  String(name || '')
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\s+/g, ' ');
+
+const VACATION_DASHBOARD_HORIZON_DAYS = 8;
+
+const buildVacationEmployeesFromRequests = (employeesList, validatedRequests) => {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const dayMs = 1000 * 60 * 60 * 24;
+  const byEmployeeId = new Map();
+  const requests = Array.isArray(validatedRequests) ? validatedRequests : [];
+
+  for (const req of requests) {
+    if (req.status && req.status !== 'validated') continue;
+    const emp = employeesList.find(
+      (e) => normalizePersonName(e.name) === normalizePersonName(req.employeeName)
+    );
+    if (!emp) continue;
+
+    const startDate = new Date(req.startDate);
+    const endDate = new Date(req.endDate);
+    startDate.setHours(0, 0, 0, 0);
+    endDate.setHours(0, 0, 0, 0);
+    if (endDate < today) continue;
+
+    const daysUntil = Math.floor((startDate - today) / dayMs);
+    const isActive = today >= startDate && today <= endDate;
+    if (!isActive && daysUntil > VACATION_DASHBOARD_HORIZON_DAYS) continue;
+
+    const key = String(emp._id);
+    const score = isActive ? 1000 - daysUntil : 500 - daysUntil;
+    const existing = byEmployeeId.get(key);
+    if (!existing || score > existing.score) {
+      byEmployeeId.set(key, {
+        emp,
+        score,
+        vacation: {
+          isOnVacation: isActive,
+          startDate: req.startDate,
+          endDate: req.endDate,
+          vacationRequestId: req._id
+        }
+      });
+    }
+  }
+
+  return Array.from(byEmployeeId.values())
+    .map(({ emp, vacation }) => ({ ...emp, vacation }))
+    .sort((a, b) => new Date(a.vacation.startDate) - new Date(b.vacation.startDate));
+};
 
 const Dashboard = () => {
   const { isAdmin, user } = useAuth();
   const [employees, setEmployees] = useState([]);
+  const [validatedVacations, setValidatedVacations] = useState([]);
   const [sickLeaves, setSickLeaves] = useState([]);
   const [loading, setLoading] = useState(true);
   const [pendingObligations, setPendingObligations] = useState([]);
@@ -29,7 +87,12 @@ const Dashboard = () => {
     items: [],
     error: null,
     lastEntryAt: null,
-    updatedByName: ''
+    lastFullCountAt: null,
+    updatedByName: '',
+    physicalCountDue: false,
+    physicalCountIntervalDays: 5,
+    daysSinceFullCount: null,
+    daysUntilCountDue: null
   });
   /** false = uniquement farines rouges ; true = toutes */
   const [flourStocksShowAll, setFlourStocksShowAll] = useState(false);
@@ -61,84 +124,81 @@ const Dashboard = () => {
     }
   }, [shouldShowLosses, shouldShowVehicleRecap, user?.role]);
 
+  const applyFlourWidgetFromStatusPayload = (payload) => {
+    const items = Array.isArray(payload?.data) ? payload.data : [];
+    const meta = payload?.meta || {};
+    setFlourStocksWidget({
+      loading: false,
+      items,
+      error: null,
+      lastEntryAt: meta.lastEntryAt || null,
+      lastFullCountAt: meta.lastFullCountAt || null,
+      updatedByName: String(meta.updatedByName || '').trim(),
+      physicalCountDue: meta.physicalCountDue === true,
+      physicalCountIntervalDays: meta.physicalCountIntervalDays ?? 5,
+      daysSinceFullCount: meta.daysSinceFullCount ?? null,
+      daysUntilCountDue: meta.daysUntilCountDue ?? null
+    });
+  };
+
+  const fetchFlourStocksWidgetFallback = async (siteKey) => {
+    const [cfgRes, invRes, paramsRes] = await Promise.all([
+      api.get('/stocks/flours/config', { params: { siteKey } }),
+      api.get('/stocks/flours/inventory', { params: { siteKey } }),
+      api.get('/parameters')
+    ]);
+    const configs = Array.isArray(cfgRes.data?.data) ? cfgRes.data.data : [];
+    const inventory = invRes.data?.data || { items: [] };
+    if (invRes.data?.meta) {
+      const built = buildFlourStocksStatusClient({
+        configs,
+        inventory,
+        countIntervalDays: invRes.data.meta.physicalCountIntervalDays ?? 5
+      });
+      applyFlourWidgetFromStatusPayload({ data: built.items, meta: invRes.data.meta });
+      return;
+    }
+    const params = Array.isArray(paramsRes.data) ? paramsRes.data : [];
+    const sacksPerPalletName = `whiteFlourSacksPerPallet_${siteKey}`;
+    const sacksPerPalletRaw = params.find((p) => p.name === sacksPerPalletName)?.stringValue;
+    const sacksPerPalletNum = Number(String(sacksPerPalletRaw || '').trim());
+    const sacksPerPallet = Number.isFinite(sacksPerPalletNum) && sacksPerPalletNum > 0 ? sacksPerPalletNum : 50;
+    const intervalName = `flourPhysicalCountIntervalDays_${siteKey}`;
+    const intervalRaw = params.find((p) => p.name === intervalName)?.stringValue;
+    const countIntervalDays = Number(String(intervalRaw || '5').trim()) || 5;
+    const built = buildFlourStocksStatusClient({ configs, inventory, sacksPerPallet, countIntervalDays });
+    applyFlourWidgetFromStatusPayload({ data: built.items, meta: built.meta });
+  };
+
   const fetchFlourStocksWidget = async () => {
     setFlourStocksWidget((s) => ({
       ...s,
       loading: true,
       error: null
     }));
+    const siteKey = getSiteKey();
     try {
-      const siteKey = getSiteKey(); // 'lon'|'plan'
-      const [cfgRes, invRes, paramsRes] = await Promise.all([
-        api.get('/stocks/flours/config', { params: { siteKey } }),
-        api.get('/stocks/flours/inventory', { params: { siteKey } }),
-        api.get('/parameters')
-      ]);
-
-      const configs = Array.isArray(cfgRes.data?.data) ? cfgRes.data.data : [];
-      const inventory = invRes.data?.data || { items: [] };
-      const invItems = Array.isArray(inventory?.items) ? inventory.items : [];
-      const lastEntryAt = inventory.lastEntryAt || inventory.updatedAt || null;
-      const updatedByName = String(inventory.updatedByName || '').trim();
-      const params = Array.isArray(paramsRes.data) ? paramsRes.data : [];
-      const sacksPerPalletName = `whiteFlourSacksPerPallet_${siteKey}`;
-      const sacksPerPalletRaw = params.find((p) => p.name === sacksPerPalletName)?.stringValue;
-      const sacksPerPalletNum = Number(String(sacksPerPalletRaw || '').trim());
-      const sacksPerPallet = Number.isFinite(sacksPerPalletNum) && sacksPerPalletNum > 0 ? sacksPerPalletNum : 50;
-
-      const invById = new Map(invItems.map((it) => [String(it.flourConfigId), it]));
-
-      const items = configs
-        .filter((c) => c && c.isActive !== false)
-        .map((cfg) => {
-          const inv = invById.get(String(cfg._id)) || { sacks: 0, pallets: 0 };
-          const sacks = Math.max(0, Number(inv.sacks || 0));
-          const pallets = Math.max(0, Number(inv.pallets || 0));
-          const stockSacksTotal =
-            cfg.unit === 'pallets_and_sacks' ? pallets * sacksPerPallet + sacks : sacks;
-          const daily = Math.max(0, Number(cfg.dailyConsumptionSacks || 0));
-          const daysRemaining = daily > 0 ? stockSacksTotal / daily : null;
-          let status = 'na';
-          if (typeof daysRemaining === 'number' && Number.isFinite(daysRemaining)) {
-            if (daysRemaining > 10) status = 'green';
-            else if (daysRemaining >= 7) status = 'orange';
-            else status = 'red';
-          }
-          return {
-            flourConfigId: cfg._id,
-            name: cfg.name,
-            stockSacksTotal,
-            daily,
-            daysRemaining,
-            status
-          };
-        })
-        .sort((a, b) => {
-          const ad = typeof a.daysRemaining === 'number' && Number.isFinite(a.daysRemaining) ? a.daysRemaining : null;
-          const bd = typeof b.daysRemaining === 'number' && Number.isFinite(b.daysRemaining) ? b.daysRemaining : null;
-          if (ad === null && bd === null) return a.name.localeCompare(b.name, 'fr');
-          if (ad === null) return 1; // N/A en bas
-          if (bd === null) return -1;
-          if (ad !== bd) return ad - bd; // plus petit d'abord
-          return a.name.localeCompare(b.name, 'fr');
-        });
-
-      setFlourStocksWidget({
-        loading: false,
-        items,
-        error: null,
-        lastEntryAt,
-        updatedByName
-      });
+      const res = await api.get('/stocks/flours/status', { params: { siteKey } });
+      applyFlourWidgetFromStatusPayload(res.data);
     } catch (e) {
-      console.error('Erreur widget stocks farines:', e);
-      setFlourStocksWidget({
-        loading: false,
-        items: [],
-        error: 'Erreur chargement stocks farines',
-        lastEntryAt: null,
-        updatedByName: ''
-      });
+      console.warn('Widget farines : repli config/inventaire', e.response?.status || e.message);
+      try {
+        await fetchFlourStocksWidgetFallback(siteKey);
+      } catch (e2) {
+        console.error('Erreur widget stocks farines (repli):', e2);
+        setFlourStocksWidget({
+          loading: false,
+          items: [],
+          error: 'Erreur chargement stocks farines',
+          lastEntryAt: null,
+          lastFullCountAt: null,
+          updatedByName: '',
+          physicalCountDue: false,
+          physicalCountIntervalDays: 5,
+          daysSinceFullCount: null,
+          daysUntilCountDue: null
+        });
+      }
     }
   };
 
@@ -192,25 +252,38 @@ const Dashboard = () => {
   const fetchDashboardData = async () => {
     try {
       setLoading(true);
-      const response = await api.get('/employees');
-      
-      // L'API peut retourner soit { success: true, data: [...] } soit directement [...]
+      const [employeesResponse, vacationsResponse] = await Promise.all([
+        api.get('/employees'),
+        api.get('/vacation-requests', {
+          params: { planning: true, status: 'validated' }
+        })
+      ]);
+
       let employeesData = null;
-      if (response.data.success && response.data.data) {
-        employeesData = response.data.data;
-      } else if (Array.isArray(response.data)) {
-        employeesData = response.data;
+      if (employeesResponse.data.success && employeesResponse.data.data) {
+        employeesData = employeesResponse.data.data;
+      } else if (Array.isArray(employeesResponse.data)) {
+        employeesData = employeesResponse.data;
       }
-      
+
       if (employeesData) {
         setEmployees(employeesData);
       } else {
         setEmployees([]);
-        console.error('Format de données invalide:', response.data);
+        console.error('Format de données employés invalide:', employeesResponse.data);
       }
+
+      const vacPayload = vacationsResponse.data;
+      const vacationsData = vacPayload?.success
+        ? vacPayload.data
+        : Array.isArray(vacPayload)
+          ? vacPayload
+          : [];
+      setValidatedVacations(Array.isArray(vacationsData) ? vacationsData : []);
     } catch (error) {
       console.error('Erreur lors du chargement du tableau de bord:', error);
       setEmployees([]);
+      setValidatedVacations([]);
     } finally {
       setLoading(false);
     }
@@ -555,43 +628,8 @@ const Dashboard = () => {
     return emp;
   });
 
-  // Filtrer les employés en congés (8 jours avant le début, exclure ceux qui ont déjà fini)
-  const vacationEmployees = employees.filter(emp => {
-    // Si pas de vacation du tout, exclure
-    if (!emp.vacation) return false;
-    
-    const today = new Date();
-    today.setHours(0, 0, 0, 0); // Normaliser à minuit pour la comparaison
-    
-    // PRIORITÉ 1: Si l'employé a une date de fin de congés et qu'elle est passée, l'exclure
-    // (même si isOnVacation est true, si la date de fin est passée, les congés sont terminés)
-    if (emp.vacation?.endDate) {
-      const endDate = new Date(emp.vacation.endDate);
-      endDate.setHours(0, 0, 0, 0);
-      
-      // Exclure si la date de fin est passée (congés terminés)
-      // Utiliser <= au lieu de < pour exclure les congés qui se terminent aujourd'hui
-      if (endDate < today) return false;
-    }
-    
-    // Si pas de flag isOnVacation, vérifier quand même avec les dates
-    if (!emp.vacation?.isOnVacation) {
-      // Si pas de dates non plus, exclure
-      if (!emp.vacation?.startDate && !emp.vacation?.endDate) return false;
-    }
-    
-    // Si l'employé a une date de début de congés
-    if (emp.vacation?.startDate) {
-      const startDate = new Date(emp.vacation.startDate);
-      startDate.setHours(0, 0, 0, 0);
-      const daysUntilVacation = Math.floor((startDate - today) / (1000 * 60 * 60 * 24));
-      
-      // Afficher seulement si 8 jours ou moins avant le début (ou déjà en congés)
-      if (daysUntilVacation > 8) return false;
-    }
-    
-    return true;
-  });
+  // Congés validés (même source que le planning), fenêtre 8 jours avant le début ou en cours
+  const vacationEmployees = buildVacationEmployeesFromRequests(employees, validatedVacations);
 
   // Filtrer les employés mineurs (âge < 18)
   const minorEmployees = employees.filter(emp => emp.age < 18);
@@ -835,7 +873,15 @@ const Dashboard = () => {
             <div style={{ flex: '1 1 240px', minWidth: 0 }}>
               <h3 style={{ margin: 0 }}>📦 Stocks farines</h3>
               <div style={{ marginTop: 6, fontSize: '0.9rem', color: '#555', lineHeight: 1.35 }}>
-                {formatLastStockSendLine(flourStocksWidget.lastEntryAt, flourStocksWidget.updatedByName)}
+                {formatLastStockSendLine(
+                  flourStocksWidget.lastFullCountAt || flourStocksWidget.lastEntryAt,
+                  flourStocksWidget.updatedByName
+                )}
+                {flourStocksWidget.lastFullCountAt ? ' (inventaire complet)' : ''}
+              </div>
+              <div style={{ marginTop: 4, fontSize: '0.85rem', color: '#666', lineHeight: 1.35 }}>
+                Stock théorique : conso/j déduite chaque jour — inventaire physique tous les{' '}
+                {flourStocksWidget.physicalCountIntervalDays} jours.
               </div>
             </div>
             {isAdmin() && (
@@ -847,6 +893,45 @@ const Dashboard = () => {
               </a>
             )}
           </div>
+
+          {!flourStocksWidget.loading && !flourStocksWidget.error && flourStocksWidget.physicalCountDue && (
+            <div
+              style={{
+                marginTop: '0.75rem',
+                padding: '0.75rem 1rem',
+                borderRadius: '10px',
+                background: '#fff3cd',
+                border: '1px solid #ffc107',
+                color: '#856404',
+                fontSize: '0.92rem',
+                lineHeight: 1.4
+              }}
+            >
+              <strong>Inventaire physique à faire</strong>
+              {typeof flourStocksWidget.daysSinceFullCount === 'number' ? (
+                <> — dernier inventaire complet il y a {flourStocksWidget.daysSinceFullCount} j.</>
+              ) : null}{' '}
+              Saisissez le stock réel de toutes les farines (
+              <a
+                href={isLonguenesse ? '/lon/stocks-farines-standalone.html' : '/plan/stocks-farines-standalone.html'}
+                style={{ fontWeight: 700, color: '#664d03' }}
+              >
+                page stocks farines
+              </a>
+              , mode « Envoi complet »).
+            </div>
+          )}
+
+          {!flourStocksWidget.loading &&
+            !flourStocksWidget.error &&
+            !flourStocksWidget.physicalCountDue &&
+            typeof flourStocksWidget.daysUntilCountDue === 'number' &&
+            flourStocksWidget.daysUntilCountDue > 0 && (
+              <p style={{ marginTop: '0.5rem', fontSize: '0.88rem', color: '#555' }}>
+                Prochain inventaire physique dans {flourStocksWidget.daysUntilCountDue} jour
+                {flourStocksWidget.daysUntilCountDue > 1 ? 's' : ''}.
+              </p>
+            )}
 
           {flourStocksWidget.loading ? (
             <p style={{ color: '#666' }}>Chargement…</p>
@@ -944,8 +1029,15 @@ const Dashboard = () => {
                       <div style={{ fontWeight: 800, color }}>{days} j</div>
                     </div>
                     <div style={{ marginTop: 6, fontSize: '0.9rem', color: '#555' }}>
-                      Stock: <strong>{it.stockSacksTotal}</strong> sacs — Conso/j:{' '}
-                      <strong>{formatDailyConsumption(it.daily)}</strong>
+                      Stock théorique: <strong>{it.stockTheoreticalSacks ?? it.stockSacksTotal}</strong> sacs
+                      {typeof it.stockPhysicalSacks === 'number' &&
+                      it.stockPhysicalSacks !== (it.stockTheoreticalSacks ?? it.stockSacksTotal) ? (
+                        <>
+                          {' '}
+                          (réel saisi: {it.stockPhysicalSacks})
+                        </>
+                      ) : null}
+                      — Conso/j: <strong>{formatDailyConsumption(it.daily)}</strong>
                     </div>
                   </div>
                 );
@@ -1385,7 +1477,7 @@ const Dashboard = () => {
       <div className="card" style={{ marginBottom: '2rem' }}>
         <h3>🏖️ Récapitulatif : Congés</h3>
         {vacationEmployees.length === 0 ? (
-          <p>Aucun employé en congés dans les 8 prochains jours</p>
+          <p>Aucun employé en congés (8 jours avant le début ou en cours)</p>
         ) : (
           <div style={{ overflowX: 'auto' }}>
             <table className="table">

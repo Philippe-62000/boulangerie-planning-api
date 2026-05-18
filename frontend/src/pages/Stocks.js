@@ -188,6 +188,11 @@ const Stocks = () => {
       {activeTab === 'farines' && (
         <section className="stocks-section">
           <h2>Paramètres farines</h2>
+          <p className="stocks-hint" style={{ marginBottom: '1rem', color: '#555', lineHeight: 1.4 }}>
+            Le tableau de bord déduit la consommation journalière chaque jour pour afficher les jours théoriques
+            restants. Un inventaire physique complet est demandé tous les 5 jours (paramètre{' '}
+            <code>flourPhysicalCountIntervalDays_{siteKey}</code> dans Paramètres généraux).
+          </p>
 
           <div className="stocks-card">
             <h3>Livraisons (max 2 jours)</h3>

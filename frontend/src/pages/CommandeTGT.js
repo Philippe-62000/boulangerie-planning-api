@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import api from '../services/api';
-import { getSiteKey } from '../config/site';
+import { getSiteKey, getSiteBasename } from '../config/site';
 import './CommandeTGT.css';
 
 const formatDate = (d) => {
@@ -41,6 +41,46 @@ const withMetrics = (line) => {
   };
 };
 
+const CMD_QTY_FIELDS = [
+  'lastOrderQty',
+  'prevOrderQty',
+  'cmdQty3',
+  'cmdQty4',
+  'cmdQty5',
+  'cmdQty6'
+];
+
+const formatCmdRef = (dateVal, blNum) => {
+  let d = '';
+  if (dateVal) {
+    if (typeof dateVal === 'string' && /^\d{1,2}[/.-]\d{1,2}[/.-]\d{2,4}$/.test(dateVal.trim())) {
+      d = dateVal.trim();
+    } else {
+      d = formatDate(dateVal);
+    }
+  }
+  const n = blNum ? ` BL ${blNum}` : '';
+  if (d && d !== '—') return `${n ? `${d}${n}` : d}`;
+  return blNum ? `BL ${blNum}` : '';
+};
+
+const cmdQtyCell = (line, field) => {
+  const v = line[field];
+  return v != null ? v : '—';
+};
+
+const mergeCmdMeta = (prev, next) => ({
+  ...(prev || {}),
+  cmdBlNumbers: next?.cmdBlNumbers ?? prev?.cmdBlNumbers,
+  cmdDates: next?.cmdDates ?? prev?.cmdDates,
+  cmdFilled: next?.cmdFilled ?? prev?.cmdFilled,
+  cmd1BlNumber: next?.cmd1BlNumber ?? prev?.cmd1BlNumber,
+  cmd2BlNumber: next?.cmd2BlNumber ?? prev?.cmd2BlNumber,
+  lastSubmittedDelivery: next?.lastSubmittedDelivery ?? prev?.lastSubmittedDelivery,
+  prevSubmittedDelivery: next?.prevSubmittedDelivery ?? prev?.prevSubmittedDelivery,
+  blCount: next?.blCount ?? prev?.blCount
+});
+
 const CommandeTGT = () => {
   const siteKey = getSiteKey();
   const siteLabel = siteKey === 'lon' ? 'Longuenesse' : 'Arras';
@@ -62,10 +102,20 @@ const CommandeTGT = () => {
   const [recapMeta, setRecapMeta] = useState(null);
 
   const [importText, setImportText] = useState('');
+  const [printMode, setPrintMode] = useState(null);
   const pdfInputRef = React.useRef(null);
+  /** Ignore les réponses GET en retard après une maj. « dernière commande ». */
+  const loadSeqRef = React.useRef(0);
+
+  const mobileUrl =
+    typeof window !== 'undefined'
+      ? `${window.location.origin}${getSiteBasename()}/commande-tgt`
+      : '';
 
   const loadOrder = useCallback(async () => {
+    const seq = ++loadSeqRef.current;
     const res = await api.get('/supplier-orders/current', { params: { siteKey } });
+    if (seq !== loadSeqRef.current) return;
     const data = res.data?.data;
     setLines(Array.isArray(data?.lines) ? data.lines : []);
     setOrderStatus(data?.status || 'draft');
@@ -104,6 +154,11 @@ const CommandeTGT = () => {
   useEffect(() => {
     refreshAll();
   }, [refreshAll]);
+
+  useEffect(() => {
+    document.body.classList.add('page-commande-tgt');
+    return () => document.body.classList.remove('page-commande-tgt');
+  }, []);
 
   useEffect(() => {
     if (tab === 'recap') loadRecap();
@@ -208,10 +263,24 @@ const CommandeTGT = () => {
     try {
       const res = await api.post(`/supplier-orders/import-delivery-pdf?siteKey=${siteKey}`, form);
       setLines(Array.isArray(res.data?.data?.lines) ? res.data.data.lines : lines);
+      if (res.data?.meta) {
+        setMeta((prev) => mergeCmdMeta(prev, res.data.meta));
+      }
       await loadConfig();
+      const m = res.data?.meta || {};
+      const blCount = m.blCount;
+      const filled = Array.isArray(m.cmdFilled) ? m.cmdFilled : [];
+      const filledTxt = filled.length
+        ? filled.map((n, i) => `-${i + 1}:${n ?? 0}`).join(' ')
+        : `-${1}:${m.lastOrderFilled ?? '—'}`;
+      const blNums = (m.cmdBlNumbers || []).filter(Boolean).join(', ');
+      let hint = '';
+      if (typeof blCount === 'number' && blCount < CMD_QTY_FIELDS.length) {
+        hint = ` Importez d’autres BL pour remplir jusqu’à Cmd -${CMD_QTY_FIELDS.length} (${blCount} BL en base).`;
+      }
       setMessage({
         type: 'success',
-        text: `BL importé (cmd ${res.data?.meta?.orderNumber || '—'}) — ${res.data?.meta?.matchedLines ?? 0} produit(s) reliés.`
+        text: `BL importé (cmd ${m.orderNumber || '—'}) — ${m.matchedLines ?? 0} produit(s). Historique ${filledTxt}${blNums ? ` — BL : ${blNums}` : ''}.${hint}`
       });
     } catch (e) {
       console.error(e);
@@ -243,10 +312,13 @@ const CommandeTGT = () => {
   const saveDraft = async () => {
     setSaving(true);
     setMessage(null);
+    const seq = ++loadSeqRef.current;
     try {
-      await api.put('/supplier-orders/current', { siteKey, lines });
+      const res = await api.put('/supplier-orders/current', { siteKey, lines });
+      if (seq !== loadSeqRef.current) return;
+      const savedLines = Array.isArray(res.data?.data?.lines) ? res.data.data.lines : lines;
+      setLines(savedLines);
       setMessage({ type: 'success', text: 'Brouillon enregistré.' });
-      await loadOrder();
     } catch (e) {
       console.error(e);
       setMessage({ type: 'error', text: 'Erreur lors de l’enregistrement.' });
@@ -291,15 +363,59 @@ const CommandeTGT = () => {
     }
   };
 
-  const refreshLast = async () => {
+  const clearReceivedColumn = async () => {
+    if (!window.confirm('Effacer toutes les quantités « Reçu » de la commande en cours ?')) return;
     setSaving(true);
+    setMessage(null);
+    const seq = ++loadSeqRef.current;
     try {
-      const res = await api.post('/supplier-orders/current/refresh-last', { siteKey });
-      setLines(Array.isArray(res.data?.data?.lines) ? res.data.data.lines : lines);
-      setMessage({ type: 'success', text: 'Colonne « dernière commande » actualisée.' });
+      const newLines = lines.map((l) => withMetrics({ ...l, receivedQty: null }));
+      const res = await api.put('/supplier-orders/current', { siteKey, lines: newLines });
+      if (seq !== loadSeqRef.current) return;
+      const saved = Array.isArray(res.data?.data?.lines) ? res.data.data.lines : newLines;
+      setLines(saved);
+      setMessage({ type: 'success', text: 'Colonne Reçu effacée.' });
     } catch (e) {
       console.error(e);
-      setMessage({ type: 'error', text: 'Erreur actualisation.' });
+      setMessage({ type: 'error', text: 'Erreur lors de l’effacement.' });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const refreshLast = async () => {
+    setSaving(true);
+    setMessage(null);
+    const seq = ++loadSeqRef.current;
+    try {
+      const res = await api.post('/supplier-orders/current/refresh-last', { siteKey });
+      if (seq !== loadSeqRef.current) return;
+      const newLines = Array.isArray(res.data?.data?.lines) ? res.data.data.lines : null;
+      if (newLines?.length) {
+        setLines(newLines);
+      } else if (res.data?.success !== false) {
+        setMessage({
+          type: 'error',
+          text: 'Réponse serveur sans lignes — vérifiez le déploiement de l’API (Render api-4).'
+        });
+        return;
+      }
+      if (res.data?.meta) {
+        setMeta((m) => mergeCmdMeta(m, res.data.meta));
+      }
+      const filled = res.data?.meta?.cmdFilled || [];
+      const filledTxt = filled.map((n, i) => `-${i + 1}:${n ?? 0}`).join(' ');
+      const blCount = res.data?.meta?.blCount;
+      setMessage({
+        type: 'success',
+        text: `Historique cmd ${filledTxt || '—'}${typeof blCount === 'number' ? ` (${blCount} BL en base)` : ''}.`
+      });
+    } catch (e) {
+      console.error(e);
+      setMessage({
+        type: 'error',
+        text: e.response?.data?.error || 'Erreur actualisation. Déployez l’API si le bouton vient d’être ajouté.'
+      });
     } finally {
       setSaving(false);
     }
@@ -385,14 +501,56 @@ const CommandeTGT = () => {
     ]);
   };
 
-  const printList = () => {
-    window.print();
+  useEffect(() => {
+    const onAfterPrint = () => {
+      setPrintMode(null);
+      delete document.body.dataset.commandeTgtPrint;
+    };
+    window.addEventListener('afterprint', onAfterPrint);
+    return () => window.removeEventListener('afterprint', onAfterPrint);
+  }, []);
+
+  const runPrint = (mode) => {
+    setPrintMode(mode);
+    document.body.dataset.commandeTgtPrint = mode;
+    if (mode === 'modele') setFilterLocation('all');
+    window.setTimeout(() => window.print(), 280);
   };
+
+  const printList = () => runPrint('saisie');
+
+  const printModele = () => runPrint('modele');
 
   const orderedCount = lines.filter((l) => Number(l.orderQty) > 0).length;
 
+  const cmdColumnLabels = useMemo(() => {
+    return CMD_QTY_FIELDS.map((_, i) => {
+      const date =
+        meta?.cmdDates?.[i] ??
+        (i === 0 ? meta?.lastSubmittedDelivery : i === 1 ? meta?.prevSubmittedDelivery : null);
+      const bl =
+        meta?.cmdBlNumbers?.[i] ??
+        (i === 0 ? meta?.cmd1BlNumber : i === 1 ? meta?.cmd2BlNumber : null);
+      const ref = formatCmdRef(date, bl);
+      return {
+        short: `Cmd -${i + 1}`,
+        full: ref ? `Cmd -${i + 1} (${ref})` : `Cmd -${i + 1}`,
+        bl: bl || null
+      };
+    });
+  }, [meta]);
+
+  const cmdBlSummary = useMemo(() => {
+    const nums = meta?.cmdBlNumbers?.filter(Boolean) || [];
+    if (nums.length) return nums.join(' → ');
+    const legacy = [meta?.cmd1BlNumber, meta?.cmd2BlNumber].filter(Boolean);
+    return legacy.length ? legacy.join(' → ') : '—';
+  }, [meta]);
+
   return (
-    <div className="commande-tgt-page">
+    <div
+      className={`commande-tgt-page${printMode === 'modele' ? ' print-mode-modele' : printMode === 'saisie' ? ' print-mode-saisie' : ''}`}
+    >
       <header className="commande-tgt-header no-print">
         <div>
           <h1>Commande TGT</h1>
@@ -400,8 +558,7 @@ const CommandeTGT = () => {
             {siteLabel} — commande pour livraison du {formatDate(meta?.deliveryDate)}
           </p>
           <p className="commande-tgt-hint">
-            Commande le lundi, livraison le vendredi. Dernière commande validée :{' '}
-            {formatDate(meta?.lastSubmittedDelivery)}
+            Commande le lundi, livraison le vendredi. Historique 6 BL (récent → ancien) : {cmdBlSummary}
             {meta?.lastDeliveryBl?.orderNumber ? (
               <>
                 {' '}
@@ -409,6 +566,13 @@ const CommandeTGT = () => {
               </>
             ) : null}
           </p>
+          {mobileUrl ? (
+            <p className="commande-tgt-hint commande-tgt-mobile">
+              Sur téléphone : connectez-vous au planning, puis ouvrez{' '}
+              <a href={mobileUrl}>{mobileUrl}</a> (saisie tactile, pas besoin d’imprimer si vous saisissez
+              directement).
+            </p>
+          ) : null}
           <p className="commande-tgt-hint commande-tgt-formula">
             BL TGT : quantité COMMANDE = reçu (le « non livré » est un code interne). Conso = reçu − stock.
             Prévision = moyenne glissante sur 3 semaines si historique, sinon conso de la semaine.
@@ -418,8 +582,16 @@ const CommandeTGT = () => {
           </p>
         </div>
         <div className="commande-tgt-header-actions">
-          <button type="button" className="btn btn-secondary" onClick={printList}>
-            Imprimer
+          <button
+            type="button"
+            className="btn btn-secondary"
+            onClick={printModele}
+            title="Liste des produits par emplacement, cases vides à remplir"
+          >
+            Imprimer modèle
+          </button>
+          <button type="button" className="btn btn-secondary" onClick={printList} title="Imprimer la saisie en cours">
+            Imprimer saisie
           </button>
           <button type="button" className="btn btn-primary" onClick={saveDraft} disabled={saving || loading}>
             {saving ? '…' : 'Enregistrer'}
@@ -475,7 +647,7 @@ const CommandeTGT = () => {
                   Stocks Positive
                 </button>
                 <button type="button" className="btn btn-secondary" onClick={refreshLast} disabled={saving}>
-                  Maj. dernière cmd
+                  Maj. cmd (6 BL)
                 </button>
                 <button type="button" className="btn btn-secondary" onClick={applyReceivedFromLast} disabled={saving}>
                   Reçu lundi
@@ -503,8 +675,43 @@ const CommandeTGT = () => {
               )}
 
               <div className="commande-tgt-print-title print-only">
-                <h2>Commande TGT — {siteLabel}</h2>
+                <h2>
+                  {printMode === 'modele' ? 'Modèle commande TGT' : 'Commande TGT'} — {siteLabel}
+                </h2>
                 <p>Livraison : {formatDate(meta?.deliveryDate)}</p>
+                {printMode === 'modele' ? (
+                  <p className="commande-tgt-print-sub">
+                    Produits par emplacement — cases vides à remplir. Références :{' '}
+                    {cmdColumnLabels.map((c) => c.full).join(', ')}.
+                  </p>
+                ) : null}
+              </div>
+
+              <div className="commande-tgt-modele-print print-only" aria-hidden={printMode !== 'modele'}>
+                {groupedLines.map(([locName, group]) => (
+                  <section key={`print-${locName}`} className="modele-print-section">
+                    <h3 className="modele-print-loc">{locName}</h3>
+                    <div className="modele-print-columns">
+                      {group.map((line) => (
+                        <div key={`p-${line.productId}`} className="modele-print-item">
+                          <span className="modele-print-name">{line.productName}</span>
+                          <span className="modele-print-cmd">
+                            {CMD_QTY_FIELDS.map((field, i) => (
+                              <span key={field} title={cmdColumnLabels[i]?.full}>
+                                -{i + 1}:{cmdQtyCell(line, field)}
+                              </span>
+                            ))}
+                          </span>
+                          <span className="modele-print-boxes">
+                            <i>R</i>
+                            <i>S</i>
+                            <i>C</i>
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </section>
+                ))}
               </div>
 
               {groupedLines.length === 0 ? (
@@ -520,13 +727,36 @@ const CommandeTGT = () => {
                         <thead>
                           <tr>
                             <th>Produit</th>
-                            <th className="col-num">Reçu</th>
-                            <th className="col-num">Stock</th>
-                            <th className="col-num col-conso">Conso</th>
-                            <th className="col-num col-prev" title="Moyenne 3 semaines ou conso actuelle">
+                            {cmdColumnLabels.map((col, i) => (
+                              <th
+                                key={CMD_QTY_FIELDS[i]}
+                                className="col-num col-hist"
+                                title={col.full}
+                              >
+                                <span className="col-hist-short">{col.short}</span>
+                                {col.bl ? <span className="col-hist-bl">{col.bl}</span> : null}
+                              </th>
+                            ))}
+                            <th className="col-num col-saisie col-saisie-header">
+                              <span>Reçu</span>
+                              <button
+                                type="button"
+                                className="btn-col-clear no-print"
+                                onClick={clearReceivedColumn}
+                                disabled={saving}
+                                title="Effacer toute la colonne Reçu"
+                              >
+                                Effacer
+                              </button>
+                            </th>
+                            <th className="col-num col-saisie">Stock</th>
+                            <th className="col-num col-conso col-screen-only">Conso</th>
+                            <th
+                              className="col-num col-prev col-screen-only"
+                              title="Moyenne 3 semaines ou conso actuelle"
+                            >
                               Prév.
                             </th>
-                            <th className="col-num col-last">Dern. cmd</th>
                             <th className="col-num col-order">À cmd</th>
                           </tr>
                         </thead>
@@ -539,7 +769,12 @@ const CommandeTGT = () => {
                                   <span className="product-code">{line.supplierCode}</span>
                                 ) : null}
                               </td>
-                              <td className="col-num">
+                              {CMD_QTY_FIELDS.map((field) => (
+                                <td key={field} className="col-num col-hist">
+                                  {cmdQtyCell(line, field)}
+                                </td>
+                              ))}
+                              <td className="col-num col-saisie">
                                 <input
                                   type="number"
                                   min="0"
@@ -550,9 +785,10 @@ const CommandeTGT = () => {
                                   placeholder="—"
                                   onChange={(e) => updateLine(line.productId, 'receivedQty', e.target.value)}
                                 />
-                                <span className="print-only">{line.receivedQty ?? ''}</span>
+                                <span className="print-only print-saisie-val">{line.receivedQty ?? ''}</span>
+                                <span className="print-only print-modele-cell" aria-hidden="true" />
                               </td>
-                              <td className="col-num">
+                              <td className="col-num col-saisie">
                                 <input
                                   type="number"
                                   min="0"
@@ -563,12 +799,13 @@ const CommandeTGT = () => {
                                   placeholder="—"
                                   onChange={(e) => updateLine(line.productId, 'stockQty', e.target.value)}
                                 />
-                                <span className="print-only">{line.stockQty ?? ''}</span>
+                                <span className="print-only print-saisie-val">{line.stockQty ?? ''}</span>
+                                <span className="print-only print-modele-cell" aria-hidden="true" />
                               </td>
-                              <td className="col-num col-conso">
+                              <td className="col-num col-conso col-screen-only">
                                 {line.consumptionQty != null ? line.consumptionQty : '—'}
                               </td>
-                              <td className="col-num col-prev">
+                              <td className="col-num col-prev col-screen-only">
                                 {line.suggestedOrderQty != null ? (
                                   <span
                                     className="prev-qty"
@@ -585,9 +822,6 @@ const CommandeTGT = () => {
                                   '—'
                                 )}
                               </td>
-                              <td className="col-num col-last">
-                                {line.lastOrderQty != null ? line.lastOrderQty : '—'}
-                              </td>
                               <td className="col-num col-order">
                                 <input
                                   type="number"
@@ -598,7 +832,10 @@ const CommandeTGT = () => {
                                   value={line.orderQty ?? 0}
                                   onChange={(e) => updateLine(line.productId, 'orderQty', e.target.value)}
                                 />
-                                <span className="print-only">{line.orderQty > 0 ? line.orderQty : ''}</span>
+                                <span className="print-only print-saisie-val">
+                                  {line.orderQty > 0 ? line.orderQty : ''}
+                                </span>
+                                <span className="print-only print-modele-cell" aria-hidden="true" />
                               </td>
                             </tr>
                           ))}

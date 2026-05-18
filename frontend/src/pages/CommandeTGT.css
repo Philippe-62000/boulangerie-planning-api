@@ -162,14 +162,151 @@
   text-align: center;
 }
 
-.commande-tgt-table .col-last {
-  width: 4rem;
-  color: #555;
-  background: #fafbfc;
+.commande-tgt-table .col-hist {
+  width: 2.35rem;
+  min-width: 2.1rem;
+  color: #6b5a2e;
+  background: #faf8f0;
+  font-weight: 600;
+  font-size: 0.82rem;
+}
+
+.commande-tgt-table th.col-hist {
+  font-size: 0.65rem;
+  line-height: 1.1;
+  vertical-align: bottom;
+  max-width: 2.8rem;
+  padding: 0.35rem 0.2rem;
+}
+
+.commande-tgt-table th.col-hist .col-hist-short {
+  display: block;
+  font-weight: 700;
+}
+
+.commande-tgt-table th.col-hist .col-hist-bl {
+  display: block;
+  font-size: 0.58rem;
+  font-weight: 500;
+  color: #8a7340;
+  word-break: break-all;
+}
+
+.commande-tgt-table-wrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.commande-tgt-mobile a {
+  word-break: break-all;
+  color: #4a6cf7;
+}
+
+.commande-tgt-print-sub {
+  font-size: 0.9rem;
+  color: #444;
+  margin: 0.35rem 0 0;
+}
+
+.print-modele-cell {
+  display: none;
+}
+
+.commande-tgt-modele-print {
+  display: none;
+}
+
+.modele-print-section {
+  margin-bottom: 0.75rem;
+  break-inside: avoid;
+}
+
+.modele-print-loc {
+  font-size: 0.85rem;
+  margin: 0 0 0.25rem;
+  padding: 0.15rem 0.35rem;
+  background: #eee;
+  border: 1px solid #333;
+}
+
+.modele-print-columns {
+  column-count: 3;
+  column-gap: 0.5rem;
+  column-rule: 1px solid #ccc;
+}
+
+.modele-print-item {
+  break-inside: avoid;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.2rem 0.35rem;
+  padding: 0.12rem 0;
+  font-size: 0.68rem;
+  border-bottom: 1px dotted #bbb;
+}
+
+.modele-print-name {
+  flex: 1 1 100%;
+  font-weight: 600;
+  line-height: 1.15;
+}
+
+.modele-print-cmd {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.15rem 0.25rem;
+  font-size: 0.55rem;
+  color: #333;
+  max-width: 100%;
+}
+
+.modele-print-boxes {
+  display: flex;
+  gap: 0.2rem;
+  margin-left: auto;
+}
+
+.modele-print-boxes i {
+  display: inline-block;
+  width: 1.1rem;
+  height: 1rem;
+  border: 1px solid #333;
+  font-style: normal;
+  font-size: 0.55rem;
+  text-align: center;
+  line-height: 1rem;
 }
 
 .commande-tgt-table .col-order {
   width: 5.5rem;
+}
+
+.commande-tgt-table th.col-saisie-header {
+  vertical-align: bottom;
+  line-height: 1.2;
+}
+
+.commande-tgt-table th.col-saisie-header .btn-col-clear {
+  display: block;
+  margin: 0.2rem auto 0;
+  padding: 0.15rem 0.35rem;
+  font-size: 0.65rem;
+  border: 1px solid #c62828;
+  background: #fff;
+  color: #c62828;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.commande-tgt-table th.col-saisie-header .btn-col-clear:hover:not(:disabled) {
+  background: #ffebee;
+}
+
+.commande-tgt-table th.col-saisie-header .btn-col-clear:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .col-product .product-name {
@@ -311,40 +448,174 @@
 }
 
 @media print {
-  .no-print {
+  /* Même technique que le planning congés : isoler la page commande */
+  body.page-commande-tgt * {
+    visibility: hidden;
+  }
+
+  body.page-commande-tgt .commande-tgt-page,
+  body.page-commande-tgt .commande-tgt-page * {
+    visibility: visible;
+  }
+
+  body.page-commande-tgt .commande-tgt-page {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    padding: 0;
+    margin: 0;
+    max-width: none;
+    background: #fff;
+  }
+
+  body.page-commande-tgt .header,
+  body.page-commande-tgt .sidebar {
     display: none !important;
+  }
+
+  .no-print,
+  .no-print * {
+    display: none !important;
+    visibility: hidden !important;
   }
 
   .print-only {
     display: inline !important;
+    visibility: visible !important;
   }
 
   .commande-tgt-print-title {
     display: block !important;
+    visibility: visible !important;
     margin-bottom: 1rem;
-  }
-
-  .commande-tgt-page {
-    padding: 0;
-    max-width: none;
   }
 
   .commande-tgt-group {
     break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .commande-tgt-table-wrap {
+    overflow: visible !important;
+  }
+
+  .commande-tgt-table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  .commande-tgt-table th,
+  .commande-tgt-table td {
+    border: 1px solid #333;
+    padding: 0.2rem 0.35rem;
+    font-size: 0.75rem;
   }
 
   .qty-input {
-    display: none;
+    display: none !important;
+  }
+
+  /* Impression saisie */
+  body[data-commande-tgt-print='saisie'] .col-screen-only,
+  .print-mode-saisie .col-screen-only {
+    display: table-cell !important;
+  }
+
+  body[data-commande-tgt-print='saisie'] .print-modele-cell,
+  .print-mode-saisie .print-modele-cell {
+    display: none !important;
+  }
+
+  body[data-commande-tgt-print='saisie'] .print-saisie-val,
+  .print-mode-saisie .print-saisie-val {
+    display: inline !important;
+  }
+
+  /* Impression modèle : produits + cmd -1/-2 + cases vides */
+  body[data-commande-tgt-print='modele'] .col-screen-only,
+  .print-mode-modele .col-screen-only {
+    display: none !important;
+  }
+
+  body[data-commande-tgt-print='modele'] .print-saisie-val,
+  .print-mode-modele .print-saisie-val {
+    display: none !important;
+  }
+
+  body[data-commande-tgt-print='modele'] .print-modele-cell,
+  .print-mode-modele .print-modele-cell {
+    display: inline-block !important;
+    width: 2.4rem;
+    min-height: 1.4rem;
+    border: 1px solid #333;
+    vertical-align: middle;
+    visibility: visible !important;
+  }
+
+  body[data-commande-tgt-print='modele'] .col-hist,
+  .print-mode-modele .col-hist {
+    font-weight: 700;
+  }
+
+  body[data-commande-tgt-print='modele'] .col-product,
+  .print-mode-modele .col-product {
+    font-size: 0.8rem;
+  }
+
+  body[data-commande-tgt-print='modele'] .commande-tgt-table-wrap,
+  .print-mode-modele .commande-tgt-table-wrap {
+    display: none !important;
+  }
+
+  body[data-commande-tgt-print='modele'] .commande-tgt-modele-print,
+  .print-mode-modele .commande-tgt-modele-print {
+    display: block !important;
+    visibility: visible !important;
+  }
+
+  body[data-commande-tgt-print='modele'] .modele-print-columns,
+  .print-mode-modele .modele-print-columns {
+    column-count: 3;
+  }
+}
+
+@media print and (max-width: 210mm) {
+  .modele-print-columns {
+    column-count: 2;
   }
 }
 
 @media (max-width: 640px) {
+  .commande-tgt-page {
+    padding: 0.75rem 0.5rem 2rem;
+  }
+
   .commande-tgt-header-actions {
     width: 100%;
   }
 
   .commande-tgt-header-actions .btn {
-    flex: 1;
+    flex: 1 1 auto;
+    min-width: 7rem;
+    font-size: 0.85rem;
+    padding: 0.5rem 0.5rem;
+  }
+
+  .commande-tgt-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .commande-tgt-toolbar input[type='search'],
+  .commande-tgt-toolbar select,
+  .commande-tgt-toolbar .btn {
+    width: 100%;
+  }
+
+  .commande-tgt-table-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
   }
 
   .config-row-product {

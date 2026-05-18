@@ -2,6 +2,7 @@ const VacationRequest = require('../models/VacationRequest');
 const Employee = require('../models/Employee');
 const emailService = require('../services/emailService');
 const sftpService = require('../services/sftpService');
+const { findEmployeeByPersonName } = require('../utils/personName');
 
 // Récupérer toutes les demandes de congés
 const getAllVacationRequests = async (req, res) => {
@@ -9,10 +10,7 @@ const getAllVacationRequests = async (req, res) => {
     const { status, page = 1, city, planning } = req.query;
     const isPlanning = planning === 'true' || planning === '1';
 
-    // Planning annuel : toutes les demandes du site (pas de pagination à 20)
-    const limit = isPlanning
-      ? Math.min(Number(req.query.limit) || 5000, 5000)
-      : Math.min(Number(req.query.limit) || 20, 500);
+    const limit = Math.min(Number(req.query.limit) || 20, 500);
 
     let query = {};
     // Planning annuel : pas de filtre ville (une base par magasin sur Render)
@@ -31,10 +29,11 @@ const getAllVacationRequests = async (req, res) => {
       query.status = status;
     }
 
-    const vacationRequests = await VacationRequest.find(query)
-      .sort({ uploadDate: -1 })
-      .limit(limit)
-      .skip(isPlanning ? 0 : (page - 1) * limit);
+    let dbQuery = VacationRequest.find(query).sort({ uploadDate: -1 });
+    if (!isPlanning) {
+      dbQuery = dbQuery.limit(limit).skip((page - 1) * limit);
+    }
+    const vacationRequests = await dbQuery;
 
     const total = await VacationRequest.countDocuments(query);
     
@@ -222,19 +221,8 @@ const validateVacationRequest = async (req, res) => {
         // Synchroniser l'employé avec les congés
         try {
           console.log('🔍 Recherche employé pour synchronisation:', vacationRequest.employeeName);
-          
-          // Lister tous les employés pour debug
           const allEmployees = await Employee.find({}, 'name role');
-          console.log('👥 Employés disponibles:', allEmployees.map(emp => `${emp.name} (${emp.role})`));
-          
-          // Recherche plus flexible par nom (sans accents, insensible à la casse)
-          const employee = await Employee.findOne({
-            $or: [
-              { name: { $regex: new RegExp(vacationRequest.employeeName.replace(/[àâäéèêëïîôöùûüÿç]/gi, '[àâäéèêëïîôöùûüÿça]'), 'i') } },
-              { name: { $regex: new RegExp(vacationRequest.employeeName, 'i') } }
-            ]
-          });
-          
+          const employee = findEmployeeByPersonName(allEmployees, vacationRequest.employeeName);
           console.log('🔍 Employé trouvé:', employee ? `${employee.name} (ID: ${employee._id})` : 'Aucun');
           
           if (employee) {
@@ -593,44 +581,54 @@ const syncVacationsWithEmployees = async (req, res) => {
   try {
     console.log('🔄 SYNCHRONISATION FORCÉE DES CONGÉS');
     
-    // Récupérer toutes les demandes de congés validées
     const validatedVacations = await VacationRequest.find({ status: 'validated' });
+    const allEmployees = await Employee.find({}, 'name role vacation');
     console.log(`📋 ${validatedVacations.length} demandes de congés validées trouvées`);
-    
-    let syncCount = 0;
-    
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const dayMs = 1000 * 60 * 60 * 24;
+    const vacationByEmployeeId = new Map();
+
     for (const vacation of validatedVacations) {
+      const employee = findEmployeeByPersonName(allEmployees, vacation.employeeName);
+      if (!employee) {
+        console.log(`❌ Employé non trouvé: ${vacation.employeeName}`);
+        continue;
+      }
+      const start = new Date(vacation.startDate);
+      const end = new Date(vacation.endDate);
+      start.setHours(0, 0, 0, 0);
+      end.setHours(0, 0, 0, 0);
+      if (end < today) continue;
+
+      const isActive = today >= start && today <= end;
+      const daysUntil = Math.floor((start - today) / dayMs);
+      const key = String(employee._id);
+      const existing = vacationByEmployeeId.get(key);
+      const score = isActive ? 1000 - daysUntil : 500 - daysUntil;
+      if (!existing || score > existing.score) {
+        vacationByEmployeeId.set(key, { employee, vacation, score, isActive });
+      }
+    }
+
+    let syncCount = 0;
+    for (const { employee, vacation, isActive } of vacationByEmployeeId.values()) {
       try {
-        console.log(`🔍 Synchronisation: ${vacation.employeeName}`);
-        
-        // Rechercher l'employé
-        const employee = await Employee.findOne({
-          $or: [
-            { name: { $regex: new RegExp(vacation.employeeName.replace(/[àâäéèêëïîôöùûüÿç]/gi, '[àâäéèêëïîôöùûüÿça]'), 'i') } },
-            { name: { $regex: new RegExp(vacation.employeeName, 'i') } }
-          ]
-        });
-        
-        if (employee) {
-          // Mettre à jour l'employé avec les congés
-          await Employee.findByIdAndUpdate(employee._id, {
-            $set: {
-              vacation: {
-                isOnVacation: true,
-                startDate: vacation.startDate,
-                endDate: vacation.endDate,
-                vacationRequestId: vacation._id
-              }
+        await Employee.findByIdAndUpdate(employee._id, {
+          $set: {
+            vacation: {
+              isOnVacation: isActive,
+              startDate: vacation.startDate,
+              endDate: vacation.endDate,
+              vacationRequestId: vacation._id
             }
-          });
-          
-          console.log(`✅ ${employee.name} synchronisé avec les congés`);
-          syncCount++;
-        } else {
-          console.log(`❌ Employé non trouvé: ${vacation.employeeName}`);
-        }
+          }
+        });
+        console.log(`✅ ${employee.name} synchronisé avec les congés`);
+        syncCount++;
       } catch (error) {
-        console.error(`❌ Erreur synchronisation ${vacation.employeeName}:`, error.message);
+        console.error(`❌ Erreur synchronisation ${employee.name}:`, error.message);
       }
     }
     

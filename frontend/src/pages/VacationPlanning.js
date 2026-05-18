@@ -29,7 +29,7 @@ const VacationPlanning = () => {
       
       // Toutes les congés validés du magasin (évite la limite API à 20 + filtre ville Arras par défaut)
       const vacationResponse = await api.get('/vacation-requests', {
-        params: { planning: true, limit: 5000 }
+        params: { planning: true, status: 'validated' }
       });
       const allVacationData = vacationResponse.data.success ? vacationResponse.data.data : vacationResponse.data;
       const vacationData = (Array.isArray(allVacationData) ? allVacationData : []).filter(

@@ -16,7 +16,13 @@ const supplierOrderLineSchema = new mongoose.Schema(
     avgConsumptionQty: { type: Number, default: null },
     /** Prévision prochaine commande (moy. 3 sem. ou conso semaine en cours) */
     suggestedOrderQty: { type: Number, default: null },
+    /** Cmd -1 … -6 : quantités des 6 derniers BL (tri par date commande) */
     lastOrderQty: { type: Number, default: null },
+    prevOrderQty: { type: Number, default: null },
+    cmdQty3: { type: Number, default: null },
+    cmdQty4: { type: Number, default: null },
+    cmdQty5: { type: Number, default: null },
+    cmdQty6: { type: Number, default: null },
     orderQty: { type: Number, default: 0 }
   },
   { _id: false }

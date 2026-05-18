@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import api from '../services/api';
 import { getSiteKey } from '../config/site';
+import { buildFlourStocksStatusClient } from '../utils/flourStockStatus';
 import './StocksFarinesStandalone.css';
 
 const StocksFarinesStandalone = () => {
@@ -12,23 +13,65 @@ const StocksFarinesStandalone = () => {
   const [selectedName, setSelectedName] = useState('');
 
   const [values, setValues] = useState({});
+  /** Farines dont au moins un champ a été saisi (mise à jour partielle). */
+  const [touchedFlourIds, setTouchedFlourIds] = useState(() => new Set());
+  /** partial = seules les farines saisies ; full = toutes les farines (non saisies → 0). */
+  const [updateMode, setUpdateMode] = useState('partial');
   const [urgent, setUrgent] = useState(false);
   const [urgentReason, setUrgentReason] = useState('');
   const [message, setMessage] = useState(null);
   const [sending, setSending] = useState(false);
-  const [lastSend, setLastSend] = useState({ at: null, byName: '' });
+  const [lastSend, setLastSend] = useState({ at: null, byName: '', fullAt: null });
+  const [stockMeta, setStockMeta] = useState({
+    physicalCountDue: false,
+    physicalCountIntervalDays: 5,
+    daysSinceFullCount: null,
+    daysUntilCountDue: null
+  });
 
   const activeFlours = useMemo(() => flours.filter((f) => f.isActive !== false), [flours]);
 
-  const fetchInventoryMeta = async () => {
+  const applyStockMeta = (meta) => {
+    const at = meta.lastEntryAt || null;
+    const fullAt = meta.lastFullCountAt || null;
+    setLastSend({ at, fullAt, byName: String(meta.updatedByName || '').trim() });
+    setStockMeta({
+      physicalCountDue: meta.physicalCountDue === true,
+      physicalCountIntervalDays: meta.physicalCountIntervalDays ?? 5,
+      daysSinceFullCount: meta.daysSinceFullCount ?? null,
+      daysUntilCountDue: meta.daysUntilCountDue ?? null
+    });
+    if (meta.physicalCountDue) {
+      setUpdateMode('full');
+    }
+  };
+
+  const fetchStockStatus = async () => {
     try {
-      const invRes = await api.get('/stocks/flours/inventory', { params: { siteKey } });
-      const inv = invRes.data?.data || {};
-      const at = inv.lastEntryAt || inv.updatedAt || null;
-      setLastSend({ at, byName: String(inv.updatedByName || '').trim() });
+      const res = await api.get('/stocks/flours/status', { params: { siteKey } });
+      applyStockMeta(res.data?.meta || {});
     } catch (e) {
-      console.error(e);
-      setLastSend({ at: null, byName: '' });
+      const status = e.response?.status;
+      if (status !== 404 && status !== 405) {
+        console.warn('Status farines indisponible, repli inventaire', status || e.message);
+      }
+      try {
+        const [cfgRes, invRes] = await Promise.all([
+          api.get('/stocks/flours/config', { params: { siteKey } }),
+          api.get('/stocks/flours/inventory', { params: { siteKey } })
+        ]);
+        const inventory = invRes.data?.data || { items: [] };
+        if (invRes.data?.meta) {
+          applyStockMeta(invRes.data.meta);
+          return;
+        }
+        const configs = Array.isArray(cfgRes.data?.data) ? cfgRes.data.data : [];
+        const built = buildFlourStocksStatusClient({ configs, inventory });
+        applyStockMeta(built.meta);
+      } catch (e2) {
+        console.error(e2);
+        setLastSend({ at: null, fullAt: null, byName: '' });
+      }
     }
   };
 
@@ -39,7 +82,7 @@ const StocksFarinesStandalone = () => {
           api.get('/employees'),
           api.get('/stocks/flours/config', { params: { siteKey } })
         ]);
-        await fetchInventoryMeta();
+        await fetchStockStatus();
 
         const empData = empRes.data?.data || empRes.data;
         setEmployees(Array.isArray(empData) ? empData : []);
@@ -54,6 +97,11 @@ const StocksFarinesStandalone = () => {
   }, [siteKey]);
 
   const setField = (flourId, field, v) => {
+    setTouchedFlourIds((prev) => {
+      const next = new Set(prev);
+      next.add(String(flourId));
+      return next;
+    });
     setValues((prev) => ({
       ...prev,
       [flourId]: {
@@ -63,6 +111,21 @@ const StocksFarinesStandalone = () => {
         [field]: v
       }
     }));
+  };
+
+  const buildItemsPayload = () => {
+    const mapFlour = (f, touched = false) => ({
+      flourConfigId: f._id,
+      sacks: Math.max(0, Number(values[f._id]?.sacks || 0)),
+      pallets: Math.max(0, Number(values[f._id]?.pallets || 0)),
+      ...(touched ? { touched: true } : {})
+    });
+    if (updateMode === 'full') {
+      return activeFlours.map(mapFlour);
+    }
+    return activeFlours
+      .filter((f) => touchedFlourIds.has(String(f._id)))
+      .map((f) => mapFlour(f, true));
   };
 
   const submit = async () => {
@@ -75,11 +138,14 @@ const StocksFarinesStandalone = () => {
       return;
     }
 
-    const items = activeFlours.map((f) => ({
-      flourConfigId: f._id,
-      sacks: Math.max(0, Number(values[f._id]?.sacks || 0)),
-      pallets: Math.max(0, Number(values[f._id]?.pallets || 0))
-    }));
+    const items = buildItemsPayload();
+    if (updateMode === 'partial' && items.length === 0) {
+      setMessage({
+        type: 'error',
+        text: 'Mise à jour partielle : saisissez au moins une farine, ou choisissez « Envoi complet ».'
+      });
+      return;
+    }
 
     setSending(true);
     setMessage(null);
@@ -90,14 +156,19 @@ const StocksFarinesStandalone = () => {
         createdByEmail: '',
         urgent,
         urgentReason: urgentReason.trim(),
+        updateMode,
         items
       });
       if (res.data?.success) {
-        setMessage({ type: 'success', text: 'Stocks envoyés avec succès.' });
+        const n = res.data?.data?.itemsUpdated ?? items.length;
+        const modeLabel =
+          updateMode === 'full' ? 'envoi complet' : `mise à jour partielle (${n} farine${n > 1 ? 's' : ''})`;
+        setMessage({ type: 'success', text: `Stocks enregistrés (${modeLabel}).` });
         setValues({});
+        setTouchedFlourIds(new Set());
         setUrgent(false);
         setUrgentReason('');
-        await fetchInventoryMeta();
+        await fetchStockStatus();
       } else {
         setMessage({ type: 'error', text: res.data?.error || 'Erreur lors de l’envoi.' });
       }
@@ -110,9 +181,9 @@ const StocksFarinesStandalone = () => {
   };
 
   const lastSendLine = () => {
-    const iso = lastSend.at;
+    const iso = lastSend.fullAt || lastSend.at;
     const byName = lastSend.byName;
-    if (!iso) return 'Dernier envoi : aucun pour l’instant.';
+    if (!iso) return 'Dernier inventaire complet : aucun pour l’instant.';
     const d = new Date(iso);
     const label = Number.isNaN(d.getTime())
       ? String(iso)
@@ -124,7 +195,7 @@ const StocksFarinesStandalone = () => {
     const days = Math.round((b - a) / dayMs);
     const jourTxt = days <= 0 ? "aujourd'hui" : days === 1 ? 'hier' : `il y a ${days} jours`;
     const par = byName && String(byName).trim() ? ` — par ${String(byName).trim()}` : '';
-    return `Dernier envoi : ${label} (${jourTxt})${par}`;
+    return `Dernier inventaire complet : ${label} (${jourTxt})${par}`;
   };
 
   return (
@@ -135,6 +206,27 @@ const StocksFarinesStandalone = () => {
         <p className="last-send-line">{lastSendLine()}</p>
 
         {message && <div className={`msg ${message.type}`}>{message.text}</div>}
+
+        {stockMeta.physicalCountDue && (
+          <div className="count-due-banner">
+            <strong>Inventaire physique à faire</strong>
+            {typeof stockMeta.daysSinceFullCount === 'number' ? (
+              <> (dernier inventaire complet il y a {stockMeta.daysSinceFullCount} j)</>
+            ) : null}
+            . Remplissez <strong>toutes</strong> les farines en mode « Envoi complet » (tous les{' '}
+            {stockMeta.physicalCountIntervalDays} jours).
+          </div>
+        )}
+
+        {!stockMeta.physicalCountDue &&
+          typeof stockMeta.daysUntilCountDue === 'number' &&
+          stockMeta.daysUntilCountDue > 0 && (
+            <p className="count-next-hint">
+              Prochain inventaire complet dans {stockMeta.daysUntilCountDue} jour
+              {stockMeta.daysUntilCountDue > 1 ? 's' : ''}. Entre deux inventaires, utilisez la mise à jour
+              partielle.
+            </p>
+          )}
 
         <div className="block">
           <label>Nom *</label>
@@ -165,8 +257,42 @@ const StocksFarinesStandalone = () => {
         </div>
 
         <div className="block">
+          <label className="blockLabel">Type d&apos;envoi</label>
+          <div className="updateModeOptions">
+            <label className="updateModeOption">
+              <input
+                type="radio"
+                name="updateMode"
+                value="partial"
+                checked={updateMode === 'partial'}
+                onChange={() => setUpdateMode('partial')}
+              />
+              <span>
+                <strong>Mise à jour partielle</strong> — seules les farines saisies (les autres stocks sont
+                conservés)
+              </span>
+            </label>
+            <label className="updateModeOption">
+              <input
+                type="radio"
+                name="updateMode"
+                value="full"
+                checked={updateMode === 'full'}
+                onChange={() => setUpdateMode('full')}
+              />
+              <span>
+                <strong>Envoi complet</strong> — toutes les farines : les champs vides comptent comme 0
+              </span>
+            </label>
+          </div>
+        </div>
+
+        <div className="block">
           <div className="hint">
             Saisissez les sacs. Pour <strong>FARINE BLANCHE</strong>, saisissez palettes + sacs.
+            {updateMode === 'partial' ? (
+              <> En mode partiel, ne remplissez que les farines à corriger ou à ajouter.</>
+            ) : null}
           </div>
           {activeFlours.map((f) => (
             <div className="flourRow" key={f._id}>
@@ -207,4 +333,3 @@ const StocksFarinesStandalone = () => {
 };
 
 export default StocksFarinesStandalone;
-

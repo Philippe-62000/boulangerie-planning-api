@@ -32,7 +32,10 @@ const stockInventorySchema = new mongoose.Schema(
     updatedByEmail: { type: String, default: '', trim: true },
     urgent: { type: Boolean, default: false },
     urgentReason: { type: String, default: '', trim: true },
-    lastEntryAt: { type: Date, default: null }
+    /** Dernière saisie (partielle ou complète). */
+    lastEntryAt: { type: Date, default: null },
+    /** Dernier inventaire physique complet (envoi « toutes les farines »). */
+    lastFullCountAt: { type: Date, default: null }
   },
   { timestamps: true }
 );

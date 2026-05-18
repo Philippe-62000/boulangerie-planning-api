@@ -75,6 +75,21 @@
     .message.error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
     .urgent-row { display: flex; align-items: center; gap: 10px; }
     .urgent-row input[type="checkbox"] { width: auto; }
+    .update-mode-options { display: flex; flex-direction: column; gap: 10px; margin-top: 8px; }
+    .update-mode-option { display: flex; gap: 10px; align-items: flex-start; font-weight: 400; cursor: pointer; }
+    .update-mode-option input { width: auto; margin-top: 3px; }
+    .update-mode-option span { line-height: 1.35; font-size: 0.92rem; }
+    .count-due-banner {
+      margin: 12px 0;
+      padding: 12px 14px;
+      border-radius: 10px;
+      background: #fff3cd;
+      border: 1px solid #ffc107;
+      color: #856404;
+      font-size: 0.92rem;
+      line-height: 1.4;
+    }
+    .count-next-hint { margin: 0 0 12px; font-size: 0.9rem; color: #555; }
   </style>
 </head>
 <body>
@@ -84,6 +99,8 @@
     <p class="last-send-line" id="lastSendLine">Dernier envoi : …</p>
 
     <div id="messageContainer"></div>
+    <div id="countDueBanner" class="count-due-banner" style="display:none"></div>
+    <p id="countNextHint" class="count-next-hint" style="display:none"></p>
 
     <div class="card">
       <label for="employeeName">Nom *</label>
@@ -107,9 +124,24 @@
     </div>
 
     <div class="card">
+      <label>Type d'envoi</label>
+      <div class="update-mode-options">
+        <label class="update-mode-option">
+          <input type="radio" name="updateMode" value="partial" checked />
+          <span><strong>Mise à jour partielle</strong> — seules les farines saisies (les autres stocks sont conservés)</span>
+        </label>
+        <label class="update-mode-option">
+          <input type="radio" name="updateMode" value="full" />
+          <span><strong>Envoi complet</strong> — toutes les farines : les champs vides comptent comme 0</span>
+        </label>
+      </div>
+    </div>
+
+    <div class="card">
       <h3 style="margin:0 0 10px">Farines</h3>
       <div class="muted" style="margin-bottom:10px">
         Saisissez les sacs. Pour <strong>FARINE BLANCHE</strong>, saisissez <strong>palettes + sacs</strong>.
+        En mode partiel, ne remplissez que les farines à corriger.
       </div>
       <div id="floursContainer"></div>
     </div>
@@ -153,18 +185,78 @@
       return `Dernier envoi : ${label} (${jourTxt})${par}`;
     }
 
-    async function loadLastSend() {
+    function applyStockMetaUi(meta) {
       const el = document.getElementById('lastSendLine');
+      const banner = document.getElementById('countDueBanner');
+      const hint = document.getElementById('countNextHint');
+      const at = meta.lastFullCountAt || meta.lastEntryAt || null;
+      const byName = String(meta.updatedByName || '').trim();
+      el.textContent = formatLastSendLine(at, byName).replace('Dernier envoi', 'Dernier inventaire complet');
+      const interval = meta.physicalCountIntervalDays || 5;
+      if (meta.physicalCountDue) {
+        banner.style.display = 'block';
+        banner.innerHTML =
+          `<strong>Inventaire physique à faire</strong>` +
+          (typeof meta.daysSinceFullCount === 'number'
+            ? ` (dernier inventaire complet il y a ${meta.daysSinceFullCount} j).`
+            : '.') +
+          ` Remplissez <strong>toutes</strong> les farines en mode « Envoi complet » (tous les ${interval} jours).`;
+        const fullRadio = document.querySelector('input[name="updateMode"][value="full"]');
+        if (fullRadio) fullRadio.checked = true;
+        hint.style.display = 'none';
+      } else {
+        banner.style.display = 'none';
+        if (typeof meta.daysUntilCountDue === 'number' && meta.daysUntilCountDue > 0) {
+          hint.style.display = 'block';
+          hint.textContent =
+            `Prochain inventaire complet dans ${meta.daysUntilCountDue} jour` +
+            (meta.daysUntilCountDue > 1 ? 's' : '') +
+            '. Entre deux inventaires : mise à jour partielle.';
+        } else {
+          hint.style.display = 'none';
+        }
+      }
+    }
+
+    function buildMetaClient(inventory, configs) {
+      const lastFullCountAt = inventory.lastFullCountAt || inventory.lastEntryAt || null;
+      const daysSince = lastFullCountAt
+        ? Math.max(0, (Date.now() - new Date(lastFullCountAt).getTime()) / 86400000)
+        : 0;
+      const interval = 5;
+      const daysInt = Math.floor(daysSince);
+      const physicalCountDue = !lastFullCountAt || daysInt >= interval;
+      return {
+        lastEntryAt: inventory.lastEntryAt || null,
+        lastFullCountAt,
+        updatedByName: String(inventory.updatedByName || '').trim(),
+        physicalCountIntervalDays: interval,
+        daysSinceFullCount: Math.round(daysSince * 10) / 10,
+        physicalCountDue,
+        daysUntilCountDue: physicalCountDue ? 0 : Math.max(0, interval - daysInt)
+      };
+    }
+
+    async function loadStockStatus() {
       try {
-        const res = await fetch(`${API_URL}/stocks/flours/inventory?siteKey=${encodeURIComponent(siteKey)}`);
-        const data = await res.json();
-        const inv = data && data.success && data.data ? data.data : {};
-        const at = inv.lastEntryAt || inv.updatedAt || null;
-        const byName = String(inv.updatedByName || '').trim();
-        el.textContent = formatLastSendLine(at, byName);
+        let res = await fetch(`${API_URL}/stocks/flours/status?siteKey=${encodeURIComponent(siteKey)}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data && data.success && data.meta) {
+            applyStockMetaUi(data.meta);
+            return;
+          }
+        }
+        res = await fetch(`${API_URL}/stocks/flours/inventory?siteKey=${encodeURIComponent(siteKey)}`);
+        const invData = await res.json();
+        const inventory = invData && invData.success && invData.data ? invData.data : {};
+        const meta = invData.meta || buildMetaClient(inventory, configs);
+        applyStockMetaUi(meta);
       } catch (e) {
         console.error(e);
-        el.textContent = 'Dernier envoi : erreur de chargement.';
+        document.getElementById('lastSendLine').textContent = 'Dernier inventaire : erreur de chargement.';
+        document.getElementById('countDueBanner').style.display = 'none';
+        document.getElementById('countNextHint').style.display = 'none';
       }
     }
 
@@ -214,6 +306,7 @@
         sacksInput.placeholder = 'Sacs';
         sacksInput.dataset.flourId = cfg._id;
         sacksInput.dataset.field = 'sacks';
+        sacksInput.addEventListener('input', () => { sacksInput.dataset.touched = '1'; });
 
         const palletsInput = document.createElement('input');
         palletsInput.type = 'number';
@@ -222,6 +315,7 @@
         palletsInput.placeholder = 'Palettes';
         palletsInput.dataset.flourId = cfg._id;
         palletsInput.dataset.field = 'pallets';
+        palletsInput.addEventListener('input', () => { palletsInput.dataset.touched = '1'; });
         palletsInput.style.display = cfg.unit === 'pallets_and_sacks' ? 'block' : 'none';
 
         row.appendChild(left);
@@ -238,13 +332,22 @@
       renderFlours();
     }
 
+    function getUpdateMode() {
+      const checked = document.querySelector('input[name="updateMode"]:checked');
+      return checked && checked.value === 'full' ? 'full' : 'partial';
+    }
+
     function collectItems() {
+      const updateMode = getUpdateMode();
       const itemsById = new Map();
       document.querySelectorAll('input[data-flour-id]').forEach(inp => {
+        if (updateMode === 'partial' && inp.dataset.touched !== '1') return;
         const id = inp.dataset.flourId;
         const field = inp.dataset.field;
         const v = Math.max(0, Number(inp.value || 0));
-        if (!itemsById.has(id)) itemsById.set(id, { flourConfigId: id, sacks: 0, pallets: 0 });
+        if (!itemsById.has(id)) {
+          itemsById.set(id, { flourConfigId: id, sacks: 0, pallets: 0, touched: true });
+        }
         itemsById.get(id)[field] = v;
       });
       return Array.from(itemsById.values());
@@ -263,9 +366,15 @@
         return;
       }
 
+      const updateMode = getUpdateMode();
       const items = collectItems();
       if (!items || items.length === 0) {
-        showMessage('Aucune farine à envoyer.', 'error');
+        showMessage(
+          updateMode === 'partial'
+            ? 'Mise à jour partielle : saisissez au moins une farine, ou choisissez « Envoi complet ».'
+            : 'Aucune farine à envoyer.',
+          'error'
+        );
         return;
       }
 
@@ -281,17 +390,26 @@
             createdByEmail: '',
             urgent,
             urgentReason: urgentReasonText,
+            updateMode,
             items
           })
         });
         const data = await res.json();
         if (data && data.success) {
-          showMessage('Stocks envoyés avec succès.', 'success');
-          document.querySelectorAll('input[data-flour-id]').forEach(inp => inp.value = '');
+          const n = (data.data && data.data.itemsUpdated) || items.length;
+          const label =
+            updateMode === 'full'
+              ? 'envoi complet'
+              : `mise à jour partielle (${n} farine${n > 1 ? 's' : ''})`;
+          showMessage(`Stocks enregistrés (${label}).`, 'success');
+          document.querySelectorAll('input[data-flour-id]').forEach(inp => {
+            inp.value = '';
+            delete inp.dataset.touched;
+          });
           urgentCheckbox.checked = false;
           urgentReasonWrap.style.display = 'none';
           urgentReason.value = '';
-          await loadLastSend();
+          await loadStockStatus();
         } else {
           showMessage((data && (data.error || data.message)) || 'Erreur lors de l’envoi.', 'error');
         }
@@ -306,7 +424,7 @@
 
     submitBtn.addEventListener('click', submit);
     document.addEventListener('DOMContentLoaded', async () => {
-      await Promise.all([loadEmployees(), loadConfigs(), loadLastSend()]);
+      await Promise.all([loadEmployees(), loadConfigs(), loadStockStatus()]);
     });
   </script>
 </body>

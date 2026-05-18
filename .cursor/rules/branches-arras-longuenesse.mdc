@@ -31,3 +31,12 @@ Reciproquement, une feature **uniquement** Longuenesse peut vivre sur `longuenes
 - **Arras** : `deploy-frontend-ovh.bat` → dossier **`deploy-ovh/`** à uploader vers **`/plan/`** sur OVH (également `upload-deploy-frontend-ovh.bat` en Robocopy vers le partage FTP).
 - Longuenesse : build `deploy-frontend-lon-ovh-no-pause.bat` → contenu de **`deploy-frontend-lon/`** vers `/lon/` sur OVH.
 - Ne pas mélanger les assets `/plan/` et `/lon/`.
+
+### Build frontend pour upload manuel OVH (consigne agent)
+
+L’utilisateur **uploade les fichiers à la main** sur OVH. Dès qu’un travail touche le **frontend** et qu’un déploiement OVH est visé, l’agent doit **lancer lui-même le build et remplir les dossiers de déploiement** avant de conclure la tâche, pour que `deploy-ovh/` ou `deploy-frontend-lon/` soient à jour :
+
+- **Arras** : exécuter depuis la racine du repo `deploy-frontend-ovh.bat` (remplit `deploy-ovh/`). Le script se termine par `pause` : en session non interactive, reproduire les étapes du script (`cd frontend`, `set VITE_API_URL=…api-4…`, `npm run build`, puis copies vers `deploy-ovh/` comme dans le `.bat`).
+- **Longuenesse** : exécuter `deploy-frontend-lon-ovh-no-pause.bat` (remplit `deploy-frontend-lon/` avec `--base=/lon/` et post-traitements).
+
+Ne pas se contenter de modifier le code source sans rebuild si l’objectif est l’upload OVH.

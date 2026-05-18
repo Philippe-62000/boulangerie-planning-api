@@ -10,6 +10,9 @@ router.get('/flours/config', stocksController.getFlourConfig);
 // Farines - inventaire (public en lecture pour dashboard / stand-alone)
 router.get('/flours/inventory', stocksController.getFlourInventory);
 
+// Farines - stock théorique (déduction conso/j) + rappel inventaire physique
+router.get('/flours/status', stocksController.getFlourStocksStatus);
+
 // Farines - saisie stand-alone (public)
 router.post('/flours/entry', stocksController.postFlourEntry);
 

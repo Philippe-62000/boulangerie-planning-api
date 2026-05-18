@@ -8,6 +8,17 @@ const PositiveScan = require('../models/PositiveScan');
 const PositiveCatalog = require('../models/PositiveCatalog');
 const tgtPdfParser = require('../services/tgtPdfParser');
 
+/** Nombre de BL conservés en historique (cmd -1 = plus récent, cmd -6 = le plus ancien). */
+const CMD_HISTORY_DEPTH = 6;
+const CMD_QTY_FIELDS = [
+  'lastOrderQty',
+  'prevOrderQty',
+  'cmdQty3',
+  'cmdQty4',
+  'cmdQty5',
+  'cmdQty6'
+];
+
 const DEFAULT_LOCATIONS = [
   'Positive',
   'Négative',
@@ -25,6 +36,22 @@ function normalizeName(s) {
     .toLowerCase()
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '');
+}
+
+/** Codes TGT avec ou sans zéros en tête (010583 ↔ 10583). */
+function normalizeSupplierCode(code) {
+  const s = String(code || '').trim();
+  if (!s) return '';
+  const stripped = s.replace(/^0+/, '');
+  return stripped || '0';
+}
+
+function setCodeQty(maps, code, qty) {
+  const c = String(code || '').trim();
+  if (!c) return;
+  maps.byCode.set(c, qty);
+  const norm = normalizeSupplierCode(c);
+  if (norm && norm !== c) maps.byCode.set(norm, qty);
 }
 
 /** Vendredi de la semaine de commande en cours (commande lundi → livraison vendredi). */
@@ -64,6 +91,309 @@ async function getLastSubmittedOrder(siteKey) {
   return SupplierOrder.findOne({ siteKey, status: 'submitted' }).sort({ deliveryDate: -1, updatedAt: -1 });
 }
 
+function emptyQtyMaps() {
+  return { byProductId: new Map(), byName: new Map(), byCode: new Map() };
+}
+
+function mapsFromOrderLines(orderLines) {
+  const maps = emptyQtyMaps();
+  for (const line of orderLines || []) {
+    const qty = line.orderQty ?? 0;
+    if (line.productId) maps.byProductId.set(String(line.productId), qty);
+    if (line.supplierCode) setCodeQty(maps, line.supplierCode, qty);
+    if (line.productName) maps.byName.set(normalizeName(line.productName), qty);
+  }
+  return maps;
+}
+
+function mapsFromDeliveryLines(deliveryLines) {
+  const maps = emptyQtyMaps();
+  for (const line of deliveryLines || []) {
+    const qty = line.orderedQty ?? line.receivedQty;
+    if (qty == null) continue;
+    const n = Number(qty);
+    if (!Number.isFinite(n)) continue;
+    if (line.supplierCode) setCodeQty(maps, line.supplierCode, n);
+    if (line.productName) maps.byName.set(normalizeName(line.productName), n);
+  }
+  return maps;
+}
+
+function mergeMapsGaps(target, source) {
+  if (!source) return;
+  for (const [k, v] of source.byCode) {
+    if (!target.byCode.has(k)) target.byCode.set(k, v);
+  }
+  for (const [k, v] of source.byName) {
+    if (!target.byName.has(k)) target.byName.set(k, v);
+  }
+  for (const [k, v] of source.byProductId) {
+    if (!target.byProductId.has(k)) target.byProductId.set(k, v);
+  }
+}
+
+function mapsIsEmpty(maps) {
+  return !maps.byCode.size && !maps.byName.size && !maps.byProductId.size;
+}
+
+async function fillMinus1GapsFromDeliveries(siteKey, maps) {
+  const deliveries = await SupplierOrderDelivery.find({ siteKey })
+    .sort({ createdAt: -1 })
+    .limit(15)
+    .select('lines');
+
+  for (const del of deliveries) {
+    for (const line of del.lines || []) {
+      const qty = line.orderedQty ?? line.receivedQty;
+      if (qty == null) continue;
+      const n = Number(qty);
+      if (!Number.isFinite(n)) continue;
+      const code = String(line.supplierCode || '').trim();
+      const nk = normalizeName(line.productName);
+      if (code) {
+        const norm = normalizeSupplierCode(code);
+        if (!maps.byCode.has(code) && !maps.byCode.has(norm)) setCodeQty(maps, code, n);
+      }
+      if (nk && !maps.byName.has(nk)) maps.byName.set(nk, n);
+    }
+  }
+}
+
+/** Quantités de référence extraites du catalogue seed Arras (PDF). */
+function loadSeedQtyMaps(siteKey) {
+  const maps = emptyQtyMaps();
+  if (siteKey !== 'plan') return maps;
+  try {
+    const seedPath = path.join(__dirname, '../data/tgt-arras-catalog-seed.json');
+    if (!fs.existsSync(seedPath)) return maps;
+    const seed = JSON.parse(fs.readFileSync(seedPath, 'utf8'));
+    for (const p of seed.products || []) {
+      if (p.lastOrderQty == null) continue;
+      const n = Number(p.lastOrderQty);
+      if (!Number.isFinite(n)) continue;
+      if (p.supplierCode) setCodeQty(maps, p.supplierCode, n);
+      if (p.name) maps.byName.set(normalizeName(p.name), n);
+    }
+  } catch (e) {
+    console.warn('loadSeedQtyMaps:', e.message);
+  }
+  return maps;
+}
+
+/** Date BL (jj/mm/aaaa ou jj.mm.aaaa) → timestamp pour tri. */
+function parseBlDateString(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return 0;
+  const parts = raw.split(/[/.-]/).map((p) => parseInt(p, 10));
+  if (parts.length === 3 && parts.every((n) => Number.isFinite(n))) {
+    const [day, month, year] = parts;
+    const y = year < 100 ? 2000 + year : year;
+    return new Date(y, month - 1, day).getTime();
+  }
+  const t = Date.parse(raw);
+  return Number.isFinite(t) ? t : 0;
+}
+
+function deliveryBlSortKey(del) {
+  return (
+    parseBlDateString(del.orderDate) ||
+    parseBlDateString(del.receptionDate) ||
+    new Date(del.createdAt || 0).getTime()
+  );
+}
+
+function findPdfProductHit(line, pdfProducts) {
+  const code = String(line.supplierCode || '').trim();
+  const nk = normalizeName(line.productName);
+  for (const p of pdfProducts) {
+    const pc = String(p.supplierCode || '').trim();
+    if (code && pc && (pc === code || normalizeSupplierCode(pc) === normalizeSupplierCode(code))) {
+      return p;
+    }
+    if (nk && normalizeName(p.name) === nk) return p;
+  }
+  return null;
+}
+
+async function getDeliveriesSortedByBlDate(siteKey, limit = 20) {
+  const all = await SupplierOrderDelivery.find({ siteKey }).select(
+    'lines orderDate receptionDate orderNumber createdAt'
+  );
+  const sorted = all.sort((a, b) => deliveryBlSortKey(b) - deliveryBlSortKey(a));
+  const byOrderNumber = new Map();
+  for (const del of sorted) {
+    const key = String(del.orderNumber || del._id);
+    if (!byOrderNumber.has(key)) byOrderNumber.set(key, del);
+  }
+  return [...byOrderNumber.values()]
+    .sort((a, b) => deliveryBlSortKey(b) - deliveryBlSortKey(a))
+    .slice(0, limit);
+}
+
+function blMetaFromDelivery(del) {
+  if (!del) return null;
+  return {
+    orderDate: del.orderDate || '',
+    receptionDate: del.receptionDate || '',
+    orderNumber: del.orderNumber || '',
+    source: 'bl'
+  };
+}
+
+/** Cmd -1 … -6 : N derniers BL (date commande), puis commandes validées, puis seed sur cmd -1. */
+async function buildOrderHistoryMaps(siteKey) {
+  const [deliveries, submitted] = await Promise.all([
+    getDeliveriesSortedByBlDate(siteKey, CMD_HISTORY_DEPTH),
+    SupplierOrder.find({ siteKey, status: 'submitted' })
+      .sort({ deliveryDate: -1, updatedAt: -1 })
+      .limit(CMD_HISTORY_DEPTH)
+      .select('lines deliveryDate deliveryWeekKey')
+  ]);
+
+  const seedMaps = loadSeedQtyMaps(siteKey);
+  const tiers = Array.from({ length: CMD_HISTORY_DEPTH }, () => emptyQtyMaps());
+  const tierMeta = Array(CMD_HISTORY_DEPTH).fill(null);
+
+  for (let i = 0; i < CMD_HISTORY_DEPTH; i++) {
+    if (deliveries[i]?.lines?.length) {
+      tiers[i] = mapsFromDeliveryLines(deliveries[i].lines);
+      tierMeta[i] = blMetaFromDelivery(deliveries[i]);
+    }
+  }
+
+  for (let i = 0; i < CMD_HISTORY_DEPTH; i++) {
+    if (!mapsIsEmpty(tiers[i]) || !submitted[i]?.lines?.length) continue;
+    tiers[i] = mapsFromOrderLines(submitted[i].lines);
+    tierMeta[i] = {
+      deliveryDate: submitted[i].deliveryDate,
+      deliveryWeekKey: submitted[i].deliveryWeekKey,
+      source: 'submitted'
+    };
+  }
+
+  if (!deliveries.length) {
+    mergeMapsGaps(tiers[0], seedMaps);
+  }
+
+  return {
+    tiers,
+    tierMeta,
+    deliveries,
+    minus1: tiers[0],
+    minus2: tiers[1],
+    minus1Meta: tierMeta[0],
+    minus2Meta: tierMeta[1]
+  };
+}
+
+function tierMetaDate(meta) {
+  if (!meta) return null;
+  return meta.orderDate || meta.receptionDate || meta.deliveryDate || null;
+}
+
+function buildCmdHistoryResponseMeta(history, lines) {
+  const cmdFilled = CMD_QTY_FIELDS.map((f) => lines.filter((l) => l[f] != null).length);
+  const cmdBlNumbers = history.tierMeta.map((m) => m?.orderNumber || null);
+  const cmdDates = history.tierMeta.map((m) => tierMetaDate(m));
+  return {
+    cmdFilled,
+    cmdBlNumbers,
+    cmdDates,
+    blCount: history.deliveries?.length ?? 0,
+    lastOrderFilled: cmdFilled[0],
+    prevOrderFilled: cmdFilled[1],
+    lastSubmittedDelivery: cmdDates[0],
+    prevSubmittedDelivery: cmdDates[1],
+    cmd1BlNumber: cmdBlNumbers[0],
+    cmd2BlNumber: cmdBlNumbers[1]
+  };
+}
+
+function productRefFromLine(line) {
+  return {
+    _id: line.productId,
+    name: line.productName,
+    supplierCode: line.supplierCode
+  };
+}
+
+/** Applique cmd -1 … -6 depuis l’historique BL. Ne remplace jamais par vide (null). */
+function applyCmdColumnsFromHistory(lines, history, { overwrite = true } = {}) {
+  const tierMaps = history.tiers || [history.minus1, history.minus2];
+  return (lines || []).map((raw) => {
+    const line = typeof raw.toObject === 'function' ? raw.toObject() : { ...raw };
+    const product = productRefFromLine(line);
+    const updates = { ...line };
+
+    for (let i = 0; i < CMD_HISTORY_DEPTH; i++) {
+      const field = CMD_QTY_FIELDS[i];
+      const from = resolveQtyFromMaps(product, tierMaps[i] || emptyQtyMaps(), line, field);
+      let val = line[field];
+      if (overwrite) {
+        if (from != null) val = from;
+      } else if (val == null && from != null) {
+        val = from;
+      }
+      updates[field] = val;
+    }
+
+    return computeLineMetrics(updates);
+  });
+}
+
+function resolveQtyFromMaps(product, maps, prevLine, prevField) {
+  const code = String(product.supplierCode || '').trim();
+  let fromHistory = maps.byProductId.get(String(product._id)) ?? null;
+  if (fromHistory == null && code) {
+    fromHistory =
+      maps.byCode.get(code) ??
+      maps.byCode.get(normalizeSupplierCode(code)) ??
+      null;
+  }
+  if (fromHistory == null) {
+    fromHistory = maps.byName.get(normalizeName(product.name)) ?? null;
+  }
+  if (fromHistory != null) return fromHistory;
+  if (prevLine?.[prevField] != null) return prevLine[prevField];
+  return null;
+}
+
+function orderLinesStructureChanged(merged, existing) {
+  if ((merged?.length || 0) !== (existing?.length || 0)) return true;
+  const existingIds = new Set((existing || []).map((l) => String(l.productId)));
+  return merged.some((l) => !existingIds.has(String(l.productId)));
+}
+
+/** Conserve saisie brouillon (reçu, stock, dernière cmd…) lors d’un rattachement au catalogue. */
+function mergeCatalogWithExistingOrder(catalogLines, existingLines) {
+  const prevById = new Map();
+  for (const raw of existingLines || []) {
+    const prev = typeof raw.toObject === 'function' ? raw.toObject() : { ...raw };
+    if (prev.productId) prevById.set(String(prev.productId), prev);
+  }
+  return (catalogLines || []).map((line) => {
+    const prev = prevById.get(String(line.productId));
+    if (!prev) return line;
+    return computeLineMetrics({
+      ...line,
+      receivedQty: prev.receivedQty != null ? prev.receivedQty : line.receivedQty,
+      stockQty: prev.stockQty != null ? prev.stockQty : line.stockQty,
+      orderQty: prev.orderQty != null ? prev.orderQty : line.orderQty,
+      lastOrderQty: prev.lastOrderQty != null ? prev.lastOrderQty : line.lastOrderQty,
+      prevOrderQty: prev.prevOrderQty != null ? prev.prevOrderQty : line.prevOrderQty,
+      cmdQty3: prev.cmdQty3 != null ? prev.cmdQty3 : line.cmdQty3,
+      cmdQty4: prev.cmdQty4 != null ? prev.cmdQty4 : line.cmdQty4,
+      cmdQty5: prev.cmdQty5 != null ? prev.cmdQty5 : line.cmdQty5,
+      cmdQty6: prev.cmdQty6 != null ? prev.cmdQty6 : line.cmdQty6,
+      consumptionQty: prev.consumptionQty != null ? prev.consumptionQty : line.consumptionQty,
+      suggestedOrderQty:
+        prev.suggestedOrderQty != null ? prev.suggestedOrderQty : line.suggestedOrderQty,
+      avgConsumptionQty:
+        prev.avgConsumptionQty != null ? prev.avgConsumptionQty : line.avgConsumptionQty
+    });
+  });
+}
+
 function numOrNull(v) {
   if (v === '' || v == null) return null;
   const n = Number(v);
@@ -101,6 +431,11 @@ function computeLineMetrics(line, avgConsumptionQty = null) {
     avgConsumptionQty: avg != null ? Math.round(avg * 100) / 100 : null,
     suggestedOrderQty,
     lastOrderQty: line.lastOrderQty == null ? null : Number(line.lastOrderQty) || 0,
+    prevOrderQty: line.prevOrderQty == null ? null : Number(line.prevOrderQty) || 0,
+    cmdQty3: line.cmdQty3 == null ? null : Number(line.cmdQty3) || 0,
+    cmdQty4: line.cmdQty4 == null ? null : Number(line.cmdQty4) || 0,
+    cmdQty5: line.cmdQty5 == null ? null : Number(line.cmdQty5) || 0,
+    cmdQty6: line.cmdQty6 == null ? null : Number(line.cmdQty6) || 0,
     orderQty: Math.max(0, Number(line.orderQty) || 0)
   };
 }
@@ -190,6 +525,11 @@ function sanitizeLine(l, avgConsumptionQty = null) {
     consumptionQty: l.consumptionQty,
     suggestedOrderQty: l.suggestedOrderQty,
     lastOrderQty: l.lastOrderQty,
+    prevOrderQty: l.prevOrderQty,
+    cmdQty3: l.cmdQty3,
+    cmdQty4: l.cmdQty4,
+    cmdQty5: l.cmdQty5,
+    cmdQty6: l.cmdQty6,
     orderQty: l.orderQty
   }, avgConsumptionQty);
 }
@@ -213,56 +553,48 @@ async function upsertCurrentOrder(siteKey, lines, extra = {}) {
   );
 }
 
-async function buildLinesFromCatalog(siteKey, existingLines = []) {
-  const [products, locations, lastOrder] = await Promise.all([
+async function buildLinesFromCatalog(siteKey, existingLines = [], options = {}) {
+  const applyHistory = options.applyHistory === true;
+  const fillEmptyCmdOnly = options.fillEmptyCmdOnly === true;
+  const [products, locations, history] = await Promise.all([
     SupplierOrderProduct.find({ siteKey, isActive: true }).sort({ order: 1, name: 1 }),
     SupplierOrderLocation.find({ siteKey, isActive: true }).sort({ order: 1, name: 1 }),
-    getLastSubmittedOrder(siteKey)
+    buildOrderHistoryMaps(siteKey)
   ]);
 
   const locById = new Map(locations.map((l) => [String(l._id), l]));
-  const lastByProductId = new Map();
-  const lastByName = new Map();
-  const lastByCode = new Map();
-  const receivedFromLastByProductId = new Map();
-  const receivedFromLastByCode = new Map();
-  const receivedFromLastByName = new Map();
-  if (lastOrder?.lines?.length) {
-    for (const line of lastOrder.lines) {
-      const qty = line.orderQty ?? 0;
-      if (line.productId) {
-        lastByProductId.set(String(line.productId), qty);
-        receivedFromLastByProductId.set(String(line.productId), qty);
-      }
-      if (line.productName) {
-        lastByName.set(normalizeName(line.productName), qty);
-        receivedFromLastByName.set(normalizeName(line.productName), qty);
-      }
-      if (line.supplierCode) {
-        lastByCode.set(String(line.supplierCode), qty);
-        receivedFromLastByCode.set(String(line.supplierCode), qty);
-      }
-    }
-  }
+  const receivedFromLastByProductId = history.minus1.byProductId;
+  const receivedFromLastByCode = history.minus1.byCode;
+  const receivedFromLastByName = history.minus1.byName;
 
   const existingByProductId = new Map(
-    (existingLines || []).map((l) => [String(l.productId), l])
+    (existingLines || []).map((l) => {
+      const plain = typeof l.toObject === 'function' ? l.toObject() : l;
+      return [String(plain.productId), plain];
+    })
   );
 
   return products.map((p) => {
     const prev = existingByProductId.get(String(p._id));
     const loc = p.locationId ? locById.get(String(p.locationId)) : null;
-    const lastQty =
-      lastByProductId.get(String(p._id)) ??
-      lastByName.get(normalizeName(p.name)) ??
-      null;
-
     const code = p.supplierCode || '';
     const receivedDefault =
       receivedFromLastByProductId.get(String(p._id)) ??
       (code ? receivedFromLastByCode.get(code) : null) ??
       receivedFromLastByName.get(normalizeName(p.name)) ??
       null;
+
+    const cmdValues = {};
+    for (let i = 0; i < CMD_HISTORY_DEPTH; i++) {
+      const field = CMD_QTY_FIELDS[i];
+      let val = prev?.[field] ?? null;
+      if (applyHistory) {
+        val = resolveQtyFromMaps(p, history.tiers[i], prev, field);
+      } else if (fillEmptyCmdOnly && val == null) {
+        val = resolveQtyFromMaps(p, history.tiers[i], prev, field);
+      }
+      cmdValues[field] = val;
+    }
 
     return computeLineMetrics({
       productId: p._id,
@@ -272,7 +604,7 @@ async function buildLinesFromCatalog(siteKey, existingLines = []) {
       locationName: loc?.name || '',
       receivedQty: prev?.receivedQty ?? receivedDefault,
       stockQty: prev?.stockQty ?? null,
-      lastOrderQty: lastQty,
+      ...cmdValues,
       orderQty: prev?.orderQty ?? 0,
       consumptionQty: prev?.consumptionQty ?? null,
       suggestedOrderQty: prev?.suggestedOrderQty ?? null
@@ -477,23 +809,21 @@ const getCurrentOrder = async (req, res) => {
         lines
       });
     } else {
-      const merged = await buildLinesFromCatalog(siteKey, order.lines);
-      const changed =
-        merged.length !== (order.lines?.length || 0) ||
-        merged.some((l, i) => String(l.productId) !== String(order.lines[i]?.productId));
-      let base = order.lines;
-      if (!order.lines?.length || changed) {
-        base = merged;
-        order.lines = merged;
-        await order.save();
-      }
-      order.lines = await enrichLines(siteKey, base);
+      const historyForSync = await buildOrderHistoryMaps(siteKey);
+      const built = await buildLinesFromCatalog(siteKey, order.lines, { fillEmptyCmdOnly: true });
+      let merged = mergeCatalogWithExistingOrder(built, order.lines);
+      merged = applyCmdColumnsFromHistory(merged, historyForSync, { overwrite: true });
+      order.lines = await enrichLines(siteKey, merged);
+      order.markModified('lines');
+      await order.save();
     }
 
-    const lastSubmitted = await getLastSubmittedOrder(siteKey);
-    const lastDelivery = await SupplierOrderDelivery.findOne({ siteKey })
-      .sort({ createdAt: -1 })
-      .select('orderNumber orderDate receptionDate fileName createdAt');
+    const [history, lastDelivery] = await Promise.all([
+      buildOrderHistoryMaps(siteKey),
+      SupplierOrderDelivery.findOne({ siteKey })
+        .sort({ createdAt: -1 })
+        .select('orderNumber orderDate receptionDate fileName createdAt')
+    ]);
     const rolling = await buildRollingConsumptionMap(siteKey, weekKey, ROLLING_WEEKS);
 
     res.json({
@@ -502,8 +832,7 @@ const getCurrentOrder = async (req, res) => {
       meta: {
         deliveryDate: order.deliveryDate,
         deliveryWeekKey: order.deliveryWeekKey,
-        lastSubmittedAt: lastSubmitted?.updatedAt || null,
-        lastSubmittedDelivery: lastSubmitted?.deliveryDate || null,
+        ...buildCmdHistoryResponseMeta(history, order.lines || []),
         lastDeliveryBl: lastDelivery || null,
         rollingWeeksUsed: rolling.historyWeeks,
         rollingWeeksTarget: ROLLING_WEEKS
@@ -590,9 +919,24 @@ const refreshLastOrderQty = async (req, res) => {
     const deliveryDate = getCurrentDeliveryFriday();
     const weekKey = deliveryWeekKey(deliveryDate);
     let order = await SupplierOrder.findOne({ siteKey, deliveryWeekKey: weekKey, supplier: 'TGT' });
-    const existing = order?.lines || [];
-    const built = await buildLinesFromCatalog(siteKey, existing);
-    const lines = await enrichLines(siteKey, built);
+
+    let existingPlain = (order?.lines || []).map((l) =>
+      typeof l.toObject === 'function' ? l.toObject() : { ...l }
+    );
+    if (!existingPlain.length) {
+      existingPlain = await buildLinesFromCatalog(siteKey, [], { fillEmptyCmdOnly: true });
+    }
+
+    const history = await buildOrderHistoryMaps(siteKey);
+    let lines = applyCmdColumnsFromHistory(existingPlain, history, { overwrite: true });
+    lines = await enrichLines(siteKey, lines);
+
+    if (!lines.length) {
+      return res.status(400).json({
+        success: false,
+        error: 'Aucune ligne de commande — chargez le catalogue ou importez un BL.'
+      });
+    }
     if (order) {
       order.lines = lines;
       await order.save();
@@ -606,7 +950,14 @@ const refreshLastOrderQty = async (req, res) => {
         lines
       });
     }
-    res.json({ success: true, data: order });
+    res.json({
+      success: true,
+      data: order,
+      meta: {
+        totalLines: lines.length,
+        ...buildCmdHistoryResponseMeta(history, lines)
+      }
+    });
   } catch (e) {
     console.error('refreshLastOrderQty', e);
     res.status(500).json({ success: false, error: 'Erreur serveur' });
@@ -806,22 +1157,18 @@ const importDeliveryPdf = async (req, res) => {
     const deliveryDate = getCurrentDeliveryFriday();
     const weekKey = deliveryWeekKey(deliveryDate);
     let order = await SupplierOrder.findOne({ siteKey, deliveryWeekKey: weekKey, supplier: 'TGT' });
-    let lines = order?.lines?.length ? order.lines.map((l) => (l.toObject ? l.toObject() : { ...l })) : await buildLinesFromCatalog(siteKey, []);
+    const existingPlain = (order?.lines || []).map((l) => (l.toObject ? l.toObject() : { ...l }));
 
-    const byCode = new Map(products.map((p) => [p.supplierCode, p]));
-    const byName = new Map(products.map((p) => [normalizeName(p.name), p]));
-
+    let lines = await buildLinesFromCatalog(siteKey, existingPlain, { applyHistory: true });
+    lines = mergeCatalogWithExistingOrder(lines, existingPlain);
     lines = lines.map((line) => {
-      const hit =
-        (line.supplierCode && byCode.get(line.supplierCode)) ||
-        byName.get(normalizeName(line.productName));
-      if (!hit) return computeLineMetrics(line);
-      return computeLineMetrics({
-        ...line,
-        receivedQty: hit.receivedQty,
-        lastOrderQty: hit.orderedQty
-      });
+      const hit = findPdfProductHit(line, products);
+      if (!hit) return line;
+      return computeLineMetrics({ ...line, receivedQty: hit.receivedQty });
     });
+
+    const history = await buildOrderHistoryMaps(siteKey);
+    lines = applyCmdColumnsFromHistory(lines, history, { overwrite: true });
 
     const saved = await upsertCurrentOrder(siteKey, lines);
 
@@ -831,7 +1178,8 @@ const importDeliveryPdf = async (req, res) => {
       meta: {
         ...meta,
         parsedLines: products.length,
-        matchedLines: lines.filter((l) => l.receivedQty != null).length
+        matchedLines: lines.filter((l) => l.receivedQty != null).length,
+        ...buildCmdHistoryResponseMeta(history, lines)
       }
     });
   } catch (e) {

@@ -96,6 +96,118 @@ function stockToSacks({ unit, sacks, pallets, sacksPerPallet }) {
   return Math.max(0, s);
 }
 
+const MS_PER_DAY = 86400000;
+const DEFAULT_PHYSICAL_COUNT_INTERVAL_DAYS = 5;
+
+function daysElapsedSince(date, refDate = new Date()) {
+  if (!date) return 0;
+  const t0 = new Date(date).getTime();
+  if (!Number.isFinite(t0)) return 0;
+  return Math.max(0, (refDate.getTime() - t0) / MS_PER_DAY);
+}
+
+async function getPhysicalCountIntervalDays(siteKey) {
+  const p = await ensureParameter({
+    name: `flourPhysicalCountIntervalDays_${siteKey}`,
+    displayName: `Farines — inventaire physique tous les N jours (${SITE_LABEL[siteKey] || siteKey})`,
+    stringValue: String(DEFAULT_PHYSICAL_COUNT_INTERVAL_DAYS)
+  });
+  const n = Number(String(p.stringValue || '').trim());
+  return Number.isFinite(n) && n > 0 ? Math.floor(n) : DEFAULT_PHYSICAL_COUNT_INTERVAL_DAYS;
+}
+
+function computeTheoreticalStockSacks(physicalStockSacks, dailyConsumption, daysElapsed) {
+  const physical = Math.max(0, Number(physicalStockSacks) || 0);
+  const daily = Math.max(0, Number(dailyConsumption) || 0);
+  const days = Math.max(0, Number(daysElapsed) || 0);
+  return Math.max(0, physical - days * daily);
+}
+
+function daysRemainingFromStock(stockSacks, dailyConsumption) {
+  const daily = Math.max(0, Number(dailyConsumption) || 0);
+  if (daily <= 0) return null;
+  return Math.max(0, Number(stockSacks) || 0) / daily;
+}
+
+function statusFromDaysRemaining(daysRemaining) {
+  if (typeof daysRemaining !== 'number' || !Number.isFinite(daysRemaining)) return 'na';
+  if (daysRemaining > 10) return 'green';
+  if (daysRemaining >= 7) return 'orange';
+  return 'red';
+}
+
+/** Stock théorique (déduction conso/j) + rappel inventaire physique. */
+async function buildFlourStocksStatus(siteKey) {
+  await ensureDefaultFlours(siteKey);
+  const [configs, inventory, sacksPerPallet, countIntervalDays] = await Promise.all([
+    FlourConfig.find({ siteKey, isActive: true }).sort({ order: 1, name: 1 }),
+    StockInventory.findOne({ siteKey }),
+    getSacksPerPallet(siteKey),
+    getPhysicalCountIntervalDays(siteKey)
+  ]);
+
+  const invById = new Map((inventory?.items || []).map((it) => [String(it.flourConfigId), it]));
+  const lastFullCountAt = inventory?.lastFullCountAt || inventory?.lastEntryAt || null;
+  const daysSinceFullCount = daysElapsedSince(lastFullCountAt);
+  const daysSinceFullCountInt = Math.floor(daysSinceFullCount);
+  const physicalCountDue = !lastFullCountAt || daysSinceFullCountInt >= countIntervalDays;
+  const daysUntilCountDue = physicalCountDue
+    ? 0
+    : Math.max(0, countIntervalDays - daysSinceFullCountInt);
+
+  const items = configs.map((cfg) => {
+    const inv = invById.get(String(cfg._id)) || { sacks: 0, pallets: 0 };
+    const stockPhysicalSacks = stockToSacks({
+      unit: cfg.unit,
+      sacks: inv.sacks,
+      pallets: inv.pallets,
+      sacksPerPallet
+    });
+    const daily = Math.max(0, Number(cfg.dailyConsumptionSacks || 0));
+    const stockTheoreticalSacks = computeTheoreticalStockSacks(
+      stockPhysicalSacks,
+      daily,
+      daysSinceFullCount
+    );
+    const daysRemaining = daysRemainingFromStock(stockTheoreticalSacks, daily);
+    return {
+      flourConfigId: cfg._id,
+      name: cfg.name,
+      stockPhysicalSacks,
+      stockTheoreticalSacks,
+      stockSacksTotal: stockTheoreticalSacks,
+      daily,
+      daysRemaining,
+      status: statusFromDaysRemaining(daysRemaining)
+    };
+  });
+
+  items.sort((a, b) => {
+    const ad =
+      typeof a.daysRemaining === 'number' && Number.isFinite(a.daysRemaining) ? a.daysRemaining : null;
+    const bd =
+      typeof b.daysRemaining === 'number' && Number.isFinite(b.daysRemaining) ? b.daysRemaining : null;
+    if (ad === null && bd === null) return a.name.localeCompare(b.name, 'fr');
+    if (ad === null) return 1;
+    if (bd === null) return -1;
+    if (ad !== bd) return ad - bd;
+    return a.name.localeCompare(b.name, 'fr');
+  });
+
+  return {
+    items,
+    meta: {
+      lastEntryAt: inventory?.lastEntryAt || null,
+      lastFullCountAt,
+      updatedByName: String(inventory?.updatedByName || '').trim(),
+      physicalCountIntervalDays: countIntervalDays,
+      daysSinceFullCount: Math.round(daysSinceFullCount * 10) / 10,
+      physicalCountDue,
+      daysUntilCountDue
+    }
+  };
+}
+
 async function ensureDefaultFlours(siteKey) {
   // Ajoute les entrées manquantes sans écraser la config existante
   const existing = await FlourConfig.find({ siteKey }).select('name');
@@ -136,6 +248,7 @@ const getFlourConfig = async (req, res) => {
       displayName: `Farines - jours de livraison (${SITE_LABEL[siteKey] || siteKey})`,
       stringValue: '[]'
     });
+    await getPhysicalCountIntervalDays(siteKey);
     const configs = await FlourConfig.find({ siteKey }).sort({ order: 1, name: 1 });
 
     res.json({ success: true, data: configs });
@@ -213,6 +326,7 @@ const getFlourInventory = async (req, res) => {
     await ensureDefaultFlours(siteKey);
 
     const inventory = await StockInventory.findOne({ siteKey });
+    const status = await buildFlourStocksStatus(siteKey);
     res.json({
       success: true,
       data: inventory || {
@@ -222,11 +336,27 @@ const getFlourInventory = async (req, res) => {
         updatedByEmail: '',
         urgent: false,
         urgentReason: '',
-        lastEntryAt: null
-      }
+        lastEntryAt: null,
+        lastFullCountAt: null
+      },
+      meta: status.meta
     });
   } catch (error) {
     console.error('❌ getFlourInventory:', error);
+    res.status(500).json({ success: false, error: 'Erreur serveur' });
+  }
+};
+
+const getFlourStocksStatus = async (req, res) => {
+  try {
+    const siteKey = parseSiteKey(req.query.siteKey);
+    if (!siteKey) {
+      return res.status(400).json({ success: false, error: 'siteKey requis (lon|plan)' });
+    }
+    const status = await buildFlourStocksStatus(siteKey);
+    res.json({ success: true, data: status.items, meta: status.meta });
+  } catch (error) {
+    console.error('❌ getFlourStocksStatus:', error);
     res.status(500).json({ success: false, error: 'Erreur serveur' });
   }
 };
@@ -244,6 +374,7 @@ const postFlourEntry = async (req, res) => {
     const urgentReason = String(req.body?.urgentReason || '').trim();
 
     const items = Array.isArray(req.body?.items) ? req.body.items : [];
+    const updateMode = req.body?.updateMode === 'full' ? 'full' : 'partial';
     if (items.length === 0) {
       return res.status(400).json({ success: false, error: 'items requis' });
     }
@@ -264,19 +395,30 @@ const postFlourEntry = async (req, res) => {
         return {
           flourConfigId: cfg._id,
           sacks,
-          pallets
+          pallets,
+          touched: it?.touched === true || it?.touched === 'true'
         };
       })
       .filter(Boolean);
 
-    if (normalizedItems.length === 0) {
+    const hasTouchedFlag = normalizedItems.some((it) => it.touched);
+    const itemsForInventory =
+      updateMode === 'partial' && hasTouchedFlag
+        ? normalizedItems.filter((it) => it.touched)
+        : normalizedItems;
+
+    if (itemsForInventory.length === 0) {
       return res.status(400).json({ success: false, error: 'Aucune farine valide dans items' });
     }
 
     // Historique
     const entry = new StockEntry({
       siteKey,
-      items: normalizedItems,
+      items: itemsForInventory.map(({ flourConfigId, sacks, pallets }) => ({
+        flourConfigId,
+        sacks,
+        pallets
+      })),
       createdByName,
       createdByEmail,
       urgent,
@@ -290,31 +432,49 @@ const postFlourEntry = async (req, res) => {
       (prevInventory?.items || []).map((it) => [String(it.flourConfigId), { sacks: it.sacks, pallets: it.pallets }])
     );
 
-    // Mettre à jour l'inventaire courant (on remplace uniquement les items présents dans la saisie)
-    const newItemsMap = new Map((prevInventory?.items || []).map((it) => [String(it.flourConfigId), it]));
-    for (const it of normalizedItems) {
-      newItemsMap.set(String(it.flourConfigId), {
-        flourConfigId: it.flourConfigId,
-        sacks: it.sacks,
-        pallets: it.pallets,
-        updatedAt: new Date()
+    let newItems;
+    if (updateMode === 'full') {
+      const sentById = new Map(itemsForInventory.map((it) => [String(it.flourConfigId), it]));
+      newItems = configs.map((cfg) => {
+        const sent = sentById.get(String(cfg._id));
+        return {
+          flourConfigId: cfg._id,
+          sacks: sent ? sent.sacks : 0,
+          pallets: sent ? sent.pallets : 0,
+          updatedAt: new Date()
+        };
       });
+    } else {
+      const newItemsMap = new Map((prevInventory?.items || []).map((it) => [String(it.flourConfigId), it]));
+      for (const it of itemsForInventory) {
+        newItemsMap.set(String(it.flourConfigId), {
+          flourConfigId: it.flourConfigId,
+          sacks: it.sacks,
+          pallets: it.pallets,
+          updatedAt: new Date()
+        });
+      }
+      newItems = Array.from(newItemsMap.values());
     }
-    const newItems = Array.from(newItemsMap.values());
+
+    const newItemsMap = new Map(newItems.map((it) => [String(it.flourConfigId), it]));
+
+    const inventorySet = {
+      siteKey,
+      items: newItems,
+      updatedByName: createdByName,
+      updatedByEmail: createdByEmail,
+      urgent,
+      urgentReason,
+      lastEntryAt: new Date()
+    };
+    if (updateMode === 'full') {
+      inventorySet.lastFullCountAt = new Date();
+    }
 
     const updatedInventory = await StockInventory.findOneAndUpdate(
       { siteKey },
-      {
-        $set: {
-          siteKey,
-          items: newItems,
-          updatedByName: createdByName,
-          updatedByEmail: createdByEmail,
-          urgent,
-          urgentReason,
-          lastEntryAt: new Date()
-        }
-      },
+      { $set: inventorySet },
       { upsert: true, new: true }
     );
 
@@ -339,17 +499,19 @@ const postFlourEntry = async (req, res) => {
       }
     }
 
-    // Seuil critique: détecter passages au-dessous du seuil (avec anti-spam 48h)
+    // Seuil critique: stock théorique avant saisie vs stock réel après (anti-spam 48h)
     const crossing = [];
     const now = new Date();
     const spamWindowMs = 48 * 60 * 60 * 1000;
+    const countAnchor = prevInventory?.lastFullCountAt || prevInventory?.lastEntryAt || null;
+    const daysBeforeEntry = daysElapsedSince(countAnchor, now);
 
     for (const cfg of configs) {
       const id = String(cfg._id);
       const prev = prevByConfigId.get(id) || { sacks: 0, pallets: 0 };
       const next = newItemsMap.get(id) || { sacks: 0, pallets: 0 };
 
-      const prevSacks = stockToSacks({
+      const prevPhysical = stockToSacks({
         unit: cfg.unit,
         sacks: prev.sacks,
         pallets: prev.pallets,
@@ -361,6 +523,8 @@ const postFlourEntry = async (req, res) => {
         pallets: next.pallets,
         sacksPerPallet
       });
+      const daily = Math.max(0, Number(cfg.dailyConsumptionSacks || 0));
+      const prevSacks = computeTheoreticalStockSacks(prevPhysical, daily, daysBeforeEntry);
 
       const threshold = Math.max(0, Number(cfg.criticalThresholdSacks || 0));
       if (threshold <= 0) continue;
@@ -370,8 +534,7 @@ const postFlourEntry = async (req, res) => {
       const isSpamBlocked = lastAlertAt ? now.getTime() - lastAlertAt.getTime() < spamWindowMs : false;
 
       if (crossed && !isSpamBlocked) {
-        const daily = Math.max(0, Number(cfg.dailyConsumptionSacks || 0));
-        const daysRemaining = daily > 0 ? nextSacks / daily : null;
+        const daysRemaining = daysRemainingFromStock(nextSacks, daily);
         crossing.push({
           id,
           name: cfg.name,
@@ -436,7 +599,15 @@ const postFlourEntry = async (req, res) => {
       }
     }
 
-    res.json({ success: true, data: { entryId: entry._id, inventory: updatedInventory } });
+    res.json({
+      success: true,
+      data: {
+        entryId: entry._id,
+        inventory: updatedInventory,
+        updateMode,
+        itemsUpdated: itemsForInventory.length
+      }
+    });
   } catch (error) {
     console.error('❌ postFlourEntry:', error);
     res.status(500).json({ success: false, error: 'Erreur serveur' });
@@ -456,26 +627,20 @@ const postOrderProposal = async (req, res) => {
 
     await ensureDefaultFlours(siteKey);
 
-    const sacksPerPallet = await getSacksPerPallet(siteKey);
-    const configs = await FlourConfig.find({ siteKey, isActive: true }).sort({ order: 1, name: 1 });
-    const inventory = await StockInventory.findOne({ siteKey });
-    const invByConfigId = new Map((inventory?.items || []).map((it) => [String(it.flourConfigId), it]));
+    const status = await buildFlourStocksStatus(siteKey);
+    const stockById = new Map(
+      status.items.map((it) => [String(it.flourConfigId), it.stockTheoreticalSacks])
+    );
 
     const days = weeks * 7;
-    const proposals = configs
-      .map((cfg) => {
-        const inv = invByConfigId.get(String(cfg._id)) || { sacks: 0, pallets: 0 };
-        const currentSacks = stockToSacks({
-          unit: cfg.unit,
-          sacks: inv.sacks,
-          pallets: inv.pallets,
-          sacksPerPallet
-        });
-        const daily = Math.max(0, Number(cfg.dailyConsumptionSacks || 0));
+    const proposals = status.items
+      .map((row) => {
+        const currentSacks = stockById.get(String(row.flourConfigId)) ?? row.stockTheoreticalSacks;
+        const daily = row.daily;
         const needed = days * daily - currentSacks;
         return {
-          flourConfigId: cfg._id,
-          name: cfg.name,
+          flourConfigId: row.flourConfigId,
+          name: row.name,
           dailyConsumptionSacks: daily,
           currentStockSacks: currentSacks,
           weeks,
@@ -485,7 +650,10 @@ const postOrderProposal = async (req, res) => {
       })
       .filter((x) => x.suggestedOrderSacks > 0);
 
-    res.json({ success: true, data: { siteKey, weeks, days, proposals } });
+    res.json({
+      success: true,
+      data: { siteKey, weeks, days, proposals, stockMeta: status.meta }
+    });
   } catch (error) {
     console.error('❌ postOrderProposal:', error);
     res.status(500).json({ success: false, error: 'Erreur serveur' });
@@ -496,6 +664,7 @@ module.exports = {
   getFlourConfig,
   putFlourConfigBatch,
   getFlourInventory,
+  getFlourStocksStatus,
   postFlourEntry,
   postOrderProposal
 };
