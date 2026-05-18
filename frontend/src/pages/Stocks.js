@@ -62,6 +62,7 @@ const Stocks = () => {
   const [historyExpandedId, setHistoryExpandedId] = useState(null);
   const [historyDetail, setHistoryDetail] = useState(null);
   const [historyDetailLoading, setHistoryDetailLoading] = useState(false);
+  const [historyDeletingId, setHistoryDeletingId] = useState(null);
 
   const fetchAll = async () => {
     setLoading(true);
@@ -199,6 +200,39 @@ const Stocks = () => {
       alert('Erreur chargement historique des envois.');
     } finally {
       setHistoryLoading(false);
+    }
+  };
+
+  const deleteHistoryEntry = async (row) => {
+    const label = formatEntryDate(row.createdAt);
+    const who = row.createdByName || 'salarié inconnu';
+    if (
+      !window.confirm(
+        `Supprimer l'envoi du ${label} (${who}) ?\n\nCette action est irréversible. L'inventaire actuel n'est pas modifié.`
+      )
+    ) {
+      return;
+    }
+    setHistoryDeletingId(row._id);
+    try {
+      const res = await api.delete(`/stocks/flours/entries/${row._id}`, { params: { siteKey } });
+      if (!res.data?.success) {
+        throw new Error(res.data?.error || 'Échec suppression');
+      }
+      setHistoryEntries((prev) => prev.filter((e) => String(e._id) !== String(row._id)));
+      setHistoryPagination((prev) => ({
+        ...prev,
+        total: Math.max(0, (prev.total || 0) - 1)
+      }));
+      if (String(historyExpandedId) === String(row._id)) {
+        setHistoryExpandedId(null);
+        setHistoryDetail(null);
+      }
+    } catch (e) {
+      console.error(e);
+      alert(e.response?.data?.error || 'Erreur lors de la suppression.');
+    } finally {
+      setHistoryDeletingId(null);
     }
   };
 
@@ -572,9 +606,24 @@ const Stocks = () => {
                               )}
                             </td>
                             <td>
-                              <button type="button" className="stocks-btn" onClick={() => loadHistoryDetail(row._id)}>
-                                {isOpen ? 'Masquer' : 'Détail'}
-                              </button>
+                              <div className="stocks-history-actions">
+                                <button
+                                  type="button"
+                                  className="stocks-btn"
+                                  disabled={!!historyDeletingId}
+                                  onClick={() => loadHistoryDetail(row._id)}
+                                >
+                                  {isOpen ? 'Masquer' : 'Détail'}
+                                </button>
+                                <button
+                                  type="button"
+                                  className="stocks-btn stocks-btn-danger"
+                                  disabled={!!historyDeletingId}
+                                  onClick={() => deleteHistoryEntry(row)}
+                                >
+                                  {String(historyDeletingId) === String(row._id) ? '…' : 'Supprimer'}
+                                </button>
+                              </div>
                             </td>
                           </tr>
                           {isOpen && (

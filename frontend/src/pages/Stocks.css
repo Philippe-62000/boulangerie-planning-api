@@ -197,6 +197,23 @@
   min-width: 640px;
 }
 
+.stocks-history-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.stocks-btn-danger {
+  border-color: #f5c6cb;
+  background: #fff5f5;
+  color: #721c24;
+}
+
+.stocks-btn-danger:hover:not(:disabled) {
+  background: #f8d7da;
+}
+
 @media (max-width: 768px) {
   .stocks-form-row {
     grid-template-columns: 1fr;

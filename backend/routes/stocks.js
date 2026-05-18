@@ -22,6 +22,7 @@ router.put('/flours/config', authenticateManager, stocksController.putFlourConfi
 // Admin: historique des envois salariés
 router.get('/flours/entries', authenticateManager, stocksController.getFlourEntries);
 router.get('/flours/entries/:entryId', authenticateManager, stocksController.getFlourEntryById);
+router.delete('/flours/entries/:entryId', authenticateManager, stocksController.deleteFlourEntry);
 
 // Admin: proposition commande
 router.post('/flours/order-proposal', authenticateManager, stocksController.postOrderProposal);

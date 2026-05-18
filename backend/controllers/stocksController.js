@@ -732,6 +732,29 @@ const getFlourEntryById = async (req, res) => {
   }
 };
 
+const deleteFlourEntry = async (req, res) => {
+  try {
+    const siteKey = parseSiteKey(req.query.siteKey);
+    if (!siteKey) {
+      return res.status(400).json({ success: false, error: 'siteKey requis (lon|plan)' });
+    }
+    const entryId = String(req.params.entryId || '').trim();
+    if (!entryId || !mongoose.Types.ObjectId.isValid(entryId)) {
+      return res.status(400).json({ success: false, error: 'entryId invalide' });
+    }
+
+    const deleted = await StockEntry.findOneAndDelete({ _id: entryId, siteKey });
+    if (!deleted) {
+      return res.status(404).json({ success: false, error: 'Envoi introuvable' });
+    }
+
+    res.json({ success: true, data: { entryId } });
+  } catch (error) {
+    console.error('❌ deleteFlourEntry:', error);
+    res.status(500).json({ success: false, error: 'Erreur serveur' });
+  }
+};
+
 const postOrderProposal = async (req, res) => {
   try {
     const siteKey = parseSiteKey(req.body?.siteKey);
@@ -785,6 +808,7 @@ module.exports = {
   getFlourStocksStatus,
   getFlourEntries,
   getFlourEntryById,
+  deleteFlourEntry,
   postFlourEntry,
   postOrderProposal
 };
