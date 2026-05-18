@@ -1,3 +1,4 @@
+const mongoose = require('mongoose');
 const FlourConfig = require('../models/FlourConfig');
 const StockInventory = require('../models/StockInventory');
 const StockEntry = require('../models/StockEntry');
@@ -439,7 +440,9 @@ const postFlourEntry = async (req, res) => {
       createdByName,
       createdByEmail,
       urgent,
-      urgentReason
+      urgentReason,
+      updateMode,
+      itemsCount: itemsForInventory.length
     });
     await entry.save();
 
@@ -631,6 +634,104 @@ const postFlourEntry = async (req, res) => {
   }
 };
 
+async function enrichFlourEntryItems(entry, siteKey) {
+  const configs = await FlourConfig.find({ siteKey }).select('_id name unit').lean();
+  const configById = new Map(configs.map((c) => [String(c._id), c]));
+  const sacksPerPallet = await getSacksPerPallet(siteKey);
+  return (entry.items || []).map((it) => {
+    const cfg = configById.get(String(it.flourConfigId));
+    const unit = cfg?.unit || 'sacks';
+    const stockSacksTotal = roundQty2(
+      stockToSacks({
+        unit,
+        sacks: it.sacks,
+        pallets: it.pallets,
+        sacksPerPallet
+      })
+    );
+    return {
+      flourConfigId: it.flourConfigId,
+      name: cfg?.name || '—',
+      unit,
+      sacks: it.sacks,
+      pallets: it.pallets,
+      stockSacksTotal
+    };
+  });
+}
+
+function formatEntrySummary(doc) {
+  return {
+    _id: doc._id,
+    createdAt: doc.createdAt,
+    createdByName: doc.createdByName || '',
+    createdByEmail: doc.createdByEmail || '',
+    updateMode: doc.updateMode === 'full' ? 'full' : 'partial',
+    itemsCount: doc.itemsCount ?? (doc.items?.length || 0),
+    urgent: !!doc.urgent,
+    urgentReason: doc.urgentReason || ''
+  };
+}
+
+const getFlourEntries = async (req, res) => {
+  try {
+    const siteKey = parseSiteKey(req.query.siteKey);
+    if (!siteKey) {
+      return res.status(400).json({ success: false, error: 'siteKey requis (lon|plan)' });
+    }
+
+    const limitRaw = Number(req.query.limit);
+    const skipRaw = Number(req.query.skip);
+    const limit = Number.isFinite(limitRaw) ? Math.min(100, Math.max(1, Math.floor(limitRaw))) : 40;
+    const skip = Number.isFinite(skipRaw) ? Math.max(0, Math.floor(skipRaw)) : 0;
+
+    const filter = { siteKey };
+    const [total, rows] = await Promise.all([
+      StockEntry.countDocuments(filter),
+      StockEntry.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit).lean()
+    ]);
+
+    res.json({
+      success: true,
+      data: rows.map(formatEntrySummary),
+      pagination: { total, limit, skip, hasMore: skip + rows.length < total }
+    });
+  } catch (error) {
+    console.error('❌ getFlourEntries:', error);
+    res.status(500).json({ success: false, error: 'Erreur serveur' });
+  }
+};
+
+const getFlourEntryById = async (req, res) => {
+  try {
+    const siteKey = parseSiteKey(req.query.siteKey);
+    if (!siteKey) {
+      return res.status(400).json({ success: false, error: 'siteKey requis (lon|plan)' });
+    }
+    const entryId = String(req.params.entryId || '').trim();
+    if (!entryId || !mongoose.Types.ObjectId.isValid(entryId)) {
+      return res.status(400).json({ success: false, error: 'entryId invalide' });
+    }
+
+    const entry = await StockEntry.findOne({ _id: entryId, siteKey }).lean();
+    if (!entry) {
+      return res.status(404).json({ success: false, error: 'Envoi introuvable' });
+    }
+
+    const items = await enrichFlourEntryItems(entry, siteKey);
+    res.json({
+      success: true,
+      data: {
+        ...formatEntrySummary(entry),
+        items
+      }
+    });
+  } catch (error) {
+    console.error('❌ getFlourEntryById:', error);
+    res.status(500).json({ success: false, error: 'Erreur serveur' });
+  }
+};
+
 const postOrderProposal = async (req, res) => {
   try {
     const siteKey = parseSiteKey(req.body?.siteKey);
@@ -682,6 +783,8 @@ module.exports = {
   putFlourConfigBatch,
   getFlourInventory,
   getFlourStocksStatus,
+  getFlourEntries,
+  getFlourEntryById,
   postFlourEntry,
   postOrderProposal
 };

@@ -5,6 +5,33 @@ import './Stocks.css';
 
 const DAYS = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
 const QUICK_FRACTIONS = ['1/2', '1/3', '1/4', '1/5', '1/6', '1/7'];
+const HISTORY_PAGE_SIZE = 40;
+
+const formatEntryDate = (iso) => {
+  if (!iso) return '—';
+  try {
+    return new Date(iso).toLocaleString('fr-FR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  } catch {
+    return '—';
+  }
+};
+
+const formatEntryItemQty = (item) => {
+  if (item.unit === 'pallets_and_sacks') {
+    const p = Number(item.pallets) || 0;
+    const s = Number(item.sacks) || 0;
+    const total = item.stockSacksTotal ?? s;
+    return `${p} pal. + ${s} sacs (${Number(total).toFixed(2)} sacs total)`;
+  }
+  const total = item.stockSacksTotal ?? item.sacks ?? 0;
+  return `${Number(total).toFixed(2)} sacs`;
+};
 
 const Stocks = () => {
   const siteKey = getSiteKey(); // 'lon' | 'plan'
@@ -28,6 +55,13 @@ const Stocks = () => {
   const [weeks, setWeeks] = useState(4);
   const [orderLoading, setOrderLoading] = useState(false);
   const [orderResult, setOrderResult] = useState(null);
+
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyEntries, setHistoryEntries] = useState([]);
+  const [historyPagination, setHistoryPagination] = useState({ total: 0, skip: 0, hasMore: false });
+  const [historyExpandedId, setHistoryExpandedId] = useState(null);
+  const [historyDetail, setHistoryDetail] = useState(null);
+  const [historyDetailLoading, setHistoryDetailLoading] = useState(false);
 
   const fetchAll = async () => {
     setLoading(true);
@@ -66,6 +100,13 @@ const Stocks = () => {
     fetchAll();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [siteKey]);
+
+  useEffect(() => {
+    const tab = new URLSearchParams(window.location.search).get('tab');
+    if (tab === 'historique' || tab === 'farines' || tab === 'commande') {
+      setActiveTab(tab);
+    }
+  }, []);
 
   const saveFlours = async () => {
     setSaving(true);
@@ -138,6 +179,60 @@ const Stocks = () => {
     }
   };
 
+  const fetchHistory = async (skip = 0) => {
+    setHistoryLoading(true);
+    try {
+      const res = await api.get('/stocks/flours/entries', {
+        params: { siteKey, limit: HISTORY_PAGE_SIZE, skip }
+      });
+      const rows = Array.isArray(res.data?.data) ? res.data.data : [];
+      const pag = res.data?.pagination || {};
+      setHistoryEntries((prev) => (skip === 0 ? rows : [...prev, ...rows]));
+      setHistoryPagination({
+        total: pag.total ?? rows.length,
+        skip: skip + rows.length,
+        hasMore: !!pag.hasMore
+      });
+    } catch (e) {
+      console.error(e);
+      if (skip === 0) setHistoryEntries([]);
+      alert('Erreur chargement historique des envois.');
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
+
+  const loadHistoryDetail = async (entryId) => {
+    if (historyExpandedId === entryId) {
+      setHistoryExpandedId(null);
+      setHistoryDetail(null);
+      return;
+    }
+    setHistoryExpandedId(entryId);
+    setHistoryDetail(null);
+    setHistoryDetailLoading(true);
+    try {
+      const res = await api.get(`/stocks/flours/entries/${entryId}`, { params: { siteKey } });
+      setHistoryDetail(res.data?.data || null);
+    } catch (e) {
+      console.error(e);
+      alert('Impossible de charger le détail de cet envoi.');
+      setHistoryExpandedId(null);
+    } finally {
+      setHistoryDetailLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab !== 'historique') return;
+    setHistoryExpandedId(null);
+    setHistoryDetail(null);
+    setHistoryEntries([]);
+    setHistoryPagination({ total: 0, skip: 0, hasMore: false });
+    fetchHistory(0);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, siteKey]);
+
   const computeOrder = async () => {
     setOrderLoading(true);
     setOrderResult(null);
@@ -182,6 +277,12 @@ const Stocks = () => {
           onClick={() => setActiveTab('commande')}
         >
           Commande
+        </button>
+        <button
+          className={`stocks-tab ${activeTab === 'historique' ? 'active' : ''}`}
+          onClick={() => setActiveTab('historique')}
+        >
+          Historique envois
         </button>
       </div>
 
@@ -408,6 +509,134 @@ const Stocks = () => {
                 </div>
               )}
             </div>
+          )}
+        </section>
+      )}
+
+      {activeTab === 'historique' && (
+        <section className="stocks-section">
+          <h2>Historique des envois (salariés)</h2>
+          <p className="stocks-hint" style={{ marginBottom: '1rem' }}>
+            Chaque envoi depuis la page stocks farines est enregistré. Cliquez sur une ligne pour voir le détail des
+            quantités saisies.
+          </p>
+
+          {historyLoading && historyEntries.length === 0 ? (
+            <p>Chargement…</p>
+          ) : historyEntries.length === 0 ? (
+            <p className="stocks-hint">Aucun envoi enregistré pour ce site.</p>
+          ) : (
+            <>
+              <div className="stocks-table-wrap">
+                <table className="stocks-table stocks-history-table">
+                  <thead>
+                    <tr>
+                      <th>Date</th>
+                      <th>Salarié</th>
+                      <th>Type</th>
+                      <th>Farines</th>
+                      <th>Urgence</th>
+                      <th />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {historyEntries.map((row) => {
+                      const isOpen = historyExpandedId === row._id;
+                      return (
+                        <React.Fragment key={row._id}>
+                          <tr className={isOpen ? 'stocks-history-row-open' : ''}>
+                            <td>{formatEntryDate(row.createdAt)}</td>
+                            <td>
+                              <strong>{row.createdByName || '—'}</strong>
+                              {row.createdByEmail ? (
+                                <div className="stocks-hint">{row.createdByEmail}</div>
+                              ) : null}
+                            </td>
+                            <td>
+                              <span
+                                className={`stocks-badge ${
+                                  row.updateMode === 'full' ? 'stocks-badge-full' : 'stocks-badge-partial'
+                                }`}
+                              >
+                                {row.updateMode === 'full' ? 'Complet' : 'Partiel'}
+                              </span>
+                            </td>
+                            <td style={{ textAlign: 'right' }}>{row.itemsCount ?? '—'}</td>
+                            <td>
+                              {row.urgent ? (
+                                <span className="stocks-badge stocks-badge-urgent" title={row.urgentReason || ''}>
+                                  Urgent
+                                </span>
+                              ) : (
+                                '—'
+                              )}
+                            </td>
+                            <td>
+                              <button type="button" className="stocks-btn" onClick={() => loadHistoryDetail(row._id)}>
+                                {isOpen ? 'Masquer' : 'Détail'}
+                              </button>
+                            </td>
+                          </tr>
+                          {isOpen && (
+                            <tr>
+                              <td colSpan={6} className="stocks-history-detail-cell">
+                                {historyDetailLoading ? (
+                                  <p className="stocks-hint">Chargement du détail…</p>
+                                ) : historyDetail && String(historyDetail._id) === String(row._id) ? (
+                                  <div className="stocks-history-detail">
+                                    {historyDetail.urgent && historyDetail.urgentReason ? (
+                                      <p>
+                                        <strong>Raison urgence :</strong> {historyDetail.urgentReason}
+                                      </p>
+                                    ) : null}
+                                    <table className="stocks-table">
+                                      <thead>
+                                        <tr>
+                                          <th>Farine</th>
+                                          <th style={{ textAlign: 'right' }}>Quantité saisie</th>
+                                        </tr>
+                                      </thead>
+                                      <tbody>
+                                        {(historyDetail.items || []).map((it) => (
+                                          <tr key={String(it.flourConfigId)}>
+                                            <td>{it.name}</td>
+                                            <td style={{ textAlign: 'right' }}>{formatEntryItemQty(it)}</td>
+                                          </tr>
+                                        ))}
+                                      </tbody>
+                                    </table>
+                                  </div>
+                                ) : (
+                                  <p className="stocks-hint">Détail indisponible.</p>
+                                )}
+                              </td>
+                            </tr>
+                          )}
+                        </React.Fragment>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+              <div className="stocks-actions" style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+                <span className="stocks-hint">
+                  {historyEntries.length} affiché{historyEntries.length > 1 ? 's' : ''}
+                  {historyPagination.total > historyEntries.length
+                    ? ` sur ${historyPagination.total}`
+                    : ''}
+                </span>
+                {historyPagination.hasMore && (
+                  <button
+                    type="button"
+                    className="stocks-btn"
+                    disabled={historyLoading}
+                    onClick={() => fetchHistory(historyEntries.length)}
+                  >
+                    {historyLoading ? 'Chargement…' : 'Charger plus'}
+                  </button>
+                )}
+              </div>
+            </>
           )}
         </section>
       )}

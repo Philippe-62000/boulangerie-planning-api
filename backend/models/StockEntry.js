@@ -29,7 +29,10 @@ const stockEntrySchema = new mongoose.Schema(
     createdByName: { type: String, default: '', trim: true },
     createdByEmail: { type: String, default: '', trim: true },
     urgent: { type: Boolean, default: false },
-    urgentReason: { type: String, default: '', trim: true }
+    urgentReason: { type: String, default: '', trim: true },
+    /** full = inventaire complet, partial = farines saisies uniquement */
+    updateMode: { type: String, enum: ['full', 'partial'], default: 'partial' },
+    itemsCount: { type: Number, default: 0, min: 0 }
   },
   { timestamps: true }
 );

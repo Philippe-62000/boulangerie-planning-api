@@ -891,12 +891,20 @@ const Dashboard = () => {
               </div>
             </div>
             {isAdmin() && (
-              <a
-                href={isLonguenesse ? '/lon/stocks' : '/plan/stocks'}
-                style={{ fontSize: '0.9rem', fontWeight: 700, color: '#667eea', whiteSpace: 'nowrap' }}
-              >
-                Paramètres stocks →
-              </a>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
+                <a
+                  href={isLonguenesse ? '/lon/stocks' : '/plan/stocks'}
+                  style={{ fontSize: '0.9rem', fontWeight: 700, color: '#667eea', whiteSpace: 'nowrap' }}
+                >
+                  Paramètres stocks →
+                </a>
+                <a
+                  href={isLonguenesse ? '/lon/stocks?tab=historique' : '/plan/stocks?tab=historique'}
+                  style={{ fontSize: '0.85rem', fontWeight: 600, color: '#555', whiteSpace: 'nowrap' }}
+                >
+                  Historique des envois →
+                </a>
+              </div>
             )}
           </div>
 

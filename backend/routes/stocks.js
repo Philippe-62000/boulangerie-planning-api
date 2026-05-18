@@ -19,6 +19,10 @@ router.post('/flours/entry', stocksController.postFlourEntry);
 // Admin: mise à jour batch config
 router.put('/flours/config', authenticateManager, stocksController.putFlourConfigBatch);
 
+// Admin: historique des envois salariés
+router.get('/flours/entries', authenticateManager, stocksController.getFlourEntries);
+router.get('/flours/entries/:entryId', authenticateManager, stocksController.getFlourEntryById);
+
 // Admin: proposition commande
 router.post('/flours/order-proposal', authenticateManager, stocksController.postOrderProposal);
 
