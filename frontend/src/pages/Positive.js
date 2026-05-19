@@ -23,6 +23,8 @@ export default function Positive() {
   // Contexte
   const [lieu, setLieu] = useState('');
   const [note, setNote] = useState('');
+  /** distinct = zones sans chevauchement ; same_shelf = dédupliquer entre photos */
+  const [photoMode, setPhotoMode] = useState('same_shelf');
 
   // Scan en cours / résultats
   const [scanning, setScanning] = useState(false);
@@ -102,11 +104,16 @@ export default function Positive() {
       setError('Sélectionne au moins une photo.');
       return;
     }
+    if (photoMode === 'same_shelf' && files.length > 6) {
+      setError('Maximum 6 photos en mode « même étagère (dédupliquer) ».');
+      return;
+    }
 
     const formData = new FormData();
     files.forEach((f) => formData.append('photos', f.file));
     if (lieu) formData.append('lieu', lieu);
     if (note) formData.append('note', note);
+    formData.append('photoMode', photoMode);
 
     setScanning(true);
     try {
@@ -114,6 +121,7 @@ export default function Positive() {
       if (res.data?.success) {
         setScanResult({
           scanId: res.data.scanId,
+          photoMode: res.data.photoMode || photoMode,
           photos: res.data.photos || [],
           totals: res.data.totals || []
         });
@@ -280,6 +288,7 @@ export default function Positive() {
     setFiles([]);
     setLieu('');
     setNote('');
+    setPhotoMode('same_shelf');
     setPendingExclude(new Set());
     setPendingRenames(new Map());
     setPendingKeeps(new Set());
@@ -320,6 +329,23 @@ export default function Positive() {
 
           {!scanResult && (
             <>
+              <details className="positive-guide" open>
+                <summary>Guide de prise de vue</summary>
+                <ul>
+                  <li>
+                    <strong>Même étagère (recommandé, 2–6 photos)</strong> : plusieurs vues de la{' '}
+                    <em>même</em> zone. L’IA déduplique les produits visibles sur deux photos. Ajoutez une
+                    photo de <strong>profil</strong> pour les piles (bouteilles, seaux, caisses).
+                  </li>
+                  <li>
+                    <strong>Zones distinctes</strong> : chaque photo = une partie différente{' '}
+                    <em>sans recouvrement</em> (ex. étagère gauche puis droite). Les quantités sont additionnées.
+                  </li>
+                  <li>Évitez le gros chevauchement en mode « zones distinctes » (doublons).</li>
+                  <li>Dans la note : précisez « photo 1 = bas gauche », « photo 2 = profil bouteilles », etc.</li>
+                </ul>
+              </details>
+
               {/* Sélection photos */}
               <div className="positive-section">
                 <h3>1. Photos à analyser</h3>
@@ -347,7 +373,9 @@ export default function Positive() {
                     />
                   </label>
                 </div>
-                <p className="positive-hint">Maximum 10 photos, 12 Mo par photo.</p>
+                <p className="positive-hint">
+                  Maximum 10 photos (6 en « même étagère »), 12 Mo par photo.
+                </p>
 
                 {files.length > 0 && (
                   <div className="positive-thumbnails">
@@ -372,9 +400,41 @@ export default function Positive() {
                 )}
               </div>
 
+              <div className="positive-section">
+                <h3>2. Mode de fusion</h3>
+                <div className="positive-mode-options" role="radiogroup" aria-label="Mode de fusion des photos">
+                  <label className={`positive-mode-card ${photoMode === 'same_shelf' ? 'active' : ''}`}>
+                    <input
+                      type="radio"
+                      name="photoMode"
+                      value="same_shelf"
+                      checked={photoMode === 'same_shelf'}
+                      onChange={() => setPhotoMode('same_shelf')}
+                    />
+                    <span className="positive-mode-title">Même étagère (dédupliquer)</span>
+                    <span className="positive-mode-desc">
+                      Photos qui se chevauchent — chaque produit compté une seule fois.
+                    </span>
+                  </label>
+                  <label className={`positive-mode-card ${photoMode === 'distinct' ? 'active' : ''}`}>
+                    <input
+                      type="radio"
+                      name="photoMode"
+                      value="distinct"
+                      checked={photoMode === 'distinct'}
+                      onChange={() => setPhotoMode('distinct')}
+                    />
+                    <span className="positive-mode-title">Zones distinctes</span>
+                    <span className="positive-mode-desc">
+                      Pas de recouvrement entre les photos — les quantités s’additionnent.
+                    </span>
+                  </label>
+                </div>
+              </div>
+
               {/* Contexte */}
               <div className="positive-section">
-                <h3>2. Contexte (optionnel)</h3>
+                <h3>3. Contexte (optionnel)</h3>
                 <div className="positive-field">
                   <label>Lieu</label>
                   <input
@@ -391,7 +451,7 @@ export default function Positive() {
                     type="text"
                     value={note}
                     onChange={(e) => setNote(e.target.value)}
-                    placeholder="Ex : Livraison du lundi, après inventaire…"
+                    placeholder="Ex : Photo 2 = profil bouteilles bas, photo 3 = droite étagère…"
                     maxLength={500}
                   />
                 </div>
@@ -411,8 +471,10 @@ export default function Positive() {
               {error && <div className="positive-error">{error}</div>}
               {scanning && (
                 <div className="positive-info">
-                  L'analyse peut prendre 5 à 30 secondes par photo selon la charge de Gemini.
-                  En cas de surcharge, le serveur retente automatiquement.
+                  {photoMode === 'same_shelf' && files.length > 1
+                    ? 'Analyse groupée en cours (toutes les photos envoyées ensemble, déduplication)…'
+                    : 'Analyse en cours (environ 5 à 30 s par photo)…'}{' '}
+                  En cas de surcharge Gemini, le serveur retente automatiquement.
                 </div>
               )}
             </>
@@ -422,7 +484,17 @@ export default function Positive() {
           {scanResult && (
             <div className="positive-results">
               <div className="positive-results-header">
-                <h2>📊 Résultats</h2>
+                <div>
+                  <h2>📊 Résultats</h2>
+                  {scanResult.photoMode && (
+                    <p className="positive-mode-badge">
+                      Mode :{' '}
+                      {scanResult.photoMode === 'same_shelf'
+                        ? 'Même étagère (dédupliqué)'
+                        : 'Zones distinctes (somme)'}
+                    </p>
+                  )}
+                </div>
                 <button className="positive-btn positive-btn-secondary" onClick={resetScan}>
                   ↻ Nouveau scan
                 </button>
@@ -523,6 +595,9 @@ export default function Positive() {
                     <div className="positive-photo-title">
                       📸 {photo.fileName || `Photo ${idx + 1}`}
                     </div>
+                    {photo.sourceFiles ? (
+                      <p className="positive-hint">Fichiers : {photo.sourceFiles}</p>
+                    ) : null}
                     {photo.error ? (
                       <div className="positive-error">❌ {photo.error}</div>
                     ) : (

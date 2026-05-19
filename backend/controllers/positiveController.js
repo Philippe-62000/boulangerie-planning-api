@@ -79,13 +79,23 @@ async function scan(req, res) {
 
     const lieu = (req.body?.lieu || '').toString().slice(0, 200);
     const note = (req.body?.note || '').toString().slice(0, 500);
+    const rawMode = String(req.body?.photoMode || req.body?.mergeMode || 'distinct').trim();
+    const photoMode = rawMode === 'same_shelf' ? 'same_shelf' : 'distinct';
+
+    if (photoMode === 'same_shelf' && files.length > positiveService.MAX_PHOTOS_SAME_SHELF) {
+      return res.status(400).json({
+        success: false,
+        error: `Maximum ${positiveService.MAX_PHOTOS_SAME_SHELF} photos en mode « même étagère » (${files.length} reçues).`
+      });
+    }
 
     const catalog = await PositiveCatalog.getOrCreate();
-    const { photos, totals } = await positiveService.analyzeMany({
+    const { photos, totals, mergeMode } = await positiveService.analyzeBatch({
       files,
       lieu,
       note,
-      catalog: { products: catalog.products, excluded: catalog.excluded }
+      catalog: { products: catalog.products, excluded: catalog.excluded },
+      mergeMode: photoMode
     });
 
     // Si au moins une photo a vraiment marché, on commit le compteur
@@ -97,6 +107,7 @@ async function scan(req, res) {
       operatorName: req.user?.name || '',
       lieu,
       note,
+      photoMode: mergeMode || photoMode,
       photosCount: files.length,
       photos,
       totals,
@@ -108,6 +119,7 @@ async function scan(req, res) {
       scanId: scanDoc._id,
       lieu,
       note,
+      photoMode: mergeMode || photoMode,
       photos,
       totals
     });

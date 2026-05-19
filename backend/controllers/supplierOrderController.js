@@ -402,18 +402,26 @@ function numOrNull(v) {
 
 const ROLLING_WEEKS = 3;
 
-/** Consommation = reçu − stock ; prévision = moyenne glissante 3 sem. si dispo, sinon conso semaine. */
+/** Quantité « reçue » pour la conso : saisie BL courante, sinon Cmd -1 (dernier BL). */
+function effectiveReceivedForConsumption(line) {
+  const received = numOrNull(line.receivedQty);
+  if (received != null) return received;
+  return numOrNull(line.lastOrderQty);
+}
+
+/** Consommation = reçu effectif − stock ; prévision = moyenne glissante 3 sem. si dispo, sinon conso semaine. */
 function computeLineMetrics(line, avgConsumptionQty = null) {
   const receivedQty = numOrNull(line.receivedQty);
   const stockQty = numOrNull(line.stockQty);
+  const receivedForConso = effectiveReceivedForConsumption(line);
   let consumptionQty = numOrNull(line.consumptionQty);
   const avg =
     avgConsumptionQty != null
       ? avgConsumptionQty
       : numOrNull(line.avgConsumptionQty);
 
-  if (receivedQty != null && stockQty != null) {
-    consumptionQty = Math.max(0, receivedQty - stockQty);
+  if (receivedForConso != null && stockQty != null) {
+    consumptionQty = Math.max(0, receivedForConso - stockQty);
   }
 
   let suggestedOrderQty = null;
@@ -466,7 +474,7 @@ async function buildRollingConsumptionMap(siteKey, excludeWeekKey, weeks = ROLLI
       const line = typeof raw.toObject === 'function' ? raw.toObject() : raw;
       let consumptionQty = numOrNull(line.consumptionQty);
       if (consumptionQty == null) {
-        const received = numOrNull(line.receivedQty);
+        const received = effectiveReceivedForConsumption(line);
         const stock = numOrNull(line.stockQty);
         if (received != null && stock != null) {
           consumptionQty = Math.max(0, received - stock);

@@ -13,13 +13,24 @@ const formatDate = (d) => {
 };
 
 /** Recalcule conso côté client ; prévision = moy. 3 sem. si fournie par l’API. */
+const effectiveReceivedForConso = (line) => {
+  if (line.receivedQty !== '' && line.receivedQty != null) {
+    return Math.max(0, Number(line.receivedQty) || 0);
+  }
+  if (line.lastOrderQty != null && line.lastOrderQty !== '') {
+    return Math.max(0, Number(line.lastOrderQty) || 0);
+  }
+  return null;
+};
+
 const withMetrics = (line) => {
   const received =
     line.receivedQty === '' || line.receivedQty == null ? null : Math.max(0, Number(line.receivedQty) || 0);
   const stock = line.stockQty === '' || line.stockQty == null ? null : Math.max(0, Number(line.stockQty) || 0);
+  const receivedForConso = effectiveReceivedForConso(line);
   let consumptionQty = null;
-  if (received != null && stock != null) {
-    consumptionQty = Math.max(0, received - stock);
+  if (receivedForConso != null && stock != null) {
+    consumptionQty = Math.max(0, receivedForConso - stock);
   }
   const avg =
     line.avgConsumptionQty != null && line.avgConsumptionQty !== ''
@@ -216,24 +227,6 @@ const CommandeTGT = () => {
     );
   };
 
-  const applyReceivedFromLast = async () => {
-    setSaving(true);
-    setMessage(null);
-    try {
-      const res = await api.post('/supplier-orders/current/apply-received', { siteKey });
-      setLines(Array.isArray(res.data?.data?.lines) ? res.data.data.lines : lines);
-      setMessage({
-        type: 'success',
-        text: `Reçu lundi renseigné (${res.data?.meta?.filled ?? 0} ligne(s) depuis la dernière commande validée).`
-      });
-    } catch (e) {
-      console.error(e);
-      setMessage({ type: 'error', text: e.response?.data?.error || 'Erreur reçu lundi.' });
-    } finally {
-      setSaving(false);
-    }
-  };
-
   const computeForecast = async (apply) => {
     setSaving(true);
     setMessage(null);
@@ -358,26 +351,6 @@ const CommandeTGT = () => {
     } catch (e) {
       console.error(e);
       setMessage({ type: 'error', text: 'Impossible d’appliquer Positive.' });
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const clearReceivedColumn = async () => {
-    if (!window.confirm('Effacer toutes les quantités « Reçu » de la commande en cours ?')) return;
-    setSaving(true);
-    setMessage(null);
-    const seq = ++loadSeqRef.current;
-    try {
-      const newLines = lines.map((l) => withMetrics({ ...l, receivedQty: null }));
-      const res = await api.put('/supplier-orders/current', { siteKey, lines: newLines });
-      if (seq !== loadSeqRef.current) return;
-      const saved = Array.isArray(res.data?.data?.lines) ? res.data.data.lines : newLines;
-      setLines(saved);
-      setMessage({ type: 'success', text: 'Colonne Reçu effacée.' });
-    } catch (e) {
-      console.error(e);
-      setMessage({ type: 'error', text: 'Erreur lors de l’effacement.' });
     } finally {
       setSaving(false);
     }
@@ -574,8 +547,9 @@ const CommandeTGT = () => {
             </p>
           ) : null}
           <p className="commande-tgt-hint commande-tgt-formula">
-            BL TGT : quantité COMMANDE = reçu (le « non livré » est un code interne). Conso = reçu − stock.
-            Prévision = moyenne glissante sur 3 semaines si historique, sinon conso de la semaine.
+            Cmd -1…-6 : quantités des 6 derniers BL (récent → ancien). Code sous le produit = référence TGT.
+            Saisir le <strong>stock</strong> restant : la <strong>conso</strong> se calcule (Cmd -1 − stock, ou reçu
+            BL importé − stock). Prévision = moyenne sur 3 semaines validées, sinon conso de la semaine.
             {meta?.rollingWeeksUsed != null ? (
               <> Historique : {meta.rollingWeeksUsed}/{meta.rollingWeeksTarget ?? 3} sem.</>
             ) : null}
@@ -649,9 +623,6 @@ const CommandeTGT = () => {
                 <button type="button" className="btn btn-secondary" onClick={refreshLast} disabled={saving}>
                   Maj. cmd (6 BL)
                 </button>
-                <button type="button" className="btn btn-secondary" onClick={applyReceivedFromLast} disabled={saving}>
-                  Reçu lundi
-                </button>
                 <button type="button" className="btn btn-secondary" onClick={() => computeForecast(false)} disabled={saving}>
                   Calculer prévision
                 </button>
@@ -681,7 +652,8 @@ const CommandeTGT = () => {
                 <p>Livraison : {formatDate(meta?.deliveryDate)}</p>
                 {printMode === 'modele' ? (
                   <p className="commande-tgt-print-sub">
-                    Produits par emplacement — cases vides à remplir. Références :{' '}
+                    Produits par emplacement — ligne -1:-6 = historique BL. Cases <strong>S</strong> (stock) et{' '}
+                    <strong>C</strong> (conso) à remplir. Cmd -1 = quantité du dernier BL reçu. Références :{' '}
                     {cmdColumnLabels.map((c) => c.full).join(', ')}.
                   </p>
                 ) : null}
@@ -702,8 +674,7 @@ const CommandeTGT = () => {
                               </span>
                             ))}
                           </span>
-                          <span className="modele-print-boxes">
-                            <i>R</i>
+                          <span className="modele-print-boxes" title="Stock restant, Conso (Cmd -1 − stock)">
                             <i>S</i>
                             <i>C</i>
                           </span>
@@ -737,20 +708,13 @@ const CommandeTGT = () => {
                                 {col.bl ? <span className="col-hist-bl">{col.bl}</span> : null}
                               </th>
                             ))}
-                            <th className="col-num col-saisie col-saisie-header">
-                              <span>Reçu</span>
-                              <button
-                                type="button"
-                                className="btn-col-clear no-print"
-                                onClick={clearReceivedColumn}
-                                disabled={saving}
-                                title="Effacer toute la colonne Reçu"
-                              >
-                                Effacer
-                              </button>
-                            </th>
                             <th className="col-num col-saisie">Stock</th>
-                            <th className="col-num col-conso col-screen-only">Conso</th>
+                            <th
+                              className="col-num col-conso col-screen-only"
+                              title="Automatique : Cmd -1 − stock (quantité du dernier BL − stock restant)"
+                            >
+                              Conso
+                            </th>
                             <th
                               className="col-num col-prev col-screen-only"
                               title="Moyenne 3 semaines ou conso actuelle"
@@ -781,20 +745,6 @@ const CommandeTGT = () => {
                                   step="1"
                                   inputMode="numeric"
                                   className="qty-input no-print"
-                                  value={line.receivedQty ?? ''}
-                                  placeholder="—"
-                                  onChange={(e) => updateLine(line.productId, 'receivedQty', e.target.value)}
-                                />
-                                <span className="print-only print-saisie-val">{line.receivedQty ?? ''}</span>
-                                <span className="print-only print-modele-cell" aria-hidden="true" />
-                              </td>
-                              <td className="col-num col-saisie">
-                                <input
-                                  type="number"
-                                  min="0"
-                                  step="1"
-                                  inputMode="numeric"
-                                  className="qty-input no-print"
                                   value={line.stockQty ?? ''}
                                   placeholder="—"
                                   onChange={(e) => updateLine(line.productId, 'stockQty', e.target.value)}
@@ -803,7 +753,21 @@ const CommandeTGT = () => {
                                 <span className="print-only print-modele-cell" aria-hidden="true" />
                               </td>
                               <td className="col-num col-conso col-screen-only">
-                                {line.consumptionQty != null ? line.consumptionQty : '—'}
+                                {line.consumptionQty != null ? (
+                                  <span
+                                    title={
+                                      line.receivedQty != null
+                                        ? `Reçu BL importé (${line.receivedQty}) − stock`
+                                        : line.lastOrderQty != null
+                                          ? `Cmd -1 (${line.lastOrderQty}) − stock`
+                                          : ''
+                                    }
+                                  >
+                                    {line.consumptionQty}
+                                  </span>
+                                ) : (
+                                  '—'
+                                )}
                               </td>
                               <td className="col-num col-prev col-screen-only">
                                 {line.suggestedOrderQty != null ? (

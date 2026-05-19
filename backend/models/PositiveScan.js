@@ -41,6 +41,8 @@ const positiveScanSchema = new mongoose.Schema(
     operatorName: { type: String, default: '' },
     lieu: { type: String, default: '' },
     note: { type: String, default: '' },
+    /** distinct = somme par photo ; same_shelf = déduplication multi-images */
+    photoMode: { type: String, enum: ['distinct', 'same_shelf'], default: 'distinct' },
     photosCount: { type: Number, default: 0 },
     photos: { type: [photoResultSchema], default: [] },
     totals: {

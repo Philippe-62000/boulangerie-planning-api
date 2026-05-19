@@ -64,6 +64,85 @@
   color: #1e40af;
 }
 
+.positive-guide {
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 10px 14px;
+  margin-bottom: 16px;
+  font-size: 14px;
+  color: #374151;
+}
+
+.positive-guide summary {
+  cursor: pointer;
+  font-weight: 700;
+  color: #1f2937;
+}
+
+.positive-guide ul {
+  margin: 10px 0 0;
+  padding-left: 1.2rem;
+  line-height: 1.45;
+}
+
+.positive-guide li + li {
+  margin-top: 8px;
+}
+
+.positive-mode-options {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+@media (max-width: 640px) {
+  .positive-mode-options {
+    grid-template-columns: 1fr;
+  }
+}
+
+.positive-mode-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px 14px;
+  border: 2px solid #e5e7eb;
+  border-radius: 10px;
+  cursor: pointer;
+  background: #fff;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.positive-mode-card input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.positive-mode-card.active {
+  border-color: #2563eb;
+  background: #eff6ff;
+}
+
+.positive-mode-title {
+  font-weight: 700;
+  font-size: 14px;
+  color: #111827;
+}
+
+.positive-mode-desc {
+  font-size: 13px;
+  color: #6b7280;
+  line-height: 1.35;
+}
+
+.positive-mode-badge {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: #6b7280;
+}
+
 .positive-error {
   background: #fef2f2;
   border: 1px solid #fecaca;
