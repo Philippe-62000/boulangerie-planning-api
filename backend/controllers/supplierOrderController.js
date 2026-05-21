@@ -59,6 +59,46 @@ function productLocationId(product) {
   return loc;
 }
 
+function buildLocationMaps(locations) {
+  const locById = new Map((locations || []).map((l) => [String(l._id), l]));
+  const locByName = new Map((locations || []).map((l) => [normalizeName(l.name), l]));
+  return { locById, locByName };
+}
+
+/** Résout locationId + locationName à partir du produit et du référentiel emplacements. */
+function resolveProductPlacement(product, locById, locByName) {
+  let locId = productLocationId(product);
+  let locationName = String(product?.locationName || '').trim();
+  if (!locationName && product?.locationId && typeof product.locationId === 'object' && product.locationId.name) {
+    locationName = String(product.locationId.name).trim();
+  }
+  let loc = locId ? locById.get(String(locId)) : null;
+  if (!loc && locationName) {
+    loc = locByName.get(normalizeName(locationName)) || null;
+    if (loc) locId = loc._id;
+  }
+  if (loc) locationName = loc.name;
+  return { locationId: locId || null, locationName };
+}
+
+function resolvePlacementFromItem(item, locById, locByName) {
+  let locationId = normalizeLocationId(item.locationId);
+  let locationName = String(item.locationName || '').trim();
+  if (locationId) {
+    const loc = locById.get(String(locationId));
+    if (loc) locationName = loc.name;
+    else locationId = null;
+  }
+  if (!locationId && locationName) {
+    const loc = locByName.get(normalizeName(locationName));
+    if (loc) {
+      locationId = loc._id;
+      locationName = loc.name;
+    }
+  }
+  return { locationId, locationName };
+}
+
 /** Codes TGT avec ou sans zéros en tête (010583 ↔ 10583). */
 function normalizeSupplierCode(code) {
   const s = String(code || '').trim();
@@ -600,7 +640,7 @@ async function buildLinesFromCatalog(siteKey, existingLines = [], options = {}) 
     buildOrderHistoryMaps(siteKey)
   ]);
 
-  const locById = new Map(locations.map((l) => [String(l._id), l]));
+  const { locById, locByName } = buildLocationMaps(locations);
   const receivedFromLastByProductId = history.minus1.byProductId;
   const receivedFromLastByCode = history.minus1.byCode;
   const receivedFromLastByName = history.minus1.byName;
@@ -614,8 +654,7 @@ async function buildLinesFromCatalog(siteKey, existingLines = [], options = {}) 
 
   return products.map((p) => {
     const prev = existingByProductId.get(String(p._id));
-    const locId = productLocationId(p);
-    const loc = locId ? locById.get(String(locId)) : null;
+    const { locationId: locId, locationName } = resolveProductPlacement(p, locById, locByName);
     const code = p.supplierCode || '';
     const receivedDefault =
       receivedFromLastByProductId.get(String(p._id)) ??
@@ -640,7 +679,7 @@ async function buildLinesFromCatalog(siteKey, existingLines = [], options = {}) 
       productName: p.name,
       supplierCode: code,
       locationId: locId || null,
-      locationName: loc?.name || '',
+      locationName,
       receivedQty: prev?.receivedQty ?? receivedDefault,
       stockQty: prev?.stockQty ?? null,
       ...cmdValues,
@@ -750,30 +789,39 @@ const putProducts = async (req, res) => {
     if (!siteKey) return res.status(400).json({ success: false, error: 'siteKey requis' });
     if (!Array.isArray(items)) return res.status(400).json({ success: false, error: 'items requis' });
 
+    const allLocations = await SupplierOrderLocation.find({ siteKey });
+    const { locById, locByName } = buildLocationMaps(allLocations);
+
     for (const [idx, item] of items.entries()) {
       const name = String(item.name || '').trim();
       if (!name) continue;
+      const { locationId, locationName } = resolvePlacementFromItem(item, locById, locByName);
       const payload = {
         siteKey,
         name,
         supplierCode: String(item.supplierCode || '').trim(),
-        locationId: normalizeLocationId(item.locationId),
+        locationId,
+        locationName,
         unit: String(item.unit || 'pièce').trim(),
         targetStock: item.targetStock != null && item.targetStock !== '' ? Number(item.targetStock) : null,
         order: Number(item.order ?? idx),
         isActive: item.isActive !== false
       };
-      if (item._id) {
-        const updated = await SupplierOrderProduct.findOneAndUpdate(
-          { _id: item._id, siteKey },
-          payload,
-          { new: true }
-        );
-        if (!updated) {
-          await SupplierOrderProduct.findOneAndUpdate({ siteKey, name }, payload, { upsert: true });
+      if (item._id && mongoose.Types.ObjectId.isValid(item._id)) {
+        const byId = await SupplierOrderProduct.updateOne({ _id: item._id, siteKey }, { $set: payload });
+        if (byId.matchedCount === 0) {
+          await SupplierOrderProduct.updateOne(
+            { siteKey, name },
+            { $set: payload },
+            { upsert: true, runValidators: true }
+          );
         }
       } else {
-        await SupplierOrderProduct.findOneAndUpdate({ siteKey, name }, payload, { upsert: true });
+        await SupplierOrderProduct.updateOne(
+          { siteKey, name },
+          { $set: payload },
+          { upsert: true, runValidators: true }
+        );
       }
     }
 
@@ -811,27 +859,27 @@ const importProducts = async (req, res) => {
 
     await ensureDefaultLocations(siteKey);
     const locations = await SupplierOrderLocation.find({ siteKey });
-    const locByName = new Map(locations.map((l) => [normalizeName(l.name), l._id]));
+    const { locById, locByName } = buildLocationMaps(locations);
 
     let imported = 0;
     for (const [idx, row] of rows.entries()) {
       const name = String(row.name || row.productName || '').trim();
       if (!name) continue;
-      let locationId = normalizeLocationId(row.locationId);
-      if (!locationId && row.locationName) {
-        locationId = locByName.get(normalizeName(row.locationName)) || null;
-      }
-      await SupplierOrderProduct.findOneAndUpdate(
+      const { locationId, locationName } = resolvePlacementFromItem(row, locById, locByName);
+      await SupplierOrderProduct.updateOne(
         { siteKey, name },
         {
-          siteKey,
-          name,
-          supplierCode: String(row.supplierCode || row.code || '').trim(),
-          locationId,
-          order: Number(row.order ?? idx),
-          isActive: row.isActive !== false
+          $set: {
+            siteKey,
+            name,
+            supplierCode: String(row.supplierCode || row.code || '').trim(),
+            locationId,
+            locationName,
+            order: Number(row.order ?? idx),
+            isActive: row.isActive !== false
+          }
         },
-        { upsert: true, new: true }
+        { upsert: true, runValidators: true }
       );
       imported += 1;
     }
@@ -1111,31 +1159,41 @@ const seedArrasCatalog = async (req, res) => {
     const products = seed.products || [];
     await ensureDefaultLocations(siteKey);
     const locations = await SupplierOrderLocation.find({ siteKey });
-    const locByName = new Map(locations.map((l) => [normalizeName(l.name), l._id]));
+    const { locById, locByName } = buildLocationMaps(locations);
 
     let imported = 0;
     for (const [idx, row] of products.entries()) {
       const name = String(row.name || '').trim();
       if (!name) continue;
-      let locationId = null;
-      if (row.locationName) locationId = locByName.get(normalizeName(row.locationName)) || null;
       const existing = await SupplierOrderProduct.findOne({
         siteKey,
         supplierCode: row.supplierCode || name
-      }).select('locationId');
-      if (existing?.locationId) locationId = existing.locationId;
-      await SupplierOrderProduct.findOneAndUpdate(
+      }).select('locationId locationName');
+      let locationId = null;
+      let locationName = String(row.locationName || '').trim();
+      if (existing?.locationId || existing?.locationName) {
+        locationId = existing.locationId || null;
+        locationName = String(existing.locationName || '').trim();
+      } else if (locationName) {
+        const resolved = resolvePlacementFromItem({ locationName }, locById, locByName);
+        locationId = resolved.locationId;
+        locationName = resolved.locationName;
+      }
+      await SupplierOrderProduct.updateOne(
         { siteKey, supplierCode: row.supplierCode || name },
         {
-          siteKey,
-          name,
-          supplierCode: String(row.supplierCode || '').trim(),
-          locationId,
-          unit: row.unit || 'pièce',
-          order: Number(row.order ?? idx),
-          isActive: true
+          $set: {
+            siteKey,
+            name,
+            supplierCode: String(row.supplierCode || '').trim(),
+            locationId,
+            locationName,
+            unit: row.unit || 'pièce',
+            order: Number(row.order ?? idx),
+            isActive: true
+          }
         },
-        { upsert: true }
+        { upsert: true, runValidators: true }
       );
       imported += 1;
     }
@@ -1171,27 +1229,38 @@ const importDeliveryPdf = async (req, res) => {
     const { meta, products } = await tgtPdfParser.parsePdfBuffer(file.buffer);
     await ensureDefaultLocations(siteKey);
     const locations = await SupplierOrderLocation.find({ siteKey });
-    const locByName = new Map(locations.map((l) => [normalizeName(l.name), l._id]));
+    const { locById, locByName } = buildLocationMaps(locations);
 
     for (const [idx, p] of products.entries()) {
-      let locationId = locByName.get(normalizeName(p.locationName)) || null;
       const existing = await SupplierOrderProduct.findOne({
         siteKey,
         supplierCode: p.supplierCode
-      }).select('locationId');
-      if (existing?.locationId) locationId = existing.locationId;
-      await SupplierOrderProduct.findOneAndUpdate(
+      }).select('locationId locationName');
+      let locationId = null;
+      let locationName = String(p.locationName || '').trim();
+      if (existing?.locationId || existing?.locationName) {
+        locationId = existing.locationId || null;
+        locationName = String(existing.locationName || '').trim();
+      } else {
+        const resolved = resolvePlacementFromItem({ locationName }, locById, locByName);
+        locationId = resolved.locationId;
+        locationName = resolved.locationName;
+      }
+      await SupplierOrderProduct.updateOne(
         { siteKey, supplierCode: p.supplierCode },
         {
-          siteKey,
-          name: p.name,
-          supplierCode: p.supplierCode,
-          locationId,
-          unit: p.unit || 'pièce',
-          order: idx,
-          isActive: true
+          $set: {
+            siteKey,
+            name: p.name,
+            supplierCode: p.supplierCode,
+            locationId,
+            locationName,
+            unit: p.unit || 'pièce',
+            order: idx,
+            isActive: true
+          }
         },
-        { upsert: true }
+        { upsert: true, runValidators: true }
       );
     }
 

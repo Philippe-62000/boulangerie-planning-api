@@ -86,6 +86,17 @@ const resolveProductLocationId = (product) => {
   return String(raw);
 };
 
+const resolveProductLocationName = (product, locationsList) => {
+  if (product?.locationName) return String(product.locationName).trim();
+  if (product?.locationId?.name) return String(product.locationId.name).trim();
+  const id = resolveProductLocationId(product);
+  if (id && locationsList?.length) {
+    const loc = locationsList.find((l) => String(l._id) === String(id));
+    if (loc?.name) return loc.name;
+  }
+  return '';
+};
+
 const mergeCmdMeta = (prev, next) => ({
   ...(prev || {}),
   cmdBlNumbers: next?.cmdBlNumbers ?? prev?.cmdBlNumbers,
@@ -425,6 +436,7 @@ const CommandeTGT = () => {
     name: p.name,
     supplierCode: p.supplierCode || '',
     locationId: resolveProductLocationId(p),
+    locationName: resolveProductLocationName(p, locations),
     unit: p.unit || 'pièce',
     order: Number(p.order ?? idx),
     isActive: p.isActive !== false
@@ -481,8 +493,10 @@ const CommandeTGT = () => {
     try {
       const items = products.map((p, idx) => productToApiItem(p, idx));
       const res = await api.put('/supplier-orders/products', { siteKey, items });
-      setProducts(Array.isArray(res.data?.data) ? res.data.data : products);
-      await Promise.all([loadOrder(), loadConfig()]);
+      if (Array.isArray(res.data?.data)) {
+        setProducts(res.data.data);
+      }
+      await loadOrder();
       setMessage({ type: 'success', text: 'Produits et emplacements enregistrés.' });
     } catch (e) {
       console.error(e);
@@ -957,6 +971,12 @@ const CommandeTGT = () => {
                 </p>
                 {products.map((p, idx) => {
                   const isActive = p.isActive !== false;
+                  const locationSelectValue =
+                    resolveProductLocationId(p) ||
+                    (p.locationName
+                      ? locations.find((l) => l.name === p.locationName)?._id
+                      : null) ||
+                    '';
                   return (
                     <div
                       className={`config-row config-row-product${isActive ? '' : ' config-row-product--inactive'}`}
@@ -981,10 +1001,17 @@ const CommandeTGT = () => {
                         disabled={!isActive}
                       />
                       <select
-                        value={resolveProductLocationId(p) || ''}
+                        value={locationSelectValue ? String(locationSelectValue) : ''}
                         onChange={(e) => {
                           const v = e.target.value || null;
-                          setProducts((prev) => prev.map((x, i) => (i === idx ? { ...x, locationId: v } : x)));
+                          const loc = locations.find((l) => v && String(l._id) === String(v));
+                          setProducts((prev) =>
+                            prev.map((x, i) =>
+                              i === idx
+                                ? { ...x, locationId: v, locationName: loc?.name || '' }
+                                : x
+                            )
+                          );
                         }}
                         disabled={!isActive}
                       >

@@ -7,6 +7,8 @@ const supplierOrderProductSchema = new mongoose.Schema(
     /** Référence fournisseur (ex. code TGT) */
     supplierCode: { type: String, default: '', trim: true },
     locationId: { type: mongoose.Schema.Types.ObjectId, ref: 'SupplierOrderLocation', default: null },
+    /** Libellé emplacement (secours si locationId orphelin après recréation des emplacements) */
+    locationName: { type: String, default: '', trim: true },
     unit: { type: String, default: 'pièce', trim: true },
     /** Stock cible optionnel (pour aide au calcul futur) */
     targetStock: { type: Number, default: null },
