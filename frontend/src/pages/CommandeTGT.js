@@ -217,7 +217,9 @@ const CommandeTGT = () => {
       if (!groups.has(key)) groups.set(key, []);
       groups.get(key).push(line);
     }
-    return [...groups.entries()].sort(([a], [b]) => a.localeCompare(b, 'fr'));
+    return [...groups.entries()]
+      .filter(([, group]) => group.length > 0)
+      .sort(([a], [b]) => a.localeCompare(b, 'fr'));
   }, [lines, filterLocation, search]);
 
   const updateLine = (productId, field, value) => {
@@ -727,7 +729,10 @@ const CommandeTGT = () => {
                 ) : null}
               </div>
 
-              <div className="commande-tgt-modele-print print-only" aria-hidden={printMode !== 'modele'}>
+              <div
+                className={`commande-tgt-modele-print print-only${printMode === 'modele' ? '' : ' commande-tgt-modele-print--hidden'}`}
+                aria-hidden={printMode !== 'modele'}
+              >
                 {groupedLines.map(([locName, group]) => (
                   <section key={`print-${locName}`} className="modele-print-section">
                     <h3 className="modele-print-loc">{locName}</h3>

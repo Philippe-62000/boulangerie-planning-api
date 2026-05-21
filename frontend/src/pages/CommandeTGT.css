@@ -216,6 +216,10 @@
   display: none;
 }
 
+.commande-tgt-modele-print--hidden {
+  display: none !important;
+}
+
 .modele-print-section {
   margin-bottom: 0.75rem;
   break-inside: avoid;
@@ -532,7 +536,13 @@
     display: none !important;
   }
 
-  /* Impression saisie */
+  /* Impression saisie : tableaux groupés uniquement */
+  body[data-commande-tgt-print='saisie'] .commande-tgt-modele-print,
+  .print-mode-saisie .commande-tgt-modele-print {
+    display: none !important;
+    visibility: hidden !important;
+  }
+
   body[data-commande-tgt-print='saisie'] .col-screen-only,
   .print-mode-saisie .col-screen-only {
     display: table-cell !important;
@@ -548,7 +558,19 @@
     display: inline !important;
   }
 
-  /* Impression modèle : produits + cmd -1/-2 + cases vides */
+  body[data-commande-tgt-print='saisie'] .commande-tgt-group,
+  .print-mode-saisie .commande-tgt-group {
+    display: block !important;
+    visibility: visible !important;
+  }
+
+  /* Impression modèle : bloc modèle uniquement (pas les titres tableau écran) */
+  body[data-commande-tgt-print='modele'] .commande-tgt-group,
+  .print-mode-modele .commande-tgt-group {
+    display: none !important;
+    visibility: hidden !important;
+  }
+
   body[data-commande-tgt-print='modele'] .col-screen-only,
   .print-mode-modele .col-screen-only {
     display: none !important;
