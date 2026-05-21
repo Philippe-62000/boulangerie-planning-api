@@ -402,7 +402,23 @@
 
 .config-row-product {
   display: grid;
-  grid-template-columns: 1fr 100px 160px;
+  grid-template-columns: 1fr 100px 160px auto;
+  align-items: center;
+}
+
+.config-row-product--inactive {
+  opacity: 0.72;
+}
+
+.config-row-product--inactive input,
+.config-row-product--inactive select {
+  background: #f4f5f7;
+}
+
+.btn-product-toggle {
+  white-space: nowrap;
+  padding: 0.45rem 0.65rem;
+  font-size: 0.9rem;
 }
 
 .config-block textarea {

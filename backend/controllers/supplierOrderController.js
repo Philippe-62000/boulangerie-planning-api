@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const mongoose = require('mongoose');
 const SupplierOrderLocation = require('../models/SupplierOrderLocation');
 const SupplierOrderProduct = require('../models/SupplierOrderProduct');
 const SupplierOrder = require('../models/SupplierOrder');
@@ -36,6 +37,26 @@ function normalizeName(s) {
     .toLowerCase()
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '');
+}
+
+/** ObjectId emplacement (chaîne, ObjectId ou champ populate `{ _id, name }`). */
+function normalizeLocationId(raw) {
+  if (raw == null || raw === '') return null;
+  if (typeof raw === 'object') {
+    const id = raw._id ?? raw.id;
+    if (id == null || id === '') return null;
+    raw = id;
+  }
+  const s = String(raw).trim();
+  if (!s || !mongoose.Types.ObjectId.isValid(s)) return null;
+  return new mongoose.Types.ObjectId(s);
+}
+
+function productLocationId(product) {
+  if (!product?.locationId) return null;
+  const loc = product.locationId;
+  if (loc && typeof loc === 'object' && loc._id) return loc._id;
+  return loc;
 }
 
 /** Codes TGT avec ou sans zéros en tête (010583 ↔ 10583). */
@@ -542,6 +563,15 @@ function sanitizeLine(l, avgConsumptionQty = null) {
   }, avgConsumptionQty);
 }
 
+/** Rattache la commande au catalogue (emplacements produits + cmd historique). */
+async function reconcileCurrentOrderLines(siteKey, existingLines = [], { overwriteCmd = true } = {}) {
+  const built = await buildLinesFromCatalog(siteKey, existingLines, { fillEmptyCmdOnly: true });
+  let merged = mergeCatalogWithExistingOrder(built, existingLines);
+  const history = await buildOrderHistoryMaps(siteKey);
+  merged = applyCmdColumnsFromHistory(merged, history, { overwrite: overwriteCmd });
+  return enrichLines(siteKey, merged);
+}
+
 async function upsertCurrentOrder(siteKey, lines, extra = {}) {
   const deliveryDate = getCurrentDeliveryFriday();
   const weekKey = deliveryWeekKey(deliveryDate);
@@ -584,7 +614,8 @@ async function buildLinesFromCatalog(siteKey, existingLines = [], options = {}) 
 
   return products.map((p) => {
     const prev = existingByProductId.get(String(p._id));
-    const loc = p.locationId ? locById.get(String(p.locationId)) : null;
+    const locId = productLocationId(p);
+    const loc = locId ? locById.get(String(locId)) : null;
     const code = p.supplierCode || '';
     const receivedDefault =
       receivedFromLastByProductId.get(String(p._id)) ??
@@ -608,7 +639,7 @@ async function buildLinesFromCatalog(siteKey, existingLines = [], options = {}) 
       productId: p._id,
       productName: p.name,
       supplierCode: code,
-      locationId: p.locationId || null,
+      locationId: locId || null,
       locationName: loc?.name || '',
       receivedQty: prev?.receivedQty ?? receivedDefault,
       stockQty: prev?.stockQty ?? null,
@@ -726,17 +757,36 @@ const putProducts = async (req, res) => {
         siteKey,
         name,
         supplierCode: String(item.supplierCode || '').trim(),
-        locationId: item.locationId || null,
+        locationId: normalizeLocationId(item.locationId),
         unit: String(item.unit || 'pièce').trim(),
         targetStock: item.targetStock != null && item.targetStock !== '' ? Number(item.targetStock) : null,
         order: Number(item.order ?? idx),
         isActive: item.isActive !== false
       };
       if (item._id) {
-        await SupplierOrderProduct.findOneAndUpdate({ _id: item._id, siteKey }, payload);
+        const updated = await SupplierOrderProduct.findOneAndUpdate(
+          { _id: item._id, siteKey },
+          payload,
+          { new: true }
+        );
+        if (!updated) {
+          await SupplierOrderProduct.findOneAndUpdate({ siteKey, name }, payload, { upsert: true });
+        }
       } else {
         await SupplierOrderProduct.findOneAndUpdate({ siteKey, name }, payload, { upsert: true });
       }
+    }
+
+    const deliveryDate = getCurrentDeliveryFriday();
+    const weekKey = deliveryWeekKey(deliveryDate);
+    const order = await SupplierOrder.findOne({ siteKey, deliveryWeekKey: weekKey, supplier: 'TGT' });
+    if (order) {
+      const existingPlain = (order.lines || []).map((l) =>
+        typeof l.toObject === 'function' ? l.toObject() : { ...l }
+      );
+      order.lines = await reconcileCurrentOrderLines(siteKey, existingPlain);
+      order.markModified('lines');
+      await order.save();
     }
 
     const products = await SupplierOrderProduct.find({ siteKey })
@@ -767,7 +817,7 @@ const importProducts = async (req, res) => {
     for (const [idx, row] of rows.entries()) {
       const name = String(row.name || row.productName || '').trim();
       if (!name) continue;
-      let locationId = row.locationId || null;
+      let locationId = normalizeLocationId(row.locationId);
       if (!locationId && row.locationName) {
         locationId = locByName.get(normalizeName(row.locationName)) || null;
       }
@@ -817,11 +867,10 @@ const getCurrentOrder = async (req, res) => {
         lines
       });
     } else {
-      const historyForSync = await buildOrderHistoryMaps(siteKey);
-      const built = await buildLinesFromCatalog(siteKey, order.lines, { fillEmptyCmdOnly: true });
-      let merged = mergeCatalogWithExistingOrder(built, order.lines);
-      merged = applyCmdColumnsFromHistory(merged, historyForSync, { overwrite: true });
-      order.lines = await enrichLines(siteKey, merged);
+      const existingPlain = (order.lines || []).map((l) =>
+        typeof l.toObject === 'function' ? l.toObject() : { ...l }
+      );
+      order.lines = await reconcileCurrentOrderLines(siteKey, existingPlain);
       order.markModified('lines');
       await order.save();
     }
@@ -935,9 +984,7 @@ const refreshLastOrderQty = async (req, res) => {
       existingPlain = await buildLinesFromCatalog(siteKey, [], { fillEmptyCmdOnly: true });
     }
 
-    const history = await buildOrderHistoryMaps(siteKey);
-    let lines = applyCmdColumnsFromHistory(existingPlain, history, { overwrite: true });
-    lines = await enrichLines(siteKey, lines);
+    let lines = await reconcileCurrentOrderLines(siteKey, existingPlain);
 
     if (!lines.length) {
       return res.status(400).json({
@@ -1072,6 +1119,11 @@ const seedArrasCatalog = async (req, res) => {
       if (!name) continue;
       let locationId = null;
       if (row.locationName) locationId = locByName.get(normalizeName(row.locationName)) || null;
+      const existing = await SupplierOrderProduct.findOne({
+        siteKey,
+        supplierCode: row.supplierCode || name
+      }).select('locationId');
+      if (existing?.locationId) locationId = existing.locationId;
       await SupplierOrderProduct.findOneAndUpdate(
         { siteKey, supplierCode: row.supplierCode || name },
         {
@@ -1123,6 +1175,11 @@ const importDeliveryPdf = async (req, res) => {
 
     for (const [idx, p] of products.entries()) {
       let locationId = locByName.get(normalizeName(p.locationName)) || null;
+      const existing = await SupplierOrderProduct.findOne({
+        siteKey,
+        supplierCode: p.supplierCode
+      }).select('locationId');
+      if (existing?.locationId) locationId = existing.locationId;
       await SupplierOrderProduct.findOneAndUpdate(
         { siteKey, supplierCode: p.supplierCode },
         {

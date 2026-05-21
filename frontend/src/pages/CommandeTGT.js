@@ -80,6 +80,12 @@ const cmdQtyCell = (line, field) => {
   return v != null ? v : '—';
 };
 
+const resolveProductLocationId = (product) => {
+  const raw = product?.locationId?._id ?? product?.locationId;
+  if (raw == null || raw === '') return null;
+  return String(raw);
+};
+
 const mergeCmdMeta = (prev, next) => ({
   ...(prev || {}),
   cmdBlNumbers: next?.cmdBlNumbers ?? prev?.cmdBlNumbers,
@@ -414,22 +420,70 @@ const CommandeTGT = () => {
     }
   };
 
+  const productToApiItem = (p, idx) => ({
+    _id: p._id,
+    name: p.name,
+    supplierCode: p.supplierCode || '',
+    locationId: resolveProductLocationId(p),
+    unit: p.unit || 'pièce',
+    order: Number(p.order ?? idx),
+    isActive: p.isActive !== false
+  });
+
+  const setProductActive = async (idx, active) => {
+    const p = products[idx];
+    const name = String(p?.name || '').trim();
+    if (!name) {
+      setMessage({ type: 'error', text: 'Indiquez un nom de produit avant de le désactiver.' });
+      return;
+    }
+    if (!p._id) {
+      setProducts((prev) => prev.map((x, i) => (i === idx ? { ...x, isActive: active } : x)));
+      setMessage({
+        type: 'error',
+        text: 'Enregistrez d’abord le produit (« Enregistrer produits »), puis désactivez-le.'
+      });
+      return;
+    }
+    setSaving(true);
+    setMessage(null);
+    try {
+      await api.put('/supplier-orders/products', {
+        siteKey,
+        items: [productToApiItem({ ...p, isActive: active }, idx)]
+      });
+      setProducts((prev) => prev.map((x, i) => (i === idx ? { ...x, isActive: active } : x)));
+      await loadOrder();
+      setMessage({
+        type: 'success',
+        text: active
+          ? `${name} réactivé — il réapparaît dans la saisie.`
+          : `${name} désactivé — il n’apparaît plus dans la saisie.`
+      });
+    } catch (e) {
+      console.error(e);
+      setMessage({ type: 'error', text: 'Erreur lors de la mise à jour du produit.' });
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const saveProducts = async () => {
+    const missingLocationIds = locations.filter((l) => l.name && !l._id);
+    if (missingLocationIds.length) {
+      setMessage({
+        type: 'error',
+        text: 'Enregistrez d’abord les emplacements (bouton « Enregistrer emplacements »), puis assignez les produits.'
+      });
+      return;
+    }
     setSaving(true);
     try {
-      const items = products.map((p, idx) => ({
-        _id: p._id,
-        name: p.name,
-        supplierCode: p.supplierCode || '',
-        locationId: p.locationId?._id || p.locationId || null,
-        unit: p.unit || 'pièce',
-        order: idx,
-        isActive: p.isActive !== false
-      }));
+      const items = products.map((p, idx) => productToApiItem(p, idx));
       const res = await api.put('/supplier-orders/products', { siteKey, items });
       setProducts(Array.isArray(res.data?.data) ? res.data.data : products);
-      await loadOrder();
-      setMessage({ type: 'success', text: 'Produits enregistrés.' });
+      await Promise.all([loadOrder(), loadConfig()]);
+      setMessage({ type: 'success', text: 'Produits et emplacements enregistrés.' });
     } catch (e) {
       console.error(e);
       setMessage({ type: 'error', text: 'Erreur produits.' });
@@ -897,42 +951,76 @@ const CommandeTGT = () => {
 
               <div className="config-block">
                 <h3>Produits & emplacements</h3>
-                {products.map((p, idx) => (
-                  <div className="config-row config-row-product" key={p._id || `new-p-${idx}`}>
-                    <input
-                      value={p.name}
-                      onChange={(e) => {
-                        const v = e.target.value;
-                        setProducts((prev) => prev.map((x, i) => (i === idx ? { ...x, name: v } : x)));
-                      }}
-                      placeholder="Nom produit"
-                    />
-                    <input
-                      value={p.supplierCode || ''}
-                      onChange={(e) => {
-                        const v = e.target.value;
-                        setProducts((prev) => prev.map((x, i) => (i === idx ? { ...x, supplierCode: v } : x)));
-                      }}
-                      placeholder="Code TGT"
-                    />
-                    <select
-                      value={p.locationId?._id || p.locationId || ''}
-                      onChange={(e) => {
-                        const v = e.target.value || null;
-                        setProducts((prev) => prev.map((x, i) => (i === idx ? { ...x, locationId: v } : x)));
-                      }}
+                <p className="commande-tgt-hint">
+                  Utilisez « Désactiver » pour retirer un produit arrêté de la saisie. « Réactiver » le remet dans la
+                  liste.
+                </p>
+                {products.map((p, idx) => {
+                  const isActive = p.isActive !== false;
+                  return (
+                    <div
+                      className={`config-row config-row-product${isActive ? '' : ' config-row-product--inactive'}`}
+                      key={p._id || `new-p-${idx}`}
                     >
-                      <option value="">— emplacement —</option>
-                      {locations
-                        .filter((l) => l.isActive !== false && l.name)
-                        .map((l) => (
-                          <option key={l._id} value={l._id}>
-                            {l.name}
-                          </option>
-                        ))}
-                    </select>
-                  </div>
-                ))}
+                      <input
+                        value={p.name}
+                        onChange={(e) => {
+                          const v = e.target.value;
+                          setProducts((prev) => prev.map((x, i) => (i === idx ? { ...x, name: v } : x)));
+                        }}
+                        placeholder="Nom produit"
+                        disabled={!isActive}
+                      />
+                      <input
+                        value={p.supplierCode || ''}
+                        onChange={(e) => {
+                          const v = e.target.value;
+                          setProducts((prev) => prev.map((x, i) => (i === idx ? { ...x, supplierCode: v } : x)));
+                        }}
+                        placeholder="Code TGT"
+                        disabled={!isActive}
+                      />
+                      <select
+                        value={resolveProductLocationId(p) || ''}
+                        onChange={(e) => {
+                          const v = e.target.value || null;
+                          setProducts((prev) => prev.map((x, i) => (i === idx ? { ...x, locationId: v } : x)));
+                        }}
+                        disabled={!isActive}
+                      >
+                        <option value="">— emplacement —</option>
+                        {locations
+                          .filter((l) => l.isActive !== false && l.name && l._id)
+                          .map((l) => (
+                            <option key={String(l._id)} value={String(l._id)}>
+                              {l.name}
+                            </option>
+                          ))}
+                      </select>
+                      {isActive ? (
+                        <button
+                          type="button"
+                          className="btn btn-secondary btn-product-toggle"
+                          onClick={() => setProductActive(idx, false)}
+                          disabled={saving}
+                          title="Retirer ce produit de la liste de saisie"
+                        >
+                          Désactiver
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          className="btn btn-primary btn-product-toggle"
+                          onClick={() => setProductActive(idx, true)}
+                          disabled={saving}
+                          title="Réafficher ce produit dans la saisie"
+                        >
+                          Réactiver
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
                 <button type="button" className="btn btn-secondary" onClick={addProduct}>
                   + Produit
                 </button>
