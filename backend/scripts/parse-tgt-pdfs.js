@@ -142,7 +142,7 @@ function mapTemperatureToLocation(temp) {
   if (!temp) return '';
   if (temp.startsWith('Frais')) return 'Étagère prépa';
   if (temp.startsWith('Surgelé')) return 'Étagère réserve';
-  if (temp.includes('non')) return 'Réserve';
+  if (temp.includes('non')) return 'Étagère réserve';
   return 'Étagère boulanger';
 }
 

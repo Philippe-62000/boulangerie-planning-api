@@ -378,7 +378,7 @@ function productRefFromLine(line) {
   };
 }
 
-/** Applique cmd -1 … -6 depuis l’historique BL. Ne remplace jamais par vide (null). */
+/** Applique cmd -1 … -6 depuis l’historique BL (un BL par colonne). */
 function applyCmdColumnsFromHistory(lines, history, { overwrite = true } = {}) {
   const tierMaps = history.tiers || [history.minus1, history.minus2];
   return (lines || []).map((raw) => {
@@ -388,10 +388,10 @@ function applyCmdColumnsFromHistory(lines, history, { overwrite = true } = {}) {
 
     for (let i = 0; i < CMD_HISTORY_DEPTH; i++) {
       const field = CMD_QTY_FIELDS[i];
-      const from = resolveQtyFromMaps(product, tierMaps[i] || emptyQtyMaps(), line, field);
+      const from = resolveQtyFromMaps(product, tierMaps[i] || emptyQtyMaps(), line, field, false);
       let val = line[field];
       if (overwrite) {
-        if (from != null) val = from;
+        val = from != null ? from : null;
       } else if (val == null && from != null) {
         val = from;
       }
@@ -402,7 +402,7 @@ function applyCmdColumnsFromHistory(lines, history, { overwrite = true } = {}) {
   });
 }
 
-function resolveQtyFromMaps(product, maps, prevLine, prevField) {
+function resolveQtyFromMaps(product, maps, prevLine, prevField, usePrevFallback = false) {
   const code = String(product.supplierCode || '').trim();
   let fromHistory = maps.byProductId.get(String(product._id)) ?? null;
   if (fromHistory == null && code) {
@@ -415,7 +415,7 @@ function resolveQtyFromMaps(product, maps, prevLine, prevField) {
     fromHistory = maps.byName.get(normalizeName(product.name)) ?? null;
   }
   if (fromHistory != null) return fromHistory;
-  if (prevLine?.[prevField] != null) return prevLine[prevField];
+  if (usePrevFallback && prevLine?.[prevField] != null) return prevLine[prevField];
   return null;
 }
 
@@ -440,12 +440,6 @@ function mergeCatalogWithExistingOrder(catalogLines, existingLines) {
       receivedQty: prev.receivedQty != null ? prev.receivedQty : line.receivedQty,
       stockQty: prev.stockQty != null ? prev.stockQty : line.stockQty,
       orderQty: prev.orderQty != null ? prev.orderQty : line.orderQty,
-      lastOrderQty: prev.lastOrderQty != null ? prev.lastOrderQty : line.lastOrderQty,
-      prevOrderQty: prev.prevOrderQty != null ? prev.prevOrderQty : line.prevOrderQty,
-      cmdQty3: prev.cmdQty3 != null ? prev.cmdQty3 : line.cmdQty3,
-      cmdQty4: prev.cmdQty4 != null ? prev.cmdQty4 : line.cmdQty4,
-      cmdQty5: prev.cmdQty5 != null ? prev.cmdQty5 : line.cmdQty5,
-      cmdQty6: prev.cmdQty6 != null ? prev.cmdQty6 : line.cmdQty6,
       consumptionQty: prev.consumptionQty != null ? prev.consumptionQty : line.consumptionQty,
       suggestedOrderQty:
         prev.suggestedOrderQty != null ? prev.suggestedOrderQty : line.suggestedOrderQty,
@@ -667,9 +661,9 @@ async function buildLinesFromCatalog(siteKey, existingLines = [], options = {}) 
       const field = CMD_QTY_FIELDS[i];
       let val = prev?.[field] ?? null;
       if (applyHistory) {
-        val = resolveQtyFromMaps(p, history.tiers[i], prev, field);
+        val = resolveQtyFromMaps(p, history.tiers[i], prev, field, false);
       } else if (fillEmptyCmdOnly && val == null) {
-        val = resolveQtyFromMaps(p, history.tiers[i], prev, field);
+        val = resolveQtyFromMaps(p, history.tiers[i], prev, field, true);
       }
       cmdValues[field] = val;
     }
@@ -1298,7 +1292,12 @@ const importDeliveryPdf = async (req, res) => {
     lines = lines.map((line) => {
       const hit = findPdfProductHit(line, products);
       if (!hit) return line;
-      return computeLineMetrics({ ...line, receivedQty: hit.receivedQty });
+      const qty = hit.receivedQty ?? hit.orderedQty ?? null;
+      return computeLineMetrics({
+        ...line,
+        receivedQty: qty,
+        lastOrderQty: qty
+      });
     });
 
     const history = await buildOrderHistoryMaps(siteKey);

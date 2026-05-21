@@ -17,7 +17,7 @@ function mapTemperatureToLocation(temp) {
   if (!temp) return '';
   if (temp.startsWith('Frais')) return 'Étagère prépa';
   if (temp.startsWith('Surgelé')) return 'Étagère réserve';
-  if (temp === 'Hygiène') return 'Réserve';
+  if (temp === 'Hygiène') return 'Étagère réserve';
   return 'Étagère boulanger';
 }
 

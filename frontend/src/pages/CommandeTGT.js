@@ -617,9 +617,10 @@ const CommandeTGT = () => {
             </p>
           ) : null}
           <p className="commande-tgt-hint commande-tgt-formula">
-            Cmd -1…-6 : quantités des 6 derniers BL (récent → ancien). Code sous le produit = référence TGT.
-            Saisir le <strong>stock</strong> restant : la <strong>conso</strong> se calcule (Cmd -1 − stock, ou reçu
-            BL importé − stock). Prévision = moyenne sur 3 semaines validées, sinon conso de la semaine.
+            Cmd -1…-6 : quantités <strong>uniquement si le produit figure sur ce BL</strong> (sinon « — »).
+            Après import PDF, Cmd -1 = colonne COMMANDE du BL le plus récent pour les lignes reconnues.
+            Saisir le <strong>stock</strong> : conso = Cmd -1 − stock (ou quantité reçue du BL importé − stock).
+            Colonne <strong>À cmd</strong> = ce que vous commandez cette semaine (0 si rien à commander).
             {meta?.rollingWeeksUsed != null ? (
               <> Historique : {meta.rollingWeeksUsed}/{meta.rollingWeeksTarget ?? 3} sem.</>
             ) : null}
