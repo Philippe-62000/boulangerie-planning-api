@@ -12,7 +12,8 @@ export const ORDER_CHANNELS = {
     showPositive: true,
     showSeedArras: true,
     showProductOrderControls: false,
-    emptyProductsHint: 'Configurez le catalogue dans Commande TGT.'
+    emptyProductsHint: 'Configurez le catalogue dans Commande TGT.',
+    stockScheduleMenuLabel: 'Stocks TGT'
   },
   MILLANGE: {
     key: 'MILLANGE',
@@ -26,7 +27,8 @@ export const ORDER_CHANNELS = {
     showPositive: false,
     showSeedArras: false,
     showProductOrderControls: true,
-    emptyProductsHint: "Configurez le catalogue dans Commande Mill'Ange (onglet Configuration)."
+    emptyProductsHint: "Configurez le catalogue dans Commande Mill'Ange (onglet Configuration).",
+    stockScheduleMenuLabel: "Stocks Mill'Ange"
   }
 };
 

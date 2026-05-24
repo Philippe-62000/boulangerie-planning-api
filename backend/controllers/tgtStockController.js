@@ -21,8 +21,14 @@ const getConfig = async (req, res) => {
     const siteKey = normalizeSiteKey(req.query.siteKey);
     const supplier = getSupplierFromReq(req);
     let cfg = await TgtStockConfig.findOne(stockConfigQuery(siteKey, supplier)).lean();
+    if (!cfg && parseSupplier(supplier) === 'TGT') {
+      cfg = await TgtStockConfig.findOne({
+        siteKey,
+        $or: [{ supplier: { $exists: false } }, { supplier: null }, { supplier: '' }]
+      }).lean();
+    }
     if (!cfg) {
-      cfg = { siteKey, supplier, submissionDays: [] };
+      cfg = { siteKey, supplier: parseSupplier(supplier), submissionDays: [] };
     }
     res.json({
       success: true,
@@ -44,11 +50,23 @@ const putConfig = async (req, res) => {
     const siteKey = normalizeSiteKey(req.body.siteKey || req.query.siteKey);
     const supplier = getSupplierFromReq(req);
     const submissionDays = normalizeSubmissionDays(req.body.submissionDays);
-    const cfg = await TgtStockConfig.findOneAndUpdate(
-      stockConfigQuery(siteKey, supplier),
-      { siteKey, supplier, submissionDays },
+    const query = stockConfigQuery(siteKey, supplier);
+    let cfg = await TgtStockConfig.findOneAndUpdate(
+      query,
+      { $set: { submissionDays }, $setOnInsert: { siteKey, supplier } },
       { upsert: true, new: true, setDefaultsOnInsert: true }
     ).lean();
+    if (!cfg && supplier === parseSupplier('TGT')) {
+      const legacy = await TgtStockConfig.findOneAndUpdate(
+        { siteKey, $or: [{ supplier: { $exists: false } }, { supplier: null }, { supplier: '' }] },
+        { $set: { siteKey, supplier: 'TGT', submissionDays } },
+        { new: true }
+      ).lean();
+      if (legacy) cfg = legacy;
+    }
+    if (!cfg) {
+      return res.status(500).json({ success: false, error: 'Config stocks non enregistrée' });
+    }
     res.json({
       success: true,
       data: { siteKey, supplier, submissionDays: cfg.submissionDays }

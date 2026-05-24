@@ -197,11 +197,21 @@ const CommandeTGT = ({ channelKey = 'TGT' }) => {
   const saveTgtStockSchedule = async () => {
     setSaving(true);
     try {
-      await api.put('/tgt-stocks/config', apiQ({ submissionDays: tgtStockSubmissionDays }));
-      setMessage({ type: 'success', text: 'Jours de saisie stocks TGT enregistrés.' });
+      await api.put('/tgt-stocks/config', {
+        siteKey,
+        supplier,
+        submissionDays: tgtStockSubmissionDays
+      });
+      setMessage({
+        type: 'success',
+        text: `Jours de saisie ${channel.stockScheduleMenuLabel} enregistrés.`
+      });
     } catch (e) {
       console.error(e);
-      setMessage({ type: 'error', text: 'Erreur enregistrement jours stocks TGT.' });
+      setMessage({
+        type: 'error',
+        text: `Erreur enregistrement jours stocks ${channel.stockScheduleMenuLabel}.`
+      });
     } finally {
       setSaving(false);
     }
@@ -447,7 +457,10 @@ const CommandeTGT = ({ channelKey = 'TGT' }) => {
       setSelectedStockEntryIds(preselected.length ? preselected : []);
     } catch (e) {
       console.error(e);
-      setMessage({ type: 'error', text: 'Impossible de charger la liste des imports stocks TGT.' });
+      setMessage({
+        type: 'error',
+        text: `Impossible de charger la liste des imports ${channel.stockScheduleMenuLabel}.`
+      });
       setStockImportModalOpen(false);
     } finally {
       setStockImportLoading(false);
@@ -1280,10 +1293,11 @@ const CommandeTGT = ({ channelKey = 'TGT' }) => {
               ) : null}
 
               <div className="config-block">
-                <h3>Saisie stocks TGT — jours obligatoires</h3>
+                <h3>Saisie stocks {channel.stockScheduleMenuLabel} — jours obligatoires</h3>
                 <p className="commande-tgt-hint">
-                  Jours où les salariés doivent envoyer les stocks magasin (menu Stocks TGT). Le tableau de bord
-                  affiche la dernière saisie en vert si elle est à jour, en rouge dès qu’une saisie est attendue.
+                  Jours où les salariés doivent envoyer les stocks magasin (menu {channel.stockScheduleMenuLabel}).
+                  Le tableau de bord affiche la dernière saisie en vert si elle est à jour, en rouge dès qu’une
+                  saisie est attendue. Configuration enregistrée pour le fournisseur {supplier}.
                 </p>
                 <div className="tgt-stock-days-grid">
                   {TGT_STOCK_DAY_LABELS.map((label, dayNum) => (
@@ -1334,12 +1348,15 @@ const CommandeTGT = ({ channelKey = 'TGT' }) => {
           <div className="commande-tgt-modal" onClick={(e) => e.stopPropagation()}>
             <h3 id="stock-import-modal-title">Importer stocks salarié</h3>
             <p className="commande-tgt-hint">
-              Cochez un ou plusieurs envois depuis le menu Stocks TGT. Les quantités sont cumulées (ex. 0 puis 1 = 1).
+              Cochez un ou plusieurs envois depuis le menu {channel.stockScheduleMenuLabel}. Les quantités sont
+              cumulées (ex. 0 puis 1 = 1).
             </p>
             {stockImportLoading ? (
               <p>Chargement des imports…</p>
             ) : stockImportEntries.length === 0 ? (
-              <p className="commande-tgt-hint">Aucun import stocks TGT enregistré pour le moment.</p>
+              <p className="commande-tgt-hint">
+                Aucun import {channel.stockScheduleMenuLabel} enregistré pour le moment.
+              </p>
             ) : (
               <ul className="stock-import-list">
                 {stockImportEntries.map((entry) => {

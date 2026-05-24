@@ -26,6 +26,9 @@ const supplierOrderDeliverySchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-supplierOrderDeliverySchema.index({ siteKey: 1, orderNumber: 1 }, { unique: true, sparse: true });
+supplierOrderDeliverySchema.index(
+  { siteKey: 1, supplier: 1, orderNumber: 1 },
+  { unique: true, sparse: true }
+);
 
 module.exports = mongoose.model('SupplierOrderDelivery', supplierOrderDeliverySchema);

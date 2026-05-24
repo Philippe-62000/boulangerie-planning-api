@@ -21,6 +21,35 @@ function mapTemperatureToLocation(temp) {
   return 'Étagère boulanger';
 }
 
+/** BL Mill'Ange : « FOND SUCRÉ TARTE D228.000Colis » = diamètre 228 + 0 colis commandés. */
+function parseFondSucreTarteD000051(flat) {
+  const re =
+    /Surgelé\(000051\)\s*FOND SUCRÉ TARTE D(?:(\d{2,3})\.(\d{3})|(\d{2,3})\s+(\d+\.\d{3}))Colis(\d+\.\d{3})Colis/i;
+  const m = re.exec(flat);
+  if (!m) return null;
+  const orderedQty =
+    m[2] != null ? parseFloat(`0.${m[2]}`) : parseFloat(m[4]);
+  const deliveredQty = parseFloat(m[5]);
+  return {
+    supplierCode: '000051',
+    name: 'FOND SUCRÉ TARTE D',
+    temperature: 'Surgelé',
+    unit: 'Colis',
+    orderedQty,
+    deliveredQty,
+    receivedQty: orderedQty,
+    locationName: mapTemperatureToLocation('Surgelé')
+  };
+}
+
+function applyMillangeProductFixes(products, flat) {
+  const fixed = parseFondSucreTarteD000051(flat);
+  if (!fixed) return products;
+  const out = products.filter((p) => p.supplierCode !== '000051');
+  out.push(fixed);
+  return out;
+}
+
 function parseProductsFromText(text) {
   const section = text.split('DETAILS DE LIVRAISON')[1] || text;
   const flat = section.replace(/\r\n/g, ' ').replace(/\s+/g, ' ');
@@ -65,7 +94,7 @@ function parseProductsFromText(text) {
       locationName: mapTemperatureToLocation('Hygiène')
     });
   }
-  return products;
+  return applyMillangeProductFixes(products, flat);
 }
 
 function parseOrderMeta(text) {

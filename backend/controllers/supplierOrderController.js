@@ -243,9 +243,9 @@ async function fillMinus1GapsFromDeliveries(siteKey, maps, supplier = SUPPLIER_T
 }
 
 /** Quantités de référence extraites du catalogue seed Arras (PDF). */
-function loadSeedQtyMaps(siteKey) {
+function loadSeedQtyMaps(siteKey, supplier = SUPPLIER_TGT) {
   const maps = emptyQtyMaps();
-  if (siteKey !== 'plan') return maps;
+  if (siteKey !== 'plan' || parseSupplier(supplier) !== SUPPLIER_TGT) return maps;
   try {
     const seedPath = path.join(__dirname, '../data/tgt-arras-catalog-seed.json');
     if (!fs.existsSync(seedPath)) return maps;
@@ -334,7 +334,7 @@ async function buildOrderHistoryMaps(siteKey, supplier = SUPPLIER_TGT) {
       .select('lines deliveryDate deliveryWeekKey supplier')
   ]);
 
-  const seedMaps = loadSeedQtyMaps(siteKey);
+  const seedMaps = loadSeedQtyMaps(siteKey, s);
   const tiers = Array.from({ length: CMD_HISTORY_DEPTH }, () => emptyQtyMaps());
   const tierMeta = Array(CMD_HISTORY_DEPTH).fill(null);
 
@@ -355,7 +355,7 @@ async function buildOrderHistoryMaps(siteKey, supplier = SUPPLIER_TGT) {
     };
   }
 
-  if (!deliveries.length) {
+  if (!deliveries.length && s === SUPPLIER_TGT) {
     mergeMapsGaps(tiers[0], seedMaps);
   }
 
