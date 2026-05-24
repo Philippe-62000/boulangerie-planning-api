@@ -18,6 +18,7 @@ const tgtStockEntrySchema = new mongoose.Schema(
       required: true,
       index: true
     },
+    supplier: { type: String, enum: ['TGT', 'MILLANGE'], default: 'TGT', index: true },
     employeeId: { type: mongoose.Schema.Types.ObjectId, ref: 'Employee', default: null },
     employeeName: { type: String, required: true, trim: true },
     items: {
@@ -29,6 +30,6 @@ const tgtStockEntrySchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-tgtStockEntrySchema.index({ siteKey: 1, createdAt: -1 });
+tgtStockEntrySchema.index({ siteKey: 1, supplier: 1, createdAt: -1 });
 
 module.exports = mongoose.model('TgtStockEntry', tgtStockEntrySchema);

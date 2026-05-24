@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import api from '../services/api';
 import { getSiteKey, getSiteBasename } from '../config/site';
+import { getOrderChannel } from '../config/orderChannels';
 import './CommandeTGT.css';
 
 const formatDate = (d) => {
@@ -122,9 +123,12 @@ const mergeCmdMeta = (prev, next) => ({
   blCount: next?.blCount ?? prev?.blCount
 });
 
-const CommandeTGT = () => {
+const CommandeTGT = ({ channelKey = 'TGT' }) => {
+  const channel = getOrderChannel(channelKey);
+  const supplier = channel.supplier;
   const siteKey = getSiteKey();
   const siteLabel = siteKey === 'lon' ? 'Longuenesse' : 'Arras';
+  const apiQ = useCallback((extra = {}) => ({ siteKey, supplier, ...extra }), [siteKey, supplier]);
 
   const [tab, setTab] = useState('saisie');
   const [loading, setLoading] = useState(true);
@@ -156,30 +160,30 @@ const CommandeTGT = () => {
 
   const mobileUrl =
     typeof window !== 'undefined'
-      ? `${window.location.origin}${getSiteBasename()}/commande-tgt`
+      ? `${window.location.origin}${getSiteBasename()}${channel.commandePath}`
       : '';
 
   const loadOrder = useCallback(async () => {
     const seq = ++loadSeqRef.current;
-    const res = await api.get('/supplier-orders/current', { params: { siteKey } });
+    const res = await api.get('/supplier-orders/current', { params: apiQ() });
     if (seq !== loadSeqRef.current) return;
     const data = res.data?.data;
     setLines(Array.isArray(data?.lines) ? data.lines : []);
     setOrderStatus(data?.status || 'draft');
     setMeta(res.data?.meta || null);
-  }, [siteKey]);
+  }, [siteKey, apiQ]);
 
   const loadConfig = useCallback(async () => {
     const [locRes, prodRes, tgtCfgRes] = await Promise.all([
-      api.get('/supplier-orders/locations', { params: { siteKey } }),
-      api.get('/supplier-orders/products', { params: { siteKey } }),
-      api.get('/tgt-stocks/config', { params: { siteKey } }).catch(() => ({ data: { data: { submissionDays: [] } } }))
+      api.get('/supplier-orders/locations', { params: apiQ() }),
+      api.get('/supplier-orders/products', { params: apiQ() }),
+      api.get('/tgt-stocks/config', { params: apiQ() }).catch(() => ({ data: { data: { submissionDays: [] } } }))
     ]);
     setLocations(Array.isArray(locRes.data?.data) ? locRes.data.data : []);
     setProducts(Array.isArray(prodRes.data?.data) ? prodRes.data.data : []);
     const days = tgtCfgRes.data?.data?.submissionDays;
     setTgtStockSubmissionDays(Array.isArray(days) ? days : []);
-  }, [siteKey]);
+  }, [siteKey, apiQ]);
 
   const toggleTgtStockDay = (dayNum) => {
     setTgtStockSubmissionDays((prev) => {
@@ -193,7 +197,7 @@ const CommandeTGT = () => {
   const saveTgtStockSchedule = async () => {
     setSaving(true);
     try {
-      await api.put('/tgt-stocks/config', { siteKey, submissionDays: tgtStockSubmissionDays });
+      await api.put('/tgt-stocks/config', apiQ({ submissionDays: tgtStockSubmissionDays }));
       setMessage({ type: 'success', text: 'Jours de saisie stocks TGT enregistrés.' });
     } catch (e) {
       console.error(e);
@@ -204,10 +208,10 @@ const CommandeTGT = () => {
   };
 
   const loadRecap = useCallback(async () => {
-    const res = await api.get('/supplier-orders/recap', { params: { siteKey } });
+    const res = await api.get('/supplier-orders/recap', { params: apiQ() });
     setRecap(Array.isArray(res.data?.data) ? res.data.data : []);
     setRecapMeta(res.data?.meta || null);
-  }, [siteKey]);
+  }, [siteKey, apiQ]);
 
   const refreshAll = useCallback(async () => {
     setLoading(true);
@@ -261,9 +265,17 @@ const CommandeTGT = () => {
       if (!groups.has(key)) groups.set(key, []);
       groups.get(key).push(line);
     }
+    const sortGroup = (group) =>
+      [...group].sort((a, b) => {
+        const oa = a.productOrder ?? a.order ?? 0;
+        const ob = b.productOrder ?? b.order ?? 0;
+        if (oa !== ob) return oa - ob;
+        return (a.productName || '').localeCompare(b.productName || '', 'fr');
+      });
     return [...groups.entries()]
       .filter(([, group]) => group.length > 0)
-      .sort(([a], [b]) => a.localeCompare(b, 'fr'));
+      .sort(([a], [b]) => a.localeCompare(b, 'fr'))
+      .map(([loc, group]) => [loc, sortGroup(group)]);
   }, [lines, filterLocation, search]);
 
   const updateLine = (productId, field, value) => {
@@ -294,7 +306,7 @@ const CommandeTGT = () => {
     setSaving(true);
     setMessage(null);
     try {
-      const res = await api.post('/supplier-orders/current/compute-forecast', { siteKey, apply });
+      const res = await api.post('/supplier-orders/current/compute-forecast', apiQ({ apply }));
       setLines(Array.isArray(res.data?.data?.lines) ? res.data.data.lines : lines);
       setMessage({
         type: 'success',
@@ -317,7 +329,10 @@ const CommandeTGT = () => {
     const form = new FormData();
     form.append('pdf', file);
     try {
-      const res = await api.post(`/supplier-orders/import-delivery-pdf?siteKey=${siteKey}`, form);
+      const res = await api.post(
+        `/supplier-orders/import-delivery-pdf?siteKey=${siteKey}&supplier=${supplier}`,
+        form
+      );
       setLines(Array.isArray(res.data?.data?.lines) ? res.data.data.lines : lines);
       if (res.data?.meta) {
         setMeta((prev) => mergeCmdMeta(prev, res.data.meta));
@@ -370,7 +385,7 @@ const CommandeTGT = () => {
     setMessage(null);
     const seq = ++loadSeqRef.current;
     try {
-      const res = await api.put('/supplier-orders/current', { siteKey, lines });
+      const res = await api.put('/supplier-orders/current', apiQ({ lines }));
       if (seq !== loadSeqRef.current) return;
       const savedLines = Array.isArray(res.data?.data?.lines) ? res.data.data.lines : lines;
       setLines(savedLines);
@@ -387,8 +402,8 @@ const CommandeTGT = () => {
     if (!window.confirm('Valider cette commande ? Les quantités serviront de référence pour la prochaine fois.')) return;
     setSaving(true);
     try {
-      await api.put('/supplier-orders/current', { siteKey, lines });
-      await api.post('/supplier-orders/current/submit', { siteKey });
+      await api.put('/supplier-orders/current', apiQ({ lines }));
+      await api.post('/supplier-orders/current/submit', apiQ());
       setMessage({ type: 'success', text: 'Commande validée.' });
       await refreshAll();
       setTab('recap');
@@ -404,7 +419,7 @@ const CommandeTGT = () => {
     setSaving(true);
     setMessage(null);
     try {
-      const res = await api.post('/supplier-orders/current/apply-positive', { siteKey });
+      const res = await api.post('/supplier-orders/current/apply-positive', apiQ());
       setLines(Array.isArray(res.data?.data?.lines) ? res.data.data.lines : lines);
       const matched = res.data?.meta?.matchedCount ?? 0;
       setMessage({
@@ -425,7 +440,7 @@ const CommandeTGT = () => {
     setStockImportModalOpen(true);
     setStockImportLoading(true);
     try {
-      const res = await api.get('/tgt-stocks/entries', { params: { siteKey, limit: 100 } });
+      const res = await api.get('/tgt-stocks/entries', { params: apiQ({ limit: 100 }) });
       const list = Array.isArray(res.data?.data) ? res.data.data : [];
       setStockImportEntries(list);
       const preselected = (employeeStockImports || []).map((i) => String(i.entryId)).filter(Boolean);
@@ -454,10 +469,9 @@ const CommandeTGT = () => {
     setSaving(true);
     setMessage(null);
     try {
-      const res = await api.post('/supplier-orders/current/apply-employee-stocks', {
-        siteKey,
+      const res = await api.post('/supplier-orders/current/apply-employee-stocks', apiQ({
         entryIds: selectedStockEntryIds
-      });
+      }));
       setLines(Array.isArray(res.data?.data?.lines) ? res.data.data.lines : lines);
       if (res.data?.meta) {
         setMeta((m) => ({
@@ -488,7 +502,7 @@ const CommandeTGT = () => {
     setMessage(null);
     const seq = ++loadSeqRef.current;
     try {
-      const res = await api.post('/supplier-orders/current/refresh-last', { siteKey });
+      const res = await api.post('/supplier-orders/current/refresh-last', apiQ());
       if (seq !== loadSeqRef.current) return;
       const newLines = Array.isArray(res.data?.data?.lines) ? res.data.data.lines : null;
       if (newLines?.length) {
@@ -530,7 +544,7 @@ const CommandeTGT = () => {
         order: idx,
         isActive: l.isActive !== false
       }));
-      const res = await api.put('/supplier-orders/locations', { siteKey, items });
+      const res = await api.put('/supplier-orders/locations', apiQ({ items }));
       setLocations(Array.isArray(res.data?.data) ? res.data.data : locations);
       setMessage({ type: 'success', text: 'Emplacements enregistrés.' });
     } catch (e) {
@@ -570,10 +584,9 @@ const CommandeTGT = () => {
     setSaving(true);
     setMessage(null);
     try {
-      await api.put('/supplier-orders/products', {
-        siteKey,
+      await api.put('/supplier-orders/products', apiQ({
         items: [productToApiItem({ ...p, isActive: active }, idx)]
-      });
+      }));
       setProducts((prev) => prev.map((x, i) => (i === idx ? { ...x, isActive: active } : x)));
       await loadOrder();
       setMessage({
@@ -602,7 +615,7 @@ const CommandeTGT = () => {
     setSaving(true);
     try {
       const items = products.map((p, idx) => productToApiItem(p, idx));
-      const res = await api.put('/supplier-orders/products', { siteKey, items });
+      const res = await api.put('/supplier-orders/products', apiQ({ items }));
       if (Array.isArray(res.data?.data)) {
         setProducts(res.data.data);
       }
@@ -627,7 +640,7 @@ const CommandeTGT = () => {
     }
     setSaving(true);
     try {
-      const res = await api.post('/supplier-orders/products/import', { siteKey, products: rows });
+      const res = await api.post('/supplier-orders/products/import', apiQ({ products: rows }));
       setProducts(Array.isArray(res.data?.data) ? res.data.data : products);
       await api.post('/supplier-orders/current/refresh-last', { siteKey });
       await loadOrder();
@@ -648,8 +661,37 @@ const CommandeTGT = () => {
   const addProduct = () => {
     setProducts((prev) => [
       ...prev,
-      { name: '', supplierCode: '', locationId: null, unit: 'pièce', isActive: true, order: prev.length }
+      { name: '', supplierCode: '', locationId: null, unit: 'pièce', isActive: true, order: prev.length * 10 }
     ]);
+  };
+
+  const moveProduct = (idx, direction) => {
+    setProducts((prev) => {
+      const next = [...prev];
+      const j = idx + direction;
+      if (j < 0 || j >= next.length) return prev;
+      [next[idx], next[j]] = [next[j], next[idx]];
+      return next.map((p, i) => ({ ...p, order: i * 10 }));
+    });
+  };
+
+  const seedMillangeCatalog = async () => {
+    setSaving(true);
+    setMessage(null);
+    try {
+      const res = await api.post('/supplier-orders/seed-millange-catalog', { siteKey: 'plan' });
+      await loadConfig();
+      await loadOrder();
+      setMessage({
+        type: 'success',
+        text: `Catalogue Mill'Ange chargé (${res.data?.productCount ?? 0} produits).`
+      });
+    } catch (e) {
+      console.error(e);
+      setMessage({ type: 'error', text: e.response?.data?.error || 'Erreur chargement catalogue Mill\'Ange.' });
+    } finally {
+      setSaving(false);
+    }
   };
 
   useEffect(() => {
@@ -704,7 +746,7 @@ const CommandeTGT = () => {
     >
       <header className="commande-tgt-header no-print">
         <div>
-          <h1>Commande TGT</h1>
+          <h1>{channel.title}</h1>
           <p className="commande-tgt-subtitle">
             {siteLabel} — commande pour livraison du {formatDate(meta?.deliveryDate)}
           </p>
@@ -796,9 +838,11 @@ const CommandeTGT = () => {
                     </option>
                   ))}
                 </select>
-                <button type="button" className="btn btn-secondary" onClick={applyPositive} disabled={saving}>
-                  Stocks Positive
-                </button>
+                {channel.showPositive ? (
+                  <button type="button" className="btn btn-secondary" onClick={applyPositive} disabled={saving}>
+                    Stocks Positive
+                  </button>
+                ) : null}
                 <button type="button" className="btn btn-secondary" onClick={refreshLast} disabled={saving}>
                   Maj. cmd (6 BL)
                 </button>
@@ -1112,6 +1156,28 @@ const CommandeTGT = () => {
                       }`}
                       key={p._id || `new-p-${idx}`}
                     >
+                      {channel.showProductOrderControls ? (
+                        <div className="config-order-btns">
+                          <button
+                            type="button"
+                            className="btn btn-secondary btn-order-move"
+                            title="Monter"
+                            disabled={idx === 0}
+                            onClick={() => moveProduct(idx, -1)}
+                          >
+                            ↑
+                          </button>
+                          <button
+                            type="button"
+                            className="btn btn-secondary btn-order-move"
+                            title="Descendre"
+                            disabled={idx >= products.length - 1}
+                            onClick={() => moveProduct(idx, 1)}
+                          >
+                            ↓
+                          </button>
+                        </div>
+                      ) : null}
                       <input
                         value={p.name}
                         onChange={(e) => {
@@ -1186,17 +1252,32 @@ const CommandeTGT = () => {
                 </button>
               </div>
 
-              <div className="config-block">
-                <h3>Catalogue Arras (PDF analysés)</h3>
-                <p className="commande-tgt-hint">126 produits extraits des 6 BL Transgourmet (avril–mai 2026).</p>
-                {siteKey === 'plan' ? (
-                  <button type="button" className="btn btn-primary" onClick={seedArrasCatalog} disabled={saving}>
-                    Charger le catalogue Arras
+              {channel.showSeedArras ? (
+                <div className="config-block">
+                  <h3>Catalogue Arras (PDF analysés)</h3>
+                  <p className="commande-tgt-hint">126 produits extraits des 6 BL Transgourmet (avril–mai 2026).</p>
+                  {siteKey === 'plan' ? (
+                    <button type="button" className="btn btn-primary" onClick={seedArrasCatalog} disabled={saving}>
+                      Charger le catalogue TGT Arras
+                    </button>
+                  ) : (
+                    <p className="commande-tgt-hint">Disponible sur le site Arras (/plan).</p>
+                  )}
+                </div>
+              ) : null}
+
+              {channelKey === 'MILLANGE' && siteKey === 'plan' ? (
+                <div className="config-block">
+                  <h3>Catalogue Mill&apos;Ange</h3>
+                  <p className="commande-tgt-hint">
+                    37 produits issus des 4 derniers BL (mai 2026). Utilisez les flèches pour définir l&apos;ordre
+                    d&apos;affichage, puis « Enregistrer produits ».
+                  </p>
+                  <button type="button" className="btn btn-primary" onClick={seedMillangeCatalog} disabled={saving}>
+                    Charger le catalogue Mill&apos;Ange
                   </button>
-                ) : (
-                  <p className="commande-tgt-hint">Disponible sur le site Arras (/plan).</p>
-                )}
-              </div>
+                </div>
+              ) : null}
 
               <div className="config-block">
                 <h3>Saisie stocks TGT — jours obligatoires</h3>

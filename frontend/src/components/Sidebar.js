@@ -92,8 +92,10 @@ const Sidebar = () => {
   const STOCKS_MENU_ITEMS_COMMON = [
     { path: '/stocks', label: 'Stocks farines', icon: '📦', menuId: 'stocks' },
     { path: '/stocks-tgt', label: 'Stocks TGT', icon: '📋', menuId: 'stocks-tgt' },
+    { path: '/stocks-millange', label: "Stocks Mill'Ange", icon: '📋', menuId: 'stocks-millange' },
     { path: '/positive', label: 'Positive (IA)', icon: '📷', menuId: 'positive' },
-    { path: '/commande-tgt', label: 'Commande TGT', icon: '🛒', menuId: 'commande-tgt' }
+    { path: '/commande-tgt', label: 'Commande TGT', icon: '🛒', menuId: 'commande-tgt' },
+    { path: '/commande-millange', label: "Commande Mill'Ange", icon: '🛒', menuId: 'commande-millange' }
   ];
   /** Entrées admin supplémentaires uniquement sur Longuenesse (future évolution ; tableau vide = menu identique à Arras). */
   const STOCKS_MENU_ITEMS_LON_EXTRA = [];
@@ -138,6 +140,8 @@ const Sidebar = () => {
         { menuId: 'positive', isVisibleToAdmin: true, isVisibleToEmployee: true },
         { menuId: 'commande-tgt', isVisibleToAdmin: true, isVisibleToEmployee: true },
         { menuId: 'stocks-tgt', isVisibleToAdmin: true, isVisibleToEmployee: true },
+        { menuId: 'commande-millange', isVisibleToAdmin: true, isVisibleToEmployee: true },
+        { menuId: 'stocks-millange', isVisibleToAdmin: true, isVisibleToEmployee: true },
         { menuId: 'sick-leave-management', isVisibleToAdmin: true, isVisibleToEmployee: false },
         { menuId: 'mutuelle-management', isVisibleToAdmin: true, isVisibleToEmployee: false },
         { menuId: 'vacation-management', isVisibleToAdmin: true, isVisibleToEmployee: false },
@@ -177,6 +181,8 @@ const Sidebar = () => {
         { menuId: 'positive', isVisibleToAdmin: false, isVisibleToEmployee: true },
         { menuId: 'commande-tgt', isVisibleToAdmin: false, isVisibleToEmployee: true },
         { menuId: 'stocks-tgt', isVisibleToAdmin: false, isVisibleToEmployee: true },
+        { menuId: 'commande-millange', isVisibleToAdmin: false, isVisibleToEmployee: true },
+        { menuId: 'stocks-millange', isVisibleToAdmin: false, isVisibleToEmployee: true },
         { menuId: 'product-exchanges', isVisibleToAdmin: false, isVisibleToEmployee: false },
         { menuId: 'frais-km-responsable', isVisibleToAdmin: false, isVisibleToEmployee: false },
         { menuId: 'plateaux-repas', isVisibleToAdmin: false, isVisibleToEmployee: false },

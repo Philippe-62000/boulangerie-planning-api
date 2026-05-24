@@ -48,7 +48,9 @@ import StocksFarinesStandalone from './pages/StocksFarinesStandalone';
 import MenuPermissionGate from './components/MenuPermissionGate';
 import Positive from './pages/Positive';
 import CommandeTGT from './pages/CommandeTGT';
+import CommandeMillAnge from './pages/CommandeMillAnge';
 import StocksTGT from './pages/StocksTGT';
+import StocksMillAnge from './pages/StocksMillAnge';
 import { getSiteBasename } from './config/site';
 
 const AppContent = () => {
@@ -156,6 +158,34 @@ const AppContent = () => {
               <ProtectedRoute>
                 <MenuPermissionGate menuId="stocks-tgt">
                   <StocksTGT />
+                </MenuPermissionGate>
+              </ProtectedRoute>
+            } />
+            <Route path="/commande-millange" element={
+              <ProtectedRoute>
+                <MenuPermissionGate menuId="commande-millange">
+                  <CommandeMillAnge />
+                </MenuPermissionGate>
+              </ProtectedRoute>
+            } />
+            <Route path="/stocks-millange" element={
+              <ProtectedRoute>
+                <MenuPermissionGate menuId="stocks-millange">
+                  <StocksMillAnge />
+                </MenuPermissionGate>
+              </ProtectedRoute>
+            } />
+            <Route path="/stocks-millange/historique" element={
+              <ProtectedRoute>
+                <MenuPermissionGate menuId="stocks-millange">
+                  <StocksMillAnge />
+                </MenuPermissionGate>
+              </ProtectedRoute>
+            } />
+            <Route path="/stocks-millange/historique/:entryId" element={
+              <ProtectedRoute>
+                <MenuPermissionGate menuId="stocks-millange">
+                  <StocksMillAnge />
                 </MenuPermissionGate>
               </ProtectedRoute>
             } />

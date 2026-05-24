@@ -32,6 +32,7 @@ router.post('/current/apply-employee-stocks', authenticateEmployee, ctrl.applyEm
 router.get('/recap', authenticateEmployee, ctrl.getRecap);
 
 router.post('/seed-arras-catalog', authenticateEmployee, ctrl.seedArrasCatalog);
+router.post('/seed-millange-catalog', authenticateEmployee, ctrl.seedMillangeCatalog);
 router.post('/import-delivery-pdf', authenticateEmployee, pdfUpload.single('pdf'), ctrl.importDeliveryPdf);
 router.post('/current/apply-received', authenticateEmployee, ctrl.applyReceivedFromLast);
 router.post('/current/compute-forecast', authenticateEmployee, ctrl.computeForecast);

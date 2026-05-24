@@ -1,0 +1,226 @@
+{
+  "products": [
+    {
+      "name": "CHAUSSON AUX POMMES",
+      "supplierCode": "000013",
+      "locationName": "Surgelé",
+      "order": 0
+    },
+    {
+      "name": "CHOUQUETTE",
+      "supplierCode": "000016",
+      "locationName": "Surgelé",
+      "order": 10
+    },
+    {
+      "name": "COOKIE CHOCOLAT LAIT SPECULOOS",
+      "supplierCode": "016137",
+      "locationName": "Surgelé",
+      "order": 20
+    },
+    {
+      "name": "COOKIE FRAMBOISE CHOCOLAT BLANC",
+      "supplierCode": "016136",
+      "locationName": "Surgelé",
+      "order": 30
+    },
+    {
+      "name": "COOKIE PEPITE CHOCO NOIX PECAN",
+      "supplierCode": "016135",
+      "locationName": "Surgelé",
+      "order": 40
+    },
+    {
+      "name": "CROISSANT CRU",
+      "supplierCode": "000014",
+      "locationName": "Surgelé",
+      "order": 50
+    },
+    {
+      "name": "DISQUE FEUILLETÉ SUCRÉ TARTE",
+      "supplierCode": "010959",
+      "locationName": "Surgelé",
+      "order": 60
+    },
+    {
+      "name": "DONUT FOURRÉ CARAMEL",
+      "supplierCode": "000374",
+      "locationName": "Surgelé",
+      "order": 70
+    },
+    {
+      "name": "DONUT FOURRÉ CHOCOLAT",
+      "supplierCode": "000024",
+      "locationName": "Surgelé",
+      "order": 80
+    },
+    {
+      "name": "DONUT FOURRÉ FRAISE",
+      "supplierCode": "010681",
+      "locationName": "Surgelé",
+      "order": 90
+    },
+    {
+      "name": "DONUT NAPPÉ CHOCOLAT",
+      "supplierCode": "000358",
+      "locationName": "Surgelé",
+      "order": 100
+    },
+    {
+      "name": "DONUT SUCRE",
+      "supplierCode": "000023",
+      "locationName": "Surgelé",
+      "order": 110
+    },
+    {
+      "name": "ÉCLAIR CAFÉ",
+      "supplierCode": "000018",
+      "locationName": "Surgelé",
+      "order": 120
+    },
+    {
+      "name": "ÉCLAIR CHOCOLAT",
+      "supplierCode": "000019",
+      "locationName": "Surgelé",
+      "order": 130
+    },
+    {
+      "name": "FLAN 10P",
+      "supplierCode": "000020",
+      "locationName": "Surgelé",
+      "order": 140
+    },
+    {
+      "name": "FLAN ENTIER 6P",
+      "supplierCode": "000262",
+      "locationName": "Surgelé",
+      "order": 150
+    },
+    {
+      "name": "FOND SUCRÉ TARTE D",
+      "supplierCode": "000051",
+      "locationName": "Surgelé",
+      "order": 160
+    },
+    {
+      "name": "FOND SUCRÉ TARTELETTE D10",
+      "supplierCode": "000052",
+      "locationName": "Surgelé",
+      "order": 170
+    },
+    {
+      "name": "FRAMBOISE SURGELÉE",
+      "supplierCode": "000237",
+      "locationName": "Surgelé",
+      "order": 180
+    },
+    {
+      "name": "GRIFFE ANGE",
+      "supplierCode": "015835",
+      "locationName": "Surgelé",
+      "order": 190
+    },
+    {
+      "name": "MINI BEIGNET CHOCOLAT",
+      "supplierCode": "000030",
+      "locationName": "Surgelé",
+      "order": 200
+    },
+    {
+      "name": "MINI BEIGNET POMME",
+      "supplierCode": "000031",
+      "locationName": "Surgelé",
+      "order": 210
+    },
+    {
+      "name": "MINI CHAUSSON POMMES",
+      "supplierCode": "000033",
+      "locationName": "Surgelé",
+      "order": 220
+    },
+    {
+      "name": "MINI CROISSANT",
+      "supplierCode": "000027",
+      "locationName": "Surgelé",
+      "order": 230
+    },
+    {
+      "name": "MINI GRIFFE ANGE",
+      "supplierCode": "015944",
+      "locationName": "Surgelé",
+      "order": 240
+    },
+    {
+      "name": "MINI PAIN CHOCOLAT",
+      "supplierCode": "000028",
+      "locationName": "Surgelé",
+      "order": 250
+    },
+    {
+      "name": "MINI PAIN RAISINS",
+      "supplierCode": "000029",
+      "locationName": "Surgelé",
+      "order": 260
+    },
+    {
+      "name": "MUFFIN CHOCOLAT FOURRÉ CHOCOLAT NOISETTE",
+      "supplierCode": "000021",
+      "locationName": "Surgelé",
+      "order": 270
+    },
+    {
+      "name": "MUFFIN FOURRÉ CARAMEL",
+      "supplierCode": "000430",
+      "locationName": "Surgelé",
+      "order": 280
+    },
+    {
+      "name": "MUFFIN FOURRÉ MYRTILLE",
+      "supplierCode": "000394",
+      "locationName": "Surgelé",
+      "order": 290
+    },
+    {
+      "name": "MUFFIN NATURE",
+      "supplierCode": "000022",
+      "locationName": "Surgelé",
+      "order": 300
+    },
+    {
+      "name": "MUFFIN NATURE FOURRÉ CHOCO PÉPITES",
+      "supplierCode": "000321",
+      "locationName": "Surgelé",
+      "order": 310
+    },
+    {
+      "name": "PAIN CHOCOLAT CRU",
+      "supplierCode": "000034",
+      "locationName": "Surgelé",
+      "order": 320
+    },
+    {
+      "name": "PAIN RAISINS",
+      "supplierCode": "000015",
+      "locationName": "Surgelé",
+      "order": 330
+    },
+    {
+      "name": "POULET PANÉ FILET",
+      "supplierCode": "010634",
+      "locationName": "Surgelé",
+      "order": 340
+    },
+    {
+      "name": "POULET RÔTI FILET",
+      "supplierCode": "000069",
+      "locationName": "Surgelé",
+      "order": 350
+    },
+    {
+      "name": "DISQUE FEUILLETÉ SUCRÉ TARTELETTE",
+      "supplierCode": "000053",
+      "locationName": "Surgelé",
+      "order": 360
+    }
+  ]
+}

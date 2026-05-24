@@ -154,6 +154,24 @@ menuPermissionsSchema.statics.createDefaultPermissions = async function() {
         order: 6.64
       },
       {
+        menuId: 'commande-millange',
+        menuName: "Commande Mill'Ange",
+        menuPath: '/commande-millange',
+        isVisibleToAdmin: true,
+        isVisibleToEmployee: true,
+        requiredPermissions: [],
+        order: 6.651
+      },
+      {
+        menuId: 'stocks-millange',
+        menuName: "Stocks Mill'Ange",
+        menuPath: '/stocks-millange',
+        isVisibleToAdmin: true,
+        isVisibleToEmployee: true,
+        requiredPermissions: [],
+        order: 6.641
+      },
+      {
         menuId: 'employee-status',
         menuName: 'État Salariés',
         menuPath: '/employee-status',

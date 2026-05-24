@@ -3,6 +3,7 @@ const mongoose = require('mongoose');
 const supplierOrderProductSchema = new mongoose.Schema(
   {
     siteKey: { type: String, enum: ['lon', 'plan'], required: true, index: true },
+    supplier: { type: String, enum: ['TGT', 'MILLANGE'], default: 'TGT', index: true },
     name: { type: String, required: true, trim: true },
     /** Référence fournisseur (ex. code TGT) */
     supplierCode: { type: String, default: '', trim: true },
@@ -18,6 +19,6 @@ const supplierOrderProductSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-supplierOrderProductSchema.index({ siteKey: 1, name: 1 }, { unique: true });
+supplierOrderProductSchema.index({ siteKey: 1, supplier: 1, name: 1 }, { unique: true });
 
 module.exports = mongoose.model('SupplierOrderProduct', supplierOrderProductSchema);

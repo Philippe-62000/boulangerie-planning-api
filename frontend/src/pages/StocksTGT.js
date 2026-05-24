@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import api from '../services/api';
 import { getSiteKey } from '../config/site';
+import { getOrderChannel } from '../config/orderChannels';
 import './StocksTGT.css';
 
 const formatDateTime = (d) => {
@@ -21,9 +22,13 @@ const formatDateTime = (d) => {
 
 const resolveLocationName = (name) => (name && String(name).trim()) || 'Sans emplacement';
 
-const StocksTGT = () => {
+const StocksTGT = ({ channelKey = 'TGT' }) => {
+  const channel = getOrderChannel(channelKey);
+  const supplier = channel.supplier;
   const siteKey = getSiteKey();
   const siteLabel = siteKey === 'lon' ? 'Longuenesse' : 'Arras';
+  const apiQ = useCallback((extra = {}) => ({ siteKey, supplier, ...extra }), [siteKey, supplier]);
+  const stocksBase = channel.stocksPath;
   const navigate = useNavigate();
   const location = useLocation();
   const { entryId: routeEntryId } = useParams();
@@ -61,9 +66,9 @@ const StocksTGT = () => {
   }, [products]);
 
   const loadProducts = useCallback(async () => {
-    const res = await api.get('/tgt-stocks/products', { params: { siteKey } });
+    const res = await api.get('/tgt-stocks/products', { params: apiQ() });
     setProducts(Array.isArray(res.data?.data) ? res.data.data : []);
-  }, [siteKey]);
+  }, [apiQ]);
 
   const loadEmployees = useCallback(async () => {
     const res = await api.get('/employees');
@@ -74,7 +79,7 @@ const StocksTGT = () => {
   const loadHistory = useCallback(async () => {
     setHistoryLoading(true);
     try {
-      const res = await api.get('/tgt-stocks/entries', { params: { siteKey, limit: 100 } });
+      const res = await api.get('/tgt-stocks/entries', { params: apiQ({ limit: 100 }) });
       setHistory(Array.isArray(res.data?.data) ? res.data.data : []);
     } catch (e) {
       console.error(e);
@@ -82,13 +87,13 @@ const StocksTGT = () => {
     } finally {
       setHistoryLoading(false);
     }
-  }, [siteKey]);
+  }, [apiQ]);
 
   const loadEntryDetail = useCallback(
     async (id) => {
       setLoading(true);
       try {
-        const res = await api.get(`/tgt-stocks/entries/${id}`, { params: { siteKey } });
+        const res = await api.get(`/tgt-stocks/entries/${id}`, { params: apiQ() });
         setDetailEntry(res.data?.data || null);
       } catch (e) {
         console.error(e);
@@ -98,7 +103,7 @@ const StocksTGT = () => {
         setLoading(false);
       }
     },
-    [siteKey]
+    [apiQ]
   );
 
   useEffect(() => {
@@ -119,8 +124,8 @@ const StocksTGT = () => {
         const status = e.response?.status;
         const errText =
           status === 404
-            ? 'L’API stocks TGT n’est pas encore déployée sur le serveur (Render api-4). Committez et redéployez le backend, puis rechargez la page.'
-            : 'Erreur de chargement des données stocks TGT.';
+            ? `L’API stocks (${channel.stocksTitle}) n’est pas encore déployée sur le serveur (Render api-4). Committez et redéployez le backend, puis rechargez la page.`
+            : `Erreur de chargement des données ${channel.stocksTitle}.`;
         setLoadError(errText);
         setMessage({ type: 'error', text: errText });
       } finally {
@@ -160,16 +165,16 @@ const StocksTGT = () => {
   const openHistory = async () => {
     setView('historique');
     setMessage(null);
-    navigate('/stocks-tgt/historique');
+    navigate(`${stocksBase}/historique`);
     await loadHistory();
   };
 
   const openDetail = (id) => {
-    navigate(`/stocks-tgt/historique/${id}`);
+    navigate(`${stocksBase}/historique/${id}`);
   };
 
   const backToSaisie = () => {
-    navigate('/stocks-tgt');
+    navigate(stocksBase);
     setView('saisie');
     setDetailEntry(null);
     setMessage(null);
@@ -200,7 +205,7 @@ const StocksTGT = () => {
       return;
     }
 
-    if (!window.confirm(`Envoyer la saisie stocks TGT pour ${employeeName} (${items.length} produit(s)) ?`)) {
+    if (!window.confirm(`Envoyer la saisie ${channel.stocksTitle} pour ${employeeName} (${items.length} produit(s)) ?`)) {
       return;
     }
 
@@ -208,7 +213,7 @@ const StocksTGT = () => {
     setMessage(null);
     try {
       const res = await api.post('/tgt-stocks/entry', {
-        siteKey,
+        ...apiQ(),
         employeeId: selectedEmployeeId,
         employeeName,
         items
@@ -245,7 +250,7 @@ const StocksTGT = () => {
       <div className="stocks-tgt-page">
         <header className="stocks-tgt-header no-print">
           <div>
-            <h1>Historique stocks TGT</h1>
+            <h1>Historique {channel.stocksTitle}</h1>
             <p className="stocks-tgt-subtitle">{siteLabel}</p>
           </div>
           <button type="button" className="btn btn-secondary" onClick={backToSaisie}>
@@ -289,7 +294,7 @@ const StocksTGT = () => {
       <div className="stocks-tgt-page">
         <header className="stocks-tgt-header no-print">
           <div>
-            <h1>Saisie stocks TGT</h1>
+            <h1>Saisie {channel.stocksTitle}</h1>
             <p className="stocks-tgt-subtitle">
               {siteLabel} — {formatDateTime(detailEntry?.createdAt)} — {detailEntry?.employeeName || '—'}
             </p>
@@ -338,7 +343,7 @@ const StocksTGT = () => {
     <div className={`stocks-tgt-page${printMode ? ' print-mode-modele' : ''}`}>
       <header className="stocks-tgt-header no-print">
         <div>
-          <h1>Stocks TGT</h1>
+          <h1>{channel.stocksTitle}</h1>
           <p className="stocks-tgt-subtitle">{siteLabel} — saisie des stocks magasin</p>
         </div>
         <div className="stocks-tgt-header-actions">
@@ -370,7 +375,7 @@ const StocksTGT = () => {
       </div>
 
       <div className="stocks-tgt-print-title print-only">
-        <h2>Modèle stocks TGT — {siteLabel}</h2>
+        <h2>Modèle {channel.stocksTitle} — {siteLabel}</h2>
         <p>Emplacement, produit et case stock à remplir.</p>
       </div>
 
@@ -379,7 +384,7 @@ const StocksTGT = () => {
       ) : loadError ? (
         <p className="stocks-tgt-empty">{loadError}</p>
       ) : groupedProducts.length === 0 ? (
-        <p className="stocks-tgt-empty">Aucun produit TGT actif. Configurez le catalogue dans Commande TGT.</p>
+        <p className="stocks-tgt-empty">Aucun produit actif. {channel.emptyProductsHint}</p>
       ) : (
         <>
           <div className="stocks-tgt-saisie no-print">

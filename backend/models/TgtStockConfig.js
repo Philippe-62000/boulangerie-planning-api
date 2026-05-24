@@ -7,8 +7,9 @@ const tgtStockConfigSchema = new mongoose.Schema(
       type: String,
       enum: ['lon', 'plan'],
       required: true,
-      unique: true
+      index: true
     },
+    supplier: { type: String, enum: ['TGT', 'MILLANGE'], default: 'TGT', index: true },
     submissionDays: {
       type: [Number],
       default: [],
@@ -22,5 +23,7 @@ const tgtStockConfigSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
+
+tgtStockConfigSchema.index({ siteKey: 1, supplier: 1 }, { unique: true });
 
 module.exports = mongoose.model('TgtStockConfig', tgtStockConfigSchema);

@@ -2,6 +2,7 @@ const TgtStockConfig = require('../models/TgtStockConfig');
 const TgtStockEntry = require('../models/TgtStockEntry');
 const SupplierOrderProduct = require('../models/SupplierOrderProduct');
 const SupplierOrderLocation = require('../models/SupplierOrderLocation');
+const { parseSupplier, catalogQuery } = require('../utils/supplierChannel');
 const {
   normalizeSubmissionDays,
   isSubmissionUpToDate,
@@ -11,53 +12,64 @@ const {
 } = require('../utils/tgtStockSchedule');
 
 const normalizeSiteKey = (raw) => (raw === 'lon' ? 'lon' : 'plan');
+const getSupplierFromReq = (req) => parseSupplier(req.query?.supplier || req.body?.supplier);
+
+const stockConfigQuery = (siteKey, supplier) => ({ siteKey: normalizeSiteKey(siteKey), supplier: parseSupplier(supplier) });
 
 const getConfig = async (req, res) => {
   try {
     const siteKey = normalizeSiteKey(req.query.siteKey);
-    let cfg = await TgtStockConfig.findOne({ siteKey }).lean();
+    const supplier = getSupplierFromReq(req);
+    let cfg = await TgtStockConfig.findOne(stockConfigQuery(siteKey, supplier)).lean();
     if (!cfg) {
-      cfg = { siteKey, submissionDays: [] };
+      cfg = { siteKey, supplier, submissionDays: [] };
     }
     res.json({
       success: true,
       data: {
         siteKey,
+        supplier,
         submissionDays: normalizeSubmissionDays(cfg.submissionDays)
       },
       dayLabels: DAY_LABELS
     });
   } catch (e) {
     console.error('tgtStock getConfig', e);
-    res.status(500).json({ success: false, error: 'Erreur chargement config stocks TGT' });
+    res.status(500).json({ success: false, error: 'Erreur chargement config stocks' });
   }
 };
 
 const putConfig = async (req, res) => {
   try {
     const siteKey = normalizeSiteKey(req.body.siteKey || req.query.siteKey);
+    const supplier = getSupplierFromReq(req);
     const submissionDays = normalizeSubmissionDays(req.body.submissionDays);
     const cfg = await TgtStockConfig.findOneAndUpdate(
-      { siteKey },
-      { siteKey, submissionDays },
+      stockConfigQuery(siteKey, supplier),
+      { siteKey, supplier, submissionDays },
       { upsert: true, new: true, setDefaultsOnInsert: true }
     ).lean();
     res.json({
       success: true,
-      data: { siteKey, submissionDays: cfg.submissionDays }
+      data: { siteKey, supplier, submissionDays: cfg.submissionDays }
     });
   } catch (e) {
     console.error('tgtStock putConfig', e);
-    res.status(500).json({ success: false, error: 'Erreur enregistrement config stocks TGT' });
+    res.status(500).json({ success: false, error: 'Erreur enregistrement config stocks' });
   }
 };
 
 const getProductsForEntry = async (req, res) => {
   try {
     const siteKey = normalizeSiteKey(req.query.siteKey);
+    const supplier = getSupplierFromReq(req);
     const [products, locations] = await Promise.all([
-      SupplierOrderProduct.find({ siteKey, isActive: true }).sort({ order: 1, name: 1 }).lean(),
-      SupplierOrderLocation.find({ siteKey, isActive: true }).sort({ order: 1, name: 1 }).lean()
+      SupplierOrderProduct.find({ ...catalogQuery(siteKey, supplier), isActive: true })
+        .sort({ order: 1, name: 1 })
+        .lean(),
+      SupplierOrderLocation.find({ ...catalogQuery(siteKey, supplier), isActive: true })
+        .sort({ order: 1, name: 1 })
+        .lean()
     ]);
     const locById = new Map(locations.map((l) => [String(l._id), l.name]));
     const items = products.map((p) => ({
@@ -69,13 +81,14 @@ const getProductsForEntry = async (req, res) => {
     res.json({ success: true, data: items, locations: locations.map((l) => l.name) });
   } catch (e) {
     console.error('tgtStock getProductsForEntry', e);
-    res.status(500).json({ success: false, error: 'Erreur chargement produits TGT' });
+    res.status(500).json({ success: false, error: 'Erreur chargement produits' });
   }
 };
 
 const postEntry = async (req, res) => {
   try {
     const siteKey = normalizeSiteKey(req.body.siteKey);
+    const supplier = getSupplierFromReq(req);
     const employeeName = String(req.body.employeeName || req.employeeName || '').trim();
     const employeeId = req.body.employeeId || req.employeeId || null;
     const rawItems = Array.isArray(req.body.items) ? req.body.items : [];
@@ -100,24 +113,26 @@ const postEntry = async (req, res) => {
 
     const entry = await TgtStockEntry.create({
       siteKey,
+      supplier,
       employeeId: employeeId || null,
       employeeName,
       items,
       itemsCount: items.length
     });
 
-    res.json({ success: true, data: entry, message: 'Saisie stocks TGT enregistrée.' });
+    res.json({ success: true, data: entry, message: 'Saisie stocks enregistrée.' });
   } catch (e) {
     console.error('tgtStock postEntry', e);
-    res.status(500).json({ success: false, error: 'Erreur enregistrement saisie stocks TGT' });
+    res.status(500).json({ success: false, error: 'Erreur enregistrement saisie stocks' });
   }
 };
 
 const getEntries = async (req, res) => {
   try {
     const siteKey = normalizeSiteKey(req.query.siteKey);
+    const supplier = getSupplierFromReq(req);
     const limit = Math.min(200, Math.max(1, Number(req.query.limit) || 50));
-    const entries = await TgtStockEntry.find({ siteKey })
+    const entries = await TgtStockEntry.find({ siteKey, supplier })
       .sort({ createdAt: -1 })
       .limit(limit)
       .select('_id employeeName itemsCount createdAt updatedAt')
@@ -125,31 +140,33 @@ const getEntries = async (req, res) => {
     res.json({ success: true, data: entries });
   } catch (e) {
     console.error('tgtStock getEntries', e);
-    res.status(500).json({ success: false, error: 'Erreur chargement historique stocks TGT' });
+    res.status(500).json({ success: false, error: 'Erreur chargement historique stocks' });
   }
 };
 
 const getEntryById = async (req, res) => {
   try {
     const siteKey = normalizeSiteKey(req.query.siteKey);
-    const entry = await TgtStockEntry.findOne({ _id: req.params.entryId, siteKey }).lean();
+    const supplier = getSupplierFromReq(req);
+    const entry = await TgtStockEntry.findOne({ _id: req.params.entryId, siteKey, supplier }).lean();
     if (!entry) {
       return res.status(404).json({ success: false, error: 'Saisie introuvable' });
     }
     res.json({ success: true, data: entry });
   } catch (e) {
     console.error('tgtStock getEntryById', e);
-    res.status(500).json({ success: false, error: 'Erreur chargement saisie stocks TGT' });
+    res.status(500).json({ success: false, error: 'Erreur chargement saisie stocks' });
   }
 };
 
 const getStatus = async (req, res) => {
   try {
     const siteKey = normalizeSiteKey(req.query.siteKey);
-    const cfg = await TgtStockConfig.findOne({ siteKey }).lean();
+    const supplier = getSupplierFromReq(req);
+    const cfg = await TgtStockConfig.findOne(stockConfigQuery(siteKey, supplier)).lean();
     const submissionDays = normalizeSubmissionDays(cfg?.submissionDays);
 
-    const lastEntry = await TgtStockEntry.findOne({ siteKey }).sort({ createdAt: -1 }).lean();
+    const lastEntry = await TgtStockEntry.findOne({ siteKey, supplier }).sort({ createdAt: -1 }).lean();
     const lastSubmissionAt = lastEntry?.createdAt || null;
     const check = isSubmissionUpToDate(lastSubmissionAt, submissionDays);
     const { dueAnchor, nextAnchor } = getCurrentDueWindow(new Date(), submissionDays);
@@ -157,6 +174,7 @@ const getStatus = async (req, res) => {
     res.json({
       success: true,
       meta: {
+        supplier,
         lastSubmissionAt,
         lastEmployeeName: lastEntry?.employeeName || '',
         lastEntryId: lastEntry?._id || null,
@@ -171,7 +189,7 @@ const getStatus = async (req, res) => {
     });
   } catch (e) {
     console.error('tgtStock getStatus', e);
-    res.status(500).json({ success: false, error: 'Erreur statut stocks TGT' });
+    res.status(500).json({ success: false, error: 'Erreur statut stocks' });
   }
 };
 

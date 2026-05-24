@@ -9,6 +9,24 @@ const PositiveScan = require('../models/PositiveScan');
 const PositiveCatalog = require('../models/PositiveCatalog');
 const TgtStockEntry = require('../models/TgtStockEntry');
 const tgtPdfParser = require('../services/tgtPdfParser');
+const {
+  parseSupplier,
+  catalogQuery,
+  orderQuery,
+  SUPPLIER_TGT,
+  SUPPLIER_MILLANGE
+} = require('../utils/supplierChannel');
+
+const getSupplierFromReq = (req) => parseSupplier(req.query?.supplier || req.body?.supplier);
+
+const deliveryQuery = (siteKey, supplier) => {
+  const s = parseSupplier(supplier);
+  if (s === SUPPLIER_MILLANGE) return { siteKey, supplier: SUPPLIER_MILLANGE };
+  return {
+    siteKey,
+    $or: [{ supplier: SUPPLIER_TGT }, { supplier: { $exists: false } }, { supplier: null }, { supplier: '' }]
+  };
+};
 
 /** Nombre de BL conservés en historique (cmd -1 = plus récent, cmd -6 = le plus ancien). */
 const CMD_HISTORY_DEPTH = 6;
@@ -137,11 +155,14 @@ function deliveryWeekKey(friday) {
   return `${y}-${m}-${day}`;
 }
 
-async function ensureDefaultLocations(siteKey) {
-  const count = await SupplierOrderLocation.countDocuments({ siteKey });
+async function ensureDefaultLocations(siteKey, supplier = SUPPLIER_TGT) {
+  const s = parseSupplier(supplier);
+  const count = await SupplierOrderLocation.countDocuments(catalogQuery(siteKey, s));
   if (count > 0) return;
-  const docs = DEFAULT_LOCATIONS.map((name, idx) => ({
+  const defaults = s === SUPPLIER_MILLANGE ? ['Surgelé'] : DEFAULT_LOCATIONS;
+  const docs = defaults.map((name, idx) => ({
     siteKey,
+    supplier: s,
     name,
     order: idx,
     isActive: true
@@ -198,8 +219,8 @@ function mapsIsEmpty(maps) {
   return !maps.byCode.size && !maps.byName.size && !maps.byProductId.size;
 }
 
-async function fillMinus1GapsFromDeliveries(siteKey, maps) {
-  const deliveries = await SupplierOrderDelivery.find({ siteKey })
+async function fillMinus1GapsFromDeliveries(siteKey, maps, supplier = SUPPLIER_TGT) {
+  const deliveries = await SupplierOrderDelivery.find(deliveryQuery(siteKey, supplier))
     .sort({ createdAt: -1 })
     .limit(15)
     .select('lines');
@@ -277,8 +298,8 @@ function findPdfProductHit(line, pdfProducts) {
   return null;
 }
 
-async function getDeliveriesSortedByBlDate(siteKey, limit = 20) {
-  const all = await SupplierOrderDelivery.find({ siteKey }).select(
+async function getDeliveriesSortedByBlDate(siteKey, limit = 20, supplier = SUPPLIER_TGT) {
+  const all = await SupplierOrderDelivery.find(deliveryQuery(siteKey, supplier)).select(
     'lines orderDate receptionDate orderNumber createdAt'
   );
   const sorted = all.sort((a, b) => deliveryBlSortKey(b) - deliveryBlSortKey(a));
@@ -303,13 +324,14 @@ function blMetaFromDelivery(del) {
 }
 
 /** Cmd -1 … -6 : N derniers BL (date commande), puis commandes validées, puis seed sur cmd -1. */
-async function buildOrderHistoryMaps(siteKey) {
+async function buildOrderHistoryMaps(siteKey, supplier = SUPPLIER_TGT) {
+  const s = parseSupplier(supplier);
   const [deliveries, submitted] = await Promise.all([
-    getDeliveriesSortedByBlDate(siteKey, CMD_HISTORY_DEPTH),
-    SupplierOrder.find({ siteKey, status: 'submitted' })
+    getDeliveriesSortedByBlDate(siteKey, CMD_HISTORY_DEPTH, s),
+    SupplierOrder.find({ siteKey, supplier: s, status: 'submitted' })
       .sort({ deliveryDate: -1, updatedAt: -1 })
       .limit(CMD_HISTORY_DEPTH)
-      .select('lines deliveryDate deliveryWeekKey')
+      .select('lines deliveryDate deliveryWeekKey supplier')
   ]);
 
   const seedMaps = loadSeedQtyMaps(siteKey);
@@ -599,23 +621,31 @@ function sanitizeLine(l, avgConsumptionQty = null) {
 }
 
 /** Rattache la commande au catalogue (emplacements produits + cmd historique). */
-async function reconcileCurrentOrderLines(siteKey, existingLines = [], { overwriteCmd = true } = {}) {
-  const built = await buildLinesFromCatalog(siteKey, existingLines, { fillEmptyCmdOnly: true });
+async function reconcileCurrentOrderLines(
+  siteKey,
+  existingLines = [],
+  { overwriteCmd = true, supplier = SUPPLIER_TGT } = {}
+) {
+  const built = await buildLinesFromCatalog(siteKey, existingLines, {
+    fillEmptyCmdOnly: true,
+    supplier
+  });
   let merged = mergeCatalogWithExistingOrder(built, existingLines);
-  const history = await buildOrderHistoryMaps(siteKey);
+  const history = await buildOrderHistoryMaps(siteKey, supplier);
   merged = applyCmdColumnsFromHistory(merged, history, { overwrite: overwriteCmd });
   return enrichLines(siteKey, merged);
 }
 
-async function upsertCurrentOrder(siteKey, lines, extra = {}) {
+async function upsertCurrentOrder(siteKey, lines, extra = {}, supplier = SUPPLIER_TGT) {
+  const s = parseSupplier(supplier);
   const deliveryDate = getCurrentDeliveryFriday();
   const weekKey = deliveryWeekKey(deliveryDate);
   const enriched = await enrichLines(siteKey, lines);
   return SupplierOrder.findOneAndUpdate(
-    { siteKey, deliveryWeekKey: weekKey, supplier: 'TGT' },
+    orderQuery(siteKey, weekKey, s),
     {
       siteKey,
-      supplier: 'TGT',
+      supplier: s,
       deliveryWeekKey: weekKey,
       deliveryDate,
       status: 'draft',
@@ -674,10 +704,17 @@ function cumulateEmployeeStockByProduct(entries = []) {
 async function buildLinesFromCatalog(siteKey, existingLines = [], options = {}) {
   const applyHistory = options.applyHistory === true;
   const fillEmptyCmdOnly = options.fillEmptyCmdOnly === true;
+  const supplier = parseSupplier(options.supplier);
   const [products, locations, history] = await Promise.all([
-    SupplierOrderProduct.find({ siteKey, isActive: true }).sort({ order: 1, name: 1 }),
-    SupplierOrderLocation.find({ siteKey, isActive: true }).sort({ order: 1, name: 1 }),
-    buildOrderHistoryMaps(siteKey)
+    SupplierOrderProduct.find({ ...catalogQuery(siteKey, supplier), isActive: true }).sort({
+      order: 1,
+      name: 1
+    }),
+    SupplierOrderLocation.find({ ...catalogQuery(siteKey, supplier), isActive: true }).sort({
+      order: 1,
+      name: 1
+    }),
+    buildOrderHistoryMaps(siteKey, supplier)
   ]);
 
   const { locById, locByName } = buildLocationMaps(locations);
@@ -717,6 +754,7 @@ async function buildLinesFromCatalog(siteKey, existingLines = [], options = {}) 
     return computeLineMetrics({
       productId: p._id,
       productName: p.name,
+      productOrder: p.order ?? 0,
       supplierCode: code,
       locationId: locId || null,
       locationName,
@@ -764,9 +802,13 @@ function matchPositiveCount(productName, positiveMap, catalogProducts) {
 const getLocations = async (req, res) => {
   try {
     const siteKey = parseSiteKey(req.query.siteKey);
+    const supplier = getSupplierFromReq(req);
     if (!siteKey) return res.status(400).json({ success: false, error: 'siteKey requis (lon|plan)' });
-    await ensureDefaultLocations(siteKey);
-    const locations = await SupplierOrderLocation.find({ siteKey }).sort({ order: 1, name: 1 });
+    await ensureDefaultLocations(siteKey, supplier);
+    const locations = await SupplierOrderLocation.find(catalogQuery(siteKey, supplier)).sort({
+      order: 1,
+      name: 1
+    });
     res.json({ success: true, data: locations });
   } catch (e) {
     console.error('getLocations', e);
@@ -777,6 +819,7 @@ const getLocations = async (req, res) => {
 const putLocations = async (req, res) => {
   try {
     const siteKey = parseSiteKey(req.body?.siteKey);
+    const supplier = getSupplierFromReq(req);
     const items = req.body?.items;
     if (!siteKey) return res.status(400).json({ success: false, error: 'siteKey requis' });
     if (!Array.isArray(items)) return res.status(400).json({ success: false, error: 'items requis' });
@@ -786,18 +829,26 @@ const putLocations = async (req, res) => {
       if (!name) continue;
       const payload = {
         siteKey,
+        supplier,
         name,
         order: Number(item.order ?? idx),
         isActive: item.isActive !== false
       };
       if (item._id) {
-        await SupplierOrderLocation.findOneAndUpdate({ _id: item._id, siteKey }, payload);
+        await SupplierOrderLocation.findOneAndUpdate({ _id: item._id, siteKey, supplier }, payload);
       } else {
-        await SupplierOrderLocation.findOneAndUpdate({ siteKey, name }, payload, { upsert: true });
+        await SupplierOrderLocation.findOneAndUpdate(
+          { siteKey, supplier, name },
+          payload,
+          { upsert: true }
+        );
       }
     }
 
-    const locations = await SupplierOrderLocation.find({ siteKey }).sort({ order: 1, name: 1 });
+    const locations = await SupplierOrderLocation.find(catalogQuery(siteKey, supplier)).sort({
+      order: 1,
+      name: 1
+    });
     res.json({ success: true, data: locations });
   } catch (e) {
     console.error('putLocations', e);
@@ -810,9 +861,10 @@ const putLocations = async (req, res) => {
 const getProducts = async (req, res) => {
   try {
     const siteKey = parseSiteKey(req.query.siteKey);
+    const supplier = getSupplierFromReq(req);
     if (!siteKey) return res.status(400).json({ success: false, error: 'siteKey requis' });
-    await ensureDefaultLocations(siteKey);
-    const products = await SupplierOrderProduct.find({ siteKey })
+    await ensureDefaultLocations(siteKey, supplier);
+    const products = await SupplierOrderProduct.find(catalogQuery(siteKey, supplier))
       .populate('locationId', 'name order')
       .sort({ order: 1, name: 1 });
     res.json({ success: true, data: products });
@@ -825,11 +877,12 @@ const getProducts = async (req, res) => {
 const putProducts = async (req, res) => {
   try {
     const siteKey = parseSiteKey(req.body?.siteKey);
+    const supplier = getSupplierFromReq(req);
     const items = req.body?.items;
     if (!siteKey) return res.status(400).json({ success: false, error: 'siteKey requis' });
     if (!Array.isArray(items)) return res.status(400).json({ success: false, error: 'items requis' });
 
-    const allLocations = await SupplierOrderLocation.find({ siteKey });
+    const allLocations = await SupplierOrderLocation.find(catalogQuery(siteKey, supplier));
     const { locById, locByName } = buildLocationMaps(allLocations);
 
     for (const [idx, item] of items.entries()) {
@@ -838,6 +891,7 @@ const putProducts = async (req, res) => {
       const { locationId, locationName } = resolvePlacementFromItem(item, locById, locByName);
       const payload = {
         siteKey,
+        supplier,
         name,
         supplierCode: String(item.supplierCode || '').trim(),
         locationId,
@@ -848,17 +902,20 @@ const putProducts = async (req, res) => {
         isActive: item.isActive !== false
       };
       if (item._id && mongoose.Types.ObjectId.isValid(item._id)) {
-        const byId = await SupplierOrderProduct.updateOne({ _id: item._id, siteKey }, { $set: payload });
+        const byId = await SupplierOrderProduct.updateOne(
+          { _id: item._id, siteKey, supplier },
+          { $set: payload }
+        );
         if (byId.matchedCount === 0) {
           await SupplierOrderProduct.updateOne(
-            { siteKey, name },
+            { siteKey, supplier, name },
             { $set: payload },
             { upsert: true, runValidators: true }
           );
         }
       } else {
         await SupplierOrderProduct.updateOne(
-          { siteKey, name },
+          { siteKey, supplier, name },
           { $set: payload },
           { upsert: true, runValidators: true }
         );
@@ -867,17 +924,17 @@ const putProducts = async (req, res) => {
 
     const deliveryDate = getCurrentDeliveryFriday();
     const weekKey = deliveryWeekKey(deliveryDate);
-    const order = await SupplierOrder.findOne({ siteKey, deliveryWeekKey: weekKey, supplier: 'TGT' });
+    const order = await SupplierOrder.findOne(orderQuery(siteKey, weekKey, supplier));
     if (order) {
       const existingPlain = (order.lines || []).map((l) =>
         typeof l.toObject === 'function' ? l.toObject() : { ...l }
       );
-      order.lines = await reconcileCurrentOrderLines(siteKey, existingPlain);
+      order.lines = await reconcileCurrentOrderLines(siteKey, existingPlain, { supplier });
       order.markModified('lines');
       await order.save();
     }
 
-    const products = await SupplierOrderProduct.find({ siteKey })
+    const products = await SupplierOrderProduct.find(catalogQuery(siteKey, supplier))
       .populate('locationId', 'name order')
       .sort({ order: 1, name: 1 });
     res.json({ success: true, data: products });
@@ -937,18 +994,22 @@ const importProducts = async (req, res) => {
 const getCurrentOrder = async (req, res) => {
   try {
     const siteKey = parseSiteKey(req.query.siteKey);
+    const supplier = getSupplierFromReq(req);
     if (!siteKey) return res.status(400).json({ success: false, error: 'siteKey requis' });
 
-    await ensureDefaultLocations(siteKey);
+    await ensureDefaultLocations(siteKey, supplier);
     const deliveryDate = getCurrentDeliveryFriday();
     const weekKey = deliveryWeekKey(deliveryDate);
 
-    let order = await SupplierOrder.findOne({ siteKey, deliveryWeekKey: weekKey, supplier: 'TGT' });
+    let order = await SupplierOrder.findOne(orderQuery(siteKey, weekKey, supplier));
     if (!order) {
-      const lines = await enrichLines(siteKey, await buildLinesFromCatalog(siteKey, []));
+      const lines = await enrichLines(
+        siteKey,
+        await buildLinesFromCatalog(siteKey, [], { supplier })
+      );
       order = await SupplierOrder.create({
         siteKey,
-        supplier: 'TGT',
+        supplier,
         deliveryWeekKey: weekKey,
         deliveryDate,
         status: 'draft',
@@ -958,14 +1019,14 @@ const getCurrentOrder = async (req, res) => {
       const existingPlain = (order.lines || []).map((l) =>
         typeof l.toObject === 'function' ? l.toObject() : { ...l }
       );
-      order.lines = await reconcileCurrentOrderLines(siteKey, existingPlain);
+      order.lines = await reconcileCurrentOrderLines(siteKey, existingPlain, { supplier });
       order.markModified('lines');
       await order.save();
     }
 
     const [history, lastDelivery, employeeStockImports] = await Promise.all([
-      buildOrderHistoryMaps(siteKey),
-      SupplierOrderDelivery.findOne({ siteKey })
+      buildOrderHistoryMaps(siteKey, supplier),
+      SupplierOrderDelivery.findOne(deliveryQuery(siteKey, supplier))
         .sort({ createdAt: -1 })
         .select('orderNumber orderDate receptionDate fileName createdAt'),
       buildEmployeeStockImportMeta(siteKey, order.employeeStockEntryIds || [])
@@ -994,6 +1055,7 @@ const getCurrentOrder = async (req, res) => {
 const saveCurrentOrder = async (req, res) => {
   try {
     const siteKey = parseSiteKey(req.body?.siteKey);
+    const supplier = getSupplierFromReq(req);
     const lines = req.body?.lines;
     const note = req.body?.note;
     const createdByName = String(req.body?.createdByName || req.user?.name || '').trim();
@@ -1012,10 +1074,10 @@ const saveCurrentOrder = async (req, res) => {
     });
 
     const order = await SupplierOrder.findOneAndUpdate(
-      { siteKey, deliveryWeekKey: weekKey, supplier: 'TGT' },
+      orderQuery(siteKey, weekKey, supplier),
       {
         siteKey,
-        supplier: 'TGT',
+        supplier,
         deliveryWeekKey: weekKey,
         deliveryDate,
         status: 'draft',
@@ -1036,13 +1098,14 @@ const saveCurrentOrder = async (req, res) => {
 const submitCurrentOrder = async (req, res) => {
   try {
     const siteKey = parseSiteKey(req.body?.siteKey);
+    const supplier = getSupplierFromReq(req);
     const submittedByName = String(req.body?.submittedByName || req.user?.name || '').trim();
     if (!siteKey) return res.status(400).json({ success: false, error: 'siteKey requis' });
 
     const deliveryDate = getCurrentDeliveryFriday();
     const weekKey = deliveryWeekKey(deliveryDate);
 
-    const order = await SupplierOrder.findOne({ siteKey, deliveryWeekKey: weekKey, supplier: 'TGT' });
+    const order = await SupplierOrder.findOne(orderQuery(siteKey, weekKey, supplier));
     if (!order) return res.status(404).json({ success: false, error: 'Aucune commande en cours' });
 
     order.lines = await enrichLines(siteKey, order.lines || []);
@@ -1061,20 +1124,22 @@ const submitCurrentOrder = async (req, res) => {
 const refreshLastOrderQty = async (req, res) => {
   try {
     const siteKey = parseSiteKey(req.body?.siteKey);
+    const supplier = getSupplierFromReq(req);
     if (!siteKey) return res.status(400).json({ success: false, error: 'siteKey requis' });
 
     const deliveryDate = getCurrentDeliveryFriday();
     const weekKey = deliveryWeekKey(deliveryDate);
-    let order = await SupplierOrder.findOne({ siteKey, deliveryWeekKey: weekKey, supplier: 'TGT' });
+    let order = await SupplierOrder.findOne(orderQuery(siteKey, weekKey, supplier));
 
     let existingPlain = (order?.lines || []).map((l) =>
       typeof l.toObject === 'function' ? l.toObject() : { ...l }
     );
     if (!existingPlain.length) {
-      existingPlain = await buildLinesFromCatalog(siteKey, [], { fillEmptyCmdOnly: true });
+      existingPlain = await buildLinesFromCatalog(siteKey, [], { fillEmptyCmdOnly: true, supplier });
     }
 
-    let lines = await reconcileCurrentOrderLines(siteKey, existingPlain);
+    let lines = await reconcileCurrentOrderLines(siteKey, existingPlain, { supplier });
+    const history = await buildOrderHistoryMaps(siteKey, supplier);
 
     if (!lines.length) {
       return res.status(400).json({
@@ -1088,7 +1153,7 @@ const refreshLastOrderQty = async (req, res) => {
     } else {
       order = await SupplierOrder.create({
         siteKey,
-        supplier: 'TGT',
+        supplier,
         deliveryWeekKey: weekKey,
         deliveryDate,
         status: 'draft',
@@ -1112,6 +1177,7 @@ const refreshLastOrderQty = async (req, res) => {
 const applyEmployeeStocks = async (req, res) => {
   try {
     const siteKey = parseSiteKey(req.body?.siteKey);
+    const supplier = getSupplierFromReq(req);
     const entryIds = Array.isArray(req.body?.entryIds)
       ? req.body.entryIds.map((id) => String(id)).filter(Boolean)
       : [];
@@ -1120,21 +1186,21 @@ const applyEmployeeStocks = async (req, res) => {
       return res.status(400).json({ success: false, error: 'Sélectionnez au moins un import stocks salarié' });
     }
 
-    const entries = await TgtStockEntry.find({ siteKey, _id: { $in: entryIds } })
+    const entries = await TgtStockEntry.find({ siteKey, supplier, _id: { $in: entryIds } })
       .sort({ createdAt: 1 })
       .lean();
     if (!entries.length) {
-      return res.status(404).json({ success: false, error: 'Aucun import stocks TGT trouvé' });
+      return res.status(404).json({ success: false, error: 'Aucun import stocks salarié trouvé' });
     }
 
     const stockByProductId = cumulateEmployeeStockByProduct(entries);
     const deliveryDate = getCurrentDeliveryFriday();
     const weekKey = deliveryWeekKey(deliveryDate);
 
-    let order = await SupplierOrder.findOne({ siteKey, deliveryWeekKey: weekKey, supplier: 'TGT' });
+    let order = await SupplierOrder.findOne(orderQuery(siteKey, weekKey, supplier));
     let lines = order?.lines?.length
       ? (order.lines || []).map((l) => (typeof l.toObject === 'function' ? l.toObject() : { ...l }))
-      : await buildLinesFromCatalog(siteKey, []);
+      : await buildLinesFromCatalog(siteKey, [], { supplier });
 
     lines = lines.map((line) => {
       const pid = String(line.productId);
@@ -1142,7 +1208,7 @@ const applyEmployeeStocks = async (req, res) => {
       return computeLineMetrics({ ...line, stockQty: stockByProductId.get(pid) });
     });
 
-    const saved = await upsertCurrentOrder(siteKey, lines, { employeeStockEntryIds: entryIds });
+    const saved = await upsertCurrentOrder(siteKey, lines, { employeeStockEntryIds: entryIds }, supplier);
     const employeeStockImports = await buildEmployeeStockImportMeta(siteKey, entryIds);
 
     res.json({
@@ -1163,7 +1229,11 @@ const applyEmployeeStocks = async (req, res) => {
 const applyPositiveStock = async (req, res) => {
   try {
     const siteKey = parseSiteKey(req.body?.siteKey);
+    const supplier = getSupplierFromReq(req);
     if (!siteKey) return res.status(400).json({ success: false, error: 'siteKey requis' });
+    if (supplier !== SUPPLIER_TGT) {
+      return res.status(400).json({ success: false, error: 'Stocks Positive : TGT uniquement' });
+    }
 
     const [positiveMap, catalog, deliveryDate] = await Promise.all([
       getPositiveStockMap(),
@@ -1172,9 +1242,9 @@ const applyPositiveStock = async (req, res) => {
     ]);
     const weekKey = deliveryWeekKey(deliveryDate);
 
-    let order = await SupplierOrder.findOne({ siteKey, deliveryWeekKey: weekKey, supplier: 'TGT' });
+    let order = await SupplierOrder.findOne(orderQuery(siteKey, weekKey, supplier));
     if (!order) {
-      const lines = await buildLinesFromCatalog(siteKey, []);
+      const lines = await buildLinesFromCatalog(siteKey, [], { supplier });
       order = { lines };
     }
 
@@ -1184,7 +1254,7 @@ const applyPositiveStock = async (req, res) => {
       if (matched == null) return plain;
       return { ...plain, stockQty: matched };
     });
-    const saved = await upsertCurrentOrder(siteKey, updated);
+    const saved = await upsertCurrentOrder(siteKey, updated, {}, supplier);
 
     const scan = await PositiveScan.findOne().sort({ createdAt: -1 });
 
@@ -1206,11 +1276,12 @@ const applyPositiveStock = async (req, res) => {
 const getRecap = async (req, res) => {
   try {
     const siteKey = parseSiteKey(req.query.siteKey);
+    const supplier = getSupplierFromReq(req);
     if (!siteKey) return res.status(400).json({ success: false, error: 'siteKey requis' });
 
     const deliveryDate = getCurrentDeliveryFriday();
     const weekKey = deliveryWeekKey(deliveryDate);
-    const order = await SupplierOrder.findOne({ siteKey, deliveryWeekKey: weekKey, supplier: 'TGT' });
+    const order = await SupplierOrder.findOne(orderQuery(siteKey, weekKey, supplier));
     if (!order) return res.json({ success: true, data: [], meta: { deliveryDate, deliveryWeekKey: weekKey } });
 
     const recap = (order.lines || [])
@@ -1298,7 +1369,7 @@ const seedArrasCatalog = async (req, res) => {
       const seedRow = products.find((p) => p.supplierCode === line.supplierCode);
       if (seedRow?.lastOrderQty != null) line.lastOrderQty = seedRow.lastOrderQty;
     }
-    await upsertCurrentOrder(siteKey, lines);
+    await upsertCurrentOrder(siteKey, lines, {}, SUPPLIER_TGT);
 
     res.json({
       success: true,
@@ -1312,44 +1383,99 @@ const seedArrasCatalog = async (req, res) => {
   }
 };
 
-const importDeliveryPdf = async (req, res) => {
-  try {
-    const siteKey = parseSiteKey(req.body?.siteKey || req.query?.siteKey);
-    const file = req.file;
-    if (!siteKey) return res.status(400).json({ success: false, error: 'siteKey requis' });
-    if (!file?.buffer) return res.status(400).json({ success: false, error: 'PDF requis' });
+async function seedMillangeCatalogForSite(siteKey = 'plan') {
+  if (siteKey !== 'plan') {
+    throw new Error("Seed catalogue Mill'Ange : site Arras (plan) uniquement");
+  }
+  const supplier = SUPPLIER_MILLANGE;
+  const seedPath = path.join(__dirname, '../data/millange-arras-catalog-seed.json');
+  if (!fs.existsSync(seedPath)) {
+    throw new Error("Fichier seed Mill'Ange absent");
+  }
+  const seed = JSON.parse(fs.readFileSync(seedPath, 'utf8'));
+  const products = seed.products || [];
+  await ensureDefaultLocations(siteKey, supplier);
+  const locations = await SupplierOrderLocation.find(catalogQuery(siteKey, supplier));
+  const { locById, locByName } = buildLocationMaps(locations);
 
-    const { meta, products } = await tgtPdfParser.parsePdfBuffer(file.buffer);
-    await ensureDefaultLocations(siteKey);
-    const locations = await SupplierOrderLocation.find({ siteKey });
+  let imported = 0;
+  for (const [idx, row] of products.entries()) {
+    const name = String(row.name || '').trim();
+    if (!name) continue;
+    const locationName = String(row.locationName || 'Surgelé').trim();
+    const resolved = resolvePlacementFromItem({ locationName }, locById, locByName);
+    await SupplierOrderProduct.updateOne(
+      { siteKey, supplier, supplierCode: row.supplierCode || name },
+      {
+        $set: {
+          siteKey,
+          supplier,
+          name,
+          supplierCode: String(row.supplierCode || '').trim(),
+          locationId: resolved.locationId,
+          locationName: resolved.locationName || locationName,
+          unit: row.unit || 'Colis',
+          order: Number(row.order ?? idx * 10),
+          isActive: true
+        }
+      },
+      { upsert: true, runValidators: true }
+    );
+    imported += 1;
+  }
+
+  const lines = await buildLinesFromCatalog(siteKey, [], { supplier });
+  await upsertCurrentOrder(siteKey, lines, {}, supplier);
+  return { imported, productCount: products.length };
+}
+
+const seedMillangeCatalog = async (req, res) => {
+  try {
+    const siteKey = parseSiteKey(req.body?.siteKey) || 'plan';
+    const result = await seedMillangeCatalogForSite(siteKey);
+    res.json({ success: true, ...result });
+  } catch (e) {
+    console.error('seedMillangeCatalog', e);
+    res.status(500).json({ success: false, error: e.message || 'Erreur seed Mill\'Ange' });
+  }
+};
+
+async function importDeliveryPdfForSite(siteKey, supplier, buffer, originalName = '') {
+  const { meta, products } = await tgtPdfParser.parsePdfBuffer(buffer);
+    await ensureDefaultLocations(siteKey, supplier);
+    const locations = await SupplierOrderLocation.find(catalogQuery(siteKey, supplier));
     const { locById, locByName } = buildLocationMaps(locations);
+    const defaultLocName = supplier === SUPPLIER_MILLANGE ? 'Surgelé' : '';
 
     for (const [idx, p] of products.entries()) {
       const existing = await SupplierOrderProduct.findOne({
         siteKey,
+        supplier,
         supplierCode: p.supplierCode
-      }).select('locationId locationName');
+      }).select('locationId locationName order');
       let locationId = null;
-      let locationName = String(p.locationName || '').trim();
+      let locationName = String(p.locationName || defaultLocName || '').trim();
       if (existing?.locationId || existing?.locationName) {
         locationId = existing.locationId || null;
         locationName = String(existing.locationName || '').trim();
-      } else {
+      } else if (locationName) {
         const resolved = resolvePlacementFromItem({ locationName }, locById, locByName);
         locationId = resolved.locationId;
         locationName = resolved.locationName;
       }
+      const productOrder = existing?.order != null ? existing.order : idx * 10;
       await SupplierOrderProduct.updateOne(
-        { siteKey, supplierCode: p.supplierCode },
+        { siteKey, supplier, supplierCode: p.supplierCode },
         {
           $set: {
             siteKey,
+            supplier,
             name: p.name,
             supplierCode: p.supplierCode,
             locationId,
             locationName,
             unit: p.unit || 'pièce',
-            order: idx,
+            order: productOrder,
             isActive: true
           }
         },
@@ -1359,15 +1485,15 @@ const importDeliveryPdf = async (req, res) => {
 
     if (meta.orderNumber) {
       await SupplierOrderDelivery.findOneAndUpdate(
-        { siteKey, orderNumber: meta.orderNumber },
+        { siteKey, supplier, orderNumber: meta.orderNumber },
         {
           siteKey,
-          supplier: 'TGT',
+          supplier,
           orderNumber: meta.orderNumber,
           orderDate: meta.orderDate || '',
           receptionDate: meta.receptionDate || '',
           source: 'pdf',
-          fileName: file.originalname || '',
+          fileName: originalName || '',
           lines: products.map((p) => ({
             supplierCode: p.supplierCode,
             productName: p.name,
@@ -1383,10 +1509,10 @@ const importDeliveryPdf = async (req, res) => {
 
     const deliveryDate = getCurrentDeliveryFriday();
     const weekKey = deliveryWeekKey(deliveryDate);
-    let order = await SupplierOrder.findOne({ siteKey, deliveryWeekKey: weekKey, supplier: 'TGT' });
+    let order = await SupplierOrder.findOne(orderQuery(siteKey, weekKey, supplier));
     const existingPlain = (order?.lines || []).map((l) => (l.toObject ? l.toObject() : { ...l }));
 
-    let lines = await buildLinesFromCatalog(siteKey, existingPlain, { applyHistory: true });
+    let lines = await buildLinesFromCatalog(siteKey, existingPlain, { applyHistory: true, supplier });
     lines = mergeCatalogWithExistingOrder(lines, existingPlain);
     lines = lines.map((line) => {
       const hit = findPdfProductHit(line, products);
@@ -1399,13 +1525,11 @@ const importDeliveryPdf = async (req, res) => {
       });
     });
 
-    const history = await buildOrderHistoryMaps(siteKey);
+    const history = await buildOrderHistoryMaps(siteKey, supplier);
     lines = applyCmdColumnsFromHistory(lines, history, { overwrite: true });
 
-    const saved = await upsertCurrentOrder(siteKey, lines);
-
-    res.json({
-      success: true,
+    const saved = await upsertCurrentOrder(siteKey, lines, {}, supplier);
+    return {
       data: saved,
       meta: {
         ...meta,
@@ -1413,7 +1537,24 @@ const importDeliveryPdf = async (req, res) => {
         matchedLines: lines.filter((l) => l.receivedQty != null).length,
         ...buildCmdHistoryResponseMeta(history, lines)
       }
-    });
+    };
+}
+
+const importDeliveryPdf = async (req, res) => {
+  try {
+    const siteKey = parseSiteKey(req.body?.siteKey || req.query?.siteKey);
+    const supplier = getSupplierFromReq(req);
+    const file = req.file;
+    if (!siteKey) return res.status(400).json({ success: false, error: 'siteKey requis' });
+    if (!file?.buffer) return res.status(400).json({ success: false, error: 'PDF requis' });
+
+    const result = await importDeliveryPdfForSite(
+      siteKey,
+      supplier,
+      file.buffer,
+      file.originalname || ''
+    );
+    res.json({ success: true, ...result });
   } catch (e) {
     console.error('importDeliveryPdf', e);
     res.status(500).json({ success: false, error: e.message || 'Erreur import PDF' });
@@ -1423,19 +1564,24 @@ const importDeliveryPdf = async (req, res) => {
 const applyReceivedFromLast = async (req, res) => {
   try {
     const siteKey = parseSiteKey(req.body?.siteKey);
+    const supplier = getSupplierFromReq(req);
     if (!siteKey) return res.status(400).json({ success: false, error: 'siteKey requis' });
 
-    const lastOrder = await getLastSubmittedOrder(siteKey);
+    const lastOrder = await SupplierOrder.findOne({
+      siteKey,
+      supplier,
+      status: 'submitted'
+    }).sort({ deliveryDate: -1, updatedAt: -1 });
     if (!lastOrder) {
       return res.status(404).json({ success: false, error: 'Aucune commande validée précédente' });
     }
 
     const deliveryDate = getCurrentDeliveryFriday();
     const weekKey = deliveryWeekKey(deliveryDate);
-    let order = await SupplierOrder.findOne({ siteKey, deliveryWeekKey: weekKey, supplier: 'TGT' });
+    let order = await SupplierOrder.findOne(orderQuery(siteKey, weekKey, supplier));
     let lines = order?.lines?.length
       ? order.lines.map((l) => (l.toObject ? l.toObject() : { ...l }))
-      : await buildLinesFromCatalog(siteKey, []);
+      : await buildLinesFromCatalog(siteKey, [], { supplier });
 
     const byId = new Map();
     const byCode = new Map();
@@ -1455,7 +1601,7 @@ const applyReceivedFromLast = async (req, res) => {
       return computeLineMetrics({ ...line, receivedQty: qty });
     });
 
-    const saved = await upsertCurrentOrder(siteKey, lines);
+    const saved = await upsertCurrentOrder(siteKey, lines, {}, supplier);
     res.json({
       success: true,
       data: saved,
@@ -1470,12 +1616,13 @@ const applyReceivedFromLast = async (req, res) => {
 const computeForecast = async (req, res) => {
   try {
     const siteKey = parseSiteKey(req.body?.siteKey);
+    const supplier = getSupplierFromReq(req);
     const apply = req.body?.apply === true || req.body?.apply === 'true';
     if (!siteKey) return res.status(400).json({ success: false, error: 'siteKey requis' });
 
     const deliveryDate = getCurrentDeliveryFriday();
     const weekKey = deliveryWeekKey(deliveryDate);
-    const order = await SupplierOrder.findOne({ siteKey, deliveryWeekKey: weekKey, supplier: 'TGT' });
+    const order = await SupplierOrder.findOne(orderQuery(siteKey, weekKey, supplier));
     if (!order) return res.status(404).json({ success: false, error: 'Aucune commande en cours' });
 
     let lines = await enrichLines(siteKey, order.lines || []);
@@ -1488,7 +1635,7 @@ const computeForecast = async (req, res) => {
       });
     }
 
-    const saved = await upsertCurrentOrder(siteKey, lines);
+    const saved = await upsertCurrentOrder(siteKey, lines, {}, supplier);
     const outLines = saved.lines || lines;
     const rolling = await buildRollingConsumptionMap(siteKey, weekKey, ROLLING_WEEKS);
 
@@ -1523,7 +1670,10 @@ module.exports = {
   applyEmployeeStocks,
   getRecap,
   seedArrasCatalog,
+  seedMillangeCatalog,
+  seedMillangeCatalogForSite,
   importDeliveryPdf,
+  importDeliveryPdfForSite,
   applyReceivedFromLast,
   computeForecast
 };

@@ -435,6 +435,22 @@
   align-items: center;
 }
 
+.config-row-product:has(.config-order-btns) {
+  grid-template-columns: 52px 1fr 100px 160px auto;
+}
+
+.config-order-btns {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.btn-order-move {
+  padding: 0.2rem 0.45rem;
+  font-size: 0.85rem;
+  line-height: 1;
+}
+
 .config-row-product--inactive {
   opacity: 0.72;
 }
