@@ -1,3 +1,6 @@
+const DailySales = require('../models/DailySales');
+const Employee = require('../models/Employee');
+const Parameter = require('../models/Parameters');
 const { parseSalesPlanningPdf, WEEK_DAYS: PLANNING_WEEK_DAYS } = require('../services/salesPlanningPdfParser');
 
 const getWeekStartDate = (inputDate = new Date()) => {

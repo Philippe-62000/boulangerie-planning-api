@@ -444,6 +444,81 @@
   background: #f4f5f7;
 }
 
+.config-row-product--no-location {
+  background: #fff5f5;
+  border-left: 3px solid #dc3545;
+  padding-left: 0.5rem;
+}
+
+.config-row-product--no-location select {
+  border-color: #dc3545;
+  color: #b02a37;
+}
+
+.config-no-location-label {
+  color: #dc3545;
+}
+
+.stock-import-dates {
+  display: block;
+  margin-top: 0.2rem;
+  font-size: 0.68rem;
+  line-height: 1.25;
+  color: #555;
+  max-width: 6.5rem;
+  word-break: break-word;
+}
+
+.commande-tgt-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+.commande-tgt-modal {
+  background: #fff;
+  border-radius: 12px;
+  max-width: 520px;
+  width: 100%;
+  max-height: 80vh;
+  overflow: auto;
+  padding: 1.25rem 1.5rem;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.2);
+}
+
+.commande-tgt-modal h3 {
+  margin: 0 0 0.5rem;
+}
+
+.stock-import-list {
+  list-style: none;
+  margin: 0.75rem 0;
+  padding: 0;
+  max-height: 50vh;
+  overflow-y: auto;
+}
+
+.stock-import-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid #eee;
+  cursor: pointer;
+}
+
+.commande-tgt-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
 .btn-product-toggle {
   white-space: nowrap;
   padding: 0.45rem 0.65rem;

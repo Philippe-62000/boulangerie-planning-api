@@ -27,6 +27,7 @@ router.put('/current', authenticateEmployee, ctrl.saveCurrentOrder);
 router.post('/current/submit', authenticateEmployee, ctrl.submitCurrentOrder);
 router.post('/current/refresh-last', authenticateEmployee, ctrl.refreshLastOrderQty);
 router.post('/current/apply-positive', authenticateEmployee, ctrl.applyPositiveStock);
+router.post('/current/apply-employee-stocks', authenticateEmployee, ctrl.applyEmployeeStocks);
 
 router.get('/recap', authenticateEmployee, ctrl.getRecap);
 

@@ -40,7 +40,12 @@ const supplierOrderSchema = new mongoose.Schema(
     lines: { type: [supplierOrderLineSchema], default: [] },
     createdByName: { type: String, default: '' },
     submittedByName: { type: String, default: '' },
-    note: { type: String, default: '', maxlength: 500 }
+    note: { type: String, default: '', maxlength: 500 },
+    /** Imports Stocks TGT salariés cumulés pour le stock de la commande courante */
+    employeeStockEntryIds: {
+      type: [{ type: mongoose.Schema.Types.ObjectId, ref: 'TgtStockEntry' }],
+      default: []
+    }
   },
   { timestamps: true }
 );

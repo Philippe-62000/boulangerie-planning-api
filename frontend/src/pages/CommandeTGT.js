@@ -146,6 +146,10 @@ const CommandeTGT = () => {
   const [tgtStockSubmissionDays, setTgtStockSubmissionDays] = useState([]);
   const TGT_STOCK_DAY_LABELS = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
   const [printMode, setPrintMode] = useState(null);
+  const [stockImportModalOpen, setStockImportModalOpen] = useState(false);
+  const [stockImportEntries, setStockImportEntries] = useState([]);
+  const [stockImportLoading, setStockImportLoading] = useState(false);
+  const [selectedStockEntryIds, setSelectedStockEntryIds] = useState([]);
   const pdfInputRef = React.useRef(null);
   /** Ignore les réponses GET en retard après une maj. « dernière commande ». */
   const loadSeqRef = React.useRef(0);
@@ -410,6 +414,70 @@ const CommandeTGT = () => {
     } catch (e) {
       console.error(e);
       setMessage({ type: 'error', text: 'Impossible d’appliquer Positive.' });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const employeeStockImports = meta?.employeeStockImports || [];
+
+  const openEmployeeStockImport = async () => {
+    setStockImportModalOpen(true);
+    setStockImportLoading(true);
+    try {
+      const res = await api.get('/tgt-stocks/entries', { params: { siteKey, limit: 100 } });
+      const list = Array.isArray(res.data?.data) ? res.data.data : [];
+      setStockImportEntries(list);
+      const preselected = (employeeStockImports || []).map((i) => String(i.entryId)).filter(Boolean);
+      setSelectedStockEntryIds(preselected.length ? preselected : []);
+    } catch (e) {
+      console.error(e);
+      setMessage({ type: 'error', text: 'Impossible de charger la liste des imports stocks TGT.' });
+      setStockImportModalOpen(false);
+    } finally {
+      setStockImportLoading(false);
+    }
+  };
+
+  const toggleStockEntrySelection = (entryId) => {
+    const id = String(entryId);
+    setSelectedStockEntryIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    );
+  };
+
+  const applyEmployeeStocks = async () => {
+    if (!selectedStockEntryIds.length) {
+      setMessage({ type: 'error', text: 'Sélectionnez au moins un import.' });
+      return;
+    }
+    setSaving(true);
+    setMessage(null);
+    try {
+      const res = await api.post('/supplier-orders/current/apply-employee-stocks', {
+        siteKey,
+        entryIds: selectedStockEntryIds
+      });
+      setLines(Array.isArray(res.data?.data?.lines) ? res.data.data.lines : lines);
+      if (res.data?.meta) {
+        setMeta((m) => ({
+          ...m,
+          employeeStockImports: res.data.meta.employeeStockImports || []
+        }));
+      }
+      const matched = res.data?.meta?.matchedProducts ?? 0;
+      const count = res.data?.meta?.importCount ?? selectedStockEntryIds.length;
+      setMessage({
+        type: 'success',
+        text: `Stocks salariés cumulés (${count} import(s), ${matched} produit(s) renseignés).`
+      });
+      setStockImportModalOpen(false);
+    } catch (e) {
+      console.error(e);
+      setMessage({
+        type: 'error',
+        text: e.response?.data?.error || 'Erreur import stocks salariés.'
+      });
     } finally {
       setSaving(false);
     }
@@ -750,6 +818,14 @@ const CommandeTGT = () => {
                     onChange={(e) => importPdf(e.target.files?.[0])}
                   />
                 </label>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={openEmployeeStockImport}
+                  disabled={saving}
+                >
+                  Importer stocks salarié
+                </button>
               </div>
 
               {orderStatus === 'submitted' && (
@@ -847,7 +923,7 @@ const CommandeTGT = () => {
                                   {cmdQtyCell(line, field)}
                                 </td>
                               ))}
-                              <td className="col-num col-saisie">
+                              <td className="col-num col-saisie col-stock">
                                 <input
                                   type="number"
                                   min="0"
@@ -858,6 +934,14 @@ const CommandeTGT = () => {
                                   placeholder="—"
                                   onChange={(e) => updateLine(line.productId, 'stockQty', e.target.value)}
                                 />
+                                {employeeStockImports.length > 0 ? (
+                                  <div
+                                    className="stock-import-dates no-print"
+                                    title="Imports stocks salariés cumulés"
+                                  >
+                                    {employeeStockImports.map((imp) => imp.dateLabel).join(' · ')}
+                                  </div>
+                                ) : null}
                                 <span className="print-only print-saisie-val">{line.stockQty ?? ''}</span>
                                 <span className="print-only print-modele-cell" aria-hidden="true" />
                               </td>
@@ -1008,7 +1092,8 @@ const CommandeTGT = () => {
                 <h3>Produits & emplacements</h3>
                 <p className="commande-tgt-hint">
                   Utilisez « Désactiver » pour retirer un produit arrêté de la saisie. « Réactiver » le remet dans la
-                  liste.
+                  liste. Les lignes en <strong className="config-no-location-label">rouge</strong> n’ont pas
+                  d’emplacement défini.
                 </p>
                 {products.map((p, idx) => {
                   const isActive = p.isActive !== false;
@@ -1018,9 +1103,13 @@ const CommandeTGT = () => {
                       ? locations.find((l) => l.name === p.locationName)?._id
                       : null) ||
                     '';
+                  const hasNoLocation =
+                    isActive && !resolveProductLocationName(p, locations);
                   return (
                     <div
-                      className={`config-row config-row-product${isActive ? '' : ' config-row-product--inactive'}`}
+                      className={`config-row config-row-product${isActive ? '' : ' config-row-product--inactive'}${
+                        hasNoLocation ? ' config-row-product--no-location' : ''
+                      }`}
                       key={p._id || `new-p-${idx}`}
                     >
                       <input
@@ -1151,6 +1240,71 @@ const CommandeTGT = () => {
             </section>
           )}
         </>
+      )}
+
+      {stockImportModalOpen && (
+        <div
+          className="commande-tgt-modal-overlay no-print"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="stock-import-modal-title"
+          onClick={() => !saving && setStockImportModalOpen(false)}
+        >
+          <div className="commande-tgt-modal" onClick={(e) => e.stopPropagation()}>
+            <h3 id="stock-import-modal-title">Importer stocks salarié</h3>
+            <p className="commande-tgt-hint">
+              Cochez un ou plusieurs envois depuis le menu Stocks TGT. Les quantités sont cumulées (ex. 0 puis 1 = 1).
+            </p>
+            {stockImportLoading ? (
+              <p>Chargement des imports…</p>
+            ) : stockImportEntries.length === 0 ? (
+              <p className="commande-tgt-hint">Aucun import stocks TGT enregistré pour le moment.</p>
+            ) : (
+              <ul className="stock-import-list">
+                {stockImportEntries.map((entry) => {
+                  const id = String(entry._id);
+                  return (
+                    <li key={id}>
+                      <label className="stock-import-item">
+                        <input
+                          type="checkbox"
+                          checked={selectedStockEntryIds.includes(id)}
+                          onChange={() => toggleStockEntrySelection(id)}
+                          disabled={saving}
+                        />
+                        <span>
+                          <strong>{formatDate(entry.createdAt)}</strong>
+                          {' — '}
+                          {entry.employeeName || 'Salarié'}
+                          {' · '}
+                          {entry.itemsCount ?? 0} produit(s)
+                        </span>
+                      </label>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+            <div className="commande-tgt-modal-actions">
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => setStockImportModalOpen(false)}
+                disabled={saving}
+              >
+                Annuler
+              </button>
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={applyEmployeeStocks}
+                disabled={saving || stockImportLoading || !selectedStockEntryIds.length}
+              >
+                {saving ? 'Application…' : 'Appliquer'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

@@ -7,6 +7,7 @@ const SupplierOrder = require('../models/SupplierOrder');
 const SupplierOrderDelivery = require('../models/SupplierOrderDelivery');
 const PositiveScan = require('../models/PositiveScan');
 const PositiveCatalog = require('../models/PositiveCatalog');
+const TgtStockEntry = require('../models/TgtStockEntry');
 const tgtPdfParser = require('../services/tgtPdfParser');
 
 /** Nombre de BL conservés en historique (cmd -1 = plus récent, cmd -6 = le plus ancien). */
@@ -625,6 +626,51 @@ async function upsertCurrentOrder(siteKey, lines, extra = {}) {
   );
 }
 
+const formatEmployeeStockImportDate = (d) => {
+  if (!d) return '';
+  try {
+    return new Date(d).toLocaleString('fr-FR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  } catch {
+    return '';
+  }
+};
+
+async function buildEmployeeStockImportMeta(siteKey, entryIds = []) {
+  const ids = (entryIds || []).filter(Boolean);
+  if (!ids.length) return [];
+  const entries = await TgtStockEntry.find({ siteKey, _id: { $in: ids } })
+    .sort({ createdAt: 1 })
+    .select('employeeName createdAt itemsCount')
+    .lean();
+  return entries.map((e) => ({
+    entryId: e._id,
+    employeeName: e.employeeName || '',
+    createdAt: e.createdAt,
+    itemsCount: e.itemsCount ?? (e.items?.length || 0),
+    dateLabel: formatEmployeeStockImportDate(e.createdAt)
+  }));
+}
+
+/** Cumule les stocks saisis par les salariés (plusieurs imports possibles). */
+function cumulateEmployeeStockByProduct(entries = []) {
+  const stockByProductId = new Map();
+  for (const entry of entries) {
+    for (const item of entry.items || []) {
+      if (item.productId == null || item.stockQty == null) continue;
+      const pid = String(item.productId);
+      const qty = Math.max(0, Number(item.stockQty) || 0);
+      stockByProductId.set(pid, (stockByProductId.get(pid) || 0) + qty);
+    }
+  }
+  return stockByProductId;
+}
+
 async function buildLinesFromCatalog(siteKey, existingLines = [], options = {}) {
   const applyHistory = options.applyHistory === true;
   const fillEmptyCmdOnly = options.fillEmptyCmdOnly === true;
@@ -917,11 +963,12 @@ const getCurrentOrder = async (req, res) => {
       await order.save();
     }
 
-    const [history, lastDelivery] = await Promise.all([
+    const [history, lastDelivery, employeeStockImports] = await Promise.all([
       buildOrderHistoryMaps(siteKey),
       SupplierOrderDelivery.findOne({ siteKey })
         .sort({ createdAt: -1 })
-        .select('orderNumber orderDate receptionDate fileName createdAt')
+        .select('orderNumber orderDate receptionDate fileName createdAt'),
+      buildEmployeeStockImportMeta(siteKey, order.employeeStockEntryIds || [])
     ]);
     const rolling = await buildRollingConsumptionMap(siteKey, weekKey, ROLLING_WEEKS);
 
@@ -934,7 +981,8 @@ const getCurrentOrder = async (req, res) => {
         ...buildCmdHistoryResponseMeta(history, order.lines || []),
         lastDeliveryBl: lastDelivery || null,
         rollingWeeksUsed: rolling.historyWeeks,
-        rollingWeeksTarget: ROLLING_WEEKS
+        rollingWeeksTarget: ROLLING_WEEKS,
+        employeeStockImports
       }
     });
   } catch (e) {
@@ -1058,6 +1106,57 @@ const refreshLastOrderQty = async (req, res) => {
   } catch (e) {
     console.error('refreshLastOrderQty', e);
     res.status(500).json({ success: false, error: 'Erreur serveur' });
+  }
+};
+
+const applyEmployeeStocks = async (req, res) => {
+  try {
+    const siteKey = parseSiteKey(req.body?.siteKey);
+    const entryIds = Array.isArray(req.body?.entryIds)
+      ? req.body.entryIds.map((id) => String(id)).filter(Boolean)
+      : [];
+    if (!siteKey) return res.status(400).json({ success: false, error: 'siteKey requis' });
+    if (!entryIds.length) {
+      return res.status(400).json({ success: false, error: 'Sélectionnez au moins un import stocks salarié' });
+    }
+
+    const entries = await TgtStockEntry.find({ siteKey, _id: { $in: entryIds } })
+      .sort({ createdAt: 1 })
+      .lean();
+    if (!entries.length) {
+      return res.status(404).json({ success: false, error: 'Aucun import stocks TGT trouvé' });
+    }
+
+    const stockByProductId = cumulateEmployeeStockByProduct(entries);
+    const deliveryDate = getCurrentDeliveryFriday();
+    const weekKey = deliveryWeekKey(deliveryDate);
+
+    let order = await SupplierOrder.findOne({ siteKey, deliveryWeekKey: weekKey, supplier: 'TGT' });
+    let lines = order?.lines?.length
+      ? (order.lines || []).map((l) => (typeof l.toObject === 'function' ? l.toObject() : { ...l }))
+      : await buildLinesFromCatalog(siteKey, []);
+
+    lines = lines.map((line) => {
+      const pid = String(line.productId);
+      if (!stockByProductId.has(pid)) return computeLineMetrics(line);
+      return computeLineMetrics({ ...line, stockQty: stockByProductId.get(pid) });
+    });
+
+    const saved = await upsertCurrentOrder(siteKey, lines, { employeeStockEntryIds: entryIds });
+    const employeeStockImports = await buildEmployeeStockImportMeta(siteKey, entryIds);
+
+    res.json({
+      success: true,
+      data: saved,
+      meta: {
+        importCount: entries.length,
+        matchedProducts: stockByProductId.size,
+        employeeStockImports
+      }
+    });
+  } catch (e) {
+    console.error('applyEmployeeStocks', e);
+    res.status(500).json({ success: false, error: 'Erreur import stocks salariés' });
   }
 };
 
@@ -1421,6 +1520,7 @@ module.exports = {
   submitCurrentOrder,
   refreshLastOrderQty,
   applyPositiveStock,
+  applyEmployeeStocks,
   getRecap,
   seedArrasCatalog,
   importDeliveryPdf,
