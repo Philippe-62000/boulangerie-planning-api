@@ -48,6 +48,7 @@ import StocksFarinesStandalone from './pages/StocksFarinesStandalone';
 import MenuPermissionGate from './components/MenuPermissionGate';
 import Positive from './pages/Positive';
 import CommandeTGT from './pages/CommandeTGT';
+import StocksTGT from './pages/StocksTGT';
 import { getSiteBasename } from './config/site';
 
 const AppContent = () => {
@@ -134,6 +135,27 @@ const AppContent = () => {
               <ProtectedRoute>
                 <MenuPermissionGate menuId="commande-tgt">
                   <CommandeTGT />
+                </MenuPermissionGate>
+              </ProtectedRoute>
+            } />
+            <Route path="/stocks-tgt" element={
+              <ProtectedRoute>
+                <MenuPermissionGate menuId="stocks-tgt">
+                  <StocksTGT />
+                </MenuPermissionGate>
+              </ProtectedRoute>
+            } />
+            <Route path="/stocks-tgt/historique" element={
+              <ProtectedRoute>
+                <MenuPermissionGate menuId="stocks-tgt">
+                  <StocksTGT />
+                </MenuPermissionGate>
+              </ProtectedRoute>
+            } />
+            <Route path="/stocks-tgt/historique/:entryId" element={
+              <ProtectedRoute>
+                <MenuPermissionGate menuId="stocks-tgt">
+                  <StocksTGT />
                 </MenuPermissionGate>
               </ProtectedRoute>
             } />

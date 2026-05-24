@@ -1,6 +1,4 @@
-const DailySales = require('../models/DailySales');
-const Employee = require('../models/Employee');
-const Parameter = require('../models/Parameters');
+const { parseSalesPlanningPdf, WEEK_DAYS: PLANNING_WEEK_DAYS } = require('../services/salesPlanningPdfParser');
 
 const getWeekStartDate = (inputDate = new Date()) => {
   const reference = inputDate instanceof Date ? new Date(inputDate) : new Date(inputDate);
@@ -277,7 +275,9 @@ exports.getWeeklyObjectives = async (req, res) => {
         perPresenceCartesFid,
         perPresencePromoRaw,
         perPresenceCartesFidRaw,
-        totalPresences
+        totalPresences,
+        manualObjectives: entry.manualObjectives === true,
+        planningUploadedAt: entry.planningUploadedAt || null
       }
     });
   } catch (error) {
@@ -293,7 +293,7 @@ exports.getWeeklyObjectives = async (req, res) => {
 // Enregistrer les objectifs hebdomadaires
 exports.setWeeklyObjectives = async (req, res) => {
   try {
-    const { objectifPromo, objectifCartesFid, presences, weekStart } = req.body;
+    const { objectifPromo, objectifCartesFid, presences, weekStart, manualObjectives, planningUploadedAt } = req.body;
     
     const rawPromo = parseFloat(objectifPromo) || 0;
     const rawCartesFid = parseFloat(objectifCartesFid) || 0;
@@ -339,6 +339,7 @@ exports.setWeeklyObjectives = async (req, res) => {
     // Sauvegarder toutes les informations détaillées dans un paramètre dédié
     const weeklyObjectivesParam = await Parameter.findOne({ name: 'weeklyObjectives' });
     const weeklyObjectives = parseWeeklyObjectives(weeklyObjectivesParam?.stringValue);
+    const existingEntry = weeklyObjectives[weekKey] || {};
 
     weeklyObjectives[weekKey] = {
       objectifPromo: rawPromo,
@@ -350,7 +351,9 @@ exports.setWeeklyObjectives = async (req, res) => {
       perPresencePromoRaw,
       perPresenceCartesFidRaw,
       totalPresences,
-      presences: presencesData
+      presences: presencesData,
+      manualObjectives: manualObjectives === true ? true : existingEntry.manualObjectives === true,
+      planningUploadedAt: planningUploadedAt || existingEntry.planningUploadedAt || null
     };
 
     await Parameter.findOneAndUpdate(
@@ -573,6 +576,126 @@ exports.getEmployeeInfoForDailySales = async (req, res) => {
   }
 };
 
+const VENDEUSE_ROLES = new Set([
+  'vendeuse',
+  'apprenti',
+  'apprenti vendeuse',
+  'manager',
+  'responsable',
+  'premiere-vendeuse',
+  'première-vendeuse'
+]);
 
+const isVendeuseRole = (role) => VENDEUSE_ROLES.has(String(role || '').toLowerCase());
+
+/** Import PDF planning → présences + objectifs (100 / 35 sauf objectifs manuels). */
+exports.importPlanningPdf = async (req, res) => {
+  try {
+    if (!req.file?.buffer) {
+      return res.status(400).json({ success: false, message: 'Fichier PDF planning requis' });
+    }
+
+    const employees = await Employee.find({ isActive: { $ne: false } }).select('name role');
+    const parsed = await parseSalesPlanningPdf(req.file.buffer, employees);
+
+    const vendeuses = employees.filter((e) => isVendeuseRole(e.role));
+    const presencesData = {};
+    vendeuses.forEach((v) => {
+      const imported = parsed.presences[String(v._id)] || {};
+      const dayStates = {};
+      PLANNING_WEEK_DAYS.forEach((jour) => {
+        dayStates[jour] = imported[jour] === true;
+      });
+      presencesData[String(v._id)] = dayStates;
+    });
+
+    const weeklyObjectivesParam = await Parameter.findOne({ name: 'weeklyObjectives' });
+    const weeklyObjectives = parseWeeklyObjectives(weeklyObjectivesParam?.stringValue);
+    const existingEntry = weeklyObjectives[parsed.weekKey] || {};
+
+    const objectifPromo = existingEntry.manualObjectives ? (existingEntry.objectifPromo ?? 35) : 35;
+    const objectifCartesFid = existingEntry.manualObjectives ? (existingEntry.objectifCartesFid ?? 100) : 100;
+
+    req.body = {
+      objectifPromo,
+      objectifCartesFid,
+      presences: presencesData,
+      weekStart: parsed.weekKey,
+      planningUploadedAt: new Date().toISOString(),
+      manualObjectives: existingEntry.manualObjectives === true
+    };
+
+    let saveResult = null;
+    let saveError = null;
+    await exports.setWeeklyObjectives(req, {
+      json: (payload) => {
+        saveResult = payload;
+      },
+      status: (code) => ({
+        json: (payload) => {
+          saveError = { code, payload };
+        }
+      })
+    });
+
+    if (saveError) {
+      return res.status(saveError.code).json(saveError.payload);
+    }
+
+    return res.json({
+      ...saveResult,
+      importMeta: {
+        weekKey: parsed.weekKey,
+        weekNumber: parsed.weekMeta.weekNumber,
+        matched: parsed.matched,
+        unmatched: parsed.unmatched,
+        parsedCount: parsed.parsedCount
+      }
+    });
+  } catch (error) {
+    console.error('❌ Import planning PDF:', error);
+    res.status(400).json({
+      success: false,
+      message: error.message || 'Erreur import planning PDF'
+    });
+  }
+};
+
+/** Alerte dashboard : planning semaine suivante manquant (vendredi → dimanche). */
+exports.getPlanningUploadStatus = async (req, res) => {
+  try {
+    const now = new Date();
+    const day = now.getDay();
+    const showWindow = day === 5 || day === 6 || day === 0;
+
+    const nextWeekStart = getWeekStartDate(now);
+    nextWeekStart.setDate(nextWeekStart.getDate() + 7);
+    const nextWeekKey = getWeekKey(nextWeekStart);
+
+    const weeklyObjectivesParam = await Parameter.findOne({ name: 'weeklyObjectives' });
+    const weeklyObjectives = parseWeeklyObjectives(weeklyObjectivesParam?.stringValue);
+    const entry = weeklyObjectives[nextWeekKey] || {};
+    const planningUploaded = Boolean(entry.planningUploadedAt);
+
+    res.json({
+      success: true,
+      data: {
+        showAlert: showWindow && !planningUploaded,
+        showWindow,
+        planningUploaded,
+        nextWeekKey,
+        nextWeekStart: nextWeekKey,
+        weekNumber: getISOWeekNumber(nextWeekStart)
+      }
+    });
+  } catch (error) {
+    console.error('❌ Statut upload planning:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erreur statut planning',
+      error: error.message
+    });
+  }
+};
 
 

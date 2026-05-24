@@ -1,0 +1,34 @@
+const mongoose = require('mongoose');
+
+const tgtStockEntryItemSchema = new mongoose.Schema(
+  {
+    productId: { type: mongoose.Schema.Types.ObjectId, ref: 'SupplierOrderProduct', required: true },
+    productName: { type: String, required: true, trim: true },
+    locationName: { type: String, default: '', trim: true },
+    stockQty: { type: Number, default: null, min: 0 }
+  },
+  { _id: false }
+);
+
+const tgtStockEntrySchema = new mongoose.Schema(
+  {
+    siteKey: {
+      type: String,
+      enum: ['lon', 'plan'],
+      required: true,
+      index: true
+    },
+    employeeId: { type: mongoose.Schema.Types.ObjectId, ref: 'Employee', default: null },
+    employeeName: { type: String, required: true, trim: true },
+    items: {
+      type: [tgtStockEntryItemSchema],
+      default: []
+    },
+    itemsCount: { type: Number, default: 0, min: 0 }
+  },
+  { timestamps: true }
+);
+
+tgtStockEntrySchema.index({ siteKey: 1, createdAt: -1 });
+
+module.exports = mongoose.model('TgtStockEntry', tgtStockEntrySchema);

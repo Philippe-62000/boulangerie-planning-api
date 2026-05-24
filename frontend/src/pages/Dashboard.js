@@ -96,6 +96,15 @@ const Dashboard = () => {
   });
   /** false = uniquement farines rouges ; true = toutes */
   const [flourStocksShowAll, setFlourStocksShowAll] = useState(false);
+  const [planningUploadAlert, setPlanningUploadAlert] = useState(null);
+  const [tgtStocksWidget, setTgtStocksWidget] = useState({
+    loading: false,
+    lastSubmissionAt: null,
+    lastEmployeeName: '',
+    submissionDaysLabel: '',
+    upToDate: true,
+    status: 'green'
+  });
 
   // Détecter si on est sur Longuenesse ou Arras
   const siteKey = getSiteKey(); // 'lon' | 'plan' (fallback persistant)
@@ -121,8 +130,40 @@ const Dashboard = () => {
     fetchPartnerOrdersPending();
     if (shouldShowLosses) {
       fetchFlourStocksWidget();
+      fetchTgtStocksWidget();
     }
+    fetchPlanningUploadStatus();
   }, [shouldShowLosses, shouldShowVehicleRecap, user?.role]);
+
+  const fetchPlanningUploadStatus = async () => {
+    try {
+      const res = await api.get('/daily-sales/planning-status');
+      setPlanningUploadAlert(res.data?.data || null);
+    } catch (e) {
+      console.warn('Statut planning vente:', e.response?.status || e.message);
+      setPlanningUploadAlert(null);
+    }
+  };
+
+  const fetchTgtStocksWidget = async () => {
+    setTgtStocksWidget((s) => ({ ...s, loading: true }));
+    const sk = getSiteKey();
+    try {
+      const res = await api.get('/tgt-stocks/status', { params: { siteKey: sk } });
+      const meta = res.data?.meta || {};
+      setTgtStocksWidget({
+        loading: false,
+        lastSubmissionAt: meta.lastSubmissionAt || null,
+        lastEmployeeName: meta.lastEmployeeName || '',
+        submissionDaysLabel: meta.submissionDaysLabel || '',
+        upToDate: meta.upToDate !== false,
+        status: meta.status === 'red' ? 'red' : 'green'
+      });
+    } catch (e) {
+      console.warn('Widget stocks TGT:', e.response?.status || e.message);
+      setTgtStocksWidget((s) => ({ ...s, loading: false }));
+    }
+  };
 
   const applyFlourWidgetFromStatusPayload = (payload) => {
     const items = Array.isArray(payload?.data) ? payload.data : [];
@@ -691,6 +732,28 @@ const Dashboard = () => {
         )}
       </div>
 
+      {planningUploadAlert?.showAlert && (
+        <div
+          className="card"
+          style={{
+            marginBottom: '1.25rem',
+            padding: '1rem 1.25rem',
+            border: '1px solid #ffc107',
+            background: '#fff8e1',
+            color: '#856404'
+          }}
+        >
+          <strong>📅 Planning semaine {planningUploadAlert.weekNumber} non importé</strong>
+          <p style={{ margin: '0.4rem 0 0', lineHeight: 1.45 }}>
+            Uploadez le PDF planning dans{' '}
+            <a href={isLonguenesse ? '/lon/sales-stats' : '/plan/sales-stats'} style={{ fontWeight: 700 }}>
+              Stats Vente → Présences des Vendeuses → Upload planning
+            </a>{' '}
+            pour renseigner automatiquement les présences et objectifs de la semaine prochaine.
+          </p>
+        </div>
+      )}
+
       {/* Widget Pertes Invendus/Dons - Longuenesse et Arras */}
       {shouldShowLosses && lossesStats && (
         <div className="card" style={{ marginBottom: '2rem' }}>
@@ -889,9 +952,42 @@ const Dashboard = () => {
                 Stock théorique : conso/j déduite chaque jour — inventaire physique tous les{' '}
                 {flourStocksWidget.physicalCountIntervalDays} jours.
               </div>
+              <div
+                style={{
+                  marginTop: 8,
+                  fontSize: '0.88rem',
+                  lineHeight: 1.35,
+                  color: tgtStocksWidget.status === 'red' ? '#c62828' : '#2e7d32',
+                  fontWeight: 600
+                }}
+              >
+                📋 Stocks TGT :{' '}
+                {tgtStocksWidget.loading
+                  ? 'chargement…'
+                  : tgtStocksWidget.lastSubmissionAt
+                    ? formatLastStockSendLine(tgtStocksWidget.lastSubmissionAt, tgtStocksWidget.lastEmployeeName)
+                    : 'aucune saisie enregistrée'}
+                {tgtStocksWidget.submissionDaysLabel ? (
+                  <span style={{ fontWeight: 400, color: '#555' }}>
+                    {' '}
+                    — jours de saisie : {tgtStocksWidget.submissionDaysLabel}
+                  </span>
+                ) : null}
+                {!tgtStocksWidget.loading && tgtStocksWidget.submissionDaysLabel ? (
+                  <span style={{ display: 'block', fontWeight: 700, marginTop: 2 }}>
+                    {tgtStocksWidget.upToDate ? '✓ Saisie à jour' : '⚠ Saisie attendue'}
+                  </span>
+                ) : null}
+              </div>
             </div>
             {isAdmin() && (
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
+                <a
+                  href={isLonguenesse ? '/lon/stocks-tgt' : '/plan/stocks-tgt'}
+                  style={{ fontSize: '0.9rem', fontWeight: 600, color: '#667eea', whiteSpace: 'nowrap' }}
+                >
+                  Saisie stocks TGT →
+                </a>
                 <a
                   href={isLonguenesse ? '/lon/stocks' : '/plan/stocks'}
                   style={{ fontSize: '0.9rem', fontWeight: 700, color: '#667eea', whiteSpace: 'nowrap' }}

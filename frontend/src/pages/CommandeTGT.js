@@ -77,8 +77,21 @@ const formatCmdRef = (dateVal, blNum) => {
 
 const cmdQtyCell = (line, field) => {
   const v = line[field];
-  return v != null ? v : '—';
+  return v != null && v !== '' ? v : '—';
 };
+
+/** Historique BL pour l’impression modèle (-1 à -6), lisible à l’œil (évite -1:1 confondu avec 11). */
+const ModelePrintHistory = ({ line, cmdColumnLabels }) => (
+  <span className="modele-print-cmd">
+    {CMD_QTY_FIELDS.map((field, i) => (
+      <span key={field} className="modele-print-week" title={cmdColumnLabels[i]?.full}>
+        <span className="modele-print-week-lbl">-{i + 1}</span>
+        <span className="modele-print-week-sep">:</span>
+        <span className="modele-print-week-qty">{cmdQtyCell(line, field)}</span>
+      </span>
+    ))}
+  </span>
+);
 
 const resolveProductLocationId = (product) => {
   const raw = product?.locationId?._id ?? product?.locationId;
@@ -130,6 +143,8 @@ const CommandeTGT = () => {
   const [recapMeta, setRecapMeta] = useState(null);
 
   const [importText, setImportText] = useState('');
+  const [tgtStockSubmissionDays, setTgtStockSubmissionDays] = useState([]);
+  const TGT_STOCK_DAY_LABELS = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
   const [printMode, setPrintMode] = useState(null);
   const pdfInputRef = React.useRef(null);
   /** Ignore les réponses GET en retard après une maj. « dernière commande ». */
@@ -151,13 +166,38 @@ const CommandeTGT = () => {
   }, [siteKey]);
 
   const loadConfig = useCallback(async () => {
-    const [locRes, prodRes] = await Promise.all([
+    const [locRes, prodRes, tgtCfgRes] = await Promise.all([
       api.get('/supplier-orders/locations', { params: { siteKey } }),
-      api.get('/supplier-orders/products', { params: { siteKey } })
+      api.get('/supplier-orders/products', { params: { siteKey } }),
+      api.get('/tgt-stocks/config', { params: { siteKey } }).catch(() => ({ data: { data: { submissionDays: [] } } }))
     ]);
     setLocations(Array.isArray(locRes.data?.data) ? locRes.data.data : []);
     setProducts(Array.isArray(prodRes.data?.data) ? prodRes.data.data : []);
+    const days = tgtCfgRes.data?.data?.submissionDays;
+    setTgtStockSubmissionDays(Array.isArray(days) ? days : []);
   }, [siteKey]);
+
+  const toggleTgtStockDay = (dayNum) => {
+    setTgtStockSubmissionDays((prev) => {
+      const set = new Set(prev);
+      if (set.has(dayNum)) set.delete(dayNum);
+      else set.add(dayNum);
+      return [...set].sort((a, b) => a - b);
+    });
+  };
+
+  const saveTgtStockSchedule = async () => {
+    setSaving(true);
+    try {
+      await api.put('/tgt-stocks/config', { siteKey, submissionDays: tgtStockSubmissionDays });
+      setMessage({ type: 'success', text: 'Jours de saisie stocks TGT enregistrés.' });
+    } catch (e) {
+      console.error(e);
+      setMessage({ type: 'error', text: 'Erreur enregistrement jours stocks TGT.' });
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const loadRecap = useCallback(async () => {
     const res = await api.get('/supplier-orders/recap', { params: { siteKey } });
@@ -723,9 +763,9 @@ const CommandeTGT = () => {
                 <p>Livraison : {formatDate(meta?.deliveryDate)}</p>
                 {printMode === 'modele' ? (
                   <p className="commande-tgt-print-sub">
-                    Produits par emplacement — ligne -1:-6 = historique BL. Cases <strong>S</strong> (stock) et{' '}
-                    <strong>C</strong> (conso) à remplir. Cmd -1 = quantité du dernier BL reçu. Références :{' '}
-                    {cmdColumnLabels.map((c) => c.full).join(', ')}.
+                    Produits par emplacement — historique BL (Cmd -1 à -6). Quatre cases vides à droite : stock
+                    constaté en magasin sur 4 semaines consécutives. Cmd -1 = quantité du dernier BL reçu.
+                    Références : {cmdColumnLabels.map((c) => c.full).join(', ')}.
                   </p>
                 ) : null}
               </div>
@@ -741,16 +781,11 @@ const CommandeTGT = () => {
                       {group.map((line) => (
                         <div key={`p-${line.productId}`} className="modele-print-item">
                           <span className="modele-print-name">{line.productName}</span>
-                          <span className="modele-print-cmd">
-                            {CMD_QTY_FIELDS.map((field, i) => (
-                              <span key={field} title={cmdColumnLabels[i]?.full}>
-                                -{i + 1}:{cmdQtyCell(line, field)}
-                              </span>
+                          <ModelePrintHistory line={line} cmdColumnLabels={cmdColumnLabels} />
+                          <span className="modele-print-boxes" title="Stock magasin — 4 semaines">
+                            {[0, 1, 2, 3].map((n) => (
+                              <span key={n} className="modele-print-stock-box" aria-hidden="true" />
                             ))}
-                          </span>
-                          <span className="modele-print-boxes" title="Stock restant, Conso (Cmd -1 − stock)">
-                            <i>S</i>
-                            <i>C</i>
                           </span>
                         </div>
                       ))}
@@ -1072,6 +1107,29 @@ const CommandeTGT = () => {
                 ) : (
                   <p className="commande-tgt-hint">Disponible sur le site Arras (/plan).</p>
                 )}
+              </div>
+
+              <div className="config-block">
+                <h3>Saisie stocks TGT — jours obligatoires</h3>
+                <p className="commande-tgt-hint">
+                  Jours où les salariés doivent envoyer les stocks magasin (menu Stocks TGT). Le tableau de bord
+                  affiche la dernière saisie en vert si elle est à jour, en rouge dès qu’une saisie est attendue.
+                </p>
+                <div className="tgt-stock-days-grid">
+                  {TGT_STOCK_DAY_LABELS.map((label, dayNum) => (
+                    <label key={label} className="checkbox-label">
+                      <input
+                        type="checkbox"
+                        checked={tgtStockSubmissionDays.includes(dayNum)}
+                        onChange={() => toggleTgtStockDay(dayNum)}
+                      />
+                      {label}
+                    </label>
+                  ))}
+                </div>
+                <button type="button" className="btn btn-primary" onClick={saveTgtStockSchedule} disabled={saving}>
+                  Enregistrer les jours de saisie
+                </button>
               </div>
 
               <div className="config-block">

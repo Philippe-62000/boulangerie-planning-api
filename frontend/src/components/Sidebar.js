@@ -91,6 +91,7 @@ const Sidebar = () => {
   /** Liens communs sous la rubrique « Stocks » (admin — même UX Arras / Longuenesse). */
   const STOCKS_MENU_ITEMS_COMMON = [
     { path: '/stocks', label: 'Stocks farines', icon: '📦', menuId: 'stocks' },
+    { path: '/stocks-tgt', label: 'Stocks TGT', icon: '📋', menuId: 'stocks-tgt' },
     { path: '/positive', label: 'Positive (IA)', icon: '📷', menuId: 'positive' },
     { path: '/commande-tgt', label: 'Commande TGT', icon: '🛒', menuId: 'commande-tgt' }
   ];
@@ -136,6 +137,7 @@ const Sidebar = () => {
         { menuId: 'stocks', isVisibleToAdmin: true, isVisibleToEmployee: false },
         { menuId: 'positive', isVisibleToAdmin: true, isVisibleToEmployee: true },
         { menuId: 'commande-tgt', isVisibleToAdmin: true, isVisibleToEmployee: true },
+        { menuId: 'stocks-tgt', isVisibleToAdmin: true, isVisibleToEmployee: true },
         { menuId: 'sick-leave-management', isVisibleToAdmin: true, isVisibleToEmployee: false },
         { menuId: 'mutuelle-management', isVisibleToAdmin: true, isVisibleToEmployee: false },
         { menuId: 'vacation-management', isVisibleToAdmin: true, isVisibleToEmployee: false },
@@ -173,6 +175,8 @@ const Sidebar = () => {
         { menuId: 'commandes-en-ligne', isVisibleToAdmin: false, isVisibleToEmployee: true },
         { menuId: 'commande-livraison', isVisibleToAdmin: false, isVisibleToEmployee: true },
         { menuId: 'positive', isVisibleToAdmin: false, isVisibleToEmployee: true },
+        { menuId: 'commande-tgt', isVisibleToAdmin: false, isVisibleToEmployee: true },
+        { menuId: 'stocks-tgt', isVisibleToAdmin: false, isVisibleToEmployee: true },
         { menuId: 'product-exchanges', isVisibleToAdmin: false, isVisibleToEmployee: false },
         { menuId: 'frais-km-responsable', isVisibleToAdmin: false, isVisibleToEmployee: false },
         { menuId: 'plateaux-repas', isVisibleToAdmin: false, isVisibleToEmployee: false },

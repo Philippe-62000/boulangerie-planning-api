@@ -145,6 +145,15 @@ menuPermissionsSchema.statics.createDefaultPermissions = async function() {
         order: 6.65
       },
       {
+        menuId: 'stocks-tgt',
+        menuName: 'Stocks TGT',
+        menuPath: '/stocks-tgt',
+        isVisibleToAdmin: true,
+        isVisibleToEmployee: true,
+        requiredPermissions: [],
+        order: 6.64
+      },
+      {
         menuId: 'employee-status',
         menuName: 'État Salariés',
         menuPath: '/employee-status',

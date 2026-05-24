@@ -1,0 +1,228 @@
+.stocks-tgt-page {
+  padding: 1rem;
+  max-width: 1200px;
+}
+
+.stocks-tgt-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+}
+
+.stocks-tgt-header h1 {
+  margin: 0;
+  font-size: 1.5rem;
+}
+
+.stocks-tgt-subtitle {
+  margin: 0.35rem 0 0;
+  color: #555;
+  font-size: 0.95rem;
+}
+
+.stocks-tgt-header-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.stocks-tgt-toolbar {
+  margin-bottom: 1rem;
+}
+
+.stocks-tgt-toolbar label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-weight: 600;
+  max-width: 320px;
+}
+
+.stocks-tgt-toolbar select {
+  padding: 0.5rem 0.65rem;
+  border: 1px solid #dde2e8;
+  border-radius: 8px;
+  font-size: 1rem;
+}
+
+.stocks-tgt-alert {
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  margin-bottom: 1rem;
+}
+
+.stocks-tgt-alert-success {
+  background: #e8f5e9;
+  color: #2e7d32;
+}
+
+.stocks-tgt-alert-error {
+  background: #ffebee;
+  color: #c62828;
+}
+
+.stocks-tgt-group {
+  margin-bottom: 1.25rem;
+}
+
+.stocks-tgt-group h3 {
+  margin: 0 0 0.5rem;
+  font-size: 1.05rem;
+  border-bottom: 2px solid #4a6cf7;
+  padding-bottom: 0.25rem;
+}
+
+.stocks-tgt-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.95rem;
+}
+
+.stocks-tgt-table th,
+.stocks-tgt-table td {
+  border: 1px solid #e8ecf0;
+  padding: 0.45rem 0.55rem;
+  vertical-align: middle;
+}
+
+.stocks-tgt-table th {
+  background: #f0f3f8;
+  text-align: left;
+}
+
+.stocks-tgt-table .col-num {
+  width: 6rem;
+  text-align: center;
+}
+
+.stocks-tgt-table .qty-input {
+  width: 4.5rem;
+  padding: 0.35rem;
+  text-align: center;
+  border: 1px solid #c5cdd8;
+  border-radius: 6px;
+  font-size: 1rem;
+}
+
+.stocks-tgt-footer {
+  margin-top: 1.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid #eee;
+}
+
+.stocks-tgt-empty {
+  color: #666;
+}
+
+.link-btn {
+  background: none;
+  border: none;
+  padding: 0;
+  color: #4a6cf7;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.print-only {
+  display: none;
+}
+
+/* Impression modèle (réutilise styles proches CommandeTGT) */
+.stocks-tgt-modele-print {
+  display: none;
+}
+
+.modele-print-section {
+  margin-bottom: 0.75rem;
+  break-inside: avoid;
+}
+
+.modele-print-loc {
+  font-size: 0.85rem;
+  margin: 0 0 0.35rem;
+  padding: 0.2rem 0.35rem;
+  background: #eee;
+  border: 1px solid #333;
+}
+
+.modele-print-columns {
+  column-count: 3;
+  column-gap: 0.5rem;
+}
+
+.modele-print-item {
+  break-inside: avoid;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.12rem 0;
+  font-size: 0.68rem;
+  border-bottom: 1px dotted #bbb;
+}
+
+.modele-print-name {
+  flex: 1;
+  font-weight: 600;
+  line-height: 1.15;
+}
+
+.modele-print-stock-box {
+  display: inline-block;
+  width: 1.25rem;
+  height: 1.65rem;
+  border: 1px solid #333;
+  flex-shrink: 0;
+  background: #fff;
+}
+
+@media print {
+  body.page-stocks-tgt * {
+    visibility: hidden;
+  }
+
+  body.page-stocks-tgt .stocks-tgt-page,
+  body.page-stocks-tgt .stocks-tgt-page * {
+    visibility: visible;
+  }
+
+  body.page-stocks-tgt .stocks-tgt-page {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    background: #fff;
+  }
+
+  body.page-stocks-tgt .header,
+  body.page-stocks-tgt .sidebar {
+    display: none !important;
+  }
+
+  .no-print,
+  .no-print * {
+    display: none !important;
+    visibility: hidden !important;
+  }
+
+  .print-only {
+    display: block !important;
+    visibility: visible !important;
+  }
+
+  .stocks-tgt-print-title {
+    display: block !important;
+    margin-bottom: 0.75rem;
+  }
+
+  .print-mode-modele .stocks-tgt-saisie {
+    display: none !important;
+  }
+
+  .print-mode-modele .stocks-tgt-modele-print {
+    display: block !important;
+  }
+}

@@ -159,6 +159,9 @@ const SalesStats = () => {
   const [monthlyDailySalesData, setMonthlyDailySalesData] = useState({});
   const printSaisieRef = useRef(null);
   const printClassementRef = useRef(null);
+  const planningUploadRef = useRef(null);
+  const [planningUploading, setPlanningUploading] = useState(false);
+  const [objectivesManualEdit, setObjectivesManualEdit] = useState(false);
 
   const vendeuses = useMemo(() => {
     return employees.filter(emp => VENDEUSE_ROLES.includes(emp.role));
@@ -318,6 +321,7 @@ const SalesStats = () => {
           setObjectifHebdoPromo(data.data.objectifPromo || 0);
           setObjectifHebdoCartesFid(data.data.objectifCartesFid || 0);
           setPresences(buildPresenceState(data.data.presences || {}));
+          setObjectivesManualEdit(data.data.manualObjectives === true);
         } else {
           setPresences(buildPresenceState({}));
         }
@@ -535,7 +539,8 @@ const SalesStats = () => {
           objectifPromo: objectifHebdoPromo,
           objectifCartesFid: objectifHebdoCartesFid,
           presences: presencesPayload,
-          weekStart: selectedWeekStart
+          weekStart: selectedWeekStart,
+          manualObjectives: objectivesManualEdit
         })
       });
 
@@ -556,7 +561,56 @@ const SalesStats = () => {
     }
   };
 
-  // Toggle présence
+  const handlePlanningUpload = async (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+
+    setPlanningUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append('pdf', file);
+      const response = await fetch(`${API_BASE_URL}/daily-sales/import-planning`, {
+        method: 'POST',
+        body: formData
+      });
+      const data = await response.json();
+      if (!response.ok || !data.success) {
+        throw new Error(data.message || 'Import planning impossible');
+      }
+
+      const weekKey = data.importMeta?.weekKey || data.data?.weekKey;
+      if (weekKey) {
+        setSelectedWeekStart(weekKey);
+      }
+
+      if (!objectivesManualEdit) {
+        setObjectifHebdoCartesFid(100);
+        setObjectifHebdoPromo(35);
+      }
+
+      await Promise.all([
+        fetchWeeklyObjectives(weekKey || selectedWeekStart),
+        fetchWeeklyStats(weekKey || selectedWeekStart)
+      ]);
+
+      const matched = data.importMeta?.matched?.length ?? 0;
+      let msg = `Planning importé — semaine ${data.importMeta?.weekNumber || ''} : ${matched} vendeuse(s) reconnue(s).`;
+      if (data.importMeta?.unmatched?.length) {
+        msg += `\nNon reconnues : ${data.importMeta.unmatched.join(', ')}`;
+      }
+      if (!objectivesManualEdit) {
+        msg += '\nObjectifs : 100 cartes fid. / 35 promo.';
+      }
+      alert(msg);
+    } catch (error) {
+      console.error('Import planning:', error);
+      alert(error.message || 'Erreur import planning');
+    } finally {
+      setPlanningUploading(false);
+    }
+  };
+
   const togglePresence = (employeeId, jour) => {
     setPresences(prev => ({
       ...prev,
@@ -1099,7 +1153,10 @@ const SalesStats = () => {
               <input
                 type="number"
                 value={objectifHebdoCartesFid}
-                onChange={(e) => setObjectifHebdoCartesFid(parseFloat(e.target.value) || 0)}
+                onChange={(e) => {
+                  setObjectivesManualEdit(true);
+                  setObjectifHebdoCartesFid(parseFloat(e.target.value) || 0);
+                }}
                 style={{ padding: '10px', borderRadius: '8px', border: '2px solid #667eea', width: '200px' }}
                 min="0"
               />
@@ -1111,7 +1168,10 @@ const SalesStats = () => {
               <input
                 type="number"
                 value={objectifHebdoPromo}
-                onChange={(e) => setObjectifHebdoPromo(parseFloat(e.target.value) || 0)}
+                onChange={(e) => {
+                  setObjectivesManualEdit(true);
+                  setObjectifHebdoPromo(parseFloat(e.target.value) || 0);
+                }}
                 style={{ padding: '10px', borderRadius: '8px', border: '2px solid #667eea', width: '200px' }}
                 min="0"
               />
@@ -1136,7 +1196,26 @@ const SalesStats = () => {
 
           {/* Tableau des présences */}
           <div style={{ marginTop: '30px' }}>
-            <h3 style={{ marginBottom: '15px' }}>📅 Présences des Vendeuses</h3>
+            <div className="presence-section-header">
+              <h3 style={{ margin: 0 }}>📅 Présences des Vendeuses</h3>
+              <div className="presence-upload-actions">
+                <input
+                  ref={planningUploadRef}
+                  type="file"
+                  accept="application/pdf,.pdf,*/*"
+                  className="hidden-file-input"
+                  onChange={handlePlanningUpload}
+                />
+                <button
+                  type="button"
+                  className="btn-upload-planning"
+                  disabled={planningUploading}
+                  onClick={() => planningUploadRef.current?.click()}
+                >
+                  {planningUploading ? 'Import…' : '📤 Upload planning'}
+                </button>
+              </div>
+            </div>
             <div className="week-info-bar">
               <div className="week-info-text">
                 {weekInfo.weekNumber
