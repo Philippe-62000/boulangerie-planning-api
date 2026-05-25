@@ -244,8 +244,7 @@ const CamarisSemaineStandalone = () => {
   const apiStale =
     board &&
     (board.apiVersion < 4 ||
-      (board.ephemeride && /bonne journée gourmande/i.test(board.ephemeride)) ||
-      (info?.text && /bulo/i.test(info.text)));
+      (board.ephemeride && /bonne journée gourmande/i.test(board.ephemeride)));
 
   const loadHoroscope = async (signId) => {
     setHoroscopeSign(signId);
@@ -272,8 +271,8 @@ const CamarisSemaineStandalone = () => {
     <div className="camaris-page">
       {apiStale ? (
         <div className="camaris-stale-banner" role="alert">
-          Mise à jour en cours sur le serveur — faites <strong>Ctrl+F5</strong> (rechargement forcé). L’API
-          directe est à jour ; cette page utilise encore une ancienne version.
+          Nouvelle version disponible — touchez <strong>Actualiser</strong> en bas de page (ou rechargez l’onglet sur
+          ordinateur : Ctrl+F5).
         </div>
       ) : null}
       <header className="camaris-header">
@@ -391,14 +390,27 @@ const CamarisSemaineStandalone = () => {
       </div>
 
       <footer className="camaris-footer">
-        {board?.visitCount != null ? (
+        {typeof board?.visitCount === 'number' ? (
           <p className="camaris-visit-count">
-            {board.visitCount.toLocaleString('fr-FR')} consultation{board.visitCount > 1 ? 's' : ''} de la page
+            {board.visitCount.toLocaleString('fr-FR')} visite{board.visitCount > 1 ? 's' : ''} de cette page
           </p>
         ) : null}
         <div className="camaris-footer-actions">
           <button type="button" className="camaris-btn-horoscope" onClick={() => setHoroscopeOpen(true)}>
             Horoscope
+          </button>
+          <button
+            type="button"
+            className="camaris-btn-refresh"
+            onClick={() => {
+              sessionStorage.clear();
+              localStorage.removeItem('camaris_visit_sent');
+              const u = new URL(window.location.href);
+              u.searchParams.set('maj', String(Date.now()));
+              window.location.replace(u.toString());
+            }}
+          >
+            Actualiser
           </button>
           <button type="button" className="camaris-btn-manager" onClick={() => setManagerOpen(true)}>
             Espace manager

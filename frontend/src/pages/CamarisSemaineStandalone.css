@@ -125,6 +125,17 @@
   box-shadow: 0 4px 14px rgba(196, 132, 15, 0.35);
 }
 
+.camaris-btn-refresh {
+  border: 2px solid #8b7355;
+  background: white;
+  color: var(--camaris-brown);
+  font-weight: 600;
+  padding: 0.65rem 1.2rem;
+  border-radius: 999px;
+  cursor: pointer;
+  font-family: inherit;
+}
+
 .camaris-panel-wide {
   max-width: 560px;
 }

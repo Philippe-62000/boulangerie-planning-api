@@ -1,4 +1,4 @@
-const API_BASE = 'https://horoscope-app-api.vercel.app/api/v1/get-horoscope';
+const API_BASE = 'https://horoscope-app-api.vercel.app/api/v1/get-horoscope/daily';
 
 const VALID = new Set([
   'aries',
@@ -22,18 +22,25 @@ async function fetchHoroscope(sign) {
     err.status = 400;
     throw err;
   }
-  const url = `${API_BASE}/${id}?day=TODAY`;
+  const url = `${API_BASE}?sign=${encodeURIComponent(id)}`;
   const res = await fetch(url, { signal: AbortSignal.timeout(10000) });
   if (!res.ok) {
     const err = new Error('Horoscope temporairement indisponible');
     err.status = 502;
     throw err;
   }
-  const data = await res.json();
+  const json = await res.json();
+  const data = json?.data || json;
+  const text = String(data?.horoscope || data?.sing || '').trim();
+  if (!text) {
+    const err = new Error('Horoscope temporairement indisponible');
+    err.status = 502;
+    throw err;
+  }
   return {
     sign: id,
-    date: data.date || new Date().toISOString().slice(0, 10),
-    horoscope: String(data.horoscope || data.sing || '').trim()
+    date: data?.date || new Date().toISOString().slice(0, 10),
+    horoscope: text
   };
 }
 
