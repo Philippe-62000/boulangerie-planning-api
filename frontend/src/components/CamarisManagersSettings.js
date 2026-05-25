@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import api from '../services/api';
 import { getCamarisPublicPageUrl } from '../config/camarisPublicUrl';
+import CamarisVisitStatsPanel from './CamarisVisitStatsPanel';
 
 const emptyForm = () => ({ login: '', password: '', displayName: '' });
 
@@ -190,6 +191,8 @@ const CamarisManagersSettings = () => {
       {message ? (
         <p style={{ marginTop: '0.75rem', color: message.type === 'error' ? '#c00' : '#2d6a4f' }}>{message.text}</p>
       ) : null}
+
+      <CamarisVisitStatsPanel />
     </div>
   );
 };

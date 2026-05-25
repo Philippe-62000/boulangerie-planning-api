@@ -1,4 +1,5 @@
-const { CamarisManager, CamarisAnimation, CamarisVisitCounter } = require('./models');
+const { CamarisManager, CamarisAnimation } = require('./models');
+const { getVisitSummary, recordVisit: recordVisitStats } = require('./visitStats');
 const { signManagerToken } = require('./auth');
 const {
   jsDayToFrench,
@@ -14,20 +15,6 @@ const {
 } = require('./digest');
 
 const SITE_LON = 'lon';
-
-async function getVisitCount() {
-  const row = await CamarisVisitCounter.findOne({ siteKey: SITE_LON }).lean();
-  return row?.totalVisits || 0;
-}
-
-async function recordVisit() {
-  const row = await CamarisVisitCounter.findOneAndUpdate(
-    { siteKey: SITE_LON },
-    { $inc: { totalVisits: 1 } },
-    { upsert: true, new: true }
-  );
-  return row.totalVisits;
-}
 
 const serializeAnimation = (doc) => {
   if (!doc) return null;
@@ -106,10 +93,10 @@ async function getPublicBoard() {
   });
 
   const info = await getInfoBanner(now, SITE_LON);
-  const visitCount = await getVisitCount();
+  const visits = await getVisitSummary(SITE_LON);
 
   return {
-    apiVersion: 4,
+    apiVersion: 5,
     pageTitle: 'Cette Semaine à Camaris',
     siteKey: SITE_LON,
     weekKey,
@@ -120,7 +107,7 @@ async function getPublicBoard() {
     today,
     weekDays,
     managerAnimationCount: animations.filter((a) => a.weekKey === weekKey).length,
-    visitCount
+    visits
   };
 }
 
@@ -230,8 +217,7 @@ async function deleteManagerAnimation(id) {
 
 module.exports = {
   getPublicBoard,
-  getVisitCount,
-  recordVisit,
+  recordVisit: recordVisitStats,
   managerLogin,
   getManagerWeek,
   saveManagerAnimation,

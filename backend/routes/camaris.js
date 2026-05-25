@@ -16,6 +16,8 @@ router.post('/admin/managers', ctrl.authenticateManagerAdmin, ctrl.createManager
 router.put('/admin/managers/:id', ctrl.authenticateManagerAdmin, ctrl.updateManagerAdmin);
 router.delete('/admin/managers/:id', ctrl.authenticateManagerAdmin, ctrl.deleteManagerAdmin);
 
+router.get('/admin/visit-stats', ctrl.authenticateManagerAdmin, ctrl.getVisitStatsAdmin);
+
 router.get('/admin/territory-events', ctrl.authenticateManagerAdmin, ctrl.listTerritoryEventsAdmin);
 router.post('/admin/territory-events', ctrl.authenticateManagerAdmin, ctrl.saveTerritoryEventAdmin);
 router.put('/admin/territory-events/:id', ctrl.authenticateManagerAdmin, ctrl.saveTerritoryEventAdmin);

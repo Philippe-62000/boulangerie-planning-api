@@ -16,6 +16,7 @@ const {
   pickAnimationForDay,
   pickAllAnimationsForDay
 } = require('../services/camarisDigestService');
+const { getVisitStatsAdmin } = require('../services/camarisVisitStatsService');
 
 const SITE_LON = 'lon';
 const TOKEN_TTL = '12h';
@@ -399,6 +400,16 @@ const saveTerritoryEventAdmin = async (req, res) => {
   }
 };
 
+const getVisitStatsAdminHandler = async (req, res) => {
+  try {
+    const data = await getVisitStatsAdmin(SITE_LON);
+    res.json({ success: true, data });
+  } catch (e) {
+    console.error('camaris getVisitStatsAdmin', e);
+    res.status(500).json({ success: false, error: 'Erreur statistiques visites' });
+  }
+};
+
 const deleteTerritoryEventAdmin = async (req, res) => {
   try {
     const r = await CamarisTerritoryEvent.deleteOne({ _id: req.params.id, siteKey: SITE_LON });
@@ -423,5 +434,6 @@ module.exports = {
   listTerritoryEventsAdmin,
   saveTerritoryEventAdmin,
   deleteTerritoryEventAdmin,
+  getVisitStatsAdmin: getVisitStatsAdminHandler,
   authenticateManagerAdmin: authenticateManager
 };

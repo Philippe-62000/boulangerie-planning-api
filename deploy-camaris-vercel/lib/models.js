@@ -72,7 +72,28 @@ const camarisVisitCounterSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+const camarisVisitDailySchema = new mongoose.Schema(
+  {
+    siteKey: { type: String, enum: ['lon'], default: 'lon', index: true },
+    dateKey: { type: String, required: true, index: true },
+    weekKey: { type: String, required: true, index: true },
+    monthKey: { type: String, required: true, index: true },
+    count: { type: Number, default: 0 }
+  },
+  { timestamps: true }
+);
+
+camarisVisitDailySchema.index({ siteKey: 1, dateKey: 1 }, { unique: true });
+
 const CamarisVisitCounter =
   mongoose.models.CamarisVisitCounter || mongoose.model('CamarisVisitCounter', camarisVisitCounterSchema);
+const CamarisVisitDaily =
+  mongoose.models.CamarisVisitDaily || mongoose.model('CamarisVisitDaily', camarisVisitDailySchema);
 
-module.exports = { CamarisManager, CamarisAnimation, CamarisTerritoryEvent, CamarisVisitCounter };
+module.exports = {
+  CamarisManager,
+  CamarisAnimation,
+  CamarisTerritoryEvent,
+  CamarisVisitCounter,
+  CamarisVisitDaily
+};

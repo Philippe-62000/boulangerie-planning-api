@@ -104,8 +104,8 @@ const CamarisSemaineStandalone = () => {
         if (!sessionStorage.getItem('camaris_visit_sent')) {
           const v = await axios.post(`${apiBase}/camaris/public/visit`);
           sessionStorage.setItem('camaris_visit_sent', '1');
-          if (!cancelled && v.data?.data?.totalVisits != null) {
-            setBoard((b) => (b ? { ...b, visitCount: v.data.data.totalVisits } : null));
+          if (!cancelled && v.data?.data?.visits) {
+            setBoard((b) => (b ? { ...b, visits: v.data.data.visits } : null));
           }
         }
       } catch {
@@ -250,7 +250,7 @@ const CamarisSemaineStandalone = () => {
   const info = board?.infoBanner;
   const weatherKind = weather?.kind && WEATHER_ICONS[weather.kind] ? weather.kind : 'cloud';
   const WeatherIcon = WEATHER_ICONS[weatherKind] || WEATHER_ICONS.cloud;
-  const apiStale = board && (board.apiVersion == null || board.apiVersion < 4);
+  const apiStale = board && (board.apiVersion == null || board.apiVersion < 5);
 
   const loadHoroscope = async (signId) => {
     setHoroscopeSign(signId);
@@ -403,9 +403,11 @@ const CamarisSemaineStandalone = () => {
       </div>
 
       <footer className="camaris-footer">
-        {typeof board?.visitCount === 'number' ? (
+        {board?.visits ? (
           <p className="camaris-visit-count">
-            {board.visitCount.toLocaleString('fr-FR')} visite{board.visitCount > 1 ? 's' : ''} de cette page
+            <strong>{board.visits.today.toLocaleString('fr-FR')}</strong> visite
+            {board.visits.today > 1 ? 's' : ''} aujourd&apos;hui ·{' '}
+            <strong>{board.visits.week.toLocaleString('fr-FR')}</strong> cette semaine
           </p>
         ) : null}
         <div className="camaris-footer-actions">

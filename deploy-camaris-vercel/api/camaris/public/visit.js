@@ -1,5 +1,6 @@
 const { connectDB } = require('../../../lib/mongodb');
-const { recordVisit, getVisitCount } = require('../../../lib/camarisService');
+const { recordVisit } = require('../../../lib/camarisService');
+const { getVisitSummary } = require('../../../lib/visitStats');
 const { setCors, handleOptions } = require('../../../lib/http');
 
 module.exports = async function handler(req, res) {
@@ -10,13 +11,13 @@ module.exports = async function handler(req, res) {
   }
   try {
     await connectDB();
-    const totalVisits = await recordVisit();
-    return res.status(200).json({ success: true, data: { totalVisits } });
+    const visits = await recordVisit();
+    return res.status(200).json({ success: true, data: { visits } });
   } catch (e) {
     console.error('camaris/public/visit', e);
     try {
-      const totalVisits = await getVisitCount();
-      return res.status(200).json({ success: true, data: { totalVisits } });
+      const visits = await getVisitSummary();
+      return res.status(200).json({ success: true, data: { visits } });
     } catch {
       return res.status(500).json({ success: false, error: 'Erreur compteur visites' });
     }
