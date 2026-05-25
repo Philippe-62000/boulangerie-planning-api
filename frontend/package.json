@@ -21,7 +21,8 @@
     "deploy": "npm run build && echo 'Frontend build completed'",
     "prebuild:lon": "node ../scripts/clean-deploy-lon-static.js",
     "build:lon": "vite build --base /lon/ --outDir ../deploy-frontend-lon",
-    "build:plan": "vite build --base /plan/ --outDir ../deploy-ovh --emptyOutDir"
+    "build:plan": "vite build --base /plan/ --outDir ../deploy-ovh --emptyOutDir",
+    "build:camaris-vercel": "vite build --config vite.config.camaris-vercel.mjs && node ../scripts/camaris-vercel-index.mjs"
   },
   "engines": {
     "node": ">=18.0.0"

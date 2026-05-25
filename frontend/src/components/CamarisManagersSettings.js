@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import api from '../services/api';
+import { getCamarisPublicPageUrl } from '../config/camarisPublicUrl';
 
 const emptyForm = () => ({ login: '', password: '', displayName: '' });
 
@@ -74,10 +75,7 @@ const CamarisManagersSettings = () => {
     }
   };
 
-  const pageUrl =
-    typeof window !== 'undefined'
-      ? `${window.location.origin}/lon/camaris-semaine-standalone.html`
-      : '/lon/camaris-semaine-standalone.html';
+  const pageUrl = getCamarisPublicPageUrl();
 
   return (
     <div
@@ -86,7 +84,7 @@ const CamarisManagersSettings = () => {
     >
       <h4 style={{ marginBottom: '0.5rem', color: '#2c3e50' }}>🥐 Page « Cette Semaine à Camaris »</h4>
       <p style={{ marginBottom: '1rem', color: '#555', fontSize: '0.95rem' }}>
-        Comptes managers pour la page publique clients :{' '}
+        Comptes managers pour la page publique clients (hébergée sur Vercel, pas filmara.fr) :{' '}
         <a href={pageUrl} target="_blank" rel="noopener noreferrer">
           {pageUrl}
         </a>

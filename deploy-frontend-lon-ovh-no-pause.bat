@@ -8,6 +8,7 @@ echo 1. Construction du frontend avec Vite pour /lon...
 cd frontend
 set VITE_API_URL=https://boulangerie-planning-api-3.onrender.com/api
 set VITE_PARTNER_API_URL=https://commande-longuenesse.vercel.app
+set VITE_CAMARIS_PUBLIC_URL=https://camaris-semaine.vercel.app
 call npm run build -- --base=/lon/
 if %errorlevel% neq 0 (
     echo ERREUR: Echec de la construction du frontend

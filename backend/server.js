@@ -37,13 +37,24 @@ const corsOrigins = process.env.CORS_ORIGIN ?
 
 console.log('🔧 CORS Origins configurés:', corsOrigins);
 
+const camarisExtraOrigins = (process.env.CAMARIS_PUBLIC_ORIGINS || process.env.CAMARIS_PUBLIC_ORIGIN || '')
+  .split(',')
+  .map((o) => o.trim())
+  .filter(Boolean);
+
+const isCamarisPublicOrigin = (origin) => {
+  if (!origin) return false;
+  if (camarisExtraOrigins.includes(origin)) return true;
+  if (/^https:\/\/[a-z0-9-]+\.vercel\.app$/i.test(origin)) return true;
+  return false;
+};
+
 const corsOptions = {
   origin: function (origin, callback) {
     // Permettre les requêtes sans origine (ex: Postman, curl)
     if (!origin) return callback(null, true);
-    
-    // Vérifier si l'origine est autorisée
-    if (corsOrigins.indexOf(origin) !== -1) {
+
+    if (corsOrigins.indexOf(origin) !== -1 || isCamarisPublicOrigin(origin)) {
       console.log('✅ CORS autorisé pour:', origin);
       callback(null, true);
     } else {
