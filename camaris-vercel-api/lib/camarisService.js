@@ -94,6 +94,7 @@ async function getPublicBoard() {
   const info = await getInfoBanner(now, SITE_LON);
 
   return {
+    apiVersion: 3,
     pageTitle: 'Cette Semaine à Camaris',
     siteKey: SITE_LON,
     weekKey,

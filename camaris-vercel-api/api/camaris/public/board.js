@@ -11,6 +11,7 @@ module.exports = async function handler(req, res) {
   try {
     await connectDB();
     const data = await getPublicBoard();
+    res.setHeader('Cache-Control', 'no-store, max-age=0');
     return res.status(200).json({ success: true, data });
   } catch (e) {
     console.error('camaris/public/board', e);

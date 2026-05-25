@@ -14,6 +14,21 @@ const DAY_LABELS = [
   { v: 7, l: 'Dim' }
 ];
 
+/** Liste d’animations d’un jour (API v3 ou ancien format). */
+const getDayAnimations = (day) => {
+  if (Array.isArray(day?.animations) && day.animations.length) return day.animations;
+  if (day?.hasAnimation && (day.animationTitle || day.animationBodyHtml)) {
+    return [
+      {
+        id: 'legacy',
+        title: day.animationTitle || 'Animation',
+        bodyHtml: day.animationBodyHtml || ''
+      }
+    ];
+  }
+  return [];
+};
+
 /** API sur le même domaine Vercel (serverless + MongoDB), comme commande-longuenesse — pas Render. */
 const getApi = () => {
   const override = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
@@ -45,7 +60,7 @@ const CamarisSemaineStandalone = () => {
   const loadBoard = useCallback(async () => {
     try {
       const res = await axios.get(`${apiBase}/camaris/public/board`, {
-        params: { siteKey: 'lon' }
+        params: { siteKey: 'lon', _v: Date.now() }
       });
       setBoard(res.data?.data || null);
       setSelectedWeekDay(null);
@@ -257,16 +272,17 @@ const CamarisSemaineStandalone = () => {
           <div className="camaris-week-grid" role="list">
             {(board?.weekDays || []).map((d) => {
               const selected = selectedWeekDay === d.dayOfWeek;
-              const count = d.animationCount || (d.animations || []).length;
+              const dayAnims = getDayAnimations(d);
+              const count = dayAnims.length;
               return (
                 <button
                   key={d.dayOfWeek}
                   type="button"
                   role="listitem"
-                  className={`camaris-week-day${d.isToday ? ' today' : ''}${d.hasAnimation ? ' has-anim' : ''}${selected ? ' selected' : ''}`}
+                  className={`camaris-week-day${d.isToday ? ' today' : ''}${count > 0 ? ' has-anim' : ''}${selected ? ' selected' : ''}`}
                   onClick={() => setSelectedWeekDay(selected ? null : d.dayOfWeek)}
                   aria-pressed={selected}
-                  aria-label={`${d.label}${d.hasAnimation ? `, ${count} animation(s)` : ', pas d animation'}`}
+                  aria-label={`${d.label}${count > 0 ? `, ${count} animation(s)` : ', pas d animation'}`}
                 >
                   <span className="camaris-day-label">{d.label}</span>
                   <span className="camaris-day-dot" aria-hidden="true" />
@@ -279,7 +295,7 @@ const CamarisSemaineStandalone = () => {
             (() => {
               const detail = (board?.weekDays || []).find((d) => d.dayOfWeek === selectedWeekDay);
               if (!detail) return null;
-              const anims = detail.animations || [];
+              const anims = getDayAnimations(detail);
               return (
                 <div className="camaris-week-detail" role="region" aria-live="polite">
                   <button
