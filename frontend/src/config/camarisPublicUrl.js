@@ -2,5 +2,5 @@
 export const getCamarisPublicPageUrl = () => {
   const fromEnv = import.meta.env.VITE_CAMARIS_PUBLIC_URL;
   if (fromEnv && String(fromEnv).trim()) return String(fromEnv).trim().replace(/\/$/, '');
-  return 'https://camaris-semaine.vercel.app';
+  return 'https://camaris-longuenesse.vercel.app';
 };
