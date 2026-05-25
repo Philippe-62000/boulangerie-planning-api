@@ -1,27 +1,33 @@
 @echo off
 echo ========================================
 echo   Page Camaris - build pour Vercel
-echo   (URL dediee clients, sans filmara.fr)
+echo   (static + API serverless, sans Render)
 echo ========================================
 echo.
 
 cd frontend
-set VITE_API_URL=https://boulangerie-planning-api-3.onrender.com/api
 set VITE_CAMARIS_PUBLIC_URL=https://camaris-semaine.vercel.app
 call npm run build:camaris-vercel
 if %errorlevel% neq 0 (
-    echo ERREUR build
+    echo ERREUR build frontend
     exit /b 1
 )
 cd ..
 
-copy /Y deploy-camaris-vercel\vercel.json deploy-camaris-vercel\vercel.json >nul 2>&1
+echo Copie API serverless (camaris-vercel-api)...
+if not exist deploy-camaris-vercel mkdir deploy-camaris-vercel
+xcopy /E /I /Y camaris-vercel-api\api deploy-camaris-vercel\api >nul
+xcopy /E /I /Y camaris-vercel-api\lib deploy-camaris-vercel\lib >nul
+copy /Y camaris-vercel-api\package.json deploy-camaris-vercel\ >nul
+copy /Y camaris-vercel-api\vercel.json deploy-camaris-vercel\ >nul
+
 echo.
-echo OK: dossier deploy-camaris-vercel\ pret
+echo OK: dossier deploy-camaris-vercel\ pret (front + api/)
 echo.
-echo Deploiement Vercel:
-echo   1. vercel.com - New Project - import repo ou CLI
-echo   2. Root Directory: deploy-camaris-vercel
-echo   3. Ou: cd deploy-camaris-vercel ^&^& vercel --prod
-echo   4. Render api-3: variable CAMARIS_PUBLIC_ORIGIN = votre URL Vercel exacte
+echo Deploiement Vercel (Root Directory: deploy-camaris-vercel):
+echo   Variables obligatoires (memes valeurs que Render api-3):
+echo     MONGODB_URI
+echo     JWT_SECRET
+echo.
+echo   cd deploy-camaris-vercel ^&^& npx vercel --prod
 echo.

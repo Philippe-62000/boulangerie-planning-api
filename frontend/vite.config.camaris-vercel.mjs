@@ -1,6 +1,6 @@
 /**
  * Build statique page publique Camaris → deploy-camaris-vercel/ (Vercel, base /).
- * Pas de lien filmara.fr — API Render api-3 uniquement pour les données.
+ * Pas de lien filmara.fr — API serverless Vercel (même origine /api), MongoDB direct.
  */
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';

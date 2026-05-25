@@ -1,0 +1,37 @@
+[
+  {
+    "month": 7,
+    "day": 14,
+    "scope": "france",
+    "title": "Fête nationale",
+    "text": "14 juillet : jour férié en France. Pensez à anticiper vos commandes spéciales."
+  },
+  {
+    "month": 5,
+    "day": 8,
+    "scope": "france",
+    "title": "Victoire 1945",
+    "text": "Commémoration du 8 mai 1945 — journée fériée."
+  },
+  {
+    "month": 12,
+    "day": 25,
+    "scope": "france",
+    "title": "Noël",
+    "text": "Magasin fermé ou horaires adaptés : vérifiez nos animations de la semaine."
+  },
+  {
+    "month": 6,
+    "day": 21,
+    "scope": "audomarois",
+    "title": "Fête de la musique",
+    "text": "Ambiance estivale dans l'Audomarois : profitez d'une pause gourmande en boulangerie."
+  },
+  {
+    "month": 9,
+    "day": 21,
+    "scope": "pas-de-calais",
+    "title": "Fête du patrimoine",
+    "text": "Journées européennes du patrimoine : découvrez le savoir-faire artisanal près de Saint-Omer."
+  }
+]

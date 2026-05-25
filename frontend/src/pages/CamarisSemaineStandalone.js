@@ -2,7 +2,6 @@ import React, { useCallback, useEffect, useState } from 'react';
 import axios from 'axios';
 import './CamarisSemaineStandalone.css';
 
-const API_LON = 'https://boulangerie-planning-api-3.onrender.com/api';
 const TOKEN_KEY = 'camarisManagerToken_lon';
 const DAY_LABELS = [
   { v: 1, l: 'Lun' },
@@ -14,9 +13,12 @@ const DAY_LABELS = [
   { v: 7, l: 'Dim' }
 ];
 
+/** API sur le même domaine Vercel (serverless + MongoDB), comme commande-longuenesse — pas Render. */
 const getApi = () => {
-  if (import.meta.env.VITE_API_URL) return import.meta.env.VITE_API_URL;
-  return API_LON;
+  const override = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
+  if (override) return override;
+  if (typeof window !== 'undefined') return `${window.location.origin}/api`;
+  return '/api';
 };
 
 const CamarisSemaineStandalone = () => {

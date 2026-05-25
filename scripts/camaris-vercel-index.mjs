@@ -7,7 +7,11 @@ const src = path.join(root, 'camaris-semaine-standalone.html');
 const dest = path.join(root, 'index.html');
 
 const vercelConfig = {
-  rewrites: [{ source: '/(.*)', destination: '/index.html' }],
+  framework: null,
+  installCommand: 'npm install',
+  buildCommand: '',
+  outputDirectory: '.',
+  rewrites: [{ source: '/((?!api/).*)', destination: '/index.html' }],
   headers: [
     {
       source: '/index.html',
