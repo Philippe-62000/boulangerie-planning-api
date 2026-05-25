@@ -40,6 +40,7 @@ const CamarisSemaineStandalone = () => {
   const [weekAnimations, setWeekAnimations] = useState([]);
   const [msg, setMsg] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [selectedWeekDay, setSelectedWeekDay] = useState(null);
 
   const loadBoard = useCallback(async () => {
     try {
@@ -47,6 +48,7 @@ const CamarisSemaineStandalone = () => {
         params: { siteKey: 'lon' }
       });
       setBoard(res.data?.data || null);
+      setSelectedWeekDay(null);
     } catch (e) {
       console.error(e);
       setBoard(null);
@@ -248,26 +250,64 @@ const CamarisSemaineStandalone = () => {
 
         <section className="camaris-card" aria-labelledby="vue-semaine">
           <h2 id="vue-semaine">Vue semaine</h2>
-          <div className="camaris-week-grid">
-            {(board?.weekDays || []).map((d) => (
-              <div
-                key={d.dayOfWeek}
-                className={`camaris-week-day${d.isToday ? ' today' : ''}${d.hasAnimation ? ' has-anim' : ''}`}
-                title={d.preview || d.animationTitle || ''}
-              >
-                <span className="camaris-day-label">{d.label}</span>
-                <span className="camaris-day-dot" aria-hidden="true" />
-                {d.hasAnimation && (d.animationTitle || d.preview) ? (
-                  <span className="camaris-day-anim-title">
-                    {(d.animationTitle || d.preview || '').slice(0, 28)}
-                    {(d.animationTitle || d.preview || '').length > 28 ? '…' : ''}
-                  </span>
-                ) : (
-                  <span className="camaris-day-empty">—</span>
-                )}
-              </div>
-            ))}
+          <p className="camaris-week-hint">Touchez un jour pour afficher le détail de l&apos;animation.</p>
+          <div className="camaris-week-grid" role="list">
+            {(board?.weekDays || []).map((d) => {
+              const selected = selectedWeekDay === d.dayOfWeek;
+              return (
+                <button
+                  key={d.dayOfWeek}
+                  type="button"
+                  role="listitem"
+                  className={`camaris-week-day${d.isToday ? ' today' : ''}${d.hasAnimation ? ' has-anim' : ''}${selected ? ' selected' : ''}`}
+                  onClick={() => setSelectedWeekDay(selected ? null : d.dayOfWeek)}
+                  aria-pressed={selected}
+                  aria-label={`${d.label}${d.hasAnimation ? `, ${d.animationTitle || 'animation'}` : ', pas d animation'}`}
+                >
+                  <span className="camaris-day-label">{d.label}</span>
+                  <span className="camaris-day-dot" aria-hidden="true" />
+                  {d.hasAnimation ? (
+                    <span className="camaris-day-anim-hint">Voir</span>
+                  ) : (
+                    <span className="camaris-day-empty">—</span>
+                  )}
+                </button>
+              );
+            })}
           </div>
+          {selectedWeekDay != null ? (
+            (() => {
+              const detail = (board?.weekDays || []).find((d) => d.dayOfWeek === selectedWeekDay);
+              if (!detail) return null;
+              return (
+                <div className="camaris-week-detail" role="region" aria-live="polite">
+                  <button
+                    type="button"
+                    className="camaris-week-detail-close"
+                    onClick={() => setSelectedWeekDay(null)}
+                    aria-label="Fermer le détail"
+                  >
+                    ×
+                  </button>
+                  <h3>
+                    {detail.label}
+                    {detail.dateISO ? ` — ${detail.dateISO}` : ''}
+                  </h3>
+                  {detail.hasAnimation ? (
+                    <>
+                      <h4 className="camaris-animation-title">{detail.animationTitle}</h4>
+                      <div
+                        className="camaris-animation-body"
+                        dangerouslySetInnerHTML={{ __html: detail.animationBodyHtml || '' }}
+                      />
+                    </>
+                  ) : (
+                    <p className="camaris-week-detail-empty">Aucune animation renseignée pour ce jour.</p>
+                  )}
+                </div>
+              );
+            })()
+          ) : null}
         </section>
       </div>
 

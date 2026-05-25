@@ -58,10 +58,19 @@ const formatFrenchDate = (d = new Date()) => {
   return `${capitalized} ${d.getDate()} ${FRENCH_MONTHS[d.getMonth()]} ${d.getFullYear()}`;
 };
 
+const formatEphemeridePhrase = (raw) => {
+  const t = String(raw || '').trim();
+  if (!t) return null;
+  if (/^aujourd['']hui/i.test(t) || /^nous fêtons/i.test(t)) return t;
+  const label = /^[A-Za-zÀ-ÿ]/.test(t) && !/^le |^la |^l['']|^les /i.test(t) ? t : t;
+  return `Aujourd'hui, nous fêtons ${label}`;
+};
+
 const getEphemeride = (d = new Date()) => {
   if (!ephemeridesCache) ephemeridesCache = loadJson('camaris-ephemerides.json') || {};
   const key = `${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-  return ephemeridesCache[key] || null;
+  const raw = ephemeridesCache[key];
+  return raw ? formatEphemeridePhrase(raw) : null;
 };
 
 const SCOPE_PRIORITY = { audomarois: 4, 'pas-de-calais': 3, france: 2, local: 1 };
@@ -190,7 +199,13 @@ const pickAnimationForDay = (animations, frenchDay, weekKey) => {
     return days.includes(day);
   });
   if (!list.length) return null;
-  return list.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt))[0];
+  list.sort((a, b) => {
+    const lenA = (a.daysOfWeek || []).length;
+    const lenB = (b.daysOfWeek || []).length;
+    if (lenA !== lenB) return lenA - lenB;
+    return new Date(b.updatedAt) - new Date(a.updatedAt);
+  });
+  return list[0];
 };
 
 module.exports = {

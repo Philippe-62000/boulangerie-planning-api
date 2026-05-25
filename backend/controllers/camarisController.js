@@ -79,20 +79,16 @@ const getPublicBoard = async (req, res) => {
     const weekDays = buildWeekDays(now).map((d) => {
       const hit = pickAnimationForDay(animations, d.dayOfWeek, weekKey);
       const isTodayManager = d.isToday && today.source === 'manager';
-      const animTitle =
+      const title =
         hit?.title || (isTodayManager ? today.title : d.isToday && today.source === 'auto' ? today.title : '');
+      const body = hit?.body || (isTodayManager ? today.body : d.isToday && today.source === 'auto' ? today.body : '');
       const hasAnimation = Boolean(hit) || isTodayManager;
       return {
         ...d,
         hasAnimation,
-        animationTitle: animTitle || '',
-        preview: hit?.body
-          ? String(hit.body).slice(0, 80)
-          : isTodayManager
-            ? String(today.body).slice(0, 80)
-            : d.isToday
-              ? String(today.body).slice(0, 80)
-              : ''
+        animationTitle: title || '',
+        animationBodyHtml: body ? formatBodyHtml(body) : '',
+        preview: body ? String(body).slice(0, 120) : ''
       };
     });
 

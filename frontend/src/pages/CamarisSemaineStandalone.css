@@ -219,18 +219,35 @@
   gap: 0.4rem;
 }
 
+.camaris-week-hint {
+  margin: -0.5rem 0 0.75rem;
+  font-size: 0.88rem;
+  color: #666;
+}
+
 .camaris-week-day {
   text-align: center;
-  padding: 0.5rem 0.2rem;
+  padding: 0.55rem 0.25rem;
   border-radius: 12px;
   background: var(--camaris-cream);
   border: 2px solid transparent;
-  font-size: 0.75rem;
-  min-height: 4.5rem;
+  font-size: 0.8rem;
+  min-height: 3.5rem;
   display: flex;
   flex-direction: column;
   align-items: center;
-  transition: border-color 0.15s, transform 0.15s;
+  justify-content: center;
+  gap: 0.2rem;
+  cursor: pointer;
+  font-family: inherit;
+  color: inherit;
+  transition: border-color 0.15s, transform 0.15s, box-shadow 0.15s;
+}
+
+.camaris-week-day.selected {
+  border-color: var(--camaris-amber-dark);
+  box-shadow: 0 4px 16px rgba(196, 132, 15, 0.25);
+  transform: scale(1.04);
 }
 
 .camaris-week-day.today {
@@ -261,21 +278,49 @@
   margin: 0.35rem auto 0;
 }
 
-.camaris-day-anim-title {
-  display: block;
-  margin-top: 0.25rem;
-  font-size: 0.62rem;
-  line-height: 1.2;
-  font-weight: 600;
+.camaris-day-anim-hint {
+  font-size: 0.7rem;
+  font-weight: 700;
   color: var(--camaris-green);
-  max-width: 100%;
-  overflow: hidden;
 }
 
 .camaris-day-empty {
-  font-size: 0.65rem;
+  font-size: 0.7rem;
   color: #bbb;
-  margin-top: 0.2rem;
+}
+
+.camaris-week-detail {
+  position: relative;
+  margin-top: 1rem;
+  padding: 1rem 1.1rem 1.1rem;
+  background: var(--camaris-cream);
+  border-radius: 14px;
+  border: 2px solid var(--camaris-amber);
+}
+
+.camaris-week-detail h3 {
+  font-family: 'Fraunces', Georgia, serif;
+  margin: 0 0 0.75rem;
+  font-size: 1.15rem;
+}
+
+.camaris-week-detail-close {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.6rem;
+  border: none;
+  background: transparent;
+  font-size: 1.5rem;
+  line-height: 1;
+  cursor: pointer;
+  color: var(--camaris-brown);
+  padding: 0.2rem 0.4rem;
+}
+
+.camaris-week-detail-empty {
+  margin: 0;
+  color: #666;
+  font-style: italic;
 }
 
 .camaris-loading {
