@@ -183,6 +183,14 @@ const formatBodyHtml = (raw) => {
     .join('');
 };
 
+const formatDayDateFr = (date) => {
+  const d = date instanceof Date ? date : new Date(date);
+  const dd = String(d.getDate()).padStart(2, '0');
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const yyyy = d.getFullYear();
+  return `${dd}-${mm}-${yyyy}`;
+};
+
 const buildWeekDays = (d = new Date()) => {
   const monday = getWeekMonday(d);
   const todayFrench = jsDayToFrench(d.getDay());
@@ -193,7 +201,7 @@ const buildWeekDays = (d = new Date()) => {
     days.push({
       dayOfWeek: i + 1,
       label: ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'][i],
-      dateISO: date.toISOString().slice(0, 10),
+      dateISO: formatDayDateFr(date),
       isToday: i + 1 === todayFrench
     });
   }

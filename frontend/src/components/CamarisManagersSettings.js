@@ -31,20 +31,30 @@ const CamarisManagersSettings = () => {
   }, [load]);
 
   const save = async () => {
-    setSaving(true);
     setMessage(null);
+    if (editId && form.password && form.password.trim().length > 0 && form.password.trim().length < 6) {
+      setMessage({ type: 'error', text: 'Mot de passe : 6 caractères minimum.' });
+      return;
+    }
+    setSaving(true);
     try {
       if (editId) {
         const payload = {
-          login: form.login,
+          login: form.login.trim().toLowerCase(),
           displayName: form.displayName,
           isActive: true
         };
-        if (form.password) payload.password = form.password;
+        if (form.password && form.password.trim().length >= 6) {
+          payload.password = form.password.trim();
+        }
         await api.put(`/camaris/admin/managers/${editId}`, payload);
         setMessage({ type: 'success', text: 'Compte manager mis à jour.' });
       } else {
-        await api.post('/camaris/admin/managers', form);
+        await api.post('/camaris/admin/managers', {
+          login: form.login.trim().toLowerCase(),
+          password: form.password.trim(),
+          displayName: form.displayName
+        });
         setMessage({ type: 'success', text: 'Compte manager créé.' });
       }
       setForm(emptyForm());

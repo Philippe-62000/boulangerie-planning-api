@@ -138,13 +138,21 @@ const managerLogin = async (req, res) => {
     const login = String(req.body.login || '')
       .trim()
       .toLowerCase();
-    const password = String(req.body.password || '');
+    const password = String(req.body.password || '').trim();
     if (!login || !password) {
       return res.status(400).json({ success: false, error: 'Identifiant et mot de passe requis' });
     }
-    const manager = await CamarisManager.findOne({ siteKey: SITE_LON, login, isActive: true }).select(
+    const loginMatch = login.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    let manager = await CamarisManager.findOne({ siteKey: SITE_LON, login, isActive: true }).select(
       '+password'
     );
+    if (!manager) {
+      manager = await CamarisManager.findOne({
+        siteKey: SITE_LON,
+        login: { $regex: new RegExp(`^${loginMatch}$`, 'i') },
+        isActive: true
+      }).select('+password');
+    }
     if (!manager || !(await manager.comparePassword(password))) {
       return res.status(401).json({ success: false, error: 'Identifiants incorrects' });
     }
@@ -297,7 +305,11 @@ const updateManagerAdmin = async (req, res) => {
     if (req.body.displayName != null) m.displayName = String(req.body.displayName).trim();
     if (req.body.isActive != null) m.isActive = Boolean(req.body.isActive);
     if (req.body.password && String(req.body.password).length >= 6) {
-      m.password = String(req.body.password);
+      const plain = String(req.body.password).trim();
+      const BCRYPT_PATTERN = /^\$2[aby]\$\d+\$/;
+      const bcrypt = require('bcryptjs');
+      m.password = BCRYPT_PATTERN.test(plain) ? plain : await bcrypt.hash(plain, 10);
+      m.markModified('password');
     }
     await m.save();
     res.json({

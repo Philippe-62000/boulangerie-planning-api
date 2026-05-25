@@ -238,8 +238,27 @@
   gap: 0.75rem;
 }
 
+.camaris-ephemeride-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem 1rem;
+}
+
+.camaris-ephemeride-row-only-btn {
+  justify-content: flex-end;
+}
+
 .camaris-ephemeride-block {
+  flex: 1;
+  min-width: 200px;
   padding: 0.5rem 0;
+}
+
+.camaris-btn-horoscope-inline {
+  flex-shrink: 0;
+  align-self: center;
 }
 
 .camaris-ephemeride-label {

@@ -128,15 +128,23 @@ async function managerLogin(body) {
   const login = String(body.login || '')
     .trim()
     .toLowerCase();
-  const password = String(body.password || '');
+  const password = String(body.password || '').trim();
   if (!login || !password) {
     const err = new Error('Identifiant et mot de passe requis');
     err.status = 400;
     throw err;
   }
-  const manager = await CamarisManager.findOne({ siteKey: SITE_LON, login, isActive: true }).select(
+  const loginMatch = login.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  let manager = await CamarisManager.findOne({ siteKey: SITE_LON, login, isActive: true }).select(
     '+password'
   );
+  if (!manager) {
+    manager = await CamarisManager.findOne({
+      siteKey: SITE_LON,
+      login: { $regex: new RegExp(`^${loginMatch}$`, 'i') },
+      isActive: true
+    }).select('+password');
+  }
   if (!manager || !(await manager.comparePassword(password))) {
     const err = new Error('Identifiants incorrects');
     err.status = 401;

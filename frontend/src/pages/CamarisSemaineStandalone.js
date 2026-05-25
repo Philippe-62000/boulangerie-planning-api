@@ -140,7 +140,10 @@ const CamarisSemaineStandalone = () => {
     setSaving(true);
     setMsg(null);
     try {
-      const res = await axios.post(`${apiBase}/camaris/manager/login`, loginForm);
+      const res = await axios.post(`${apiBase}/camaris/manager/login`, {
+        login: loginForm.login.trim().toLowerCase(),
+        password: loginForm.password.trim()
+      });
       const token = res.data?.token;
       localStorage.setItem(TOKEN_KEY, token);
       setManagerToken(token);
@@ -296,11 +299,22 @@ const CamarisSemaineStandalone = () => {
 
       <section className="camaris-auto-strip" aria-label="Informations du jour">
         {board?.ephemeride ? (
-          <div className="camaris-ephemeride-block">
-            <span className="camaris-ephemeride-label">Éphéméride</span>
-            <p className="camaris-ephemeride">{board.ephemeride}</p>
+          <div className="camaris-ephemeride-row">
+            <div className="camaris-ephemeride-block">
+              <span className="camaris-ephemeride-label">Éphéméride</span>
+              <p className="camaris-ephemeride">{board.ephemeride}</p>
+            </div>
+            <button type="button" className="camaris-btn-horoscope camaris-btn-horoscope-inline" onClick={() => setHoroscopeOpen(true)}>
+              Horoscope
+            </button>
           </div>
-        ) : null}
+        ) : (
+          <div className="camaris-ephemeride-row camaris-ephemeride-row-only-btn">
+            <button type="button" className="camaris-btn-horoscope camaris-btn-horoscope-inline" onClick={() => setHoroscopeOpen(true)}>
+              Horoscope
+            </button>
+          </div>
+        )}
         {info ? (
           <div className="camaris-info-banner">
             <strong>{info.title}</strong>
@@ -321,10 +335,6 @@ const CamarisSemaineStandalone = () => {
 
         <section className="camaris-card" aria-labelledby="vue-semaine">
           <h2 id="vue-semaine">Vue semaine</h2>
-          <p className="camaris-week-hint">
-            Point vert = au moins une animation. Touchez un jour pour voir le détail de toutes les animations ce
-            jour-là.
-          </p>
           <div className="camaris-week-grid" role="list">
             {(board?.weekDays || []).map((d) => {
               const selected = selectedWeekDay === d.dayOfWeek;
@@ -399,9 +409,6 @@ const CamarisSemaineStandalone = () => {
           </p>
         ) : null}
         <div className="camaris-footer-actions">
-          <button type="button" className="camaris-btn-horoscope" onClick={() => setHoroscopeOpen(true)}>
-            Horoscope
-          </button>
           <button
             type="button"
             className="camaris-btn-refresh"

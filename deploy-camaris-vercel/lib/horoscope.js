@@ -1,3 +1,5 @@
+const { translateToFrench } = require('./translateFr');
+
 const API_BASE = 'https://horoscope-app-api.vercel.app/api/v1/get-horoscope/daily';
 
 const VALID = new Set([
@@ -31,16 +33,22 @@ async function fetchHoroscope(sign) {
   }
   const json = await res.json();
   const data = json?.data || json;
-  const text = String(data?.horoscope || data?.sing || '').trim();
-  if (!text) {
+  const textEn = String(data?.horoscope || data?.sing || '').trim();
+  if (!textEn) {
     const err = new Error('Horoscope temporairement indisponible');
     err.status = 502;
     throw err;
   }
+  let horoscopeFr = textEn;
+  try {
+    horoscopeFr = await translateToFrench(textEn);
+  } catch {
+    horoscopeFr = textEn;
+  }
   return {
     sign: id,
     date: data?.date || new Date().toISOString().slice(0, 10),
-    horoscope: text
+    horoscope: horoscopeFr
   };
 }
 
