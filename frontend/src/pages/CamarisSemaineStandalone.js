@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import axios from 'axios';
+import { fetchCamarisWeather, WEATHER_ICONS } from '../utils/camarisWeather.jsx';
 import './CamarisSemaineStandalone.css';
 
 const TOKEN_KEY = 'camarisManagerToken_lon';
@@ -24,6 +25,7 @@ const getApi = () => {
 const CamarisSemaineStandalone = () => {
   const apiBase = getApi();
   const [board, setBoard] = useState(null);
+  const [weather, setWeather] = useState(null);
   const [loading, setLoading] = useState(true);
   const [managerOpen, setManagerOpen] = useState(false);
   const [managerToken, setManagerToken] = useState(() => localStorage.getItem(TOKEN_KEY));
@@ -72,6 +74,12 @@ const CamarisSemaineStandalone = () => {
     const t = setInterval(loadBoard, 5 * 60 * 1000);
     return () => clearInterval(t);
   }, [loadBoard]);
+
+  useEffect(() => {
+    fetchCamarisWeather()
+      .then(setWeather)
+      .catch(() => setWeather(null));
+  }, []);
 
   useEffect(() => {
     if (managerToken && managerOpen && board?.weekKey) {
@@ -192,22 +200,34 @@ const CamarisSemaineStandalone = () => {
 
   const today = board?.today;
   const info = board?.infoBanner;
+  const weatherKind = weather?.kind && WEATHER_ICONS[weather.kind] ? weather.kind : 'cloud';
+  const WeatherIcon = WEATHER_ICONS[weatherKind] || WEATHER_ICONS.cloud;
 
   return (
     <div className="camaris-page">
       <header className="camaris-header">
         <div className="camaris-brand">
           <h1>{board?.pageTitle || 'Cette Semaine à Camaris'}</h1>
-          <p>Boulangerie Camaris — Longuenesse</p>
+          <p className="camaris-date-line">{board?.dateLabel}</p>
+          {weather ? (
+            <div className="camaris-weather-block">
+              <div className="camaris-weather-icon">{WeatherIcon}</div>
+              <p className="camaris-weather-phrase">{weather.phrase}</p>
+              {weather.temperature != null ? (
+                <span className="camaris-weather-temp">{Math.round(weather.temperature)} °C</span>
+              ) : null}
+            </div>
+          ) : null}
         </div>
-        <button type="button" className="camaris-btn-manager" onClick={() => setManagerOpen(true)}>
-          Manager
-        </button>
       </header>
 
       <section className="camaris-auto-strip" aria-label="Informations du jour">
-        <div className="camaris-date-line">{board?.dateLabel}</div>
-        <div className="camaris-ephemeride">{board?.ephemeride}</div>
+        {board?.ephemeride ? (
+          <div className="camaris-ephemeride-block">
+            <span className="camaris-ephemeride-label">Éphéméride</span>
+            <p className="camaris-ephemeride">{board.ephemeride}</p>
+          </div>
+        ) : null}
         {info ? (
           <div className="camaris-info-banner">
             <strong>{info.title}</strong>
@@ -219,9 +239,6 @@ const CamarisSemaineStandalone = () => {
       <div className="camaris-main-grid">
         <section className="camaris-card" aria-labelledby="anim-jour">
           <h2 id="anim-jour">Animation du jour</h2>
-          <span className={`camaris-badge ${today?.source === 'manager' ? 'manager' : 'auto'}`}>
-            {today?.source === 'manager' ? 'Par votre équipe' : 'Suggestion du jour'}
-          </span>
           <h3 className="camaris-animation-title">{today?.title}</h3>
           <div
             className="camaris-animation-body"
@@ -236,19 +253,29 @@ const CamarisSemaineStandalone = () => {
               <div
                 key={d.dayOfWeek}
                 className={`camaris-week-day${d.isToday ? ' today' : ''}${d.hasAnimation ? ' has-anim' : ''}`}
-                title={d.preview || ''}
+                title={d.preview || d.animationTitle || ''}
               >
                 <span className="camaris-day-label">{d.label}</span>
                 <span className="camaris-day-dot" aria-hidden="true" />
+                {d.hasAnimation && (d.animationTitle || d.preview) ? (
+                  <span className="camaris-day-anim-title">
+                    {(d.animationTitle || d.preview || '').slice(0, 28)}
+                    {(d.animationTitle || d.preview || '').length > 28 ? '…' : ''}
+                  </span>
+                ) : (
+                  <span className="camaris-day-empty">—</span>
+                )}
               </div>
             ))}
           </div>
-          <p className="camaris-week-preview">
-            Les points verts indiquent un animation renseignée par le manager. Revenez demain pour une nouvelle
-            surprise !
-          </p>
         </section>
       </div>
+
+      <footer className="camaris-footer">
+        <button type="button" className="camaris-btn-manager" onClick={() => setManagerOpen(true)}>
+          Espace manager
+        </button>
+      </footer>
 
       {managerOpen ? (
         <div className="camaris-overlay" role="dialog" aria-modal="true">

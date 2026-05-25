@@ -36,12 +36,12 @@ const FRENCH_MONTHS = [
 const jsDayToFrench = (jsDay) => (jsDay === 0 ? 7 : jsDay);
 
 const getIsoWeekKey = (d = new Date()) => {
-  const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
-  const dayNum = date.getUTCDay() || 7;
-  date.setUTCDate(date.getUTCDate() + 4 - dayNum);
-  const yearStart = new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
+  const date = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const dayNum = date.getDay() || 7;
+  date.setDate(date.getDate() + 4 - dayNum);
+  const yearStart = new Date(date.getFullYear(), 0, 1);
   const weekNo = Math.ceil(((date - yearStart) / 86400000 + 1) / 7);
-  return `${date.getUTCFullYear()}-W${String(weekNo).padStart(2, '0')}`;
+  return `${date.getFullYear()}-W${String(weekNo).padStart(2, '0')}`;
 };
 
 const getWeekMonday = (d = new Date()) => {
@@ -62,7 +62,7 @@ const formatFrenchDate = (d = new Date()) => {
 const getEphemeride = (d = new Date()) => {
   if (!ephemeridesCache) ephemeridesCache = loadJson('camaris-ephemerides.json') || {};
   const key = `${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-  return ephemeridesCache[key] || 'Bonne journée gourmande depuis Camaris Longuenesse';
+  return ephemeridesCache[key] || null;
 };
 
 const SCOPE_PRIORITY = { audomarois: 4, 'pas-de-calais': 3, france: 2, local: 1 };
@@ -192,9 +192,12 @@ const buildWeekDays = (d = new Date()) => {
 };
 
 const pickAnimationForDay = (animations, frenchDay, weekKey) => {
-  const list = (animations || []).filter(
-    (a) => a.isActive !== false && a.weekKey === weekKey && (a.daysOfWeek || []).includes(frenchDay)
-  );
+  const day = Number(frenchDay);
+  const list = (animations || []).filter((a) => {
+    if (a.isActive === false || a.weekKey !== weekKey) return false;
+    const days = (a.daysOfWeek || []).map((x) => Number(x));
+    return days.includes(day);
+  });
   if (!list.length) return null;
   return list.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt))[0];
 };
