@@ -250,10 +250,14 @@ const CamarisSemaineStandalone = () => {
 
         <section className="camaris-card" aria-labelledby="vue-semaine">
           <h2 id="vue-semaine">Vue semaine</h2>
-          <p className="camaris-week-hint">Touchez un jour pour afficher le détail de l&apos;animation.</p>
+          <p className="camaris-week-hint">
+            Point vert = au moins une animation. Touchez un jour pour voir le détail de toutes les animations ce
+            jour-là.
+          </p>
           <div className="camaris-week-grid" role="list">
             {(board?.weekDays || []).map((d) => {
               const selected = selectedWeekDay === d.dayOfWeek;
+              const count = d.animationCount || (d.animations || []).length;
               return (
                 <button
                   key={d.dayOfWeek}
@@ -262,15 +266,11 @@ const CamarisSemaineStandalone = () => {
                   className={`camaris-week-day${d.isToday ? ' today' : ''}${d.hasAnimation ? ' has-anim' : ''}${selected ? ' selected' : ''}`}
                   onClick={() => setSelectedWeekDay(selected ? null : d.dayOfWeek)}
                   aria-pressed={selected}
-                  aria-label={`${d.label}${d.hasAnimation ? `, ${d.animationTitle || 'animation'}` : ', pas d animation'}`}
+                  aria-label={`${d.label}${d.hasAnimation ? `, ${count} animation(s)` : ', pas d animation'}`}
                 >
                   <span className="camaris-day-label">{d.label}</span>
                   <span className="camaris-day-dot" aria-hidden="true" />
-                  {d.hasAnimation ? (
-                    <span className="camaris-day-anim-hint">Voir</span>
-                  ) : (
-                    <span className="camaris-day-empty">—</span>
-                  )}
+                  {count > 1 ? <span className="camaris-day-count">{count}</span> : null}
                 </button>
               );
             })}
@@ -279,6 +279,7 @@ const CamarisSemaineStandalone = () => {
             (() => {
               const detail = (board?.weekDays || []).find((d) => d.dayOfWeek === selectedWeekDay);
               if (!detail) return null;
+              const anims = detail.animations || [];
               return (
                 <div className="camaris-week-detail" role="region" aria-live="polite">
                   <button
@@ -292,15 +293,23 @@ const CamarisSemaineStandalone = () => {
                   <h3>
                     {detail.label}
                     {detail.dateISO ? ` — ${detail.dateISO}` : ''}
+                    {anims.length > 1 ? ` (${anims.length} animations)` : ''}
                   </h3>
-                  {detail.hasAnimation ? (
-                    <>
-                      <h4 className="camaris-animation-title">{detail.animationTitle}</h4>
-                      <div
-                        className="camaris-animation-body"
-                        dangerouslySetInnerHTML={{ __html: detail.animationBodyHtml || '' }}
-                      />
-                    </>
+                  {anims.length > 0 ? (
+                    <div className="camaris-week-detail-list">
+                      {anims.map((anim, idx) => (
+                        <article key={anim.id || idx} className="camaris-week-detail-item">
+                          {anims.length > 1 ? (
+                            <p className="camaris-week-detail-item-num">Animation {idx + 1}</p>
+                          ) : null}
+                          <h4 className="camaris-animation-title">{anim.title}</h4>
+                          <div
+                            className="camaris-animation-body"
+                            dangerouslySetInnerHTML={{ __html: anim.bodyHtml || '' }}
+                          />
+                        </article>
+                      ))}
+                    </div>
                   ) : (
                     <p className="camaris-week-detail-empty">Aucune animation renseignée pour ce jour.</p>
                   )}

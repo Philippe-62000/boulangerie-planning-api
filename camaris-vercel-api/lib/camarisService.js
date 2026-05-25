@@ -9,7 +9,8 @@ const {
   getAutoAnimation,
   formatBodyHtml,
   buildWeekDays,
-  pickAnimationForDay
+  pickAnimationForDay,
+  pickAllAnimationsForDay
 } = require('./digest');
 
 const SITE_LON = 'lon';
@@ -58,18 +59,35 @@ async function getPublicBoard() {
   }
 
   const weekDays = buildWeekDays(now).map((d) => {
-    const hit = pickAnimationForDay(animations, d.dayOfWeek, weekKey);
+    const hits = pickAllAnimationsForDay(animations, d.dayOfWeek, weekKey);
     const isTodayManager = d.isToday && today.source === 'manager';
-    const title =
-      hit?.title || (isTodayManager ? today.title : d.isToday && today.source === 'auto' ? today.title : '');
-    const body = hit?.body || (isTodayManager ? today.body : d.isToday && today.source === 'auto' ? today.body : '');
-    const hasAnimation = Boolean(hit) || isTodayManager;
+    const list = hits.map((a) => ({
+      id: String(a._id),
+      title: a.title || 'Animation Camaris',
+      bodyHtml: formatBodyHtml(a.body),
+      preview: String(a.body || '').slice(0, 120)
+    }));
+    if (isTodayManager && today.source === 'manager' && !list.length) {
+      list.push({
+        id: 'today',
+        title: today.title || 'Animation du jour',
+        bodyHtml: today.bodyHtml || formatBodyHtml(today.body),
+        preview: String(today.body || '').slice(0, 120)
+      });
+    }
+    if (!list.length && d.isToday && today.source === 'auto') {
+      list.push({
+        id: 'auto-today',
+        title: today.title,
+        bodyHtml: today.bodyHtml || formatBodyHtml(today.body),
+        preview: String(today.body || '').slice(0, 120)
+      });
+    }
     return {
       ...d,
-      hasAnimation,
-      animationTitle: title || '',
-      animationBodyHtml: body ? formatBodyHtml(body) : '',
-      preview: body ? String(body).slice(0, 120) : ''
+      hasAnimation: list.length > 0,
+      animationCount: list.length,
+      animations: list
     };
   });
 

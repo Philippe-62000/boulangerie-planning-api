@@ -217,6 +217,23 @@ const pickAnimationForDay = (animations, frenchDay, weekKey) => {
   return list[0];
 };
 
+/** Toutes les animations actives pour un jour (semaine entière + jour ciblé, etc.). */
+const pickAllAnimationsForDay = (animations, frenchDay, weekKey) => {
+  const day = Number(frenchDay);
+  const list = (animations || []).filter((a) => {
+    if (a.isActive === false || a.weekKey !== weekKey) return false;
+    const days = (a.daysOfWeek || []).map((x) => Number(x));
+    return days.includes(day);
+  });
+  list.sort((a, b) => {
+    const lenA = (a.daysOfWeek || []).length;
+    const lenB = (b.daysOfWeek || []).length;
+    if (lenA !== lenB) return lenA - lenB;
+    return new Date(b.updatedAt) - new Date(a.updatedAt);
+  });
+  return list;
+};
+
 module.exports = {
   jsDayToFrench,
   getIsoWeekKey,
@@ -228,5 +245,6 @@ module.exports = {
   getAutoAnimation,
   formatBodyHtml,
   buildWeekDays,
-  pickAnimationForDay
+  pickAnimationForDay,
+  pickAllAnimationsForDay
 };
