@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import axios from 'axios';
 import { fetchCamarisWeather, WEATHER_ICONS } from '../utils/camarisWeather.jsx';
+import { CAMARIS_ZODIAC_SIGNS } from '../constants/camarisHoroscope';
 import './CamarisSemaineStandalone.css';
 
 const TOKEN_KEY = 'camarisManagerToken_lon';
@@ -56,6 +57,10 @@ const CamarisSemaineStandalone = () => {
   const [msg, setMsg] = useState(null);
   const [saving, setSaving] = useState(false);
   const [selectedWeekDay, setSelectedWeekDay] = useState(null);
+  const [horoscopeOpen, setHoroscopeOpen] = useState(false);
+  const [horoscopeSign, setHoroscopeSign] = useState(null);
+  const [horoscopeData, setHoroscopeData] = useState(null);
+  const [horoscopeLoading, setHoroscopeLoading] = useState(false);
 
   const loadBoard = useCallback(async () => {
     try {
@@ -87,10 +92,27 @@ const CamarisSemaineStandalone = () => {
   );
 
   useEffect(() => {
-    loadBoard();
+    let cancelled = false;
+    (async () => {
+      try {
+        if (!sessionStorage.getItem('camaris_visit_sent')) {
+          const v = await axios.post(`${apiBase}/camaris/public/visit`);
+          sessionStorage.setItem('camaris_visit_sent', '1');
+          if (!cancelled && v.data?.data?.totalVisits != null) {
+            setBoard((b) => (b ? { ...b, visitCount: v.data.data.totalVisits } : null));
+          }
+        }
+      } catch {
+        /* compteur optionnel */
+      }
+      if (!cancelled) await loadBoard();
+    })();
     const t = setInterval(loadBoard, 5 * 60 * 1000);
-    return () => clearInterval(t);
-  }, [loadBoard]);
+    return () => {
+      cancelled = true;
+      clearInterval(t);
+    };
+  }, [apiBase, loadBoard]);
 
   useEffect(() => {
     fetchCamarisWeather()
@@ -219,9 +241,41 @@ const CamarisSemaineStandalone = () => {
   const info = board?.infoBanner;
   const weatherKind = weather?.kind && WEATHER_ICONS[weather.kind] ? weather.kind : 'cloud';
   const WeatherIcon = WEATHER_ICONS[weatherKind] || WEATHER_ICONS.cloud;
+  const apiStale =
+    board &&
+    (board.apiVersion < 4 ||
+      (board.ephemeride && /bonne journée gourmande/i.test(board.ephemeride)) ||
+      (info?.text && /bulo/i.test(info.text)));
+
+  const loadHoroscope = async (signId) => {
+    setHoroscopeSign(signId);
+    setHoroscopeLoading(true);
+    setHoroscopeData(null);
+    try {
+      const res = await axios.get(`${apiBase}/camaris/public/horoscope`, {
+        params: { sign: signId, _v: Date.now() }
+      });
+      setHoroscopeData(res.data?.data || null);
+    } catch {
+      setHoroscopeData({
+        sign: signId,
+        horoscope: 'Horoscope momentanément indisponible. Réessayez dans un instant.'
+      });
+    } finally {
+      setHoroscopeLoading(false);
+    }
+  };
+
+  const horoscopeLabel = CAMARIS_ZODIAC_SIGNS.find((s) => s.id === horoscopeSign)?.label;
 
   return (
     <div className="camaris-page">
+      {apiStale ? (
+        <div className="camaris-stale-banner" role="alert">
+          Mise à jour en cours sur le serveur — faites <strong>Ctrl+F5</strong> (rechargement forcé). L’API
+          directe est à jour ; cette page utilise encore une ancienne version.
+        </div>
+      ) : null}
       <header className="camaris-header">
         <div className="camaris-brand">
           <h1>{board?.pageTitle || 'Cette Semaine à Camaris'}</h1>
@@ -337,10 +391,56 @@ const CamarisSemaineStandalone = () => {
       </div>
 
       <footer className="camaris-footer">
-        <button type="button" className="camaris-btn-manager" onClick={() => setManagerOpen(true)}>
-          Espace manager
-        </button>
+        {board?.visitCount != null ? (
+          <p className="camaris-visit-count">
+            {board.visitCount.toLocaleString('fr-FR')} consultation{board.visitCount > 1 ? 's' : ''} de la page
+          </p>
+        ) : null}
+        <div className="camaris-footer-actions">
+          <button type="button" className="camaris-btn-horoscope" onClick={() => setHoroscopeOpen(true)}>
+            Horoscope
+          </button>
+          <button type="button" className="camaris-btn-manager" onClick={() => setManagerOpen(true)}>
+            Espace manager
+          </button>
+        </div>
       </footer>
+
+      {horoscopeOpen ? (
+        <div className="camaris-overlay" role="dialog" aria-modal="true" aria-labelledby="horoscope-title">
+          <div className="camaris-panel camaris-panel-wide">
+            <h3 id="horoscope-title">Horoscope du jour</h3>
+            <p className="camaris-horoscope-intro">Choisissez votre signe pour lire l’horoscope du jour.</p>
+            <div className="camaris-zodiac-grid">
+              {CAMARIS_ZODIAC_SIGNS.map((s) => (
+                <button
+                  key={s.id}
+                  type="button"
+                  className={`camaris-zodiac-btn${horoscopeSign === s.id ? ' active' : ''}`}
+                  onClick={() => loadHoroscope(s.id)}
+                >
+                  <span className="camaris-zodiac-emoji" aria-hidden="true">
+                    {s.emoji}
+                  </span>
+                  {s.label}
+                </button>
+              ))}
+            </div>
+            {horoscopeLoading ? <p className="camaris-horoscope-text">Chargement…</p> : null}
+            {!horoscopeLoading && horoscopeData?.horoscope ? (
+              <div className="camaris-horoscope-result">
+                {horoscopeLabel ? <h4>{horoscopeLabel}</h4> : null}
+                <p>{horoscopeData.horoscope}</p>
+              </div>
+            ) : null}
+            <div className="camaris-panel-actions">
+              <button type="button" className="camaris-btn-secondary" onClick={() => setHoroscopeOpen(false)}>
+                Fermer
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {managerOpen ? (
         <div className="camaris-overlay" role="dialog" aria-modal="true">

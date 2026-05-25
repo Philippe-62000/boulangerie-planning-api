@@ -64,4 +64,15 @@ const CamarisTerritoryEvent =
   mongoose.models.CamarisTerritoryEvent ||
   mongoose.model('CamarisTerritoryEvent', camarisTerritoryEventSchema);
 
-module.exports = { CamarisManager, CamarisAnimation, CamarisTerritoryEvent };
+const camarisVisitCounterSchema = new mongoose.Schema(
+  {
+    siteKey: { type: String, enum: ['lon'], default: 'lon', unique: true },
+    totalVisits: { type: Number, default: 0 }
+  },
+  { timestamps: true }
+);
+
+const CamarisVisitCounter =
+  mongoose.models.CamarisVisitCounter || mongoose.model('CamarisVisitCounter', camarisVisitCounterSchema);
+
+module.exports = { CamarisManager, CamarisAnimation, CamarisTerritoryEvent, CamarisVisitCounter };
