@@ -1,0 +1,358 @@
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;700&family=DM+Sans:wght@400;500;600;700&display=swap');
+
+.camaris-page {
+  --camaris-cream: #fff8f0;
+  --camaris-amber: #e8a317;
+  --camaris-amber-dark: #c4840f;
+  --camaris-brown: #3d2914;
+  --camaris-rose: #f4e4d7;
+  --camaris-green: #2d6a4f;
+  min-height: 100vh;
+  font-family: 'DM Sans', system-ui, sans-serif;
+  color: var(--camaris-brown);
+  background: linear-gradient(165deg, #fff8f0 0%, #fdebd3 45%, #f8d9b8 100%);
+}
+
+.camaris-page * {
+  box-sizing: border-box;
+}
+
+.camaris-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1.25rem;
+  flex-wrap: wrap;
+}
+
+.camaris-brand h1 {
+  font-family: 'Fraunces', Georgia, serif;
+  font-size: clamp(1.5rem, 4vw, 2.2rem);
+  font-weight: 700;
+  margin: 0;
+  line-height: 1.15;
+  color: var(--camaris-brown);
+}
+
+.camaris-brand p {
+  margin: 0.25rem 0 0;
+  font-size: 0.95rem;
+  opacity: 0.85;
+}
+
+.camaris-btn-manager {
+  border: 2px solid var(--camaris-brown);
+  background: white;
+  color: var(--camaris-brown);
+  font-weight: 600;
+  padding: 0.55rem 1.1rem;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: transform 0.15s, background 0.15s;
+}
+
+.camaris-btn-manager:hover {
+  background: var(--camaris-brown);
+  color: white;
+  transform: translateY(-1px);
+}
+
+.camaris-auto-strip {
+  margin: 0 1rem 1rem;
+  padding: 1rem 1.25rem;
+  background: white;
+  border-radius: 16px;
+  box-shadow: 0 8px 32px rgba(61, 41, 20, 0.08);
+  display: grid;
+  gap: 0.75rem;
+}
+
+.camaris-date-line {
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+
+.camaris-ephemeride {
+  font-size: 0.95rem;
+  color: var(--camaris-amber-dark);
+  font-style: italic;
+}
+
+.camaris-info-banner {
+  padding: 0.85rem 1rem;
+  border-radius: 12px;
+  background: linear-gradient(90deg, var(--camaris-rose), #fff);
+  border-left: 4px solid var(--camaris-amber);
+}
+
+.camaris-info-banner strong {
+  display: block;
+  margin-bottom: 0.25rem;
+}
+
+.camaris-main-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+  padding: 0 1rem 2rem;
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+@media (min-width: 900px) {
+  .camaris-main-grid {
+    grid-template-columns: 1.2fr 0.9fr;
+    align-items: start;
+  }
+}
+
+.camaris-card {
+  background: white;
+  border-radius: 20px;
+  padding: 1.25rem 1.35rem;
+  box-shadow: 0 12px 40px rgba(61, 41, 20, 0.1);
+}
+
+.camaris-card h2 {
+  font-family: 'Fraunces', Georgia, serif;
+  font-size: 1.35rem;
+  margin: 0 0 1rem;
+}
+
+.camaris-badge {
+  display: inline-block;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 0.2rem 0.55rem;
+  border-radius: 6px;
+  margin-bottom: 0.75rem;
+}
+
+.camaris-badge.manager {
+  background: #d8f3dc;
+  color: var(--camaris-green);
+}
+
+.camaris-badge.auto {
+  background: #fff3cd;
+  color: #856404;
+}
+
+.camaris-animation-title {
+  font-family: 'Fraunces', Georgia, serif;
+  font-size: 1.5rem;
+  margin: 0 0 0.75rem;
+  color: var(--camaris-amber-dark);
+}
+
+.camaris-animation-body {
+  line-height: 1.65;
+  font-size: 1.05rem;
+}
+
+.camaris-animation-body p {
+  margin: 0 0 0.85rem;
+}
+
+.camaris-animation-body p:last-child {
+  margin-bottom: 0;
+}
+
+.camaris-week-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 0.4rem;
+}
+
+.camaris-week-day {
+  text-align: center;
+  padding: 0.55rem 0.25rem;
+  border-radius: 12px;
+  background: var(--camaris-cream);
+  border: 2px solid transparent;
+  font-size: 0.8rem;
+  transition: border-color 0.15s, transform 0.15s;
+}
+
+.camaris-week-day.today {
+  border-color: var(--camaris-amber);
+  background: #fff9e6;
+  transform: scale(1.03);
+}
+
+.camaris-week-day.has-anim .camaris-day-dot {
+  background: var(--camaris-green);
+}
+
+.camaris-week-day .camaris-day-label {
+  font-weight: 700;
+  display: block;
+}
+
+.camaris-day-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #ddd;
+  margin: 0.35rem auto 0;
+}
+
+.camaris-week-preview {
+  margin-top: 1rem;
+  font-size: 0.88rem;
+  color: #666;
+  line-height: 1.4;
+}
+
+.camaris-loading {
+  text-align: center;
+  padding: 4rem 1rem;
+}
+
+/* Manager overlay */
+.camaris-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(61, 41, 20, 0.45);
+  z-index: 100;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 1rem;
+  overflow-y: auto;
+}
+
+.camaris-panel {
+  background: white;
+  border-radius: 20px;
+  width: 100%;
+  max-width: 520px;
+  padding: 1.5rem;
+  margin: auto;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+}
+
+.camaris-panel h3 {
+  font-family: 'Fraunces', Georgia, serif;
+  margin: 0 0 1rem;
+}
+
+.camaris-form label {
+  display: block;
+  font-weight: 600;
+  margin: 0.75rem 0 0.35rem;
+  font-size: 0.9rem;
+}
+
+.camaris-form input,
+.camaris-form textarea {
+  width: 100%;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid #ddd;
+  border-radius: 10px;
+  font-family: inherit;
+  font-size: 1rem;
+}
+
+.camaris-form textarea {
+  min-height: 140px;
+  resize: vertical;
+}
+
+.camaris-days-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: 0.35rem;
+}
+
+.camaris-day-chip {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.35rem 0.6rem;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  cursor: pointer;
+  user-select: none;
+}
+
+.camaris-day-chip:has(input:checked) {
+  border-color: var(--camaris-amber);
+  background: #fff9e6;
+}
+
+.camaris-preview-box {
+  margin-top: 1rem;
+  padding: 1rem;
+  background: var(--camaris-cream);
+  border-radius: 12px;
+  border: 1px dashed var(--camaris-amber);
+}
+
+.camaris-panel-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 1.25rem;
+}
+
+.camaris-btn-primary {
+  background: var(--camaris-amber);
+  color: var(--camaris-brown);
+  border: none;
+  font-weight: 700;
+  padding: 0.6rem 1.2rem;
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.camaris-btn-secondary {
+  background: #eee;
+  border: none;
+  padding: 0.6rem 1rem;
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.camaris-btn-danger {
+  background: #fee;
+  color: #a00;
+  border: none;
+  padding: 0.6rem 1rem;
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.camaris-msg {
+  margin-top: 0.75rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 8px;
+  font-size: 0.9rem;
+}
+
+.camaris-msg.error {
+  background: #fee;
+  color: #900;
+}
+
+.camaris-msg.success {
+  background: #d8f3dc;
+  color: #1b4332;
+}
+
+.camaris-anim-list {
+  list-style: none;
+  padding: 0;
+  margin: 1rem 0 0;
+}
+
+.camaris-anim-list li {
+  padding: 0.65rem 0;
+  border-bottom: 1px solid #eee;
+  font-size: 0.9rem;
+}

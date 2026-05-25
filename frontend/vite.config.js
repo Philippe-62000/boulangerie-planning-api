@@ -42,6 +42,7 @@ export default defineConfig({
         'vehicle-standalone': path.resolve(__dirname, 'vehicle-standalone.html'),
         'compte-client-standalone': path.resolve(__dirname, 'compte-client-standalone.html'),
         'menu-standalone': path.resolve(__dirname, 'menu-standalone.html'),
+        'camaris-semaine-standalone': path.resolve(__dirname, 'camaris-semaine-standalone.html'),
       },
       output: {
         // Conserver la structure des noms de fichiers pour compatibilité

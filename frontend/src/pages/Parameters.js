@@ -4,6 +4,11 @@ import { toast } from 'react-toastify';
 import './Parameters.css';
 import './Parameters-email-styles.css';
 import './Parameters-tabs-styles.css';
+import CamarisManagersSettings from '../components/CamarisManagersSettings';
+import CamarisTerritoryEventsSettings from '../components/CamarisTerritoryEventsSettings';
+
+const isLonguenesseSite = () =>
+  typeof window !== 'undefined' && window.location.pathname.startsWith('/lon');
 
 const Parameters = () => {
   // État pour la gestion des onglets
@@ -1040,6 +1045,13 @@ const Parameters = () => {
               </>
             )}
           </div>
+
+          {isLonguenesseSite() ? (
+            <>
+              <CamarisManagersSettings />
+              <CamarisTerritoryEventsSettings />
+            </>
+          ) : null}
         </div>
           </div>
         )}

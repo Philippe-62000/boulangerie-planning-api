@@ -43,6 +43,7 @@ import VehicleStandalone from './pages/VehicleStandalone';
 import CompteClientStandalone from './pages/CompteClientStandalone';
 import CompteClientDepots from './pages/CompteClientDepots';
 import StandaloneMenu from './pages/StandaloneMenu';
+import CamarisSemaineStandalone from './pages/CamarisSemaineStandalone';
 import Stocks from './pages/Stocks';
 import StocksFarinesStandalone from './pages/StocksFarinesStandalone';
 import MenuPermissionGate from './components/MenuPermissionGate';
@@ -337,6 +338,8 @@ function App() {
           <Route path="/compte-client-standalone.html" element={<CompteClientStandalone />} />
           <Route path="/menu-standalone" element={<StandaloneMenu />} />
           <Route path="/menu-standalone.html" element={<StandaloneMenu />} />
+          <Route path="/camaris-semaine-standalone" element={<CamarisSemaineStandalone />} />
+          <Route path="/camaris-semaine-standalone.html" element={<CamarisSemaineStandalone />} />
           <Route path="/*" element={<AppContent />} />
         </Routes>
     </Router>
