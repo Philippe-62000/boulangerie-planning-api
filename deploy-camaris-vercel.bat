@@ -6,7 +6,8 @@ echo ========================================
 echo.
 
 cd frontend
-set VITE_CAMARIS_PUBLIC_URL=https://camaris-semaine.vercel.app
+set VITE_API_URL=
+set VITE_CAMARIS_PUBLIC_URL=https://camaris-longuenesse.vercel.app
 call npm run build:camaris-vercel
 if %errorlevel% neq 0 (
     echo ERREUR build frontend

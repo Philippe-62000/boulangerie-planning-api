@@ -38,5 +38,9 @@ export default defineConfig({
       }
     }
   },
-  envPrefix: 'VITE_'
+  envPrefix: 'VITE_',
+  /** Ne jamais appeler Render : API serverless sur le même domaine Vercel (/api). */
+  define: {
+    'import.meta.env.VITE_API_URL': JSON.stringify('')
+  }
 });

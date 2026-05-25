@@ -32,6 +32,12 @@ const getDayAnimations = (day) => {
 
 /** API sur le même domaine Vercel (serverless + MongoDB), comme commande-longuenesse — pas Render. */
 const getApi = () => {
+  if (typeof window !== 'undefined') {
+    const host = window.location.hostname || '';
+    if (/vercel\.app$/i.test(host) || host.includes('camaris')) {
+      return `${window.location.origin}/api`;
+    }
+  }
   const override = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
   if (override) return override;
   if (typeof window !== 'undefined') return `${window.location.origin}/api`;
@@ -241,10 +247,7 @@ const CamarisSemaineStandalone = () => {
   const info = board?.infoBanner;
   const weatherKind = weather?.kind && WEATHER_ICONS[weather.kind] ? weather.kind : 'cloud';
   const WeatherIcon = WEATHER_ICONS[weatherKind] || WEATHER_ICONS.cloud;
-  const apiStale =
-    board &&
-    (board.apiVersion < 4 ||
-      (board.ephemeride && /bonne journée gourmande/i.test(board.ephemeride)));
+  const apiStale = board && (board.apiVersion == null || board.apiVersion < 4);
 
   const loadHoroscope = async (signId) => {
     setHoroscopeSign(signId);
