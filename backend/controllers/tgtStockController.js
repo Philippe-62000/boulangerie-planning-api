@@ -50,20 +50,22 @@ const putConfig = async (req, res) => {
     const siteKey = normalizeSiteKey(req.body.siteKey || req.query.siteKey);
     const supplier = getSupplierFromReq(req);
     const submissionDays = normalizeSubmissionDays(req.body.submissionDays);
-    const query = stockConfigQuery(siteKey, supplier);
+    const isTgt = parseSupplier(supplier) === parseSupplier('TGT');
+    const query = isTgt
+      ? {
+          siteKey,
+          $or: [{ supplier: 'TGT' }, { supplier: { $exists: false } }, { supplier: null }, { supplier: '' }]
+        }
+      : stockConfigQuery(siteKey, supplier);
+
     let cfg = await TgtStockConfig.findOneAndUpdate(
       query,
-      { $set: { submissionDays }, $setOnInsert: { siteKey, supplier } },
+      {
+        $set: { submissionDays, siteKey, supplier: parseSupplier(supplier) },
+        $setOnInsert: { siteKey, supplier: parseSupplier(supplier) }
+      },
       { upsert: true, new: true, setDefaultsOnInsert: true }
     ).lean();
-    if (!cfg && supplier === parseSupplier('TGT')) {
-      const legacy = await TgtStockConfig.findOneAndUpdate(
-        { siteKey, $or: [{ supplier: { $exists: false } }, { supplier: null }, { supplier: '' }] },
-        { $set: { siteKey, supplier: 'TGT', submissionDays } },
-        { new: true }
-      ).lean();
-      if (legacy) cfg = legacy;
-    }
     if (!cfg) {
       return res.status(500).json({ success: false, error: 'Config stocks non enregistrée' });
     }
