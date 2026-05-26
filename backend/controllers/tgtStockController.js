@@ -109,6 +109,7 @@ const postEntry = async (req, res) => {
     const supplier = getSupplierFromReq(req);
     const employeeName = String(req.body.employeeName || req.employeeName || '').trim();
     const employeeId = req.body.employeeId || req.employeeId || null;
+    const comment = String(req.body.comment || '').trim().slice(0, 500);
     const rawItems = Array.isArray(req.body.items) ? req.body.items : [];
 
     if (!employeeName) {
@@ -134,6 +135,7 @@ const postEntry = async (req, res) => {
       supplier,
       employeeId: employeeId || null,
       employeeName,
+      comment,
       items,
       itemsCount: items.length
     });
@@ -153,7 +155,7 @@ const getEntries = async (req, res) => {
     const entries = await TgtStockEntry.find({ siteKey, supplier })
       .sort({ createdAt: -1 })
       .limit(limit)
-      .select('_id employeeName itemsCount createdAt updatedAt')
+      .select('_id employeeName itemsCount comment createdAt updatedAt')
       .lean();
     res.json({ success: true, data: entries });
   } catch (e) {

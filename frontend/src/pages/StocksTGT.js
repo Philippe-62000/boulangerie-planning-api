@@ -44,6 +44,7 @@ const StocksTGT = ({ channelKey = 'TGT' }) => {
   const [products, setProducts] = useState([]);
   const [selectedEmployeeId, setSelectedEmployeeId] = useState('');
   const [stockValues, setStockValues] = useState({});
+  const [comment, setComment] = useState('');
 
   const [history, setHistory] = useState([]);
   const [historyLoading, setHistoryLoading] = useState(false);
@@ -216,9 +217,11 @@ const StocksTGT = ({ channelKey = 'TGT' }) => {
         ...apiQ(),
         employeeId: selectedEmployeeId,
         employeeName,
+        comment: comment.trim(),
         items
       });
       setStockValues({});
+      setComment('');
       setMessage({
         type: 'success',
         text: res.data?.message || 'Saisie enregistrée avec succès.'
@@ -268,6 +271,7 @@ const StocksTGT = ({ channelKey = 'TGT' }) => {
                 <th>Date</th>
                 <th>Salarié</th>
                 <th>Produits</th>
+                <th>Commentaire</th>
               </tr>
             </thead>
             <tbody>
@@ -280,6 +284,7 @@ const StocksTGT = ({ channelKey = 'TGT' }) => {
                   </td>
                   <td>{row.employeeName}</td>
                   <td className="col-num">{row.itemsCount ?? 0}</td>
+                  <td className="stocks-tgt-comment-cell">{row.comment || '—'}</td>
                 </tr>
               ))}
             </tbody>
@@ -313,7 +318,13 @@ const StocksTGT = ({ channelKey = 'TGT' }) => {
         ) : !detailEntry ? (
           <p className="stocks-tgt-empty">Saisie introuvable.</p>
         ) : (
-          detailGrouped.map(([locName, group]) => (
+          <>
+            {detailEntry.comment ? (
+              <p className="stocks-tgt-entry-comment">
+                <strong>Commentaire :</strong> {detailEntry.comment}
+              </p>
+            ) : null}
+            {detailGrouped.map(([locName, group]) => (
             <section key={locName} className="stocks-tgt-group">
               <h3>{locName}</h3>
               <table className="stocks-tgt-table">
@@ -333,7 +344,8 @@ const StocksTGT = ({ channelKey = 'TGT' }) => {
                 </tbody>
               </table>
             </section>
-          ))
+            ))}
+          </>
         )}
       </div>
     );
@@ -441,6 +453,16 @@ const StocksTGT = ({ channelKey = 'TGT' }) => {
       )}
 
       <footer className="stocks-tgt-footer no-print">
+        <label className="stocks-tgt-comment-field">
+          Commentaire (optionnel)
+          <textarea
+            value={comment}
+            onChange={(e) => setComment(e.target.value)}
+            placeholder="Remarque pour cette saisie de stocks…"
+            rows={2}
+            maxLength={500}
+          />
+        </label>
         <button type="button" className="btn btn-primary" onClick={submitEntry} disabled={sending || loading}>
           {sending ? 'Envoi…' : 'Envoyer'}
         </button>

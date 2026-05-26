@@ -21,6 +21,7 @@ const tgtStockEntrySchema = new mongoose.Schema(
     supplier: { type: String, enum: ['TGT', 'MILLANGE'], default: 'TGT', index: true },
     employeeId: { type: mongoose.Schema.Types.ObjectId, ref: 'Employee', default: null },
     employeeName: { type: String, required: true, trim: true },
+    comment: { type: String, default: '', trim: true, maxlength: 500 },
     items: {
       type: [tgtStockEntryItemSchema],
       default: []

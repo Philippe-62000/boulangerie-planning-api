@@ -111,6 +111,32 @@ const resolveProductLocationName = (product, locationsList) => {
   return '';
 };
 
+/** Placeholder affiché quand aucun emplacement réel n’est choisi (select ou données importées). */
+const isPlaceholderLocationName = (name) => {
+  const n = String(name || '')
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, ' ');
+  if (!n) return true;
+  if (n === 'sans emplacement') return true;
+  if (/^[-—–\s]*(emplacement|sans emplacement)[-—–\s]*$/.test(n)) return true;
+  if (/^—\s*emplacement\s*—$/.test(String(name || '').trim())) return true;
+  return false;
+};
+
+const hasProductLocation = (product, locationsList) => {
+  const id = resolveProductLocationId(product);
+  if (id) {
+    const loc = locationsList?.find((l) => String(l._id) === String(id));
+    if (loc?.name && !isPlaceholderLocationName(loc.name)) return true;
+  }
+  const name = resolveProductLocationName(product, locationsList);
+  return Boolean(name) && !isPlaceholderLocationName(name);
+};
+
+const displayLocationKey = (name) =>
+  isPlaceholderLocationName(name) ? 'Sans emplacement' : (name && String(name).trim()) || 'Sans emplacement';
+
 const mergeCmdMeta = (prev, next) => ({
   ...(prev || {}),
   cmdBlNumbers: next?.cmdBlNumbers ?? prev?.cmdBlNumbers,
@@ -252,14 +278,34 @@ const CommandeTGT = ({ channelKey = 'TGT' }) => {
 
   const locationNames = useMemo(() => {
     const fromLocs = locations.filter((l) => l.isActive !== false).map((l) => l.name);
-    const fromLines = lines.map((l) => l.locationName).filter(Boolean);
+    const fromLines = lines.map((l) => displayLocationKey(l.locationName));
     return [...new Set([...fromLocs, ...fromLines])].sort((a, b) => a.localeCompare(b, 'fr'));
   }, [locations, lines]);
+
+  const configProductsSorted = useMemo(
+    () =>
+      products
+        .map((p, idx) => ({ p, idx }))
+        .sort((a, b) => {
+          const aActive = a.p.isActive !== false;
+          const bActive = b.p.isActive !== false;
+          const aNo = aActive && !hasProductLocation(a.p, locations);
+          const bNo = bActive && !hasProductLocation(b.p, locations);
+          if (aNo !== bNo) return aNo ? -1 : 1;
+          return (Number(a.p.order) || a.idx * 10) - (Number(b.p.order) || b.idx * 10);
+        }),
+    [products, locations]
+  );
+
+  const configNoLocationCount = useMemo(
+    () => products.filter((p) => p.isActive !== false && !hasProductLocation(p, locations)).length,
+    [products, locations]
+  );
 
   const groupedLines = useMemo(() => {
     let list = [...lines];
     if (filterLocation !== 'all') {
-      list = list.filter((l) => (l.locationName || 'Sans emplacement') === filterLocation);
+      list = list.filter((l) => displayLocationKey(l.locationName) === filterLocation);
     }
     if (search.trim()) {
       const q = search.trim().toLowerCase();
@@ -271,7 +317,7 @@ const CommandeTGT = ({ channelKey = 'TGT' }) => {
     }
     const groups = new Map();
     for (const line of list) {
-      const key = line.locationName || 'Sans emplacement';
+      const key = displayLocationKey(line.locationName);
       if (!groups.has(key)) groups.set(key, []);
       groups.get(key).push(line);
     }
@@ -1150,18 +1196,25 @@ const CommandeTGT = ({ channelKey = 'TGT' }) => {
                 <p className="commande-tgt-hint">
                   Utilisez « Désactiver » pour retirer un produit arrêté de la saisie. « Réactiver » le remet dans la
                   liste. Les lignes en <strong className="config-no-location-label">rouge</strong> n’ont pas
-                  d’emplacement défini.
+                  d’emplacement défini (y compris « — emplacement — » ou « -Emplacement- ») — elles sont listées en
+                  premier.
+                  {configNoLocationCount > 0 ? (
+                    <>
+                      {' '}
+                      <strong>{configNoLocationCount}</strong> produit
+                      {configNoLocationCount > 1 ? 's' : ''} à compléter.
+                    </>
+                  ) : null}
                 </p>
-                {products.map((p, idx) => {
+                {configProductsSorted.map(({ p, idx }) => {
                   const isActive = p.isActive !== false;
                   const locationSelectValue =
                     resolveProductLocationId(p) ||
-                    (p.locationName
+                    (p.locationName && !isPlaceholderLocationName(p.locationName)
                       ? locations.find((l) => l.name === p.locationName)?._id
                       : null) ||
                     '';
-                  const hasNoLocation =
-                    isActive && !resolveProductLocationName(p, locations);
+                  const hasNoLocation = isActive && !hasProductLocation(p, locations);
                   return (
                     <div
                       className={`config-row config-row-product${isActive ? '' : ' config-row-product--inactive'}${
