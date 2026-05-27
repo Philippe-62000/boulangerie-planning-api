@@ -7,6 +7,29 @@ const DAYS = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dima
 const QUICK_FRACTIONS = ['1/2', '1/3', '1/4', '1/5', '1/6', '1/7'];
 const HISTORY_PAGE_SIZE = 40;
 
+const defaultDeliveryDateStr = () => {
+  const d = new Date();
+  d.setDate(d.getDate() + 1);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+};
+
+const formatDeliveryDateLabel = (iso) => {
+  if (!iso) return '—';
+  try {
+    return new Date(`${iso}T12:00:00`).toLocaleDateString('fr-FR', {
+      weekday: 'short',
+      day: '2-digit',
+      month: 'long',
+      year: 'numeric'
+    });
+  } catch {
+    return iso;
+  }
+};
+
 const formatEntryDate = (iso) => {
   if (!iso) return '—';
   try {
@@ -50,9 +73,12 @@ const Stocks = () => {
   const sacksPerPalletName = `whiteFlourSacksPerPallet_${siteKey}`;
 
   const [deliveryDays, setDeliveryDays] = useState([]);
-  const [sacksPerPallet, setSacksPerPallet] = useState('50');
+  const [sacksPerPallet, setSacksPerPallet] = useState('40');
 
+  const [orderMode, setOrderMode] = useState('weeks'); // 'weeks' | 'palettes'
   const [weeks, setWeeks] = useState(4);
+  const [whitePallets, setWhitePallets] = useState(5);
+  const [deliveryDate, setDeliveryDate] = useState(defaultDeliveryDateStr);
   const [orderLoading, setOrderLoading] = useState(false);
   const [orderResult, setOrderResult] = useState(null);
 
@@ -271,11 +297,19 @@ const Stocks = () => {
     setOrderLoading(true);
     setOrderResult(null);
     try {
-      const res = await api.post('/stocks/flours/order-proposal', { siteKey, weeks: Number(weeks) });
+      const payload = {
+        siteKey,
+        deliveryDate,
+        ...(orderMode === 'palettes'
+          ? { mode: 'palettes', whitePallets: Number(whitePallets) }
+          : { mode: 'weeks', weeks: Number(weeks) })
+      };
+      const res = await api.post('/stocks/flours/order-proposal', payload);
       setOrderResult(res.data?.data || null);
     } catch (e) {
       console.error(e);
-      alert('Erreur calcul commande.');
+      const msg = e.response?.data?.error || 'Erreur calcul commande.';
+      alert(msg);
     } finally {
       setOrderLoading(false);
     }
@@ -494,16 +528,73 @@ const Stocks = () => {
       {activeTab === 'commande' && (
         <section className="stocks-section">
           <h2>Commande farines</h2>
+          <p className="stocks-hint" style={{ marginBottom: '1rem', lineHeight: 1.45 }}>
+            Stock utilisé : inventaire physique (dernier comptage). Indiquez la <strong>date de livraison</strong> :
+            le stock est diminué de la consommation journalière jusqu&apos;à cette date, puis la commande est ajoutée.
+            En mode palettes, la couverture totale = (stock projeté à la livraison + commande blanche) ÷ conso/j ; les
+            autres farines suivent la même durée ({sacksPerPallet} sacs/palette).
+          </p>
 
           <div className="stocks-card">
+            <div className="stocks-order-mode">
+              <label className={`stocks-order-mode-opt ${orderMode === 'weeks' ? 'active' : ''}`}>
+                <input
+                  type="radio"
+                  name="orderMode"
+                  checked={orderMode === 'weeks'}
+                  onChange={() => setOrderMode('weeks')}
+                />
+                Par nombre de semaines
+              </label>
+              <label className={`stocks-order-mode-opt ${orderMode === 'palettes' ? 'active' : ''}`}>
+                <input
+                  type="radio"
+                  name="orderMode"
+                  checked={orderMode === 'palettes'}
+                  onChange={() => setOrderMode('palettes')}
+                />
+                Par palettes (farine blanche)
+              </label>
+            </div>
+
             <div className="stocks-form-row">
-              <label>Nombre de semaines</label>
+              <label>Date de livraison farines</label>
               <input
+                type="date"
                 className="stocks-input"
-                value={weeks}
-                onChange={(e) => setWeeks(e.target.value)}
-                inputMode="numeric"
+                value={deliveryDate}
+                min={new Date().toISOString().slice(0, 10)}
+                onChange={(e) => setDeliveryDate(e.target.value)}
               />
+            </div>
+
+            {orderMode === 'weeks' ? (
+              <div className="stocks-form-row">
+                <label>Nombre de semaines</label>
+                <input
+                  className="stocks-input"
+                  value={weeks}
+                  onChange={(e) => setWeeks(e.target.value)}
+                  inputMode="numeric"
+                />
+              </div>
+            ) : (
+              <div className="stocks-form-row">
+                <label>Palettes farine blanche</label>
+                <input
+                  className="stocks-input"
+                  value={whitePallets}
+                  onChange={(e) => setWhitePallets(e.target.value)}
+                  inputMode="numeric"
+                />
+                <span className="stocks-hint">
+                  = {Number(whitePallets) > 0 ? Number(whitePallets) * Number(sacksPerPallet || 0) : '—'} sacs (
+                  {sacksPerPallet} sacs/palette)
+                </span>
+              </div>
+            )}
+
+            <div className="stocks-actions" style={{ marginTop: '0.75rem' }}>
               <button className="stocks-btn primary" onClick={computeOrder} disabled={orderLoading}>
                 {orderLoading ? 'Calcul…' : 'Calculer'}
               </button>
@@ -513,6 +604,39 @@ const Stocks = () => {
           {orderResult && (
             <div className="stocks-card">
               <h3>Proposition</h3>
+              {orderResult.deliveryDate && (
+                <p className="stocks-hint" style={{ marginBottom: '0.5rem' }}>
+                  Livraison prévue le <strong>{formatDeliveryDateLabel(orderResult.deliveryDate)}</strong>
+                  {typeof orderResult.daysUntilDelivery === 'number' && orderResult.daysUntilDelivery > 0
+                    ? ` (dans ${orderResult.daysUntilDelivery} jour${orderResult.daysUntilDelivery > 1 ? 's' : ''})`
+                    : ' (aujourd’hui)'}
+                </p>
+              )}
+              {orderResult.mode === 'palettes' && (
+                <div className="stocks-hint" style={{ marginBottom: '0.75rem', lineHeight: 1.5 }}>
+                  <p style={{ margin: '0 0 0.35rem' }}>
+                    {orderResult.whitePallets} palette(s) = <strong>{orderResult.whiteOrderSacks} sacs</strong>
+                    {orderResult.orderOnlyDays != null && (
+                      <> (seuls : ≈ {orderResult.orderOnlyDays} j. de conso)</>
+                    )}
+                  </p>
+                  <p style={{ margin: '0 0 0.35rem' }}>
+                    Farine blanche : stock actuel <strong>{orderResult.whiteCurrentStockSacks}</strong> sacs → projeté
+                    à la livraison <strong>{orderResult.whiteProjectedAtDelivery}</strong> sacs → après livraison{' '}
+                    <strong>{orderResult.whiteStockAfterDelivery}</strong> sacs
+                  </p>
+                  <p style={{ margin: 0 }}>
+                    Couverture totale estimée : <strong>{orderResult.days} jours</strong>
+                    {orderResult.equivalentWeeks != null ? ` (≈ ${orderResult.equivalentWeeks} sem.)` : ''}
+                  </p>
+                </div>
+              )}
+              {orderResult.mode === 'weeks' && orderResult.days != null && (
+                <p className="stocks-hint" style={{ marginBottom: '0.75rem' }}>
+                  Horizon : {orderResult.weeks} semaine(s) = {orderResult.days} jours (besoin calculé sur le stock
+                  projeté à la livraison).
+                </p>
+              )}
               {Array.isArray(orderResult.proposals) && orderResult.proposals.length === 0 && (
                 <p>Aucune commande suggérée (stocks suffisants ou conso=0).</p>
               )}
@@ -523,9 +647,10 @@ const Stocks = () => {
                       <tr>
                         <th>Farine</th>
                         <th>Stock actuel (sacs)</th>
+                        <th>Stock à la livraison (sacs)</th>
                         <th>Conso/j (sacs)</th>
-                        <th>Semaine(s)</th>
-                        <th>À commander (sacs)</th>
+                        <th>{orderResult.mode === 'palettes' ? 'Couverture (j)' : 'Semaine(s)'}</th>
+                        <th>À commander</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -533,9 +658,20 @@ const Stocks = () => {
                         <tr key={p.flourConfigId}>
                           <td>{p.name}</td>
                           <td style={{ textAlign: 'right' }}>{p.currentStockSacks}</td>
+                          <td style={{ textAlign: 'right' }}>
+                            {p.projectedStockAtDelivery != null ? p.projectedStockAtDelivery : '—'}
+                          </td>
                           <td style={{ textAlign: 'right' }}>{p.dailyConsumptionSacks}</td>
-                          <td style={{ textAlign: 'right' }}>{p.weeks}</td>
-                          <td style={{ textAlign: 'right', fontWeight: 700 }}>{p.suggestedOrderSacks}</td>
+                          <td style={{ textAlign: 'right' }}>
+                            {orderResult.mode === 'palettes'
+                              ? p.days
+                              : p.weeks ?? orderResult.weeks}
+                          </td>
+                          <td style={{ textAlign: 'right', fontWeight: 700 }}>
+                            {p.isWhiteFlour && p.whitePalletsOrdered != null
+                              ? `${p.whitePalletsOrdered} pal. (${p.suggestedOrderSacks} sacs)`
+                              : `${p.suggestedOrderSacks} sacs`}
+                          </td>
                         </tr>
                       ))}
                     </tbody>

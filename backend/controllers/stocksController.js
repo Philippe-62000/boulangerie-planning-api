@@ -146,6 +146,31 @@ function daysRemainingFromStock(stockSacks, dailyConsumption) {
   return Math.max(0, Number(stockSacks) || 0) / daily;
 }
 
+/** Date ISO YYYY-MM-DD → début de journée locale. */
+function parseDeliveryDateInput(value) {
+  if (value == null || value === '') return null;
+  const s = String(value).trim();
+  const m = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!m) return null;
+  const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+  if (Number.isNaN(d.getTime())) return null;
+  return startOfCalendarDay(d);
+}
+
+/** Jours avant la livraison (0 = livraison aujourd'hui, pas de conso déduite avant réception). */
+function getDeliveryLeadDays(deliveryDate) {
+  const delivery = startOfCalendarDay(deliveryDate);
+  const today = startOfCalendarDay(new Date());
+  if (delivery < today) {
+    return { error: 'La date de livraison ne peut pas être dans le passé' };
+  }
+  return { daysUntilDelivery: calendarDaysBetween(today, delivery), deliveryDate: delivery };
+}
+
+function projectedStockAtDelivery(currentSacks, dailyConsumption, daysUntilDelivery) {
+  return computeTheoreticalStockSacks(currentSacks, dailyConsumption, daysUntilDelivery);
+}
+
 function statusFromDaysRemaining(daysRemaining) {
   if (typeof daysRemaining !== 'number' || !Number.isFinite(daysRemaining)) return 'na';
   if (daysRemaining > 10) return 'green';
@@ -764,7 +789,9 @@ function buildOrderProposalRow({
   weeks,
   suggestedOrderSacks,
   whitePalletsOrdered,
-  sacksPerPallet
+  sacksPerPallet,
+  projectedStockAtDelivery: projectedAtDelivery,
+  stockAfterDelivery
 }) {
   const isWhiteFlour = cfg?.unit === 'pallets_and_sacks';
   return {
@@ -774,6 +801,8 @@ function buildOrderProposalRow({
     isWhiteFlour,
     dailyConsumptionSacks: daily,
     currentStockSacks: currentSacks,
+    projectedStockAtDelivery: projectedAtDelivery != null ? roundQty2(projectedAtDelivery) : null,
+    stockAfterDelivery: stockAfterDelivery != null ? roundQty2(stockAfterDelivery) : null,
     weeks: weeks != null ? roundQty2(weeks) : null,
     days: roundQty2(days),
     whitePalletsOrdered: isWhiteFlour && whitePalletsOrdered != null ? whitePalletsOrdered : null,
@@ -808,6 +837,20 @@ const postOrderProposal = async (req, res) => {
       status.items.map((it) => [String(it.flourConfigId), it.stockPhysicalSacks])
     );
 
+    const deliveryDateParsed = parseDeliveryDateInput(req.body?.deliveryDate);
+    if (!deliveryDateParsed) {
+      return res.status(400).json({
+        success: false,
+        error: 'deliveryDate requis (format AAAA-MM-JJ)'
+      });
+    }
+    const deliveryLead = getDeliveryLeadDays(deliveryDateParsed);
+    if (deliveryLead.error) {
+      return res.status(400).json({ success: false, error: deliveryLead.error });
+    }
+    const { daysUntilDelivery, deliveryDate } = deliveryLead;
+    const deliveryDateIso = `${deliveryDate.getFullYear()}-${String(deliveryDate.getMonth() + 1).padStart(2, '0')}-${String(deliveryDate.getDate()).padStart(2, '0')}`;
+
     if (mode === 'weeks') {
       const weeks = Number(req.body?.weeks || 0);
       if (!Number.isFinite(weeks) || weeks <= 0 || weeks > 52) {
@@ -821,7 +864,12 @@ const postOrderProposal = async (req, res) => {
           const currentSacks =
             stockPhysicalById.get(String(row.flourConfigId)) ?? row.stockPhysicalSacks ?? 0;
           const daily = row.daily;
-          const needed = days * daily - currentSacks;
+          const projectedAtDelivery = projectedStockAtDelivery(
+            currentSacks,
+            daily,
+            daysUntilDelivery
+          );
+          const needed = days * daily - projectedAtDelivery;
           return buildOrderProposalRow({
             row,
             cfg,
@@ -829,7 +877,8 @@ const postOrderProposal = async (req, res) => {
             daily,
             days,
             weeks,
-            suggestedOrderSacks: needed
+            suggestedOrderSacks: needed,
+            projectedStockAtDelivery: projectedAtDelivery
           });
         })
         .filter((x) => x.suggestedOrderSacks > 0);
@@ -841,6 +890,8 @@ const postOrderProposal = async (req, res) => {
           mode: 'weeks',
           weeks,
           days,
+          deliveryDate: deliveryDateIso,
+          daysUntilDelivery,
           sacksPerPallet,
           proposals,
           stockMeta: status.meta
@@ -868,8 +919,17 @@ const postOrderProposal = async (req, res) => {
     }
 
     const whiteOrderSacks = whitePallets * sacksPerPallet;
-    const days = whiteOrderSacks / whiteDaily;
-    const equivalentWeeks = days / 7;
+    const whiteCurrentSacks =
+      stockPhysicalById.get(String(whiteCfg._id)) ?? whiteRow?.stockPhysicalSacks ?? 0;
+    const whiteProjectedAtDelivery = projectedStockAtDelivery(
+      whiteCurrentSacks,
+      whiteDaily,
+      daysUntilDelivery
+    );
+    const whiteStockAfterDelivery = whiteProjectedAtDelivery + whiteOrderSacks;
+    const coverageDays = whiteStockAfterDelivery / whiteDaily;
+    const equivalentWeeks = coverageDays / 7;
+    const orderOnlyDays = whiteOrderSacks / whiteDaily;
 
     const proposals = status.items
       .map((row) => {
@@ -878,17 +938,27 @@ const postOrderProposal = async (req, res) => {
           stockPhysicalById.get(String(row.flourConfigId)) ?? row.stockPhysicalSacks ?? 0;
         const daily = row.daily;
         const isWhite = cfg?.unit === 'pallets_and_sacks';
-        const suggestedOrderSacks = isWhite ? whiteOrderSacks : days * daily - currentSacks;
+        const projectedAtDelivery = projectedStockAtDelivery(
+          currentSacks,
+          daily,
+          daysUntilDelivery
+        );
+        const suggestedOrderSacks = isWhite
+          ? whiteOrderSacks
+          : coverageDays * daily - projectedAtDelivery;
+        const stockAfter = isWhite ? whiteStockAfterDelivery : projectedAtDelivery + Math.max(0, suggestedOrderSacks);
         return buildOrderProposalRow({
           row,
           cfg,
           currentSacks,
           daily,
-          days,
+          days: coverageDays,
           weeks: equivalentWeeks,
           suggestedOrderSacks,
           whitePalletsOrdered: isWhite ? whitePallets : null,
-          sacksPerPallet
+          sacksPerPallet,
+          projectedStockAtDelivery: projectedAtDelivery,
+          stockAfterDelivery: stockAfter
         });
       })
       .filter((x) => x.suggestedOrderSacks > 0);
@@ -901,7 +971,13 @@ const postOrderProposal = async (req, res) => {
         whitePallets,
         whiteOrderSacks,
         sacksPerPallet,
-        days: roundQty2(days),
+        deliveryDate: deliveryDateIso,
+        daysUntilDelivery,
+        whiteCurrentStockSacks: roundQty2(whiteCurrentSacks),
+        whiteProjectedAtDelivery: roundQty2(whiteProjectedAtDelivery),
+        whiteStockAfterDelivery: roundQty2(whiteStockAfterDelivery),
+        days: roundQty2(coverageDays),
+        orderOnlyDays: roundQty2(orderOnlyDays),
         equivalentWeeks: roundQty2(equivalentWeeks),
         proposals,
         stockMeta: status.meta
