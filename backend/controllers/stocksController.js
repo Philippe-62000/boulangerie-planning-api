@@ -66,10 +66,10 @@ async function getSacksPerPallet(siteKey) {
   const p = await ensureParameter({
     name: `whiteFlourSacksPerPallet_${siteKey}`,
     displayName: `Farine blanche - sacs par palette (${SITE_LABEL[siteKey] || siteKey})`,
-    stringValue: '50'
+    stringValue: '40'
   });
   const n = Number(String(p.stringValue || '').trim());
-  return Number.isFinite(n) && n > 0 ? n : 50;
+  return Number.isFinite(n) && n > 0 ? n : 40;
 }
 
 async function getAlertRecipients() {
@@ -755,45 +755,157 @@ const deleteFlourEntry = async (req, res) => {
   }
 };
 
+function buildOrderProposalRow({
+  row,
+  cfg,
+  currentSacks,
+  daily,
+  days,
+  weeks,
+  suggestedOrderSacks,
+  whitePalletsOrdered,
+  sacksPerPallet
+}) {
+  const isWhiteFlour = cfg?.unit === 'pallets_and_sacks';
+  return {
+    flourConfigId: row.flourConfigId,
+    name: row.name,
+    unit: cfg?.unit || 'sacks',
+    isWhiteFlour,
+    dailyConsumptionSacks: daily,
+    currentStockSacks: currentSacks,
+    weeks: weeks != null ? roundQty2(weeks) : null,
+    days: roundQty2(days),
+    whitePalletsOrdered: isWhiteFlour && whitePalletsOrdered != null ? whitePalletsOrdered : null,
+    sacksPerPallet: isWhiteFlour ? sacksPerPallet : null,
+    suggestedOrderSacks: Math.max(0, Math.ceil(suggestedOrderSacks))
+  };
+}
+
 const postOrderProposal = async (req, res) => {
   try {
     const siteKey = parseSiteKey(req.body?.siteKey);
-    const weeks = Number(req.body?.weeks || 0);
+    // Compat: certains clients anciens n'envoient pas `mode` (ou l'envoient mal).
+    // Si `whitePallets` est fourni sans `weeks`, on force le mode palettes.
+    const hasWeeks = req.body?.weeks !== undefined && req.body?.weeks !== null && String(req.body?.weeks).trim() !== '';
+    const hasWhitePallets =
+      req.body?.whitePallets !== undefined && req.body?.whitePallets !== null && String(req.body?.whitePallets).trim() !== '';
+    const mode = req.body?.mode === 'palettes' || (!hasWeeks && hasWhitePallets) ? 'palettes' : 'weeks';
     if (!siteKey) {
       return res.status(400).json({ success: false, error: 'siteKey requis (lon|plan)' });
-    }
-    if (!Number.isFinite(weeks) || weeks <= 0 || weeks > 52) {
-      return res.status(400).json({ success: false, error: 'weeks invalide (1..52)' });
     }
 
     await ensureDefaultFlours(siteKey);
 
-    const status = await buildFlourStocksStatus(siteKey);
-    const stockById = new Map(
-      status.items.map((it) => [String(it.flourConfigId), it.stockTheoreticalSacks])
+    const [status, configs, sacksPerPallet] = await Promise.all([
+      buildFlourStocksStatus(siteKey),
+      FlourConfig.find({ siteKey, isActive: true }).sort({ order: 1, name: 1 }),
+      getSacksPerPallet(siteKey)
+    ]);
+    const configById = new Map(configs.map((c) => [String(c._id), c]));
+
+    const stockPhysicalById = new Map(
+      status.items.map((it) => [String(it.flourConfigId), it.stockPhysicalSacks])
     );
 
-    const days = weeks * 7;
-    const proposals = status.items
-      .map((row) => {
-        const currentSacks = stockById.get(String(row.flourConfigId)) ?? row.stockTheoreticalSacks;
-        const daily = row.daily;
-        const needed = days * daily - currentSacks;
-        return {
-          flourConfigId: row.flourConfigId,
-          name: row.name,
-          dailyConsumptionSacks: daily,
-          currentStockSacks: currentSacks,
+    if (mode === 'weeks') {
+      const weeks = Number(req.body?.weeks || 0);
+      if (!Number.isFinite(weeks) || weeks <= 0 || weeks > 52) {
+        return res.status(400).json({ success: false, error: 'weeks invalide (1..52)' });
+      }
+
+      const days = weeks * 7;
+      const proposals = status.items
+        .map((row) => {
+          const cfg = configById.get(String(row.flourConfigId));
+          const currentSacks =
+            stockPhysicalById.get(String(row.flourConfigId)) ?? row.stockPhysicalSacks ?? 0;
+          const daily = row.daily;
+          const needed = days * daily - currentSacks;
+          return buildOrderProposalRow({
+            row,
+            cfg,
+            currentSacks,
+            daily,
+            days,
+            weeks,
+            suggestedOrderSacks: needed
+          });
+        })
+        .filter((x) => x.suggestedOrderSacks > 0);
+
+      return res.json({
+        success: true,
+        data: {
+          siteKey,
+          mode: 'weeks',
           weeks,
           days,
-          suggestedOrderSacks: Math.max(0, Math.ceil(needed))
-        };
+          sacksPerPallet,
+          proposals,
+          stockMeta: status.meta
+        }
+      });
+    }
+
+    const whitePallets = Number(req.body?.whitePallets || 0);
+    if (!Number.isFinite(whitePallets) || whitePallets <= 0 || whitePallets > 200) {
+      return res.status(400).json({ success: false, error: 'whitePallets invalide (1..200)' });
+    }
+
+    const whiteCfg = configs.find((c) => c.unit === 'pallets_and_sacks');
+    if (!whiteCfg) {
+      return res.status(400).json({ success: false, error: 'Farine blanche introuvable pour ce site' });
+    }
+
+    const whiteRow = status.items.find((it) => String(it.flourConfigId) === String(whiteCfg._id));
+    const whiteDaily = whiteRow?.daily ?? Number(whiteCfg.dailyConsumptionSacks || 0);
+    if (whiteDaily <= 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'Consommation journalière de la farine blanche non renseignée'
+      });
+    }
+
+    const whiteOrderSacks = whitePallets * sacksPerPallet;
+    const days = whiteOrderSacks / whiteDaily;
+    const equivalentWeeks = days / 7;
+
+    const proposals = status.items
+      .map((row) => {
+        const cfg = configById.get(String(row.flourConfigId));
+        const currentSacks =
+          stockPhysicalById.get(String(row.flourConfigId)) ?? row.stockPhysicalSacks ?? 0;
+        const daily = row.daily;
+        const isWhite = cfg?.unit === 'pallets_and_sacks';
+        const suggestedOrderSacks = isWhite ? whiteOrderSacks : days * daily - currentSacks;
+        return buildOrderProposalRow({
+          row,
+          cfg,
+          currentSacks,
+          daily,
+          days,
+          weeks: equivalentWeeks,
+          suggestedOrderSacks,
+          whitePalletsOrdered: isWhite ? whitePallets : null,
+          sacksPerPallet
+        });
       })
       .filter((x) => x.suggestedOrderSacks > 0);
 
-    res.json({
+    return res.json({
       success: true,
-      data: { siteKey, weeks, days, proposals, stockMeta: status.meta }
+      data: {
+        siteKey,
+        mode: 'palettes',
+        whitePallets,
+        whiteOrderSacks,
+        sacksPerPallet,
+        days: roundQty2(days),
+        equivalentWeeks: roundQty2(equivalentWeeks),
+        proposals,
+        stockMeta: status.meta
+      }
     });
   } catch (error) {
     console.error('❌ postOrderProposal:', error);
