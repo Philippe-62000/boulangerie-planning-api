@@ -118,6 +118,19 @@ function consumptionDeductionDaysSinceCount(countDate, refDate = new Date()) {
   return Math.max(0, calendarDaysBetween(countDate, refDate) - 1);
 }
 
+/**
+ * Date d'ancrage pour la déduction conso/j d'une farine.
+ * Après une saisie partielle, item.updatedAt est plus récent que lastFullCountAt :
+ * on ne déduit la conso qu'à partir de cette saisie (pas depuis le dernier inventaire complet).
+ */
+function flourCountAnchorForDeduction(invItem, lastFullCountAt, lastEntryAt) {
+  const globalAnchor = lastFullCountAt || lastEntryAt || null;
+  const itemUpdated = invItem?.updatedAt ? new Date(invItem.updatedAt) : null;
+  if (!itemUpdated) return globalAnchor;
+  if (!globalAnchor) return itemUpdated;
+  return itemUpdated.getTime() > new Date(globalAnchor).getTime() ? itemUpdated : new Date(globalAnchor);
+}
+
 function roundQty2(n) {
   if (n == null || !Number.isFinite(Number(n))) return null;
   return Math.round(Number(n) * 100) / 100;
@@ -208,8 +221,10 @@ async function buildFlourStocksStatus(siteKey) {
       })
     );
     const daily = Math.max(0, Number(cfg.dailyConsumptionSacks || 0));
+    const countAnchor = flourCountAnchorForDeduction(inv, lastFullCountAt, inventory?.lastEntryAt);
+    const itemDeductionDays = consumptionDeductionDaysSinceCount(countAnchor);
     const stockTheoreticalSacks = roundQty2(
-      computeTheoreticalStockSacks(stockPhysicalSacks, daily, deductionDays)
+      computeTheoreticalStockSacks(stockPhysicalSacks, daily, itemDeductionDays)
     );
     const daysRemaining = daysRemainingFromStock(stockTheoreticalSacks, daily);
     return {
