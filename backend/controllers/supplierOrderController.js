@@ -1445,47 +1445,86 @@ const seedMillangeCatalog = async (req, res) => {
   }
 };
 
+function buildSupplierProductImportLookup(catalogRows = []) {
+  const byCode = new Map();
+  const byNameNorm = new Map();
+  for (const row of catalogRows) {
+    const plain = row.toObject ? row.toObject() : row;
+    const code = String(plain.supplierCode || '').trim();
+    if (code) byCode.set(code, plain);
+    const nNorm = normalizeName(plain.name);
+    if (nNorm && !byNameNorm.has(nNorm)) byNameNorm.set(nNorm, plain);
+  }
+  return { byCode, byNameNorm };
+}
+
+function findExistingSupplierProductForImport(lookup, { supplierCode, name }) {
+  const code = String(supplierCode || '').trim();
+  if (code && lookup.byCode.has(code)) return lookup.byCode.get(code);
+  const nNorm = normalizeName(name);
+  if (!nNorm) return null;
+  return lookup.byNameNorm.get(nNorm) || null;
+}
+
+async function upsertSupplierProductFromPdfImport(siteKey, supplier, p, idx, { locById, locByName, defaultLocName, lookup }) {
+  const displayName = String(p.name || '')
+    .trim()
+    .replace(/\s+/g, ' ');
+  if (!displayName) return;
+
+  const supplierCode = String(p.supplierCode || '').trim();
+  const existing = findExistingSupplierProductForImport(lookup, {
+    supplierCode,
+    name: displayName
+  });
+
+  let locationId = null;
+  let locationName = String(p.locationName || defaultLocName || '').trim();
+  if (existing?.locationId || existing?.locationName) {
+    locationId = existing.locationId || null;
+    locationName = String(existing.locationName || '').trim();
+  } else if (locationName) {
+    const resolved = resolvePlacementFromItem({ locationName }, locById, locByName);
+    locationId = resolved.locationId;
+    locationName = resolved.locationName;
+  }
+  const productOrder = existing?.order != null ? existing.order : idx * 10;
+
+  const payload = {
+    siteKey,
+    supplier,
+    name: displayName,
+    supplierCode: supplierCode || String(existing?.supplierCode || '').trim(),
+    locationId,
+    locationName,
+    unit: p.unit || 'pièce',
+    order: productOrder,
+    isActive: true
+  };
+
+  // Upsert par _id si trouvé, sinon par nom (index unique siteKey+name ou siteKey+supplier+name).
+  const filter = existing ? { _id: existing._id } : { siteKey, supplier, name: displayName };
+  await SupplierOrderProduct.updateOne(filter, { $set: payload }, { upsert: true, runValidators: true });
+}
+
 async function importDeliveryPdfForSite(siteKey, supplier, buffer, originalName = '') {
   const { meta, products } = await tgtPdfParser.parsePdfBuffer(buffer);
     await ensureDefaultLocations(siteKey, supplier);
     const locations = await SupplierOrderLocation.find(catalogQuery(siteKey, supplier));
     const { locById, locByName } = buildLocationMaps(locations);
     const defaultLocName = supplier === SUPPLIER_MILLANGE ? 'Surgelé' : '';
+    const catalogRows = await SupplierOrderProduct.find(catalogQuery(siteKey, supplier)).select(
+      '_id locationId locationName order name supplierCode'
+    );
+    const lookup = buildSupplierProductImportLookup(catalogRows);
 
     for (const [idx, p] of products.entries()) {
-      const existing = await SupplierOrderProduct.findOne({
-        siteKey,
-        supplier,
-        supplierCode: p.supplierCode
-      }).select('locationId locationName order');
-      let locationId = null;
-      let locationName = String(p.locationName || defaultLocName || '').trim();
-      if (existing?.locationId || existing?.locationName) {
-        locationId = existing.locationId || null;
-        locationName = String(existing.locationName || '').trim();
-      } else if (locationName) {
-        const resolved = resolvePlacementFromItem({ locationName }, locById, locByName);
-        locationId = resolved.locationId;
-        locationName = resolved.locationName;
-      }
-      const productOrder = existing?.order != null ? existing.order : idx * 10;
-      await SupplierOrderProduct.updateOne(
-        { siteKey, supplier, supplierCode: p.supplierCode },
-        {
-          $set: {
-            siteKey,
-            supplier,
-            name: p.name,
-            supplierCode: p.supplierCode,
-            locationId,
-            locationName,
-            unit: p.unit || 'pièce',
-            order: productOrder,
-            isActive: true
-          }
-        },
-        { upsert: true, runValidators: true }
-      );
+      await upsertSupplierProductFromPdfImport(siteKey, supplier, p, idx, {
+        locById,
+        locByName,
+        defaultLocName,
+        lookup
+      });
     }
 
     if (meta.orderNumber) {
@@ -1562,7 +1601,12 @@ const importDeliveryPdf = async (req, res) => {
     res.json({ success: true, ...result });
   } catch (e) {
     console.error('importDeliveryPdf', e);
-    res.status(500).json({ success: false, error: e.message || 'Erreur import PDF' });
+    const msg = String(e.message || '');
+    const friendly =
+      e.code === 11000 || msg.includes('E11000')
+        ? 'Produit déjà présent dans le catalogue (doublon de nom). Réessayez après déploiement API ou contactez le support.'
+        : msg || 'Erreur import PDF';
+    res.status(500).json({ success: false, error: friendly });
   }
 };
 
