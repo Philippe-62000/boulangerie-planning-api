@@ -542,7 +542,7 @@ const CommandeTGT = ({ channelKey = 'TGT' }) => {
       const count = res.data?.meta?.importCount ?? selectedStockEntryIds.length;
       setMessage({
         type: 'success',
-        text: `Stocks salariés cumulés (${count} import(s), ${matched} produit(s) renseignés).`
+        text: `Stocks salariés importés (remplacement) : ${count} import(s), ${matched} produit(s) renseignés.`
       });
       setStockImportModalOpen(false);
     } catch (e) {

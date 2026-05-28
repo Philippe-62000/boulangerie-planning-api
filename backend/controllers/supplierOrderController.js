@@ -687,15 +687,19 @@ async function buildEmployeeStockImportMeta(siteKey, entryIds = []) {
   }));
 }
 
-/** Cumule les stocks saisis par les salariés (plusieurs imports possibles). */
-function cumulateEmployeeStockByProduct(entries = []) {
+/**
+ * Construit les stocks saisis par les salariés en mode "remplacement".
+ * Si plusieurs imports sont sélectionnés, le plus récent (ordre createdAt asc)
+ * écrase les quantités précédentes produit par produit (pas de cumul).
+ */
+function buildEmployeeStockByProductReplace(entries = []) {
   const stockByProductId = new Map();
   for (const entry of entries) {
     for (const item of entry.items || []) {
       if (item.productId == null || item.stockQty == null) continue;
       const pid = String(item.productId);
       const qty = Math.max(0, Number(item.stockQty) || 0);
-      stockByProductId.set(pid, (stockByProductId.get(pid) || 0) + qty);
+      stockByProductId.set(pid, qty);
     }
   }
   return stockByProductId;
@@ -1193,7 +1197,7 @@ const applyEmployeeStocks = async (req, res) => {
       return res.status(404).json({ success: false, error: 'Aucun import stocks salarié trouvé' });
     }
 
-    const stockByProductId = cumulateEmployeeStockByProduct(entries);
+    const stockByProductId = buildEmployeeStockByProductReplace(entries);
     const deliveryDate = getCurrentDeliveryFriday();
     const weekKey = deliveryWeekKey(deliveryDate);
 
@@ -1202,10 +1206,11 @@ const applyEmployeeStocks = async (req, res) => {
       ? (order.lines || []).map((l) => (typeof l.toObject === 'function' ? l.toObject() : { ...l }))
       : await buildLinesFromCatalog(siteKey, [], { supplier });
 
+    // Import salarié = remplacement : on efface la colonne stock puis on applique l'import.
     lines = lines.map((line) => {
       const pid = String(line.productId);
-      if (!stockByProductId.has(pid)) return computeLineMetrics(line);
-      return computeLineMetrics({ ...line, stockQty: stockByProductId.get(pid) });
+      const nextStock = stockByProductId.has(pid) ? stockByProductId.get(pid) : null;
+      return computeLineMetrics({ ...line, stockQty: nextStock });
     });
 
     const saved = await upsertCurrentOrder(siteKey, lines, { employeeStockEntryIds: entryIds }, supplier);
