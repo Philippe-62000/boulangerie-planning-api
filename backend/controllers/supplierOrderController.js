@@ -893,11 +893,13 @@ const putProducts = async (req, res) => {
       const name = String(item.name || '').trim();
       if (!name) continue;
       const { locationId, locationName } = resolvePlacementFromItem(item, locById, locByName);
+      const existing = await findSupplierProductForSave(siteKey, supplier, item);
       const payload = {
         siteKey,
         supplier,
         name,
-        supplierCode: String(item.supplierCode || '').trim(),
+        supplierCode:
+          String(item.supplierCode || '').trim() || String(existing?.supplierCode || '').trim(),
         locationId,
         locationName,
         unit: String(item.unit || 'pièce').trim(),
@@ -905,25 +907,11 @@ const putProducts = async (req, res) => {
         order: Number(item.order ?? idx),
         isActive: item.isActive !== false
       };
-      if (item._id && mongoose.Types.ObjectId.isValid(item._id)) {
-        const byId = await SupplierOrderProduct.updateOne(
-          { _id: item._id, siteKey, supplier },
-          { $set: payload }
-        );
-        if (byId.matchedCount === 0) {
-          await SupplierOrderProduct.updateOne(
-            { siteKey, supplier, name },
-            { $set: payload },
-            { upsert: true, runValidators: true }
-          );
-        }
-      } else {
-        await SupplierOrderProduct.updateOne(
-          { siteKey, supplier, name },
-          { $set: payload },
-          { upsert: true, runValidators: true }
-        );
-      }
+      const filter = existing ? { _id: existing._id } : { siteKey, supplier, name };
+      await SupplierOrderProduct.updateOne(filter, { $set: payload }, {
+        upsert: !existing,
+        runValidators: true
+      });
     }
 
     const deliveryDate = getCurrentDeliveryFriday();
@@ -958,8 +946,9 @@ const importProducts = async (req, res) => {
       return res.status(400).json({ success: false, error: 'products[] requis' });
     }
 
-    await ensureDefaultLocations(siteKey);
-    const locations = await SupplierOrderLocation.find({ siteKey });
+    const supplier = getSupplierFromReq(req);
+    await ensureDefaultLocations(siteKey, supplier);
+    const locations = await SupplierOrderLocation.find(catalogQuery(siteKey, supplier));
     const { locById, locByName } = buildLocationMaps(locations);
 
     let imported = 0;
@@ -967,25 +956,34 @@ const importProducts = async (req, res) => {
       const name = String(row.name || row.productName || '').trim();
       if (!name) continue;
       const { locationId, locationName } = resolvePlacementFromItem(row, locById, locByName);
-      await SupplierOrderProduct.updateOne(
-        { siteKey, name },
-        {
-          $set: {
-            siteKey,
-            name,
-            supplierCode: String(row.supplierCode || row.code || '').trim(),
-            locationId,
-            locationName,
-            order: Number(row.order ?? idx),
-            isActive: row.isActive !== false
-          }
-        },
-        { upsert: true, runValidators: true }
-      );
+      const existing = await findSupplierProductForSave(siteKey, supplier, {
+        _id: row._id,
+        name,
+        supplierCode: row.supplierCode || row.code
+      });
+      const payload = {
+        siteKey,
+        supplier,
+        name,
+        supplierCode:
+          String(row.supplierCode || row.code || '').trim() ||
+          String(existing?.supplierCode || '').trim(),
+        locationId,
+        locationName,
+        order: Number(row.order ?? idx),
+        isActive: row.isActive !== false
+      };
+      const filter = existing ? { _id: existing._id } : { siteKey, supplier, name };
+      await SupplierOrderProduct.updateOne(filter, { $set: payload }, {
+        upsert: !existing,
+        runValidators: true
+      });
       imported += 1;
     }
 
-    const products = await SupplierOrderProduct.find({ siteKey }).sort({ order: 1, name: 1 });
+    const products = await SupplierOrderProduct.find(catalogQuery(siteKey, supplier))
+      .populate('locationId', 'name order')
+      .sort({ order: 1, name: 1 });
     res.json({ success: true, imported, data: products });
   } catch (e) {
     console.error('importProducts', e);
@@ -1444,6 +1442,36 @@ const seedMillangeCatalog = async (req, res) => {
     res.status(500).json({ success: false, error: e.message || 'Erreur seed Mill\'Ange' });
   }
 };
+
+/** Retrouve un produit existant (évite E11000 siteKey+name lors d’un upsert). */
+async function findSupplierProductForSave(siteKey, supplier, item) {
+  const name = String(item?.name || '').trim();
+  if (!name) return null;
+
+  if (item._id && mongoose.Types.ObjectId.isValid(item._id)) {
+    const byId = await SupplierOrderProduct.findOne({ _id: item._id, siteKey });
+    if (byId) return byId;
+  }
+
+  const q = catalogQuery(siteKey, supplier);
+  const code = String(item.supplierCode || '').trim();
+  if (code) {
+    const byCode = await SupplierOrderProduct.findOne({ ...q, supplierCode: code });
+    if (byCode) return byCode;
+  }
+
+  const byName = await SupplierOrderProduct.findOne({ ...q, name });
+  if (byName) return byName;
+
+  const nNorm = normalizeName(name);
+  if (nNorm) {
+    const rows = await SupplierOrderProduct.find(q).select('name _id');
+    const hit = rows.find((r) => normalizeName(r.name) === nNorm);
+    if (hit) return hit;
+  }
+
+  return SupplierOrderProduct.findOne({ siteKey, name });
+}
 
 function buildSupplierProductImportLookup(catalogRows = []) {
   const byCode = new Map();

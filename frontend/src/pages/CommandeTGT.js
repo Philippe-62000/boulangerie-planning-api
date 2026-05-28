@@ -682,7 +682,10 @@ const CommandeTGT = ({ channelKey = 'TGT' }) => {
       setMessage({ type: 'success', text: 'Produits et emplacements enregistrés.' });
     } catch (e) {
       console.error(e);
-      setMessage({ type: 'error', text: 'Erreur produits.' });
+      setMessage({
+        type: 'error',
+        text: e.response?.data?.error || 'Erreur produits.'
+      });
     } finally {
       setSaving(false);
     }
