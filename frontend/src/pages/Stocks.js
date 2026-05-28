@@ -1,6 +1,17 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import api from '../services/api';
 import { getSiteKey } from '../config/site';
+import {
+  dailyConsumptionKgInputValue,
+  formatDailyConsumptionKg,
+  formatKg,
+  kgToSacks,
+  parseDailySacksValue,
+  parseKgPerSack,
+  projectedDeliveryTone,
+  computeNeedUntilDeliverySacks,
+  sacksToKg
+} from '../utils/flourUnits';
 import './Stocks.css';
 
 const DAYS = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
@@ -71,9 +82,11 @@ const Stocks = () => {
 
   const deliveryParamName = `flourDeliveryDays_${siteKey}`;
   const sacksPerPalletName = `whiteFlourSacksPerPallet_${siteKey}`;
+  const kgPerSackParamName = `flourKgPerSack_${siteKey}`;
 
   const [deliveryDays, setDeliveryDays] = useState([]);
   const [sacksPerPallet, setSacksPerPallet] = useState('40');
+  const [kgPerSack, setKgPerSack] = useState('25');
 
   const [orderMode, setOrderMode] = useState('weeks'); // 'weeks' | 'palettes'
   const [weeks, setWeeks] = useState(4);
@@ -98,10 +111,18 @@ const Stocks = () => {
         api.get('/parameters')
       ]);
 
-      setFlours(Array.isArray(cfgRes.data?.data) ? cfgRes.data.data : []);
-
+      const configs = Array.isArray(cfgRes.data?.data) ? cfgRes.data.data : [];
       const p = Array.isArray(paramsRes.data) ? paramsRes.data : [];
       setParams(p);
+
+      const kgPer = parseKgPerSack(p.find((x) => x.name === kgPerSackParamName)?.stringValue);
+      setKgPerSack(String(kgPer));
+      setFlours(
+        configs.map((f) => ({
+          ...f,
+          dailyConsumptionKg: dailyConsumptionKgInputValue(f.dailyConsumptionSacks, kgPer)
+        }))
+      );
 
       const delivery = p.find((x) => x.name === deliveryParamName)?.stringValue || '[]';
       try {
@@ -118,6 +139,7 @@ const Stocks = () => {
       setParams([]);
       setDeliveryDays([]);
       setSacksPerPallet('50');
+      setKgPerSack('25');
     } finally {
       setLoading(false);
     }
@@ -138,18 +160,25 @@ const Stocks = () => {
   const saveFlours = async () => {
     setSaving(true);
     try {
+      const kgPer = parseKgPerSack(kgPerSack);
       const items = flours.map((f) => ({
         _id: f._id,
         name: f.name,
         unit: f.unit,
-        dailyConsumptionSacks: f.dailyConsumptionSacks ?? 0,
-        criticalThresholdSacks: f.criticalThresholdSacks ?? 0,
+        dailyConsumptionSacks: kgToSacks(parseDailySacksValue(f.dailyConsumptionKg ?? 0), kgPer),
+        criticalThresholdSacks: parseDailySacksValue(f.criticalThresholdSacks ?? 0),
         supplierType: f.supplierType || 'standard',
         isActive: !!f.isActive,
         order: Number(f.order || 0)
       }));
       const res = await api.put('/stocks/flours/config', { siteKey, items });
-      setFlours(Array.isArray(res.data?.data) ? res.data.data : flours);
+      const saved = Array.isArray(res.data?.data) ? res.data.data : items;
+      setFlours(
+        saved.map((f) => ({
+          ...f,
+          dailyConsumptionKg: dailyConsumptionKgInputValue(f.dailyConsumptionSacks, kgPer)
+        }))
+      );
     } catch (e) {
       console.error(e);
       alert('Erreur lors de l’enregistrement des farines.');
@@ -205,6 +234,32 @@ const Stocks = () => {
       alert('Erreur sauvegarde sacs par palette.');
     }
   };
+
+  const saveKgPerSack = async () => {
+    const n = Number(String(kgPerSack).trim().replace(',', '.'));
+    if (!Number.isFinite(n) || n <= 0 || n > 200) {
+      alert('Poids invalide (1..200 kg).');
+      return;
+    }
+    try {
+      await saveParameterString(kgPerSackParamName, String(n));
+      const kgPer = parseKgPerSack(n);
+      setFlours((prev) =>
+        prev.map((f) => ({
+          ...f,
+          dailyConsumptionKg: dailyConsumptionKgInputValue(f.dailyConsumptionSacks, kgPer)
+        }))
+      );
+    } catch (e) {
+      console.error(e);
+      alert('Erreur sauvegarde poids du sac.');
+    }
+  };
+
+  const orderProposalKgPerSack = useMemo(
+    () => parseKgPerSack(orderResult?.kgPerSack ?? kgPerSack),
+    [orderResult?.kgPerSack, kgPerSack]
+  );
 
   const fetchHistory = async (skip = 0) => {
     setHistoryLoading(true);
@@ -401,6 +456,21 @@ const Stocks = () => {
             <div className="stocks-hint">
               Utilisé pour convertir “palettes + sacs” en stock total (sacs).
             </div>
+            <div className="stocks-form-row" style={{ marginTop: 12 }}>
+              <label>Poids d’un sac (kg)</label>
+              <input
+                className="stocks-input"
+                value={kgPerSack}
+                onChange={(e) => setKgPerSack(e.target.value)}
+                inputMode="decimal"
+              />
+              <button className="stocks-btn" onClick={saveKgPerSack}>
+                Enregistrer
+              </button>
+            </div>
+            <div className="stocks-hint">
+              Utilisé pour afficher et saisir la consommation journalière en kilogrammes.
+            </div>
           </div>
 
           <div className="stocks-card">
@@ -418,7 +488,7 @@ const Stocks = () => {
                     <th>Nom</th>
                     <th>Unité</th>
                     <th>Fournisseur</th>
-                    <th>Conso/j (sacs)</th>
+                    <th>Conso/j (kg)</th>
                     <th>Seuil critique (sacs)</th>
                     <th>Actif</th>
                     <th>Ordre</th>
@@ -455,15 +525,15 @@ const Stocks = () => {
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 6 }}>
                           <input
                             className="stocks-input"
-                            value={String(f.dailyConsumptionSacks ?? 0)}
+                            value={String(f.dailyConsumptionKg ?? '')}
                             onChange={(e) => {
                               const v = e.target.value;
                               setFlours((prev) =>
-                                prev.map((x) => (x === f ? { ...x, dailyConsumptionSacks: v } : x))
+                                prev.map((x) => (x === f ? { ...x, dailyConsumptionKg: v } : x))
                               );
                             }}
                             inputMode="decimal"
-                            placeholder="ex: 0.5 ou 1/3"
+                            placeholder="ex: 125"
                           />
                           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                             {QUICK_FRACTIONS.map((fr) => (
@@ -472,11 +542,24 @@ const Stocks = () => {
                                 type="button"
                                 className="stocks-btn"
                                 style={{ padding: '6px 10px' }}
-                                onClick={() =>
-                                  setFlours((prev) => prev.map((x) => (x === f ? { ...x, dailyConsumptionSacks: fr } : x)))
-                                }
+                                title={`${fr} sac/j`}
+                                onClick={() => {
+                                  const kgPer = parseKgPerSack(kgPerSack);
+                                  const sacks = parseDailySacksValue(fr);
+                                  setFlours((prev) =>
+                                    prev.map((x) =>
+                                      x === f
+                                        ? {
+                                            ...x,
+                                            dailyConsumptionSacks: fr,
+                                            dailyConsumptionKg: formatKg(sacksToKg(sacks, kgPer))
+                                          }
+                                        : x
+                                    )
+                                  );
+                                }}
                               >
-                                {fr}
+                                {fr} sac
                               </button>
                             ))}
                           </div>
@@ -648,20 +731,34 @@ const Stocks = () => {
                         <th>Farine</th>
                         <th>Stock actuel (sacs)</th>
                         <th>Stock à la livraison (sacs)</th>
-                        <th>Conso/j (sacs)</th>
+                        <th>Besoin attente livraison (sacs)</th>
+                        <th>Conso/j (kg)</th>
                         <th>{orderResult.mode === 'palettes' ? 'Couverture (j)' : 'Semaine(s)'}</th>
                         <th>À commander</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {orderResult.proposals.map((p) => (
+                      {orderResult.proposals.map((p) => {
+                        const needUntilDelivery = computeNeedUntilDeliverySacks(
+                          p,
+                          orderResult.daysUntilDelivery
+                        );
+                        return (
                         <tr key={p.flourConfigId}>
                           <td>{p.name}</td>
                           <td style={{ textAlign: 'right' }}>{p.currentStockSacks}</td>
                           <td style={{ textAlign: 'right' }}>
                             {p.projectedStockAtDelivery != null ? p.projectedStockAtDelivery : '—'}
                           </td>
-                          <td style={{ textAlign: 'right' }}>{p.dailyConsumptionSacks}</td>
+                          <td
+                            style={{ textAlign: 'right' }}
+                            className={`stocks-flour-wait-${projectedDeliveryTone(p.projectedStockAtDelivery)}`}
+                          >
+                            {needUntilDelivery != null ? `${needUntilDelivery} sacs` : '—'}
+                          </td>
+                          <td style={{ textAlign: 'right' }}>
+                            {formatDailyConsumptionKg(p.dailyConsumptionSacks, orderProposalKgPerSack)}
+                          </td>
                           <td style={{ textAlign: 'right' }}>
                             {orderResult.mode === 'palettes'
                               ? p.days
@@ -673,7 +770,8 @@ const Stocks = () => {
                               : `${p.suggestedOrderSacks} sacs`}
                           </td>
                         </tr>
-                      ))}
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>

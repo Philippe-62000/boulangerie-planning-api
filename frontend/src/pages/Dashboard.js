@@ -3,6 +3,7 @@ import api from '../services/api';
 import partnerApi from '../services/partnerApi';
 import { getSiteKey } from '../config/site';
 import { buildFlourStocksStatusClient } from '../utils/flourStockStatus';
+import { formatDailyConsumptionKg, parseKgPerSack } from '../utils/flourUnits';
 import { useAuth } from '../contexts/AuthContext';
 
 const normalizePersonName = (name) =>
@@ -92,7 +93,8 @@ const Dashboard = () => {
     physicalCountDue: false,
     physicalCountIntervalDays: 5,
     daysSinceFullCount: null,
-    daysUntilCountDue: null
+    daysUntilCountDue: null,
+    kgPerSack: 25
   });
   /** false = uniquement farines rouges ; true = toutes */
   const [flourStocksShowAll, setFlourStocksShowAll] = useState(false);
@@ -178,7 +180,8 @@ const Dashboard = () => {
       physicalCountDue: meta.physicalCountDue === true,
       physicalCountIntervalDays: meta.physicalCountIntervalDays ?? 5,
       daysSinceFullCount: meta.daysSinceFullCount ?? null,
-      daysUntilCountDue: meta.daysUntilCountDue ?? null
+      daysUntilCountDue: meta.daysUntilCountDue ?? null,
+      kgPerSack: meta.kgPerSack ?? 25
     });
   };
 
@@ -204,11 +207,16 @@ const Dashboard = () => {
     const sacksPerPalletRaw = params.find((p) => p.name === sacksPerPalletName)?.stringValue;
     const sacksPerPalletNum = Number(String(sacksPerPalletRaw || '').trim());
     const sacksPerPallet = Number.isFinite(sacksPerPalletNum) && sacksPerPalletNum > 0 ? sacksPerPalletNum : 50;
+    const kgPerSackName = `flourKgPerSack_${siteKey}`;
+    const kgPerSack = parseKgPerSack(params.find((p) => p.name === kgPerSackName)?.stringValue);
     const intervalName = `flourPhysicalCountIntervalDays_${siteKey}`;
     const intervalRaw = params.find((p) => p.name === intervalName)?.stringValue;
     const countIntervalDays = Number(String(intervalRaw || '5').trim()) || 5;
     const built = buildFlourStocksStatusClient({ configs, inventory, sacksPerPallet, countIntervalDays });
-    applyFlourWidgetFromStatusPayload({ data: built.items, meta: built.meta });
+    applyFlourWidgetFromStatusPayload({
+      data: built.items,
+      meta: { ...built.meta, kgPerSack }
+    });
   };
 
   const fetchFlourStocksWidget = async () => {
@@ -237,7 +245,8 @@ const Dashboard = () => {
           physicalCountDue: false,
           physicalCountIntervalDays: 5,
           daysSinceFullCount: null,
-          daysUntilCountDue: null
+          daysUntilCountDue: null,
+          kgPerSack: 25
         });
       }
     }
@@ -267,21 +276,6 @@ const Dashboard = () => {
     return n.toFixed(2);
   };
 
-  const formatDailyConsumption = (daily) => {
-    const n = Number(daily);
-    if (!Number.isFinite(n) || n < 0) return '0';
-
-    // Affichage en fraction si ça correspond à 1/2..1/7 (tolérance flottante)
-    const eps = 1e-9;
-    for (let d = 2; d <= 7; d++) {
-      const v = 1 / d;
-      if (Math.abs(n - v) < eps) return `1/${d}`;
-    }
-
-    // Sinon, afficher avec 2 décimales max sans zéros inutiles
-    const s = n.toFixed(2);
-    return s.replace(/\.00$/, '').replace(/(\.\d)0$/, '$1');
-  };
 
   const fetchPartnerOrdersPending = async () => {
     setPartnerOrdersPending((s) => ({ ...s, loading: true }));
@@ -1146,7 +1140,8 @@ const Dashboard = () => {
                         formatStockQty(it.stockTheoreticalSacks ?? it.stockSacksTotal) ? (
                         <> (réel saisi: {formatStockQty(it.stockPhysicalSacks)})</>
                       ) : null}
-                      — Conso/j: <strong>{formatDailyConsumption(it.daily)}</strong>
+                      — Conso/j:{' '}
+                      <strong>{formatDailyConsumptionKg(it.daily, flourStocksWidget.kgPerSack)}</strong>
                     </div>
                   </div>
                 );

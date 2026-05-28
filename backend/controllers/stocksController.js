@@ -72,6 +72,17 @@ async function getSacksPerPallet(siteKey) {
   return Number.isFinite(n) && n > 0 ? n : 40;
 }
 
+/** Poids d'un sac (kg) — affichage / saisie conso journalière en kg. */
+async function getKgPerSack(siteKey) {
+  const p = await ensureParameter({
+    name: `flourKgPerSack_${siteKey}`,
+    displayName: `Farines - poids d'un sac en kg (${SITE_LABEL[siteKey] || siteKey})`,
+    stringValue: '25'
+  });
+  const n = Number(String(p.stringValue || '').trim().replace(',', '.'));
+  return Number.isFinite(n) && n > 0 ? n : 25;
+}
+
 async function getAlertRecipients() {
   const storeEmailParam = await Parameter.findOne({ name: 'storeEmail' });
   const adminEmailParam = await Parameter.findOne({ name: 'adminEmail' });
@@ -194,10 +205,11 @@ function statusFromDaysRemaining(daysRemaining) {
 /** Stock théorique (déduction conso/j) + rappel inventaire physique. */
 async function buildFlourStocksStatus(siteKey) {
   await ensureDefaultFlours(siteKey);
-  const [configs, inventory, sacksPerPallet, countIntervalDays] = await Promise.all([
+  const [configs, inventory, sacksPerPallet, kgPerSack, countIntervalDays] = await Promise.all([
     FlourConfig.find({ siteKey, isActive: true }).sort({ order: 1, name: 1 }),
     StockInventory.findOne({ siteKey }),
     getSacksPerPallet(siteKey),
+    getKgPerSack(siteKey),
     getPhysicalCountIntervalDays(siteKey)
   ]);
 
@@ -261,7 +273,8 @@ async function buildFlourStocksStatus(siteKey) {
       daysSinceFullCount: calendarDaysSinceCount,
       consumptionDeductionDays: deductionDays,
       physicalCountDue,
-      daysUntilCountDue
+      daysUntilCountDue,
+      kgPerSack
     }
   };
 }
@@ -305,6 +318,11 @@ const getFlourConfig = async (req, res) => {
       name: `flourDeliveryDays_${siteKey}`,
       displayName: `Farines - jours de livraison (${SITE_LABEL[siteKey] || siteKey})`,
       stringValue: '[]'
+    });
+    await ensureParameter({
+      name: `flourKgPerSack_${siteKey}`,
+      displayName: `Farines - poids d'un sac en kg (${SITE_LABEL[siteKey] || siteKey})`,
+      stringValue: '25'
     });
     await getPhysicalCountIntervalDays(siteKey);
     const configs = await FlourConfig.find({ siteKey }).sort({ order: 1, name: 1 });
@@ -806,9 +824,13 @@ function buildOrderProposalRow({
   whitePalletsOrdered,
   sacksPerPallet,
   projectedStockAtDelivery: projectedAtDelivery,
-  stockAfterDelivery
+  stockAfterDelivery,
+  daysUntilDelivery
 }) {
   const isWhiteFlour = cfg?.unit === 'pallets_and_sacks';
+  const waitDays = Math.max(0, Number(daysUntilDelivery) || 0);
+  const needUntilDeliverySacks =
+    waitDays > 0 && daily > 0 ? roundQty2(waitDays * daily) : daily > 0 ? 0 : null;
   return {
     flourConfigId: row.flourConfigId,
     name: row.name,
@@ -817,6 +839,7 @@ function buildOrderProposalRow({
     dailyConsumptionSacks: daily,
     currentStockSacks: currentSacks,
     projectedStockAtDelivery: projectedAtDelivery != null ? roundQty2(projectedAtDelivery) : null,
+    needUntilDeliverySacks,
     stockAfterDelivery: stockAfterDelivery != null ? roundQty2(stockAfterDelivery) : null,
     weeks: weeks != null ? roundQty2(weeks) : null,
     days: roundQty2(days),
@@ -841,10 +864,11 @@ const postOrderProposal = async (req, res) => {
 
     await ensureDefaultFlours(siteKey);
 
-    const [status, configs, sacksPerPallet] = await Promise.all([
+    const [status, configs, sacksPerPallet, kgPerSack] = await Promise.all([
       buildFlourStocksStatus(siteKey),
       FlourConfig.find({ siteKey, isActive: true }).sort({ order: 1, name: 1 }),
-      getSacksPerPallet(siteKey)
+      getSacksPerPallet(siteKey),
+      getKgPerSack(siteKey)
     ]);
     const configById = new Map(configs.map((c) => [String(c._id), c]));
 
@@ -893,7 +917,8 @@ const postOrderProposal = async (req, res) => {
             days,
             weeks,
             suggestedOrderSacks: needed,
-            projectedStockAtDelivery: projectedAtDelivery
+            projectedStockAtDelivery: projectedAtDelivery,
+            daysUntilDelivery
           });
         })
         .filter((x) => x.suggestedOrderSacks > 0);
@@ -908,6 +933,7 @@ const postOrderProposal = async (req, res) => {
           deliveryDate: deliveryDateIso,
           daysUntilDelivery,
           sacksPerPallet,
+          kgPerSack,
           proposals,
           stockMeta: status.meta
         }
@@ -973,7 +999,8 @@ const postOrderProposal = async (req, res) => {
           whitePalletsOrdered: isWhite ? whitePallets : null,
           sacksPerPallet,
           projectedStockAtDelivery: projectedAtDelivery,
-          stockAfterDelivery: stockAfter
+          stockAfterDelivery: stockAfter,
+          daysUntilDelivery
         });
       })
       .filter((x) => x.suggestedOrderSacks > 0);
@@ -988,6 +1015,7 @@ const postOrderProposal = async (req, res) => {
         sacksPerPallet,
         deliveryDate: deliveryDateIso,
         daysUntilDelivery,
+        kgPerSack,
         whiteCurrentStockSacks: roundQty2(whiteCurrentSacks),
         whiteProjectedAtDelivery: roundQty2(whiteProjectedAtDelivery),
         whiteStockAfterDelivery: roundQty2(whiteStockAfterDelivery),

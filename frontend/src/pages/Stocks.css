@@ -214,6 +214,16 @@
   background: #f8d7da;
 }
 
+.stocks-flour-wait-deficit {
+  color: #c0392b;
+  font-weight: 700;
+}
+
+.stocks-flour-wait-surplus {
+  color: #1e7e34;
+  font-weight: 700;
+}
+
 @media (max-width: 768px) {
   .stocks-form-row {
     grid-template-columns: 1fr;
