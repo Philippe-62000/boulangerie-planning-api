@@ -20,8 +20,12 @@ echo.
 echo 2. Copie des fichiers vers le dossier de déploiement...
 if not exist "deploy-frontend-lon" mkdir "deploy-frontend-lon"
 
-echo    - Copie des fichiers...
-xcopy "frontend\build\*" "deploy-frontend-lon\" /E /I /Y
+echo    - Synchronisation complete (supprime les anciens JS/CSS orphelins)...
+robocopy "frontend\build" "deploy-frontend-lon" /MIR /NFL /NDL /NJH /NJS /R:2 /W:2
+if %errorlevel% GEQ 8 (
+    echo ERREUR: Echec robocopy vers deploy-frontend-lon
+    exit /b 1
+)
 
 echo    - Création du .htaccess pour /lon/...
 echo RewriteEngine On > deploy-frontend-lon\.htaccess
