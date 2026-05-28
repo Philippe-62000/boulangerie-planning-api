@@ -829,8 +829,13 @@ function buildOrderProposalRow({
 }) {
   const isWhiteFlour = cfg?.unit === 'pallets_and_sacks';
   const waitDays = Math.max(0, Number(daysUntilDelivery) || 0);
+  const stockNow = Math.max(0, Number(currentSacks) || 0);
   const needUntilDeliverySacks =
-    waitDays > 0 && daily > 0 ? roundQty2(waitDays * daily) : daily > 0 ? 0 : null;
+    waitDays > 0 && daily > 0
+      ? roundQty2(Math.max(0, waitDays * daily - stockNow))
+      : daily > 0
+        ? 0
+        : null;
   return {
     flourConfigId: row.flourConfigId,
     name: row.name,

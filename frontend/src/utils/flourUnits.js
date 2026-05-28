@@ -73,7 +73,9 @@ export function computeNeedUntilDeliverySacks(proposal, daysUntilDelivery) {
   }
   const days = Number(daysUntilDelivery);
   const daily = parseDailySacksValue(proposal?.dailyConsumptionSacks);
+  const stockNow = Math.max(0, Number(proposal?.currentStockSacks) || 0);
   if (!Number.isFinite(days) || days < 0 || daily <= 0) return null;
   if (days === 0) return 0;
-  return Math.round(days * daily * 100) / 100;
+  const deficit = Math.max(0, days * daily - stockNow);
+  return Math.round(deficit * 100) / 100;
 }
