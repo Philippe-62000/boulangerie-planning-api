@@ -168,6 +168,7 @@ const Stocks = () => {
         dailyConsumptionSacks: kgToSacks(parseDailySacksValue(f.dailyConsumptionKg ?? 0), kgPer),
         criticalThresholdSacks: parseDailySacksValue(f.criticalThresholdSacks ?? 0),
         supplierType: f.supplierType || 'standard',
+        openSunday: !!f.openSunday,
         isActive: !!f.isActive,
         order: Number(f.order || 0)
       }));
@@ -413,7 +414,8 @@ const Stocks = () => {
         <section className="stocks-section">
           <h2>Paramètres farines</h2>
           <p className="stocks-hint" style={{ marginBottom: '1rem', color: '#555', lineHeight: 1.4 }}>
-            Le tableau de bord déduit la consommation journalière chaque jour pour afficher les jours théoriques
+            La conso/j est une journée de production (lun.–sam. par défaut, ou 7j/7 si « Ouverture le dimanche »).
+            Le tableau de bord déduit la consommation chaque jour ouvré pour afficher les jours théoriques
             restants. Un inventaire physique complet est demandé tous les 5 jours (paramètre{' '}
             <code>flourPhysicalCountIntervalDays_{siteKey}</code> dans Paramètres généraux).
           </p>
@@ -489,6 +491,7 @@ const Stocks = () => {
                     <th>Unité</th>
                     <th>Fournisseur</th>
                     <th>Conso/j (kg)</th>
+                    <th>Ouverture le dimanche</th>
                     <th>Seuil critique (sacs)</th>
                     <th>Actif</th>
                     <th>Ordre</th>
@@ -564,6 +567,30 @@ const Stocks = () => {
                             ))}
                           </div>
                         </div>
+                      </td>
+                      <td style={{ textAlign: 'center' }}>
+                        <label
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: 6,
+                            cursor: 'pointer',
+                            fontSize: '0.9rem'
+                          }}
+                          title="Coché : production 7j/7. Décoché : pas de production le dimanche (6j/7)."
+                        >
+                          <input
+                            type="checkbox"
+                            checked={!!f.openSunday}
+                            onChange={(e) => {
+                              const v = e.target.checked;
+                              setFlours((prev) =>
+                                prev.map((x) => (x === f ? { ...x, openSunday: v } : x))
+                              );
+                            }}
+                          />
+                          7j/7
+                        </label>
                       </td>
                       <td>
                         <input
@@ -716,8 +743,8 @@ const Stocks = () => {
               )}
               {orderResult.mode === 'weeks' && orderResult.days != null && (
                 <p className="stocks-hint" style={{ marginBottom: '0.75rem' }}>
-                  Horizon : {orderResult.weeks} semaine(s) = {orderResult.days} jours (besoin calculé sur le stock
-                  projeté à la livraison).
+                  Horizon : {orderResult.weeks} semaine(s) = {orderResult.days} j. calendaires (besoin sur jours de
+                  production après livraison, dimanche exclu sauf si 7j/7 coché pour la farine).
                 </p>
               )}
               {Array.isArray(orderResult.proposals) && orderResult.proposals.length === 0 && (
@@ -741,7 +768,8 @@ const Stocks = () => {
                       {orderResult.proposals.map((p) => {
                         const needUntilDelivery = computeNeedUntilDeliverySacks(
                           p,
-                          orderResult.daysUntilDelivery
+                          orderResult.daysUntilDelivery,
+                          orderResult.deliveryDate
                         );
                         return (
                         <tr key={p.flourConfigId}>

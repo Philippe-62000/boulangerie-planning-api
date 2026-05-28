@@ -129,6 +129,39 @@ function consumptionDeductionDaysSinceCount(countDate, refDate = new Date()) {
   return Math.max(0, calendarDaysBetween(countDate, refDate) - 1);
 }
 
+function isProductionDay(date, openSunday) {
+  return openSunday === true || date.getDay() !== 0;
+}
+
+/** Jours de production entre deux dates (exclut le jour de départ, inclut le jour de fin). */
+function countProductionDaysBetweenAnchors(startDate, endDate, openSunday, refDate = new Date()) {
+  const anchor = startDate ? startOfCalendarDay(startDate) : startOfCalendarDay(refDate);
+  const end = startOfCalendarDay(endDate);
+  if (end <= anchor) return 0;
+  let count = 0;
+  for (let t = anchor.getTime() + MS_PER_DAY; t <= end.getTime(); t += MS_PER_DAY) {
+    if (isProductionDay(new Date(t), openSunday)) count += 1;
+  }
+  return count;
+}
+
+/** Jours de production sur N jours calendaires à partir d'une date (jour de départ inclus). */
+function countProductionDaysFromStartInclusive(startDate, calendarSpan, openSunday) {
+  const span = Math.max(0, Math.floor(Number(calendarSpan) || 0));
+  if (span === 0) return 0;
+  const start = startOfCalendarDay(startDate);
+  let count = 0;
+  for (let i = 0; i < span; i++) {
+    const d = new Date(start.getTime() + i * MS_PER_DAY);
+    if (isProductionDay(d, openSunday)) count += 1;
+  }
+  return count;
+}
+
+function flourOpenSunday(cfg) {
+  return cfg?.openSunday === true;
+}
+
 /**
  * Date d'ancrage pour la déduction conso/j d'une farine.
  * Après une saisie partielle, item.updatedAt est plus récent que lastFullCountAt :
@@ -191,8 +224,9 @@ function getDeliveryLeadDays(deliveryDate) {
   return { daysUntilDelivery: calendarDaysBetween(today, delivery), deliveryDate: delivery };
 }
 
-function projectedStockAtDelivery(currentSacks, dailyConsumption, daysUntilDelivery) {
-  return computeTheoreticalStockSacks(currentSacks, dailyConsumption, daysUntilDelivery);
+function projectedStockAtDelivery(currentSacks, dailyConsumption, deliveryDate, openSunday) {
+  const prodDays = countProductionDaysBetweenAnchors(new Date(), deliveryDate, openSunday);
+  return computeTheoreticalStockSacks(currentSacks, dailyConsumption, prodDays);
 }
 
 function statusFromDaysRemaining(daysRemaining) {
@@ -234,7 +268,8 @@ async function buildFlourStocksStatus(siteKey) {
     );
     const daily = Math.max(0, Number(cfg.dailyConsumptionSacks || 0));
     const countAnchor = flourCountAnchorForDeduction(inv, lastFullCountAt, inventory?.lastEntryAt);
-    const itemDeductionDays = consumptionDeductionDaysSinceCount(countAnchor);
+    const openSunday = flourOpenSunday(cfg);
+    const itemDeductionDays = countProductionDaysBetweenAnchors(countAnchor, new Date(), openSunday);
     const stockTheoreticalSacks = roundQty2(
       computeTheoreticalStockSacks(stockPhysicalSacks, daily, itemDeductionDays)
     );
@@ -246,6 +281,7 @@ async function buildFlourStocksStatus(siteKey) {
       stockTheoreticalSacks,
       stockSacksTotal: stockTheoreticalSacks,
       daily,
+      openSunday,
       daysRemaining: daysRemaining != null ? roundQty2(daysRemaining) : null,
       status: statusFromDaysRemaining(daysRemaining)
     };
@@ -360,6 +396,7 @@ const putFlourConfigBatch = async (req, res) => {
         if (typeof x.name === 'string' && x.name.trim()) update.name = x.name.trim();
         if (x.unit === 'sacks' || x.unit === 'pallets_and_sacks') update.unit = x.unit;
         if (x.supplierType === 'standard' || x.supplierType === 'next_day') update.supplierType = x.supplierType;
+        if (typeof x.openSunday === 'boolean') update.openSunday = x.openSunday;
 
         if (id) {
           return {
@@ -582,12 +619,17 @@ const postFlourEntry = async (req, res) => {
     const now = new Date();
     const spamWindowMs = 48 * 60 * 60 * 1000;
     const countAnchor = prevInventory?.lastFullCountAt || prevInventory?.lastEntryAt || null;
-    const daysBeforeEntry = consumptionDeductionDaysSinceCount(countAnchor, now);
-
     for (const cfg of configs) {
       const id = String(cfg._id);
       const prev = prevByConfigId.get(id) || { sacks: 0, pallets: 0 };
       const next = newItemsMap.get(id) || { sacks: 0, pallets: 0 };
+      const openSunday = flourOpenSunday(cfg);
+      const itemCountAnchor = flourCountAnchorForDeduction(
+        prev,
+        prevInventory?.lastFullCountAt,
+        prevInventory?.lastEntryAt
+      );
+      const daysBeforeEntry = countProductionDaysBetweenAnchors(itemCountAnchor, now, openSunday);
 
       const prevPhysical = stockToSacks({
         unit: cfg.unit,
@@ -825,10 +867,11 @@ function buildOrderProposalRow({
   sacksPerPallet,
   projectedStockAtDelivery: projectedAtDelivery,
   stockAfterDelivery,
+  productionDaysUntilDelivery,
   daysUntilDelivery
 }) {
   const isWhiteFlour = cfg?.unit === 'pallets_and_sacks';
-  const waitDays = Math.max(0, Number(daysUntilDelivery) || 0);
+  const waitDays = Math.max(0, Number(productionDaysUntilDelivery) || 0);
   const stockNow = Math.max(0, Number(currentSacks) || 0);
   const needUntilDeliverySacks =
     waitDays > 0 && daily > 0
@@ -845,6 +888,10 @@ function buildOrderProposalRow({
     currentStockSacks: currentSacks,
     projectedStockAtDelivery: projectedAtDelivery != null ? roundQty2(projectedAtDelivery) : null,
     needUntilDeliverySacks,
+    productionDaysUntilDelivery: waitDays > 0 ? waitDays : null,
+    openSunday: flourOpenSunday(cfg),
+    daysUntilDelivery:
+      daysUntilDelivery != null ? Math.max(0, Number(daysUntilDelivery) || 0) : null,
     stockAfterDelivery: stockAfterDelivery != null ? roundQty2(stockAfterDelivery) : null,
     weeks: weeks != null ? roundQty2(weeks) : null,
     days: roundQty2(days),
@@ -901,28 +948,41 @@ const postOrderProposal = async (req, res) => {
         return res.status(400).json({ success: false, error: 'weeks invalide (1..52)' });
       }
 
-      const days = weeks * 7;
+      const calendarHorizonDays = weeks * 7;
       const proposals = status.items
         .map((row) => {
           const cfg = configById.get(String(row.flourConfigId));
+          const openSunday = flourOpenSunday(cfg);
           const currentSacks =
             stockPhysicalById.get(String(row.flourConfigId)) ?? row.stockPhysicalSacks ?? 0;
           const daily = row.daily;
+          const productionDaysUntilDelivery = countProductionDaysBetweenAnchors(
+            new Date(),
+            deliveryDate,
+            openSunday
+          );
+          const horizonProductionDays = countProductionDaysFromStartInclusive(
+            deliveryDate,
+            calendarHorizonDays,
+            openSunday
+          );
           const projectedAtDelivery = projectedStockAtDelivery(
             currentSacks,
             daily,
-            daysUntilDelivery
+            deliveryDate,
+            openSunday
           );
-          const needed = days * daily - projectedAtDelivery;
+          const needed = horizonProductionDays * daily - projectedAtDelivery;
           return buildOrderProposalRow({
             row,
             cfg,
             currentSacks,
             daily,
-            days,
+            days: horizonProductionDays,
             weeks,
             suggestedOrderSacks: needed,
             projectedStockAtDelivery: projectedAtDelivery,
+            productionDaysUntilDelivery,
             daysUntilDelivery
           });
         })
@@ -934,7 +994,7 @@ const postOrderProposal = async (req, res) => {
           siteKey,
           mode: 'weeks',
           weeks,
-          days,
+          days: calendarHorizonDays,
           deliveryDate: deliveryDateIso,
           daysUntilDelivery,
           sacksPerPallet,
@@ -967,10 +1027,17 @@ const postOrderProposal = async (req, res) => {
     const whiteOrderSacks = whitePallets * sacksPerPallet;
     const whiteCurrentSacks =
       stockPhysicalById.get(String(whiteCfg._id)) ?? whiteRow?.stockPhysicalSacks ?? 0;
+    const whiteOpenSunday = flourOpenSunday(whiteCfg);
+    const whiteProductionDaysUntilDelivery = countProductionDaysBetweenAnchors(
+      new Date(),
+      deliveryDate,
+      whiteOpenSunday
+    );
     const whiteProjectedAtDelivery = projectedStockAtDelivery(
       whiteCurrentSacks,
       whiteDaily,
-      daysUntilDelivery
+      deliveryDate,
+      whiteOpenSunday
     );
     const whiteStockAfterDelivery = whiteProjectedAtDelivery + whiteOrderSacks;
     const coverageDays = whiteStockAfterDelivery / whiteDaily;
@@ -984,10 +1051,17 @@ const postOrderProposal = async (req, res) => {
           stockPhysicalById.get(String(row.flourConfigId)) ?? row.stockPhysicalSacks ?? 0;
         const daily = row.daily;
         const isWhite = cfg?.unit === 'pallets_and_sacks';
+        const openSunday = flourOpenSunday(cfg);
+        const productionDaysUntilDelivery = countProductionDaysBetweenAnchors(
+          new Date(),
+          deliveryDate,
+          openSunday
+        );
         const projectedAtDelivery = projectedStockAtDelivery(
           currentSacks,
           daily,
-          daysUntilDelivery
+          deliveryDate,
+          openSunday
         );
         const suggestedOrderSacks = isWhite
           ? whiteOrderSacks
@@ -1005,6 +1079,7 @@ const postOrderProposal = async (req, res) => {
           sacksPerPallet,
           projectedStockAtDelivery: projectedAtDelivery,
           stockAfterDelivery: stockAfter,
+          productionDaysUntilDelivery,
           daysUntilDelivery
         });
       })

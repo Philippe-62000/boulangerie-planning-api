@@ -44,6 +44,11 @@ const flourConfigSchema = new mongoose.Schema(
       type: Number,
       default: 0
     },
+    /** Si true : conso 7j/7 ; sinon dimanche fermé (6j de production / 7 calendaires). */
+    openSunday: {
+      type: Boolean,
+      default: false
+    },
     // Anti-spam: dernier envoi d'alerte seuil critique pour cette farine (par site)
     lastCriticalAlertAt: {
       type: Date,

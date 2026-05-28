@@ -1,3 +1,5 @@
+import { countProductionDaysBetweenAnchors } from './flourStockStatus';
+
 /** Conversion sacs ↔ kg (poids d'un sac configurable par site). */
 
 export function parseDailySacksValue(v) {
@@ -65,17 +67,29 @@ export function projectedDeliveryTone(projectedStockAtDelivery) {
 }
 
 /** Besoin en sacs pour tenir jusqu'à la livraison (repli si l'API ne renvoie pas le champ). */
-export function computeNeedUntilDeliverySacks(proposal, daysUntilDelivery) {
+export function computeNeedUntilDeliverySacks(proposal, daysUntilDelivery, deliveryDateIso) {
   const fromApi = proposal?.needUntilDeliverySacks;
   if (fromApi != null && fromApi !== '') {
     const n = Number(fromApi);
     if (Number.isFinite(n)) return n;
   }
-  const days = Number(daysUntilDelivery);
+  const prodDaysFromApi = Number(proposal?.productionDaysUntilDelivery);
   const daily = parseDailySacksValue(proposal?.dailyConsumptionSacks);
   const stockNow = Math.max(0, Number(proposal?.currentStockSacks) || 0);
-  if (!Number.isFinite(days) || days < 0 || daily <= 0) return null;
-  if (days === 0) return 0;
-  const deficit = Math.max(0, days * daily - stockNow);
+  const openSunday = proposal?.openSunday === true;
+  if (daily <= 0) return null;
+
+  let prodDays = Number.isFinite(prodDaysFromApi) ? prodDaysFromApi : null;
+  if (prodDays == null && deliveryDateIso) {
+    prodDays = countProductionDaysBetweenAnchors(new Date(), `${deliveryDateIso}T12:00:00`, openSunday);
+  }
+  if (prodDays == null) {
+    const days = Number(daysUntilDelivery);
+    if (!Number.isFinite(days) || days < 0) return null;
+    if (days === 0) return 0;
+    prodDays = openSunday ? days : Math.round(days * (6 / 7) * 100) / 100;
+  }
+  if (prodDays <= 0) return 0;
+  const deficit = Math.max(0, prodDays * daily - stockNow);
   return Math.round(deficit * 100) / 100;
 }

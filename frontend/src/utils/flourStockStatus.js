@@ -19,6 +19,21 @@ export function consumptionDeductionDaysSinceCount(countDate, refDate = new Date
   return Math.max(0, calendarDaysBetween(countDate, refDate) - 1);
 }
 
+export function isProductionDay(date, openSunday) {
+  return openSunday === true || date.getDay() !== 0;
+}
+
+export function countProductionDaysBetweenAnchors(startDate, endDate, openSunday, refDate = new Date()) {
+  const anchor = startDate ? startOfCalendarDay(startDate) : startOfCalendarDay(refDate);
+  const end = startOfCalendarDay(endDate);
+  if (end <= anchor) return 0;
+  let count = 0;
+  for (let t = anchor.getTime() + MS_PER_DAY; t <= end.getTime(); t += MS_PER_DAY) {
+    if (isProductionDay(new Date(t), openSunday)) count += 1;
+  }
+  return count;
+}
+
 /** Ancrage déduction : saisie partielle récente (item.updatedAt) ou dernier inventaire complet. */
 export function flourCountAnchorForDeduction(invItem, lastFullCountAt, lastEntryAt) {
   const globalAnchor = lastFullCountAt || lastEntryAt || null;
@@ -84,8 +99,9 @@ export function buildFlourStocksStatusClient({
         })
       );
       const daily = Math.max(0, Number(cfg.dailyConsumptionSacks || 0));
+      const openSunday = cfg.openSunday === true;
       const countAnchor = flourCountAnchorForDeduction(inv, lastFullCountAt, inventory?.lastEntryAt);
-      const itemDeductionDays = consumptionDeductionDaysSinceCount(countAnchor);
+      const itemDeductionDays = countProductionDaysBetweenAnchors(countAnchor, new Date(), openSunday);
       const stockTheoreticalSacks = roundQty2(
         computeTheoreticalStockSacks(stockPhysicalSacks, daily, itemDeductionDays)
       );
