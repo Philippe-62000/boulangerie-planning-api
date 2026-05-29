@@ -46,3 +46,22 @@ que Render sur Vercel si la vérif est locale, soit appeler les routes Render av
 
 Si vous gardez Mongo direct sur Vercel au lieu du proxy : MONGODB_URI identique à Render,
 collection « partnercompanies », champs site et passwordHash après déploiement API Render.
+
+--- Mini-viennoiseries petit déjeuner (2026) ---
+
+1) Admin Filmara : onglet Formules → sous la description, choisir 1 / 2 / 3 mini-viennoiseries par formule.
+
+2) Site entreprise Vercel :
+   - GET /api/partner-orders/formulas (token entreprise) pour lire miniViennoiserieCountPerFormula.
+   - Dans le formulaire : nombre de formules (quantity) + composant
+     partner-commande-vercel-drop-in/components/PartnerBreakfastMiniViennoiseries.jsx
+   - POST /api/partner-orders/my avec body :
+     { fulfillment, datetime, mealType, tier, quantity, miniViennoiserieDetail: [{name, quantity}] }
+   - Utiliser canSubmitBreakfastOrder() pour bloquer l’envoi si le total ne colle pas.
+
+3) Suppression commande (Filmara + Vercel si même API Render) :
+   - DELETE /api/partner-orders/internal/:id (salarié Filmara)
+   - DELETE /api/partner-admin/orders/:id (admin)
+   - DELETE /api/partner-orders/my/:id (entreprise, ses commandes seulement)
+   Si Vercel a une copie Mongo locale : ajouter action deleteOrder dans internal-partner-sync
+   (voir app-router/app/api/internal-partner-sync/route.ts.example).

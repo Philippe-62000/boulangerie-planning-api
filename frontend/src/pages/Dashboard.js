@@ -194,10 +194,15 @@ const Dashboard = () => {
     const configs = Array.isArray(cfgRes.data?.data) ? cfgRes.data.data : [];
     const inventory = invRes.data?.data || { items: [] };
     if (invRes.data?.meta) {
+      const params = Array.isArray(paramsRes.data) ? paramsRes.data : [];
+      const openSunday =
+        invRes.data.meta?.openSunday === true ||
+        params.find((p) => p.name === `flourOpenSunday_${siteKey}`)?.booleanValue === true;
       const built = buildFlourStocksStatusClient({
         configs,
         inventory,
-        countIntervalDays: invRes.data.meta.physicalCountIntervalDays ?? 5
+        countIntervalDays: invRes.data.meta.physicalCountIntervalDays ?? 5,
+        openSunday
       });
       applyFlourWidgetFromStatusPayload({ data: built.items, meta: invRes.data.meta });
       return;
@@ -212,7 +217,15 @@ const Dashboard = () => {
     const intervalName = `flourPhysicalCountIntervalDays_${siteKey}`;
     const intervalRaw = params.find((p) => p.name === intervalName)?.stringValue;
     const countIntervalDays = Number(String(intervalRaw || '5').trim()) || 5;
-    const built = buildFlourStocksStatusClient({ configs, inventory, sacksPerPallet, countIntervalDays });
+    const openSunday =
+      params.find((p) => p.name === `flourOpenSunday_${siteKey}`)?.booleanValue === true;
+    const built = buildFlourStocksStatusClient({
+      configs,
+      inventory,
+      sacksPerPallet,
+      countIntervalDays,
+      openSunday
+    });
     applyFlourWidgetFromStatusPayload({
       data: built.items,
       meta: { ...built.meta, kgPerSack }

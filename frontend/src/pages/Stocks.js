@@ -10,6 +10,7 @@ import {
   parseKgPerSack,
   projectedDeliveryTone,
   computeNeedUntilDeliverySacks,
+  mergeOrderProposalsWithAllFlours,
   sacksToKg
 } from '../utils/flourUnits';
 import './Stocks.css';
@@ -83,10 +84,12 @@ const Stocks = () => {
   const deliveryParamName = `flourDeliveryDays_${siteKey}`;
   const sacksPerPalletName = `whiteFlourSacksPerPallet_${siteKey}`;
   const kgPerSackParamName = `flourKgPerSack_${siteKey}`;
+  const openSundayParamName = `flourOpenSunday_${siteKey}`;
 
   const [deliveryDays, setDeliveryDays] = useState([]);
   const [sacksPerPallet, setSacksPerPallet] = useState('40');
   const [kgPerSack, setKgPerSack] = useState('25');
+  const [openSunday, setOpenSunday] = useState(false);
 
   const [orderMode, setOrderMode] = useState('weeks'); // 'weeks' | 'palettes'
   const [weeks, setWeeks] = useState(4);
@@ -133,6 +136,10 @@ const Stocks = () => {
       }
 
       setSacksPerPallet(p.find((x) => x.name === sacksPerPalletName)?.stringValue || '50');
+      const openFromSite = cfgRes.data?.openSunday === true;
+      const openFromParam = p.find((x) => x.name === openSundayParamName)?.booleanValue === true;
+      const openFromFlours = configs.some((f) => f.openSunday === true);
+      setOpenSunday(openFromSite || openFromParam || openFromFlours);
     } catch (e) {
       console.error(e);
       setFlours([]);
@@ -140,6 +147,7 @@ const Stocks = () => {
       setDeliveryDays([]);
       setSacksPerPallet('50');
       setKgPerSack('25');
+      setOpenSunday(false);
     } finally {
       setLoading(false);
     }
@@ -168,7 +176,6 @@ const Stocks = () => {
         dailyConsumptionSacks: kgToSacks(parseDailySacksValue(f.dailyConsumptionKg ?? 0), kgPer),
         criticalThresholdSacks: parseDailySacksValue(f.criticalThresholdSacks ?? 0),
         supplierType: f.supplierType || 'standard',
-        openSunday: !!f.openSunday,
         isActive: !!f.isActive,
         order: Number(f.order || 0)
       }));
@@ -199,6 +206,92 @@ const Stocks = () => {
     await api.put(`/parameters/${param._id}`, { stringValue });
     await fetchAll();
   };
+
+  /** Compatible API récente (site-settings) et API 24f101e (openSunday sur chaque farine). */
+  const saveOpenSunday = async () => {
+    const value = openSunday === true;
+    try {
+      const res = await api.put('/stocks/flours/site-settings', { siteKey, openSunday: value });
+      setOpenSunday(res.data?.openSunday === true);
+      return;
+    } catch (e) {
+      if (e.response?.status !== 404) {
+        console.error(e);
+        alert(e.response?.data?.error || 'Erreur lors de l’enregistrement du mode production.');
+        return;
+      }
+    }
+    try {
+      let list = flours;
+      if (!list.length) {
+        const cfgRes = await api.get('/stocks/flours/config', { params: { siteKey } });
+        list = Array.isArray(cfgRes.data?.data) ? cfgRes.data.data : [];
+      }
+      if (!list.length) {
+        alert('Liste des farines introuvable. Ouvrez l’onglet Farines puis réessayez.');
+        return;
+      }
+      const kgPer = parseKgPerSack(kgPerSack);
+      const items = list.map((f) => ({
+        _id: f._id,
+        name: f.name,
+        unit: f.unit,
+        dailyConsumptionSacks: kgToSacks(
+          parseDailySacksValue(f.dailyConsumptionKg ?? f.dailyConsumptionSacks ?? 0),
+          kgPer
+        ),
+        criticalThresholdSacks: parseDailySacksValue(f.criticalThresholdSacks ?? 0),
+        supplierType: f.supplierType || 'standard',
+        openSunday: value,
+        isActive: f.isActive !== false,
+        order: Number(f.order || 0)
+      }));
+      await api.put('/stocks/flours/config', { siteKey, items });
+      setOpenSunday(value);
+      setFlours(
+        list.map((f) => ({
+          ...f,
+          openSunday: value,
+          dailyConsumptionKg: dailyConsumptionKgInputValue(f.dailyConsumptionSacks, kgPer)
+        }))
+      );
+    } catch (e2) {
+      console.error(e2);
+      alert('Erreur lors de l’enregistrement du mode production.');
+    }
+  };
+
+  const productionSettingsCard = (
+    <div className="stocks-card">
+      <h3>Production (6j/7 ou 7j/7)</h3>
+      <label
+        style={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: 8,
+          cursor: 'pointer',
+          fontSize: '1rem'
+        }}
+        title="Coché : production 7j/7 (dimanche inclus). Décoché : pas de production le dimanche (6j/7)."
+      >
+        <input type="checkbox" checked={openSunday} onChange={(e) => setOpenSunday(e.target.checked)} />
+        Ouverture le dimanche — production 7j/7 pour toutes les farines
+      </label>
+      <div className="stocks-hint" style={{ marginTop: 8 }}>
+        {openSunday
+          ? 'Les calculs de stock, besoin et commande comptent tous les jours calendaires.'
+          : 'Les dimanches ne sont pas comptés dans la consommation ni dans les besoins jusqu’à livraison.'}
+      </div>
+      <div className="stocks-production-actions">
+        <button type="button" className="stocks-btn primary" onClick={saveOpenSunday}>
+          Enregistrer le mode production
+        </button>
+        <span className="stocks-hint">
+          Mode enregistré : <strong>{openSunday ? '7j/7' : '6j/7'}</strong>
+        </span>
+      </div>
+    </div>
+  );
 
   const toggleDeliveryDay = (day) => {
     setDeliveryDays((prev) => {
@@ -360,8 +453,16 @@ const Stocks = () => {
           ? { mode: 'palettes', whitePallets: Number(whitePallets) }
           : { mode: 'weeks', weeks: Number(weeks) })
       };
-      const res = await api.post('/stocks/flours/order-proposal', payload);
-      setOrderResult(res.data?.data || null);
+      const [orderRes, statusRes] = await Promise.all([
+        api.post('/stocks/flours/order-proposal', payload),
+        api.get('/stocks/flours/status', { params: { siteKey } }).catch(() => ({ data: {} }))
+      ]);
+      const statusItems = Array.isArray(statusRes.data?.data) ? statusRes.data.data : [];
+      let merged = mergeOrderProposalsWithAllFlours(orderRes.data?.data || null, statusItems);
+      if (merged && merged.openSunday == null && statusRes.data?.meta?.openSunday != null) {
+        merged = { ...merged, openSunday: statusRes.data.meta.openSunday === true };
+      }
+      setOrderResult(merged);
     } catch (e) {
       console.error(e);
       const msg = e.response?.data?.error || 'Erreur calcul commande.';
@@ -414,11 +515,14 @@ const Stocks = () => {
         <section className="stocks-section">
           <h2>Paramètres farines</h2>
           <p className="stocks-hint" style={{ marginBottom: '1rem', color: '#555', lineHeight: 1.4 }}>
-            La conso/j est une journée de production (lun.–sam. par défaut, ou 7j/7 si « Ouverture le dimanche »).
-            Le tableau de bord déduit la consommation chaque jour ouvré pour afficher les jours théoriques
+            La conso/j est une journée de production (lun.–sam. par défaut, ou 7j/7 si la boulangerie est ouverte le
+            dimanche). Le tableau de bord déduit la consommation chaque jour de production pour afficher les jours
+            théoriques
             restants. Un inventaire physique complet est demandé tous les 5 jours (paramètre{' '}
             <code>flourPhysicalCountIntervalDays_{siteKey}</code> dans Paramètres généraux).
           </p>
+
+          {productionSettingsCard}
 
           <div className="stocks-card">
             <h3>Livraisons (max 2 jours)</h3>
@@ -491,7 +595,6 @@ const Stocks = () => {
                     <th>Unité</th>
                     <th>Fournisseur</th>
                     <th>Conso/j (kg)</th>
-                    <th>Ouverture le dimanche</th>
                     <th>Seuil critique (sacs)</th>
                     <th>Actif</th>
                     <th>Ordre</th>
@@ -568,30 +671,6 @@ const Stocks = () => {
                           </div>
                         </div>
                       </td>
-                      <td style={{ textAlign: 'center' }}>
-                        <label
-                          style={{
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: 6,
-                            cursor: 'pointer',
-                            fontSize: '0.9rem'
-                          }}
-                          title="Coché : production 7j/7. Décoché : pas de production le dimanche (6j/7)."
-                        >
-                          <input
-                            type="checkbox"
-                            checked={!!f.openSunday}
-                            onChange={(e) => {
-                              const v = e.target.checked;
-                              setFlours((prev) =>
-                                prev.map((x) => (x === f ? { ...x, openSunday: v } : x))
-                              );
-                            }}
-                          />
-                          7j/7
-                        </label>
-                      </td>
                       <td>
                         <input
                           className="stocks-input"
@@ -644,6 +723,8 @@ const Stocks = () => {
             En mode palettes, la couverture totale = (stock projeté à la livraison + commande blanche) ÷ conso/j ; les
             autres farines suivent la même durée ({sacksPerPallet} sacs/palette).
           </p>
+
+          {productionSettingsCard}
 
           <div className="stocks-card">
             <div className="stocks-order-mode">
@@ -744,11 +825,18 @@ const Stocks = () => {
               {orderResult.mode === 'weeks' && orderResult.days != null && (
                 <p className="stocks-hint" style={{ marginBottom: '0.75rem' }}>
                   Horizon : {orderResult.weeks} semaine(s) = {orderResult.days} j. calendaires (besoin sur jours de
-                  production après livraison, dimanche exclu sauf si 7j/7 coché pour la farine).
+                  production après livraison
+                  {orderResult.openSunday ? ' — boulangerie 7j/7' : ' — dimanches exclus (6j/7)'}).
                 </p>
               )}
               {Array.isArray(orderResult.proposals) && orderResult.proposals.length === 0 && (
-                <p>Aucune commande suggérée (stocks suffisants ou conso=0).</p>
+                <p>Aucune farine active configurée pour ce site.</p>
+              )}
+              {Array.isArray(orderResult.proposals) && orderResult.proposals.length > 0 && (
+                <p className="stocks-hint" style={{ marginBottom: '0.5rem' }}>
+                  Toutes les farines actives sont listées.{' '}
+                  <strong>0 sac</strong> à commander = stock suffisant sur l’horizon choisi.
+                </p>
               )}
               {Array.isArray(orderResult.proposals) && orderResult.proposals.length > 0 && (
                 <div className="stocks-table-wrap">
@@ -769,10 +857,14 @@ const Stocks = () => {
                         const needUntilDelivery = computeNeedUntilDeliverySacks(
                           p,
                           orderResult.daysUntilDelivery,
-                          orderResult.deliveryDate
+                          orderResult.deliveryDate,
+                          orderResult.openSunday
                         );
                         return (
-                        <tr key={p.flourConfigId}>
+                        <tr
+                          key={p.flourConfigId}
+                          className={p.suggestedOrderSacks === 0 ? 'stocks-order-row-none' : ''}
+                        >
                           <td>{p.name}</td>
                           <td style={{ textAlign: 'right' }}>{p.currentStockSacks}</td>
                           <td style={{ textAlign: 'right' }}>

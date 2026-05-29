@@ -46,6 +46,10 @@ function sanitizeFormulaPayloadForSave(data) {
           t[f] = t[f].map((x) => String(x)).filter((x) => x.trim().length > 0);
         }
       }
+      if (meal === 'breakfast') {
+        const n = Number(t.miniViennoiserieCountPerFormula);
+        t.miniViennoiserieCountPerFormula = n === 2 ? 2 : n === 3 ? 3 : 1;
+      }
     }
   }
   return next;
@@ -72,7 +76,9 @@ const CommandeLivraisonEntreprises = () => {
   const load = async () => {
     setLoading(true);
     try {
-      const res = await api.get('/partner-orders/internal', { params: { site, status: filterStatus } });
+      const params = { site };
+      if (filterStatus && filterStatus !== 'all') params.status = filterStatus;
+      const res = await api.get('/partner-orders/internal', { params });
       setOrders(Array.isArray(res.data?.data) ? res.data.data : []);
     } catch (e) {
       console.error(e);
@@ -254,6 +260,33 @@ const CommandeLivraisonEntreprises = () => {
     }
   };
 
+  const deleteOrder = async (order) => {
+    const id = order._id || order.id;
+    if (!id) return;
+    const when = order.datetime ? new Date(order.datetime).toLocaleString('fr-FR') : '—';
+    if (
+      !window.confirm(
+        `Supprimer définitivement cette commande (${when}) ?\n\nElle disparaîtra ici et sur le site entreprise (Vercel).`
+      )
+    ) {
+      return;
+    }
+    try {
+      await api.delete(`/partner-orders/internal/${id}`, { params: { site } });
+      await load();
+    } catch (e) {
+      console.error(e);
+      const st = e?.response?.status;
+      if (st === 404) {
+        alert(
+          'Route de suppression absente sur l’API Render — déployez la dernière version (api-3, branche longuenesse).'
+        );
+      } else {
+        alert(e?.response?.data?.error || 'Suppression impossible.');
+      }
+    }
+  };
+
   const updateFormulaField = (mealType, tier, field, value) => {
     setFormulas((prev) => {
       if (!prev) return prev;
@@ -313,6 +346,7 @@ const CommandeLivraisonEntreprises = () => {
                 <option value="invoiced">Facturé</option>
                 <option value="paid">Payé</option>
                 <option value="cancelled">Annulé</option>
+                <option value="all">Tous les statuts</option>
               </select>
             </label>
             <button onClick={load} style={{ padding: '8px 12px', borderRadius: '8px' }}>
@@ -344,6 +378,7 @@ const CommandeLivraisonEntreprises = () => {
                       <div style={{ color: '#555', marginTop: '4px' }}>
                         <b>{o.mealType === 'breakfast' ? 'Petit déjeuner' : 'Déjeuner'}</b> • {o.tier} •{' '}
                         {o.fulfillment === 'delivery' ? 'Livraison' : 'Retrait magasin'}
+                        {Number(o.quantity) > 1 ? ` • ${o.quantity} formules` : ''}
                       </div>
                       <div style={{ color: '#555', marginTop: '4px' }}>
                         <span style={{ fontWeight: 700 }}>Statut :</span> {statusLabels[o.status] || o.status}
@@ -362,6 +397,20 @@ const CommandeLivraisonEntreprises = () => {
                           ))}
                         </ul>
                       )}
+                      {o.mealType === 'breakfast' &&
+                        Array.isArray(o.miniViennoiserieDetail) &&
+                        o.miniViennoiserieDetail.length > 0 && (
+                          <div style={{ marginTop: 8, fontSize: '0.9rem' }}>
+                            <b>Mini-viennoiseries ({o.miniViennoiserieTotal ?? '—'} au total) :</b>
+                            <ul style={{ margin: '4px 0 0', paddingLeft: '18px' }}>
+                              {o.miniViennoiserieDetail.map((mv, idx) => (
+                                <li key={idx} style={{ color: '#555' }}>
+                                  {mv.name} × {mv.quantity}
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
                     </div>
                   </div>
 
@@ -377,6 +426,20 @@ const CommandeLivraisonEntreprises = () => {
                     </button>
                     <button onClick={() => updateStatus(o._id, 'cancelled')} style={{ padding: '6px 10px', borderRadius: '8px' }}>
                       Annuler
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => deleteOrder(o)}
+                      style={{
+                        padding: '6px 10px',
+                        borderRadius: '8px',
+                        border: '1px solid #dc3545',
+                        background: '#fff5f5',
+                        color: '#b02a37',
+                        fontWeight: 600
+                      }}
+                    >
+                      Supprimer
                     </button>
                   </div>
                 </div>
@@ -531,6 +594,30 @@ const CommandeLivraisonEntreprises = () => {
                             value={f.description || ''}
                             onChange={(e) => updateFormulaField(mealType, tier, 'description', e.target.value)}
                           />
+                          {mealType === 'breakfast' ? (
+                            <label style={{ display: 'block', marginTop: 10 }}>
+                              <span style={{ fontWeight: 600 }}>Mini-viennoiseries incluses par formule</span>
+                              <select
+                                style={{ display: 'block', marginTop: 6, padding: '8px 10px', borderRadius: 8, width: '100%' }}
+                                value={String(f.miniViennoiserieCountPerFormula ?? 1)}
+                                onChange={(e) =>
+                                  updateFormulaField(
+                                    mealType,
+                                    tier,
+                                    'miniViennoiserieCountPerFormula',
+                                    Number(e.target.value)
+                                  )
+                                }
+                              >
+                                <option value="1">1 mini-viennoiserie</option>
+                                <option value="2">2 mini-viennoiseries</option>
+                                <option value="3">3 mini-viennoiseries</option>
+                              </select>
+                              <span style={{ display: 'block', marginTop: 4, color: '#666', fontSize: '0.85rem' }}>
+                                Ex. 2 inclus × 6 formules = 12 mini-viennoiseries à répartir sur le site de commande.
+                              </span>
+                            </label>
+                          ) : null}
                           <textarea
                             placeholder="Items (1 par ligne) — contenu de référence de la box / formule"
                             style={{ marginTop: 8, width: '100%', minHeight: 90 }}

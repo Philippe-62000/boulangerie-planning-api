@@ -7,6 +7,8 @@ const tierSchema = new mongoose.Schema(
     description: { type: String, default: '', trim: true },
     items: [{ type: String, trim: true }],
     coffeeTeaLine: { type: String, default: '' },
+    /** Petit déjeuner : nombre de mini-viennoiseries incluses par formule (1, 2 ou 3). */
+    miniViennoiserieCountPerFormula: { type: Number, default: 1, min: 1, max: 3 },
     miniViennoiserieOptions: [{ type: String, trim: true }],
     juiceOptions: [{ type: String, trim: true }],
     lunchShowDietCounts: { type: Boolean, default: false },

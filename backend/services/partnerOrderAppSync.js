@@ -55,8 +55,18 @@ function syncDelete({ email }) {
   });
 }
 
+/** Suppression d'une commande miroir sur Vercel (si endpoint internal-partner-sync gère action deleteOrder). */
+function syncOrderDelete({ orderId, site }) {
+  return post({
+    action: 'deleteOrder',
+    orderId: String(orderId),
+    site: site || 'longuenesse'
+  });
+}
+
 module.exports = {
   syncUpsert,
   syncDeactivate,
-  syncDelete
+  syncDelete,
+  syncOrderDelete
 };

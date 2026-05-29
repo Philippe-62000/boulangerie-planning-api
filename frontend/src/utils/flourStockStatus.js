@@ -76,7 +76,8 @@ export function buildFlourStocksStatusClient({
   configs,
   inventory,
   sacksPerPallet = 50,
-  countIntervalDays = 5
+  countIntervalDays = 5,
+  openSunday = false
 }) {
   const invById = new Map((inventory?.items || []).map((it) => [String(it.flourConfigId), it]));
   const lastFullCountAt = inventory?.lastFullCountAt || inventory?.lastEntryAt || null;
@@ -99,7 +100,6 @@ export function buildFlourStocksStatusClient({
         })
       );
       const daily = Math.max(0, Number(cfg.dailyConsumptionSacks || 0));
-      const openSunday = cfg.openSunday === true;
       const countAnchor = flourCountAnchorForDeduction(inv, lastFullCountAt, inventory?.lastEntryAt);
       const itemDeductionDays = countProductionDaysBetweenAnchors(countAnchor, new Date(), openSunday);
       const stockTheoreticalSacks = roundQty2(
@@ -140,7 +140,8 @@ export function buildFlourStocksStatusClient({
       daysSinceFullCount: calendarDaysSinceCount,
       consumptionDeductionDays: deductionDays,
       physicalCountDue,
-      daysUntilCountDue
+      daysUntilCountDue,
+      openSunday: openSunday === true
     }
   };
 }

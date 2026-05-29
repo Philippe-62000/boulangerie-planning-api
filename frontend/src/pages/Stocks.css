@@ -121,6 +121,18 @@
   margin-top: 12px;
 }
 
+.stocks-production-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.stocks-production-actions .stocks-btn.primary {
+  min-width: 220px;
+}
+
 .stocks-table-wrap {
   overflow: auto;
   border-radius: 10px;
@@ -138,6 +150,10 @@
   border-bottom: 1px solid #eef1f4;
   padding: 10px;
   vertical-align: middle;
+}
+
+.stocks-order-row-none td {
+  color: #6b7280;
 }
 
 .stocks-table th {

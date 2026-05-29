@@ -158,8 +158,28 @@ function countProductionDaysFromStartInclusive(startDate, calendarSpan, openSund
   return count;
 }
 
-function flourOpenSunday(cfg) {
-  return cfg?.openSunday === true;
+/** Ouverture le dimanche : production 7j/7 pour tout le site (sinon lun.–sam.). */
+async function getFlourOpenSunday(siteKey) {
+  const p = await ensureParameter({
+    name: `flourOpenSunday_${siteKey}`,
+    displayName: `Farines - ouverture le dimanche (${SITE_LABEL[siteKey] || siteKey})`,
+    booleanValue: false
+  });
+  return p.booleanValue === true;
+}
+
+async function setFlourOpenSunday(siteKey, openSunday) {
+  const p = await ensureParameter({
+    name: `flourOpenSunday_${siteKey}`,
+    displayName: `Farines - ouverture le dimanche (${SITE_LABEL[siteKey] || siteKey})`,
+    booleanValue: false
+  });
+  const next = openSunday === true;
+  if (p.booleanValue !== next) {
+    p.booleanValue = next;
+    await p.save();
+  }
+  return p.booleanValue === true;
 }
 
 /**
@@ -239,12 +259,13 @@ function statusFromDaysRemaining(daysRemaining) {
 /** Stock théorique (déduction conso/j) + rappel inventaire physique. */
 async function buildFlourStocksStatus(siteKey) {
   await ensureDefaultFlours(siteKey);
-  const [configs, inventory, sacksPerPallet, kgPerSack, countIntervalDays] = await Promise.all([
+  const [configs, inventory, sacksPerPallet, kgPerSack, countIntervalDays, openSunday] = await Promise.all([
     FlourConfig.find({ siteKey, isActive: true }).sort({ order: 1, name: 1 }),
     StockInventory.findOne({ siteKey }),
     getSacksPerPallet(siteKey),
     getKgPerSack(siteKey),
-    getPhysicalCountIntervalDays(siteKey)
+    getPhysicalCountIntervalDays(siteKey),
+    getFlourOpenSunday(siteKey)
   ]);
 
   const invById = new Map((inventory?.items || []).map((it) => [String(it.flourConfigId), it]));
@@ -268,7 +289,6 @@ async function buildFlourStocksStatus(siteKey) {
     );
     const daily = Math.max(0, Number(cfg.dailyConsumptionSacks || 0));
     const countAnchor = flourCountAnchorForDeduction(inv, lastFullCountAt, inventory?.lastEntryAt);
-    const openSunday = flourOpenSunday(cfg);
     const itemDeductionDays = countProductionDaysBetweenAnchors(countAnchor, new Date(), openSunday);
     const stockTheoreticalSacks = roundQty2(
       computeTheoreticalStockSacks(stockPhysicalSacks, daily, itemDeductionDays)
@@ -281,7 +301,6 @@ async function buildFlourStocksStatus(siteKey) {
       stockTheoreticalSacks,
       stockSacksTotal: stockTheoreticalSacks,
       daily,
-      openSunday,
       daysRemaining: daysRemaining != null ? roundQty2(daysRemaining) : null,
       status: statusFromDaysRemaining(daysRemaining)
     };
@@ -310,7 +329,8 @@ async function buildFlourStocksStatus(siteKey) {
       consumptionDeductionDays: deductionDays,
       physicalCountDue,
       daysUntilCountDue,
-      kgPerSack
+      kgPerSack,
+      openSunday
     }
   };
 }
@@ -361,9 +381,10 @@ const getFlourConfig = async (req, res) => {
       stringValue: '25'
     });
     await getPhysicalCountIntervalDays(siteKey);
+    const openSunday = await getFlourOpenSunday(siteKey);
     const configs = await FlourConfig.find({ siteKey }).sort({ order: 1, name: 1 });
 
-    res.json({ success: true, data: configs });
+    res.json({ success: true, data: configs, openSunday });
   } catch (error) {
     console.error('❌ getFlourConfig:', error);
     res.status(500).json({ success: false, error: 'Erreur serveur' });
@@ -396,8 +417,6 @@ const putFlourConfigBatch = async (req, res) => {
         if (typeof x.name === 'string' && x.name.trim()) update.name = x.name.trim();
         if (x.unit === 'sacks' || x.unit === 'pallets_and_sacks') update.unit = x.unit;
         if (x.supplierType === 'standard' || x.supplierType === 'next_day') update.supplierType = x.supplierType;
-        if (typeof x.openSunday === 'boolean') update.openSunday = x.openSunday;
-
         if (id) {
           return {
             updateOne: {
@@ -619,11 +638,11 @@ const postFlourEntry = async (req, res) => {
     const now = new Date();
     const spamWindowMs = 48 * 60 * 60 * 1000;
     const countAnchor = prevInventory?.lastFullCountAt || prevInventory?.lastEntryAt || null;
+    const openSunday = await getFlourOpenSunday(siteKey);
     for (const cfg of configs) {
       const id = String(cfg._id);
       const prev = prevByConfigId.get(id) || { sacks: 0, pallets: 0 };
       const next = newItemsMap.get(id) || { sacks: 0, pallets: 0 };
-      const openSunday = flourOpenSunday(cfg);
       const itemCountAnchor = flourCountAnchorForDeduction(
         prev,
         prevInventory?.lastFullCountAt,
@@ -868,7 +887,8 @@ function buildOrderProposalRow({
   projectedStockAtDelivery: projectedAtDelivery,
   stockAfterDelivery,
   productionDaysUntilDelivery,
-  daysUntilDelivery
+  daysUntilDelivery,
+  siteOpenSunday
 }) {
   const isWhiteFlour = cfg?.unit === 'pallets_and_sacks';
   const waitDays = Math.max(0, Number(productionDaysUntilDelivery) || 0);
@@ -889,7 +909,7 @@ function buildOrderProposalRow({
     projectedStockAtDelivery: projectedAtDelivery != null ? roundQty2(projectedAtDelivery) : null,
     needUntilDeliverySacks,
     productionDaysUntilDelivery: waitDays > 0 ? waitDays : null,
-    openSunday: flourOpenSunday(cfg),
+    openSunday: siteOpenSunday === true,
     daysUntilDelivery:
       daysUntilDelivery != null ? Math.max(0, Number(daysUntilDelivery) || 0) : null,
     stockAfterDelivery: stockAfterDelivery != null ? roundQty2(stockAfterDelivery) : null,
@@ -941,6 +961,7 @@ const postOrderProposal = async (req, res) => {
     }
     const { daysUntilDelivery, deliveryDate } = deliveryLead;
     const deliveryDateIso = `${deliveryDate.getFullYear()}-${String(deliveryDate.getMonth() + 1).padStart(2, '0')}-${String(deliveryDate.getDate()).padStart(2, '0')}`;
+    const openSunday = status.meta?.openSunday === true;
 
     if (mode === 'weeks') {
       const weeks = Number(req.body?.weeks || 0);
@@ -952,7 +973,6 @@ const postOrderProposal = async (req, res) => {
       const proposals = status.items
         .map((row) => {
           const cfg = configById.get(String(row.flourConfigId));
-          const openSunday = flourOpenSunday(cfg);
           const currentSacks =
             stockPhysicalById.get(String(row.flourConfigId)) ?? row.stockPhysicalSacks ?? 0;
           const daily = row.daily;
@@ -983,10 +1003,10 @@ const postOrderProposal = async (req, res) => {
             suggestedOrderSacks: needed,
             projectedStockAtDelivery: projectedAtDelivery,
             productionDaysUntilDelivery,
-            daysUntilDelivery
+            daysUntilDelivery,
+            siteOpenSunday: openSunday
           });
-        })
-        .filter((x) => x.suggestedOrderSacks > 0);
+        });
 
       return res.json({
         success: true,
@@ -997,6 +1017,7 @@ const postOrderProposal = async (req, res) => {
           days: calendarHorizonDays,
           deliveryDate: deliveryDateIso,
           daysUntilDelivery,
+          openSunday,
           sacksPerPallet,
           kgPerSack,
           proposals,
@@ -1027,17 +1048,16 @@ const postOrderProposal = async (req, res) => {
     const whiteOrderSacks = whitePallets * sacksPerPallet;
     const whiteCurrentSacks =
       stockPhysicalById.get(String(whiteCfg._id)) ?? whiteRow?.stockPhysicalSacks ?? 0;
-    const whiteOpenSunday = flourOpenSunday(whiteCfg);
     const whiteProductionDaysUntilDelivery = countProductionDaysBetweenAnchors(
       new Date(),
       deliveryDate,
-      whiteOpenSunday
+      openSunday
     );
     const whiteProjectedAtDelivery = projectedStockAtDelivery(
       whiteCurrentSacks,
       whiteDaily,
       deliveryDate,
-      whiteOpenSunday
+      openSunday
     );
     const whiteStockAfterDelivery = whiteProjectedAtDelivery + whiteOrderSacks;
     const coverageDays = whiteStockAfterDelivery / whiteDaily;
@@ -1051,7 +1071,6 @@ const postOrderProposal = async (req, res) => {
           stockPhysicalById.get(String(row.flourConfigId)) ?? row.stockPhysicalSacks ?? 0;
         const daily = row.daily;
         const isWhite = cfg?.unit === 'pallets_and_sacks';
-        const openSunday = flourOpenSunday(cfg);
         const productionDaysUntilDelivery = countProductionDaysBetweenAnchors(
           new Date(),
           deliveryDate,
@@ -1080,10 +1099,10 @@ const postOrderProposal = async (req, res) => {
           projectedStockAtDelivery: projectedAtDelivery,
           stockAfterDelivery: stockAfter,
           productionDaysUntilDelivery,
-          daysUntilDelivery
+          daysUntilDelivery,
+          siteOpenSunday: openSunday
         });
-      })
-      .filter((x) => x.suggestedOrderSacks > 0);
+      });
 
     return res.json({
       success: true,
@@ -1095,6 +1114,7 @@ const postOrderProposal = async (req, res) => {
         sacksPerPallet,
         deliveryDate: deliveryDateIso,
         daysUntilDelivery,
+        openSunday,
         kgPerSack,
         whiteCurrentStockSacks: roundQty2(whiteCurrentSacks),
         whiteProjectedAtDelivery: roundQty2(whiteProjectedAtDelivery),
@@ -1112,8 +1132,23 @@ const postOrderProposal = async (req, res) => {
   }
 };
 
+const putFlourSiteSettings = async (req, res) => {
+  try {
+    const siteKey = parseSiteKey(req.body?.siteKey);
+    if (!siteKey) {
+      return res.status(400).json({ success: false, error: 'siteKey requis (lon|plan)' });
+    }
+    const openSunday = await setFlourOpenSunday(siteKey, req.body?.openSunday === true);
+    res.json({ success: true, openSunday });
+  } catch (error) {
+    console.error('❌ putFlourSiteSettings:', error);
+    res.status(500).json({ success: false, error: 'Erreur serveur' });
+  }
+};
+
 module.exports = {
   getFlourConfig,
+  putFlourSiteSettings,
   putFlourConfigBatch,
   getFlourInventory,
   getFlourStocksStatus,

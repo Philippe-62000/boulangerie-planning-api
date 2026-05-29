@@ -1,4 +1,7 @@
-import { countProductionDaysBetweenAnchors } from './flourStockStatus';
+import {
+  computeTheoreticalStockSacks,
+  countProductionDaysBetweenAnchors
+} from './flourStockStatus';
 
 /** Conversion sacs ↔ kg (poids d'un sac configurable par site). */
 
@@ -67,7 +70,12 @@ export function projectedDeliveryTone(projectedStockAtDelivery) {
 }
 
 /** Besoin en sacs pour tenir jusqu'à la livraison (repli si l'API ne renvoie pas le champ). */
-export function computeNeedUntilDeliverySacks(proposal, daysUntilDelivery, deliveryDateIso) {
+export function computeNeedUntilDeliverySacks(
+  proposal,
+  daysUntilDelivery,
+  deliveryDateIso,
+  siteOpenSunday
+) {
   const fromApi = proposal?.needUntilDeliverySacks;
   if (fromApi != null && fromApi !== '') {
     const n = Number(fromApi);
@@ -76,7 +84,7 @@ export function computeNeedUntilDeliverySacks(proposal, daysUntilDelivery, deliv
   const prodDaysFromApi = Number(proposal?.productionDaysUntilDelivery);
   const daily = parseDailySacksValue(proposal?.dailyConsumptionSacks);
   const stockNow = Math.max(0, Number(proposal?.currentStockSacks) || 0);
-  const openSunday = proposal?.openSunday === true;
+  const openSunday = proposal?.openSunday === true || siteOpenSunday === true;
   if (daily <= 0) return null;
 
   let prodDays = Number.isFinite(prodDaysFromApi) ? prodDaysFromApi : null;
@@ -92,4 +100,59 @@ export function computeNeedUntilDeliverySacks(proposal, daysUntilDelivery, deliv
   if (prodDays <= 0) return 0;
   const deficit = Math.max(0, prodDays * daily - stockNow);
   return Math.round(deficit * 100) / 100;
+}
+
+/**
+ * Complète la proposition API avec toutes les farines du statut (y compris 0 sac à commander).
+ * Utile si l’API filtre encore les lignes à suggestedOrderSacks === 0.
+ */
+export function mergeOrderProposalsWithAllFlours(orderData, statusItems) {
+  if (!orderData) return null;
+  const items = Array.isArray(statusItems) ? statusItems : [];
+  if (!items.length) return orderData;
+
+  const byId = new Map(
+    (Array.isArray(orderData.proposals) ? orderData.proposals : []).map((p) => [
+      String(p.flourConfigId),
+      p
+    ])
+  );
+  const openSunday = orderData.openSunday === true;
+  const deliveryIso = orderData.deliveryDate;
+
+  const proposals = items.map((row) => {
+    const existing = byId.get(String(row.flourConfigId));
+    if (existing) return existing;
+
+    const currentSacks = row.stockPhysicalSacks ?? row.stockSacksTotal ?? 0;
+    const daily = row.daily ?? 0;
+    let projectedAtDelivery = null;
+    let needUntilDeliverySacks = null;
+    if (deliveryIso && daily > 0) {
+      const prodDays = countProductionDaysBetweenAnchors(
+        new Date(),
+        `${deliveryIso}T12:00:00`,
+        openSunday
+      );
+      projectedAtDelivery =
+        Math.round(computeTheoreticalStockSacks(currentSacks, daily, prodDays) * 100) / 100;
+      needUntilDeliverySacks =
+        prodDays > 0 ? Math.round(Math.max(0, prodDays * daily - currentSacks) * 100) / 100 : 0;
+    }
+
+    return {
+      flourConfigId: row.flourConfigId,
+      name: row.name,
+      currentStockSacks: currentSacks,
+      projectedStockAtDelivery: projectedAtDelivery,
+      needUntilDeliverySacks,
+      dailyConsumptionSacks: daily,
+      weeks: orderData.weeks ?? null,
+      days: orderData.days ?? null,
+      suggestedOrderSacks: 0,
+      openSunday
+    };
+  });
+
+  return { ...orderData, proposals };
 }

@@ -19,6 +19,9 @@ router.post('/flours/entry', stocksController.postFlourEntry);
 // Admin: mise à jour batch config
 router.put('/flours/config', authenticateManager, stocksController.putFlourConfigBatch);
 
+// Ouverture dimanche (7j/7) — paramètre site, pas par farine
+router.put('/flours/site-settings', authenticateManager, stocksController.putFlourSiteSettings);
+
 // Admin: historique des envois salariés
 router.get('/flours/entries', authenticateManager, stocksController.getFlourEntries);
 router.get('/flours/entries/:entryId', authenticateManager, stocksController.getFlourEntryById);

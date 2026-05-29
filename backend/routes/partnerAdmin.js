@@ -14,6 +14,7 @@ router.get('/companies', authenticateManager, controller.adminListCompanies);
 
 router.get('/orders', authenticateManager, controller.adminListOrders);
 router.patch('/orders/:id/status', authenticateManager, controller.adminUpdateOrderStatus);
+router.delete('/orders/:id', authenticateManager, controller.deletePartnerOrderById);
 
 router.get('/formulas', authenticateManager, controller.adminGetFormulas);
 router.put('/formulas', authenticateManager, controller.adminUpdateFormulas);

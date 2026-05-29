@@ -1,0 +1,27 @@
+/**
+ * Exemple à fusionner dans votre route Vercel existante internal-partner-sync.
+ * Gère action: "deleteOrder" pour retirer une commande du miroir Mongo local (si utilisé).
+ */
+import { NextRequest, NextResponse } from 'next/server';
+
+const SECRET = process.env.PARTNER_ORDER_APP_SYNC_SECRET;
+
+export async function POST(req: NextRequest) {
+  const secret = req.headers.get('x-internal-secret');
+  if (!SECRET || secret !== SECRET) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  const body = await req.json();
+  const action = body?.action;
+
+  if (action === 'deleteOrder' && body?.orderId) {
+    // TODO: adapter au nom de votre collection (ex. partnerorders)
+    // await db.collection('partnerorders').deleteOne({ _id: new ObjectId(body.orderId) });
+    return NextResponse.json({ success: true, deleted: body.orderId });
+  }
+
+  // … upsert / deactivate / delete comptes entreprise (déjà en place)
+
+  return NextResponse.json({ error: 'Unknown action' }, { status: 400 });
+}

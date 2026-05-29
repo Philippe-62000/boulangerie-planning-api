@@ -56,9 +56,10 @@ const StocksFarinesStandalone = () => {
         console.warn('Status farines indisponible, repli inventaire', status || e.message);
       }
       try {
-        const [cfgRes, invRes] = await Promise.all([
+        const [cfgRes, invRes, paramsRes] = await Promise.all([
           api.get('/stocks/flours/config', { params: { siteKey } }),
-          api.get('/stocks/flours/inventory', { params: { siteKey } })
+          api.get('/stocks/flours/inventory', { params: { siteKey } }),
+          api.get('/parameters')
         ]);
         const inventory = invRes.data?.data || { items: [] };
         if (invRes.data?.meta) {
@@ -66,7 +67,10 @@ const StocksFarinesStandalone = () => {
           return;
         }
         const configs = Array.isArray(cfgRes.data?.data) ? cfgRes.data.data : [];
-        const built = buildFlourStocksStatusClient({ configs, inventory });
+        const params = Array.isArray(paramsRes.data) ? paramsRes.data : [];
+        const openSunday =
+          params.find((p) => p.name === `flourOpenSunday_${siteKey}`)?.booleanValue === true;
+        const built = buildFlourStocksStatusClient({ configs, inventory, openSunday });
         applyStockMeta(built.meta);
       } catch (e2) {
         console.error(e2);

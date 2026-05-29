@@ -6,6 +6,10 @@ const PartnerFormulaConfig = require('../models/PartnerFormulaConfig');
 const emailService = require('../services/emailService');
 const partnerOrderAppSync = require('../services/partnerOrderAppSync');
 const { getJwtSecret } = require('../utils/jwtSecret');
+const {
+  clampMiniCountPerFormula,
+  validateBreakfastMiniViennoiserie
+} = require('../utils/partnerMiniViennoiserie');
 
 const getSite = (req) => (req.query.site || req.body.site || 'longuenesse').toLowerCase();
 const siteMap = { lon: 'longuenesse', plan: 'arras' };
@@ -24,9 +28,27 @@ async function ensureDefaultFormulas(site) {
   return await PartnerFormulaConfig.create({
     site,
     breakfast: {
-      eco: { label: 'Petit déjeuner Éco', priceCents: 0, description: '', items: [] },
-      classic: { label: 'Petit déjeuner Classique', priceCents: 0, description: '', items: [] },
-      premium: { label: 'Petit déjeuner Premium', priceCents: 0, description: '', items: [] }
+      eco: {
+        label: 'Petit déjeuner Éco',
+        priceCents: 0,
+        description: '',
+        items: [],
+        miniViennoiserieCountPerFormula: 1
+      },
+      classic: {
+        label: 'Petit déjeuner Classique',
+        priceCents: 0,
+        description: '',
+        items: [],
+        miniViennoiserieCountPerFormula: 1
+      },
+      premium: {
+        label: 'Petit déjeuner Premium',
+        priceCents: 0,
+        description: '',
+        items: [],
+        miniViennoiserieCountPerFormula: 1
+      }
     },
     lunch: {
       eco: { label: 'Déjeuner Éco', priceCents: 0, description: '', items: [] },
@@ -101,21 +123,68 @@ const listMyOrders = async (req, res) => {
   }
 };
 
+const partnerGetFormulas = async (req, res) => {
+  try {
+    const site = normalizeSite(getSite(req));
+    const cfg = await ensureDefaultFormulas(site);
+    res.json({ success: true, data: cfg });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+};
+
 const createMyOrder = async (req, res) => {
   try {
     const site = normalizeSite(getSite(req));
-    const { fulfillment, datetime, mealType, tier } = req.body;
+    const { fulfillment, datetime, mealType, tier, miniViennoiserieDetail } = req.body;
     if (!fulfillment || !datetime || !mealType || !tier) {
       return res.status(400).json({ success: false, error: 'Champs requis: fulfillment, datetime, mealType, tier' });
     }
     const dt = new Date(datetime);
     if (Number.isNaN(dt.getTime())) return res.status(400).json({ success: false, error: 'Date/heure invalide' });
 
+    const quantity = Math.max(1, Math.floor(Number(req.body?.quantity) || 1));
+
     const formulas = await ensureDefaultFormulas(site);
     const snap = formulas?.[mealType]?.[tier];
+    const perFormula =
+      mealType === 'breakfast' && snap
+        ? clampMiniCountPerFormula(snap.miniViennoiserieCountPerFormula)
+        : 0;
+
+    let miniTotal = 0;
+    let miniDetail = [];
+
+    if (mealType === 'breakfast' && snap) {
+      const check = validateBreakfastMiniViennoiserie({
+        tierSnap: snap,
+        quantity,
+        miniViennoiserieDetail
+      });
+      if (!check.ok) {
+        return res.status(400).json({ success: false, error: check.error });
+      }
+      miniTotal = check.totalRequired || 0;
+      miniDetail = check.normalized || [];
+    }
+
     const itemsSnapshot = snap
-      ? { label: snap.label, priceCents: snap.priceCents, description: snap.description, items: snap.items || [] }
-      : { label: `${mealType}-${tier}`, priceCents: 0, description: '', items: [] };
+      ? {
+          label: snap.label,
+          priceCents: snap.priceCents,
+          description: snap.description,
+          items: snap.items || [],
+          miniViennoiserieCountPerFormula: perFormula,
+          miniViennoiserieOptions: snap.miniViennoiserieOptions || []
+        }
+      : {
+          label: `${mealType}-${tier}`,
+          priceCents: 0,
+          description: '',
+          items: [],
+          miniViennoiserieCountPerFormula: 1,
+          miniViennoiserieOptions: []
+        };
 
     const order = await PartnerOrder.create({
       site,
@@ -124,6 +193,9 @@ const createMyOrder = async (req, res) => {
       datetime: dt,
       mealType,
       tier,
+      quantity,
+      miniViennoiserieTotal: miniTotal,
+      miniViennoiserieDetail: miniDetail,
       itemsSnapshot,
       status: 'submitted',
       statusUpdatedAt: new Date()
@@ -404,6 +476,25 @@ const adminListOrders = async (req, res) => {
   }
 };
 
+const deletePartnerOrderById = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const q = { _id: id };
+    if (req.partnerCompanyId) {
+      q.companyId = req.partnerCompanyId;
+    }
+    const order = await PartnerOrder.findOneAndDelete(q);
+    if (!order) return res.status(404).json({ success: false, error: 'Commande non trouvée' });
+    setImmediate(() =>
+      partnerOrderAppSync.syncOrderDelete({ orderId: order._id, site: order.site || 'longuenesse' })
+    );
+    res.json({ success: true, deletedId: String(order._id) });
+  } catch (err) {
+    console.error('❌ deletePartnerOrderById:', err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+};
+
 const adminUpdateOrderStatus = async (req, res) => {
   try {
     const { id } = req.params;
@@ -471,8 +562,10 @@ const internalListOrders = async (req, res) => {
 module.exports = {
   partnerLogin,
   partnerMe,
+  partnerGetFormulas,
   listMyOrders,
   createMyOrder,
+  deletePartnerOrderById,
   adminCreateCompany,
   adminPurgePartnerCompanyByEmail,
   adminPurgePartnerCompanyByEmailPost,
