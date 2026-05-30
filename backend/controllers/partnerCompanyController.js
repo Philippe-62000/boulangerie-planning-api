@@ -33,13 +33,14 @@ async function attachCompanyInfoToOrders(orders) {
     )
   ];
   const companies = ids.length
-    ? await PartnerCompany.find({ _id: { $in: ids } }).select('name email phone').lean()
+    ? await PartnerCompany.find({ _id: { $in: ids } }).select('name contactName email phone').lean()
     : [];
   const byId = new Map(companies.map((c) => [String(c._id), c]));
   return list.map((o) => {
     const plain = o?.toObject ? o.toObject() : { ...o };
     const company = byId.get(String(plain.companyId));
     if (!plain.companyName && company?.name) plain.companyName = company.name;
+    if (!plain.contactName && company?.contactName) plain.contactName = company.contactName;
     if (!plain.companyEmail && company?.email) plain.companyEmail = company.email;
     if (!plain.companyPhone && company?.phone) plain.companyPhone = company.phone;
     return plain;
@@ -109,8 +110,16 @@ const partnerLogin = async (req, res) => {
     company.lastLoginAt = new Date();
     await company.save();
 
+    const contactName = String(company.contactName || '').trim();
     const token = jwt.sign(
-      { role: 'partner_company', companyId: company._id, email: company.email, name: company.name, site },
+      {
+        role: 'partner_company',
+        companyId: company._id,
+        email: company.email,
+        name: company.name,
+        contactName,
+        site
+      },
       getJwtSecret(),
       { expiresIn: '30d' }
     );
@@ -118,7 +127,13 @@ const partnerLogin = async (req, res) => {
     res.json({
       success: true,
       token,
-      company: { id: company._id, name: company.name, email: company.email, phone: company.phone }
+      company: {
+        id: company._id,
+        name: company.name,
+        contactName,
+        email: company.email,
+        phone: company.phone
+      }
     });
   } catch (err) {
     console.error('❌ partnerLogin:', err);
@@ -130,7 +145,16 @@ const partnerMe = async (req, res) => {
   try {
     const company = await PartnerCompany.findById(req.partnerCompanyId);
     if (!company) return res.status(404).json({ success: false, error: 'Entreprise non trouvée' });
-    res.json({ success: true, data: { id: company._id, name: company.name, email: company.email, phone: company.phone } });
+    res.json({
+      success: true,
+      data: {
+        id: company._id,
+        name: company.name,
+        contactName: company.contactName || '',
+        email: company.email,
+        phone: company.phone
+      }
+    });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
@@ -168,12 +192,18 @@ const createMyOrder = async (req, res) => {
     if (Number.isNaN(dt.getTime())) return res.status(400).json({ success: false, error: 'Date/heure invalide' });
 
     const quantity = Math.max(1, Math.floor(Number(req.body?.quantity) || 1));
-    const contactName = String(req.body?.contactName || '').trim();
-    if (!contactName) {
-      return res.status(400).json({ success: false, error: 'Nom du contact requis' });
-    }
-    const company = await PartnerCompany.findById(req.partnerCompanyId).select('name');
+    const company = await PartnerCompany.findById(req.partnerCompanyId).select('name contactName');
     const companyName = String(company?.name || req.partnerCompanyName || '').trim();
+    const contactName = String(
+      req.body?.contactName || company?.contactName || req.partnerCompanyContactName || ''
+    ).trim();
+    if (!contactName) {
+      return res.status(400).json({
+        success: false,
+        error:
+          'Contact non renseigné sur votre compte. Demandez à la boulangerie de l’ajouter dans Filmara (onglet Entreprises).'
+      });
+    }
 
     const formulas = await ensureDefaultFormulas(site);
     const snap = formulas?.[mealType]?.[tier];
@@ -242,8 +272,10 @@ const createMyOrder = async (req, res) => {
 // --- Admin ---
 const adminCreateCompany = async (req, res) => {
   try {
-    const { name, phone, email } = req.body;
+    const { name, phone, email, contactName } = req.body;
     if (!name || !email) return res.status(400).json({ success: false, error: 'Nom et email requis' });
+    const contactTrim = String(contactName || '').trim();
+    if (!contactTrim) return res.status(400).json({ success: false, error: 'Nom du contact requis' });
 
     const site = normalizeSite(getSite(req));
     const emailNorm = String(email).toLowerCase().trim();
@@ -255,6 +287,7 @@ const adminCreateCompany = async (req, res) => {
         return res.status(400).json({ success: false, error: 'Cet email existe déjà' });
       }
       existing.name = String(name).trim();
+      existing.contactName = contactTrim;
       existing.phone = phone ? String(phone).trim() : '';
       existing.site = site;
       existing.password = password;
@@ -266,13 +299,20 @@ const adminCreateCompany = async (req, res) => {
           name: existing.name,
           phone: existing.phone || '',
           email: existing.email,
+          contactName: existing.contactName || '',
           active: true,
           plainPassword: password
         })
       );
       return res.json({
         success: true,
-        data: { id: existing._id, name: existing.name, email: existing.email, phone: existing.phone },
+        data: {
+          id: existing._id,
+          name: existing.name,
+          contactName: existing.contactName || '',
+          email: existing.email,
+          phone: existing.phone
+        },
         password,
         reactivated: true
       });
@@ -280,6 +320,7 @@ const adminCreateCompany = async (req, res) => {
 
     const company = await PartnerCompany.create({
       name: String(name).trim(),
+      contactName: contactTrim,
       phone: phone ? String(phone).trim() : '',
       email: emailNorm,
       site,
@@ -293,17 +334,29 @@ const adminCreateCompany = async (req, res) => {
         name: company.name,
         phone: company.phone || '',
         email: company.email,
+        contactName: company.contactName || '',
         active: true,
         plainPassword: password
       })
     );
 
-    res.json({ success: true, data: { id: company._id, name: company.name, email: company.email, phone: company.phone }, password });
+    res.json({
+      success: true,
+      data: {
+        id: company._id,
+        name: company.name,
+        contactName: company.contactName || '',
+        email: company.email,
+        phone: company.phone
+      },
+      password
+    });
   } catch (err) {
     if (err.code === 11000) {
       const dup = await PartnerCompany.findOne({ email: emailNorm });
       if (dup && !dup.active) {
         dup.name = String(name).trim();
+        dup.contactName = contactTrim;
         dup.phone = phone ? String(phone).trim() : '';
         dup.site = site;
         dup.password = password;
@@ -315,13 +368,20 @@ const adminCreateCompany = async (req, res) => {
             name: dup.name,
             phone: dup.phone || '',
             email: dup.email,
+            contactName: dup.contactName || '',
             active: true,
             plainPassword: password
           })
         );
         return res.json({
           success: true,
-          data: { id: dup._id, name: dup.name, email: dup.email, phone: dup.phone },
+          data: {
+            id: dup._id,
+            name: dup.name,
+            contactName: dup.contactName || '',
+            email: dup.email,
+            phone: dup.phone
+          },
           password,
           reactivated: true
         });
@@ -453,6 +513,7 @@ const adminSendInvite = async (req, res) => {
         name: company.name,
         phone: company.phone || '',
         email: company.email,
+        contactName: company.contactName || '',
         active: true,
         plainPassword: newPassword
       })
@@ -460,6 +521,50 @@ const adminSendInvite = async (req, res) => {
     res.json({ success: true });
   } catch (err) {
     console.error('❌ adminSendInvite:', err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+};
+
+const adminUpdateCompany = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const site = normalizeSite(getSite(req));
+    const company = await PartnerCompany.findById(id);
+    if (!company) return res.status(404).json({ success: false, error: 'Entreprise non trouvée' });
+
+    const { contactName, name, phone } = req.body || {};
+    if (contactName !== undefined) company.contactName = String(contactName).trim();
+    if (name !== undefined && String(name).trim()) company.name = String(name).trim();
+    if (phone !== undefined) company.phone = String(phone).trim();
+    company.site = site;
+    await company.save();
+
+    setImmediate(() =>
+      partnerOrderAppSync.syncUpsert({
+        site,
+        name: company.name,
+        phone: company.phone || '',
+        email: company.email,
+        contactName: company.contactName || '',
+        active: company.active
+      })
+    );
+
+    res.json({
+      success: true,
+      data: {
+        id: company._id,
+        name: company.name,
+        contactName: company.contactName || '',
+        email: company.email,
+        phone: company.phone,
+        site: company.site || 'longuenesse',
+        active: company.active,
+        lastLoginAt: company.lastLoginAt
+      }
+    });
+  } catch (err) {
+    console.error('❌ adminUpdateCompany:', err);
     res.status(500).json({ success: false, error: err.message });
   }
 };
@@ -483,6 +588,7 @@ const adminListCompanies = async (req, res) => {
       data: companies.map((c) => ({
         id: c._id,
         name: c.name,
+        contactName: c.contactName || '',
         email: c.email,
         phone: c.phone,
         site: c.site || 'longuenesse',
@@ -599,6 +705,7 @@ module.exports = {
   createMyOrder,
   deletePartnerOrderById,
   adminCreateCompany,
+  adminUpdateCompany,
   adminPurgePartnerCompanyByEmail,
   adminPurgePartnerCompanyByEmailPost,
   adminDeleteCompany,

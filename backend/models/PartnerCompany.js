@@ -4,6 +4,8 @@ const bcrypt = require('bcryptjs');
 const partnerCompanySchema = new mongoose.Schema(
   {
     name: { type: String, required: true, trim: true },
+    /** Personne référente (affichée sur le site entreprise et les commandes). */
+    contactName: { type: String, trim: true, default: '' },
     phone: { type: String, required: false, trim: true },
     email: { type: String, required: true, trim: true, lowercase: true, unique: true },
     /** Boutique (longuenesse / arras) — requis pour que le même Mongo soit lisible par le site Vercel (filtrage site + email). */

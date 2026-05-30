@@ -165,6 +165,7 @@ const authenticatePartnerCompany = async (req, res, next) => {
     req.partnerCompanyId = decoded.companyId;
     req.partnerCompanyEmail = decoded.email;
     req.partnerCompanyName = decoded.name;
+    req.partnerCompanyContactName = decoded.contactName || '';
     req.partnerCompanySite = decoded.site;
     next();
   } catch (error) {

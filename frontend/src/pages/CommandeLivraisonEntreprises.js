@@ -67,7 +67,8 @@ const CommandeLivraisonEntreprises = () => {
   const [companies, setCompanies] = useState([]);
   const [companiesLoading, setCompaniesLoading] = useState(false);
   const [showInactiveCompanies, setShowInactiveCompanies] = useState(false);
-  const [newCompany, setNewCompany] = useState({ name: '', phone: '', email: '' });
+  const [newCompany, setNewCompany] = useState({ name: '', contactName: '', phone: '', email: '' });
+  const [contactEdits, setContactEdits] = useState({});
   const [createdPassword, setCreatedPassword] = useState(null);
 
   const [formulasLoading, setFormulasLoading] = useState(false);
@@ -94,11 +95,19 @@ const CommandeLivraisonEntreprises = () => {
       const res = await api.get('/partner-admin/companies', {
         params: { site, active: showInactiveCompanies ? 'all' : 'true' }
       });
-      setCompanies(Array.isArray(res.data?.data) ? res.data.data : []);
+      const list = Array.isArray(res.data?.data) ? res.data.data : [];
+      setCompanies(list);
+      const edits = {};
+      for (const c of list) {
+        const id = c.id || c._id;
+        if (id) edits[id] = c.contactName || '';
+      }
+      setContactEdits(edits);
     } catch (e) {
       console.error(e);
       alert('Impossible de charger les entreprises (droits admin requis).');
       setCompanies([]);
+      setContactEdits({});
     } finally {
       setCompaniesLoading(false);
     }
@@ -109,11 +118,16 @@ const CommandeLivraisonEntreprises = () => {
       setCreatedPassword(null);
       const payload = {
         name: String(newCompany.name || '').trim(),
+        contactName: String(newCompany.contactName || '').trim(),
         phone: String(newCompany.phone || '').trim(),
         email: String(newCompany.email || '').trim()
       };
       if (!payload.name || !payload.email) {
-        alert('Nom et email requis.');
+        alert('Nom entreprise et email requis.');
+        return;
+      }
+      if (!payload.contactName) {
+        alert('Nom du contact requis.');
         return;
       }
       const res = await api.post('/partner-admin/companies', payload, { params: { site } });
@@ -122,11 +136,31 @@ const CommandeLivraisonEntreprises = () => {
       if (res.data?.reactivated) {
         alert('Compte existant réactivé avec cet e-mail (nouveau mot de passe affiché ci-dessous).');
       }
-      setNewCompany({ name: '', phone: '', email: '' });
+      setNewCompany({ name: '', contactName: '', phone: '', email: '' });
       await loadCompanies();
     } catch (e) {
       console.error(e);
       alert(e?.response?.data?.error || 'Création impossible (droits admin requis).');
+    }
+  };
+
+  const saveCompanyContact = async (company) => {
+    try {
+      const companyId = company.id || company._id;
+      const contactName = String(contactEdits[companyId] ?? company.contactName ?? '').trim();
+      if (!contactName) {
+        alert('Indiquez un nom de contact.');
+        return;
+      }
+      await api.patch(
+        `/partner-admin/companies/${companyId}`,
+        { contactName },
+        { params: { site } }
+      );
+      await loadCompanies();
+    } catch (e) {
+      console.error(e);
+      alert(e?.response?.data?.error || 'Enregistrement du contact impossible.');
     }
   };
 
@@ -483,11 +517,16 @@ const CommandeLivraisonEntreprises = () => {
           </label>
           <div style={{ border: '1px solid #e5e5e5', borderRadius: '10px', padding: '12px', background: '#fff' }}>
             <div style={{ fontWeight: 800, marginBottom: 8 }}>Créer une entreprise (génère un mot de passe)</div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.5rem' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '0.5rem' }}>
               <input
                 placeholder="Nom entreprise"
                 value={newCompany.name}
                 onChange={(e) => setNewCompany((p) => ({ ...p, name: e.target.value }))}
+              />
+              <input
+                placeholder="Nom du contact *"
+                value={newCompany.contactName}
+                onChange={(e) => setNewCompany((p) => ({ ...p, contactName: e.target.value }))}
               />
               <input
                 placeholder="Téléphone"
@@ -537,7 +576,37 @@ const CommandeLivraisonEntreprises = () => {
                   <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
                     <div>
                       <div style={{ fontWeight: 900 }}>{c.name}</div>
+                      {c.contactName ? (
+                        <div style={{ color: '#334155', marginTop: 4, fontWeight: 600 }}>Contact : {c.contactName}</div>
+                      ) : (
+                        <div style={{ color: '#b45309', marginTop: 4, fontSize: 13 }}>Contact non renseigné</div>
+                      )}
                       <div style={{ color: '#555', marginTop: 4 }}>{c.email}{c.phone ? ` • ${c.phone}` : ''}</div>
+                      <div
+                        style={{
+                          marginTop: 8,
+                          display: 'flex',
+                          gap: 8,
+                          flexWrap: 'wrap',
+                          alignItems: 'center'
+                        }}
+                      >
+                        <input
+                          placeholder="Nom du contact"
+                          value={contactEdits[c.id] ?? c.contactName ?? ''}
+                          onChange={(e) =>
+                            setContactEdits((p) => ({ ...p, [c.id]: e.target.value }))
+                          }
+                          style={{ flex: '1 1 200px', minWidth: 160, padding: '6px 8px', borderRadius: 6 }}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => saveCompanyContact(c)}
+                          style={{ padding: '6px 10px', borderRadius: '8px' }}
+                        >
+                          Enregistrer contact
+                        </button>
+                      </div>
                       <div style={{ color: '#666', marginTop: 4, fontSize: 13 }}>
                         {c.active ? 'Actif' : 'Inactif'}{c.lastLoginAt ? ` • Dernière connexion: ${new Date(c.lastLoginAt).toLocaleString('fr-FR')}` : ''}
                       </div>

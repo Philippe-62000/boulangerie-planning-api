@@ -6,6 +6,7 @@ const { authenticateManager } = require('../middleware/auth');
 /** Purge définitive par e-mail (POST — évite 404 si DELETE /companies n’est pas exposé) */
 router.post('/companies/purge', authenticateManager, controller.adminPurgePartnerCompanyByEmailPost);
 router.post('/companies', authenticateManager, controller.adminCreateCompany);
+router.patch('/companies/:id', authenticateManager, controller.adminUpdateCompany);
 /** Compat. DELETE /companies ?email=&permanent=true */
 router.delete('/companies', authenticateManager, controller.adminPurgePartnerCompanyByEmail);
 router.delete('/companies/:id', authenticateManager, controller.adminDeleteCompany);

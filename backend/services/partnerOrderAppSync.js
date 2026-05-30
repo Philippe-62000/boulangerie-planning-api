@@ -25,16 +25,18 @@ async function post(body) {
 }
 
 /** Création / mise à jour + mot de passe en clair (hash côté Render déjà fait ; le miroir peut refaire pareil). */
-function syncUpsert({ site, name, phone, email, active, plainPassword }) {
-  return post({
+function syncUpsert({ site, name, phone, email, active, plainPassword, contactName }) {
+  const body = {
     action: 'upsert',
     site,
     name,
     phone: phone || '',
     email: String(email).toLowerCase().trim(),
     active: active !== false,
-    password: plainPassword
-  });
+    contactName: contactName != null ? String(contactName).trim() : ''
+  };
+  if (plainPassword) body.password = plainPassword;
+  return post(body);
 }
 
 /** Compte désactivé sans changer le hash (login bloqué). */
