@@ -375,6 +375,26 @@ const CommandeLivraisonEntreprises = () => {
                       <div style={{ fontWeight: 800 }}>
                         {new Date(o.datetime).toLocaleString('fr-FR', { dateStyle: 'full', timeStyle: 'short' })}
                       </div>
+                      {(o.companyName || o.contactName) && (
+                        <div
+                          style={{
+                            marginTop: '6px',
+                            padding: '8px 10px',
+                            borderRadius: '8px',
+                            background: '#f8fafc',
+                            border: '1px solid #e2e8f0'
+                          }}
+                        >
+                          {o.companyName ? (
+                            <div style={{ fontWeight: 800, color: '#1e293b' }}>{o.companyName}</div>
+                          ) : null}
+                          {o.contactName ? (
+                            <div style={{ color: '#475569', marginTop: o.companyName ? '2px' : 0 }}>
+                              Contact : {o.contactName}
+                            </div>
+                          ) : null}
+                        </div>
+                      )}
                       <div style={{ color: '#555', marginTop: '4px' }}>
                         <b>{o.mealType === 'breakfast' ? 'Petit déjeuner' : 'Déjeuner'}</b> • {o.tier} •{' '}
                         {o.fulfillment === 'delivery' ? 'Livraison' : 'Retrait magasin'}

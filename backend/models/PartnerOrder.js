@@ -4,6 +4,10 @@ const partnerOrderSchema = new mongoose.Schema(
   {
     site: { type: String, enum: ['longuenesse', 'arras'], default: 'longuenesse', index: true },
     companyId: { type: mongoose.Schema.Types.ObjectId, ref: 'PartnerCompany', required: true, index: true },
+    /** Snapshot à la commande (affichage admin même si le compte change). */
+    companyName: { type: String, trim: true, default: '' },
+    /** Personne à contacter pour cette livraison (saisie sur le site entreprise). */
+    contactName: { type: String, trim: true, default: '' },
 
     fulfillment: { type: String, enum: ['delivery', 'pickup'], required: true },
     datetime: { type: Date, required: true, index: true },

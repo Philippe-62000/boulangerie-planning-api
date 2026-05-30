@@ -22,6 +22,30 @@ const generateRandomPassword = () => {
   return password;
 };
 
+async function attachCompanyInfoToOrders(orders) {
+  const list = Array.isArray(orders) ? orders : [];
+  if (list.length === 0) return [];
+  const ids = [
+    ...new Set(
+      list
+        .map((o) => (o?.companyId ? String(o.companyId) : ''))
+        .filter(Boolean)
+    )
+  ];
+  const companies = ids.length
+    ? await PartnerCompany.find({ _id: { $in: ids } }).select('name email phone').lean()
+    : [];
+  const byId = new Map(companies.map((c) => [String(c._id), c]));
+  return list.map((o) => {
+    const plain = o?.toObject ? o.toObject() : { ...o };
+    const company = byId.get(String(plain.companyId));
+    if (!plain.companyName && company?.name) plain.companyName = company.name;
+    if (!plain.companyEmail && company?.email) plain.companyEmail = company.email;
+    if (!plain.companyPhone && company?.phone) plain.companyPhone = company.phone;
+    return plain;
+  });
+}
+
 async function ensureDefaultFormulas(site) {
   const existing = await PartnerFormulaConfig.findOne({ site });
   if (existing) return existing;
@@ -144,6 +168,12 @@ const createMyOrder = async (req, res) => {
     if (Number.isNaN(dt.getTime())) return res.status(400).json({ success: false, error: 'Date/heure invalide' });
 
     const quantity = Math.max(1, Math.floor(Number(req.body?.quantity) || 1));
+    const contactName = String(req.body?.contactName || '').trim();
+    if (!contactName) {
+      return res.status(400).json({ success: false, error: 'Nom du contact requis' });
+    }
+    const company = await PartnerCompany.findById(req.partnerCompanyId).select('name');
+    const companyName = String(company?.name || req.partnerCompanyName || '').trim();
 
     const formulas = await ensureDefaultFormulas(site);
     const snap = formulas?.[mealType]?.[tier];
@@ -189,6 +219,8 @@ const createMyOrder = async (req, res) => {
     const order = await PartnerOrder.create({
       site,
       companyId: req.partnerCompanyId,
+      companyName,
+      contactName,
       fulfillment,
       datetime: dt,
       mealType,
@@ -470,7 +502,7 @@ const adminListOrders = async (req, res) => {
     const q = { site };
     if (status) q.status = status;
     const orders = await PartnerOrder.find(q).sort({ statusUpdatedAt: -1, datetime: -1 }).limit(500);
-    res.json({ success: true, data: orders });
+    res.json({ success: true, data: await attachCompanyInfoToOrders(orders) });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
@@ -553,7 +585,7 @@ const internalListOrders = async (req, res) => {
     const q = { site };
     if (status) q.status = status;
     const orders = await PartnerOrder.find(q).sort({ statusUpdatedAt: -1, datetime: -1 }).limit(500);
-    res.json({ success: true, data: orders });
+    res.json({ success: true, data: await attachCompanyInfoToOrders(orders) });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
