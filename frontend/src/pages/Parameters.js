@@ -5,7 +5,6 @@ import './Parameters.css';
 import './Parameters-email-styles.css';
 import './Parameters-tabs-styles.css';
 import CamarisManagersSettings from '../components/CamarisManagersSettings';
-import CamarisTerritoryEventsSettings from '../components/CamarisTerritoryEventsSettings';
 
 const isLonguenesseSite = () =>
   typeof window !== 'undefined' && window.location.pathname.startsWith('/lon');
@@ -814,6 +813,14 @@ const Parameters = () => {
         >
           🔐 Gestion des Mots de Passe
         </button>
+        {isLonguenesseSite() ? (
+          <button
+            className={`tab-button ${activeTab === 'camaris' ? 'active' : ''}`}
+            onClick={() => handleTabChange('camaris')}
+          >
+            🥐 Camaris
+          </button>
+        ) : null}
         <button 
           className={`tab-button ${activeTab === 'permissions' ? 'active' : ''}`}
           onClick={() => handleTabChange('permissions')}
@@ -1046,13 +1053,23 @@ const Parameters = () => {
             )}
           </div>
 
-          {isLonguenesseSite() ? (
-            <>
-              <CamarisManagersSettings />
-              <CamarisTerritoryEventsSettings />
-            </>
-          ) : null}
         </div>
+          </div>
+        )}
+
+        {activeTab === 'camaris' && isLonguenesseSite() && (
+          <div className="card">
+            <div className="card-header">
+              <h3>🥐 Camaris — page publique & managers</h3>
+              <p style={{ margin: '0.5rem 0 0', color: '#555', fontSize: '0.95rem' }}>
+                Comptes managers, statistiques de visites et lien vers la page clients sur Vercel. Les textes « Le
+                savez-vous ? », événements locaux (Audomarois → régional → national) et « pause gourmande » sont gérés
+                automatiquement sur la page publique.
+              </p>
+            </div>
+            <div className="card-body">
+              <CamarisManagersSettings embedded />
+            </div>
           </div>
         )}
 

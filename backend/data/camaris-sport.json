@@ -1,0 +1,53 @@
+[
+  {
+    "month": 1,
+    "day": 1,
+    "text": "Football : reprise des championnats après la trêve — suivez les clubs français."
+  },
+  {
+    "month": 6,
+    "day": 11,
+    "scope": "france",
+    "text": "Coupe du monde de football : ouverture du tournoi — matchs à suivre en famille."
+  },
+  {
+    "month": 6,
+    "day": 14,
+    "text": "Euro / sélections : journée de matchs internationaux souvent chargée en été."
+  },
+  {
+    "month": 7,
+    "day": 1,
+    "text": "Tour de France : départ traditionnel en juillet — repérez l’étape du jour."
+  },
+  {
+    "month": 7,
+    "day": 14,
+    "text": "Tour de France : mi-parcours souvent animé — les coureurs passent parfois près des Hauts-de-France."
+  },
+  {
+    "month": 7,
+    "day": 27,
+    "text": "Tour de France : dernière semaine vers Paris — sprint et classement général à suivre."
+  },
+  {
+    "month": 8,
+    "day": 1,
+    "text": "Jeux olympiques d’été (années olympiques) : médailles françaises en athlétisme, judo, cyclisme…"
+  },
+  {
+    "month": 5,
+    "day": 26,
+    "text": "Tennis : Roland-Garros — 1er tour à Paris, ambiance terre battue."
+  },
+  {
+    "month": 6,
+    "day": 8,
+    "text": "Tennis : Roland-Garros — demi-finales et finales, soirées marathon sur le Central."
+  },
+  {
+    "month": 9,
+    "day": 15,
+    "text": "Rugby : Coupe du monde ou tournois — matchs du week-end souvent décisifs."
+  }
+]

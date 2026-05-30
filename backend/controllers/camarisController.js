@@ -11,6 +11,8 @@ const {
   getEphemeride,
   getInfoBanner,
   getAutoAnimation,
+  getSportHighlight,
+  getNextIsoWeekKey,
   formatBodyHtml,
   buildWeekDays,
   pickAnimationForDay,
@@ -112,6 +114,7 @@ const getPublicBoard = async (req, res) => {
     });
 
     const info = await getInfoBanner(now, siteKey);
+    const sportHighlight = getSportHighlight(now);
 
     res.json({
       success: true,
@@ -119,10 +122,12 @@ const getPublicBoard = async (req, res) => {
         pageTitle: 'Cette Semaine à Camaris',
         siteKey,
         weekKey,
+        nextWeekKey: getNextIsoWeekKey(now),
         todayFrenchDay: todayFrench,
         dateLabel: formatFrenchDate(now),
         ephemeride: getEphemeride(now),
         infoBanner: info,
+        sportHighlight,
         today,
         weekDays,
         managerAnimationCount: animations.filter((a) => a.weekKey === weekKey).length

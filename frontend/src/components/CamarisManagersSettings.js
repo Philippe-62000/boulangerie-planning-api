@@ -5,7 +5,7 @@ import CamarisVisitStatsPanel from './CamarisVisitStatsPanel';
 
 const emptyForm = () => ({ login: '', password: '', displayName: '' });
 
-const CamarisManagersSettings = () => {
+const CamarisManagersSettings = ({ embedded = false }) => {
   const [managers, setManagers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -91,11 +91,17 @@ const CamarisManagersSettings = () => {
   return (
     <div
       className="camaris-managers-settings"
-      style={{ marginTop: '3rem', paddingTop: '2rem', borderTop: '2px solid #e0e0e0' }}
+      style={
+        embedded
+          ? undefined
+          : { marginTop: '3rem', paddingTop: '2rem', borderTop: '2px solid #e0e0e0' }
+      }
     >
-      <h4 style={{ marginBottom: '0.5rem', color: '#2c3e50' }}>🥐 Page « Cette Semaine à Camaris »</h4>
+      {!embedded ? (
+        <h4 style={{ marginBottom: '0.5rem', color: '#2c3e50' }}>🥐 Page « Cette Semaine à Camaris »</h4>
+      ) : null}
       <p style={{ marginBottom: '1rem', color: '#555', fontSize: '0.95rem' }}>
-        Comptes managers pour la page publique clients (hébergée sur Vercel, pas filmara.fr) :{' '}
+        Page publique clients :{' '}
         <a href={pageUrl} target="_blank" rel="noopener noreferrer">
           {pageUrl}
         </a>

@@ -7,6 +7,8 @@ const DATA_DIR = path.join(__dirname, 'data');
 let didYouKnowCache = null;
 let ephemeridesCache = null;
 let territoryCache = null;
+let pauseGourmandeCache = null;
+let sportCache = null;
 
 const loadJson = (filename) => {
   try {
@@ -73,13 +75,17 @@ const getEphemeride = (d = new Date()) => {
   return raw ? formatEphemeridePhrase(raw) : null;
 };
 
-const SCOPE_PRIORITY = { audomarois: 4, 'pas-de-calais': 3, france: 2, local: 1 };
+const TERRITORY_SCOPE_CASCADE = ['audomarois', 'pas-de-calais', 'local', 'france'];
 
 const pickTerritoryHit = (hits) => {
   if (!hits.length) return null;
-  hits.sort((a, b) => (SCOPE_PRIORITY[b.scope] || 0) - (SCOPE_PRIORITY[a.scope] || 0));
-  const top = hits[0];
-  return { type: 'territory', scope: top.scope, title: top.title, text: top.text };
+  for (const scope of TERRITORY_SCOPE_CASCADE) {
+    const hit = hits.find((e) => e.scope === scope);
+    if (hit) {
+      return { type: 'territory', scope: hit.scope, title: hit.title, text: hit.text };
+    }
+  }
+  return null;
 };
 
 const getTerritoryHighlightFromJson = (d = new Date()) => {
@@ -110,6 +116,15 @@ const getTerritoryHighlightAsync = async (d = new Date(), siteKey = 'lon') => {
   return getTerritoryHighlightFromJson(d);
 };
 
+const getPauseGourmandeBody = (d = new Date()) => {
+  if (!pauseGourmandeCache) pauseGourmandeCache = loadJson('camaris-pause-gourmande.json') || [];
+  const list = pauseGourmandeCache.length
+    ? pauseGourmandeCache
+    : ['Passez nous voir pour une pause gourmande : viennoiseries et pâtisseries maison.'];
+  const idx = (d.getFullYear() * 366 + d.getMonth() * 31 + d.getDate()) % list.length;
+  return list[idx];
+};
+
 const getDidYouKnow = (d = new Date()) => {
   if (!didYouKnowCache) didYouKnowCache = loadJson('camaris-did-you-know.json') || [];
   if (!didYouKnowCache.length) {
@@ -132,7 +147,7 @@ const getInfoBanner = async (d = new Date(), siteKey = 'lon') => {
 const AUTO_SUGGESTIONS = [
   {
     title: 'Pause gourmande',
-    body: 'Passez découvrir nos créations du jour : viennoiseries, pains spéciaux et pâtisseries maison.'
+    kind: 'pauseGourmande'
   },
   {
     title: 'Artisanat local',
@@ -150,12 +165,61 @@ const AUTO_SUGGESTIONS = [
 
 const getAutoAnimation = (d = new Date()) => {
   const idx = (d.getFullYear() * 7 + jsDayToFrench(d.getDay())) % AUTO_SUGGESTIONS.length;
+  const pick = AUTO_SUGGESTIONS[idx];
+  const body =
+    pick.kind === 'pauseGourmande' ? getPauseGourmandeBody(d) : pick.body || '';
   return {
     source: 'auto',
-    title: AUTO_SUGGESTIONS[idx].title,
-    body: AUTO_SUGGESTIONS[idx].body,
+    title: pick.title,
+    body,
     daysOfWeek: [jsDayToFrench(d.getDay())]
   };
+};
+
+const getNextIsoWeekKey = (d = new Date()) => {
+  const monday = getWeekMonday(d);
+  monday.setDate(monday.getDate() + 7);
+  return getIsoWeekKey(monday);
+};
+
+const getSportHighlight = (d = new Date()) => {
+  const m = d.getMonth() + 1;
+  const day = d.getDate();
+  const y = d.getFullYear();
+
+  if (!sportCache) sportCache = loadJson('camaris-sport.json') || [];
+  const dated = sportCache.filter(
+    (e) => e.month === m && e.day === day && (e.year == null || e.year === y || e.year === 0)
+  );
+  if (dated.length) {
+    const audo = dated.find((e) => e.scope === 'audomarois');
+    const regional = dated.find((e) => e.scope === 'pas-de-calais' || e.scope === 'local');
+    const pick = audo || regional || dated.find((e) => e.scope === 'france') || dated[0];
+    return { text: pick.text };
+  }
+
+  if ((m === 5 && day >= 18) || (m === 6 && day <= 9)) {
+    return {
+      text: 'Tennis : Roland-Garros — suivez les matchs du jour et les Français encore en lice.'
+    };
+  }
+  if (m === 6 && y === 2026 && day >= 11 && day <= 19) {
+    return { text: 'Football : Coupe du monde 2026 — phase de groupes, matchs à ne pas manquer.' };
+  }
+  if (m === 6 && (day === 14 || day === 15 || day === 18)) {
+    return { text: 'Football : Euro / sélections — soirées de matchs internationaux.' };
+  }
+  if (m === 7 && day >= 1 && day <= 27) {
+    return { text: `Cyclisme : Tour de France ${y} — repérez l’étape du jour et les temps forts.` };
+  }
+  if (y % 4 === 0 && m === 7 && day >= 24 && day <= 31) {
+    return { text: 'Jeux olympiques d’été : médailles et finales à suivre pour le sport français.' };
+  }
+  if (y % 4 === 0 && m === 8 && day <= 11) {
+    return { text: 'Jeux olympiques : dernières finales et cérémonie de clôture à ne pas rater.' };
+  }
+
+  return null;
 };
 
 const formatBodyHtml = (raw) => {
@@ -236,10 +300,12 @@ const pickAllAnimationsForDay = (animations, frenchDay, weekKey) => {
 module.exports = {
   jsDayToFrench,
   getIsoWeekKey,
+  getNextIsoWeekKey,
   formatFrenchDate,
   getEphemeride,
   getInfoBanner,
   getAutoAnimation,
+  getSportHighlight,
   formatBodyHtml,
   buildWeekDays,
   pickAnimationForDay,

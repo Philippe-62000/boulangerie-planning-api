@@ -33,5 +33,47 @@
     "scope": "pas-de-calais",
     "title": "Fête du patrimoine",
     "text": "Journées européennes du patrimoine : découvrez le savoir-faire artisanal près de Saint-Omer."
+  },
+  {
+    "month": 3,
+    "day": 20,
+    "scope": "audomarois",
+    "title": "Printemps en Audomarois",
+    "text": "Balades et marais : une escale gourmande en boulangerie après une journée dehors."
+  },
+  {
+    "month": 4,
+    "day": 23,
+    "scope": "audomarois",
+    "title": "Saint-Omer",
+    "text": "Week-end en ville : pains spéciaux et viennoiseries pour vos sorties dans l’Audomarois."
+  },
+  {
+    "month": 8,
+    "day": 15,
+    "scope": "audomarois",
+    "title": "Assomption",
+    "text": "Jour férié dans l’Audomarois : pensez à commander vos pains et pâtisseries à l’avance."
+  },
+  {
+    "month": 11,
+    "day": 11,
+    "scope": "france",
+    "title": "11 novembre",
+    "text": "Commémoration et jour férié — horaires boutique à vérifier sur la page de la semaine."
+  },
+  {
+    "month": 12,
+    "day": 6,
+    "scope": "france",
+    "title": "Saint-Nicolas",
+    "text": "Tradition du 6 décembre : gâteaux et douceurs pour les enfants."
+  },
+  {
+    "month": 2,
+    "day": 2,
+    "scope": "france",
+    "title": "Chandeleur",
+    "text": "Jour des crêpes : nos conseils pour accompagner vos garnitures sucrées ou salées."
   }
 ]

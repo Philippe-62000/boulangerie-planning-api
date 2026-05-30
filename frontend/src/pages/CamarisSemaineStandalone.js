@@ -5,6 +5,21 @@ import { CAMARIS_ZODIAC_SIGNS } from '../constants/camarisHoroscope';
 import './CamarisSemaineStandalone.css';
 
 const TOKEN_KEY = 'camarisManagerToken_lon';
+
+const getIsoWeekKey = (d = new Date()) => {
+  const date = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const dayNum = date.getDay() || 7;
+  date.setDate(date.getDate() + 4 - dayNum);
+  const yearStart = new Date(date.getFullYear(), 0, 1);
+  const weekNo = Math.ceil(((date - yearStart) / 86400000 + 1) / 7);
+  return `${date.getFullYear()}-W${String(weekNo).padStart(2, '0')}`;
+};
+
+const getNextWeekKey = (d = new Date()) => {
+  const next = new Date(d);
+  next.setDate(next.getDate() + 7);
+  return getIsoWeekKey(next);
+};
 const DAY_LABELS = [
   { v: 1, l: 'Lun' },
   { v: 2, l: 'Mar' },
@@ -67,6 +82,8 @@ const CamarisSemaineStandalone = () => {
   const [horoscopeSign, setHoroscopeSign] = useState(null);
   const [horoscopeData, setHoroscopeData] = useState(null);
   const [horoscopeLoading, setHoroscopeLoading] = useState(false);
+  /** Semaine éditée en mode manager : courante (lun–dim) ou suivante. */
+  const [managerWeekScope, setManagerWeekScope] = useState('current');
 
   const loadBoard = useCallback(async () => {
     try {
@@ -126,14 +143,20 @@ const CamarisSemaineStandalone = () => {
       .catch(() => setWeather(null));
   }, []);
 
+  const managerWeekKey =
+    managerWeekScope === 'next'
+      ? board?.nextWeekKey || getNextWeekKey()
+      : board?.weekKey || getIsoWeekKey();
+
   useEffect(() => {
-    if (managerToken && managerOpen && board?.weekKey) {
-      loadManagerWeek(managerToken, board.weekKey).catch(() => {
+    if (managerToken && managerOpen && managerWeekKey) {
+      loadManagerWeek(managerToken, managerWeekKey).catch(() => {
         localStorage.removeItem(TOKEN_KEY);
         setManagerToken(null);
       });
+      setEditForm((f) => ({ ...f, weekKey: managerWeekKey }));
     }
-  }, [managerToken, managerOpen, board?.weekKey, loadManagerWeek]);
+  }, [managerToken, managerOpen, managerWeekKey, loadManagerWeek]);
 
   const managerLogin = async (e) => {
     e.preventDefault();
@@ -147,8 +170,8 @@ const CamarisSemaineStandalone = () => {
       const token = res.data?.token;
       localStorage.setItem(TOKEN_KEY, token);
       setManagerToken(token);
-      setEditForm((f) => ({ ...f, weekKey: board?.weekKey || '' }));
-      await loadManagerWeek(token, board?.weekKey);
+      setEditForm((f) => ({ ...f, weekKey: managerWeekKey }));
+      await loadManagerWeek(token, managerWeekKey);
       setMsg({ type: 'success', text: 'Connecté.' });
     } catch (err) {
       setMsg({ type: 'error', text: err.response?.data?.error || 'Connexion impossible' });
@@ -173,7 +196,7 @@ const CamarisSemaineStandalone = () => {
     try {
       const payload = {
         id: editForm.id || undefined,
-        weekKey: editForm.weekKey || board?.weekKey,
+        weekKey: editForm.weekKey || managerWeekKey,
         title: editForm.title,
         body: editForm.body,
         daysOfWeek: editForm.daysOfWeek
@@ -186,8 +209,8 @@ const CamarisSemaineStandalone = () => {
         headers: { Authorization: `Bearer ${managerToken}` }
       });
       setMsg({ type: 'success', text: 'Animation enregistrée.' });
-      setEditForm({ id: '', title: '', body: '', daysOfWeek: [], weekKey: board?.weekKey || '' });
-      await loadManagerWeek(managerToken, board?.weekKey);
+      setEditForm({ id: '', title: '', body: '', daysOfWeek: [], weekKey: managerWeekKey });
+      await loadManagerWeek(managerToken, managerWeekKey);
       await loadBoard();
     } catch (err) {
       setMsg({ type: 'error', text: err.response?.data?.error || 'Erreur enregistrement' });
@@ -212,7 +235,7 @@ const CamarisSemaineStandalone = () => {
       await axios.delete(`${apiBase}/camaris/manager/animations/${id}`, {
         headers: { Authorization: `Bearer ${managerToken}` }
       });
-      await loadManagerWeek(managerToken, board?.weekKey);
+      await loadManagerWeek(managerToken, managerWeekKey);
       await loadBoard();
     } catch (err) {
       setMsg({ type: 'error', text: err.response?.data?.error || 'Erreur suppression' });
@@ -250,7 +273,7 @@ const CamarisSemaineStandalone = () => {
   const info = board?.infoBanner;
   const weatherKind = weather?.kind && WEATHER_ICONS[weather.kind] ? weather.kind : 'cloud';
   const WeatherIcon = WEATHER_ICONS[weatherKind] || WEATHER_ICONS.cloud;
-  const apiStale = board && (board.apiVersion == null || board.apiVersion < 5);
+  const apiStale = board && (board.apiVersion == null || board.apiVersion < 6);
 
   const loadHoroscope = async (signId) => {
     setHoroscopeSign(signId);
@@ -402,6 +425,13 @@ const CamarisSemaineStandalone = () => {
         </section>
       </div>
 
+      {board?.sportHighlight?.text ? (
+        <section className="camaris-card camaris-sport-section" aria-labelledby="sport-jour">
+          <h2 id="sport-jour">Sport</h2>
+          <p className="camaris-sport-text">{board.sportHighlight.text}</p>
+        </section>
+      ) : null}
+
       <footer className="camaris-footer">
         {board?.visits ? (
           <p className="camaris-visit-count">
@@ -498,8 +528,29 @@ const CamarisSemaineStandalone = () => {
               </form>
             ) : (
               <>
+                <div className="camaris-manager-week-tabs" role="tablist" aria-label="Semaine à éditer">
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={managerWeekScope === 'current'}
+                    className={managerWeekScope === 'current' ? 'active' : ''}
+                    onClick={() => setManagerWeekScope('current')}
+                  >
+                    Semaine en cours
+                  </button>
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={managerWeekScope === 'next'}
+                    className={managerWeekScope === 'next' ? 'active' : ''}
+                    onClick={() => setManagerWeekScope('next')}
+                  >
+                    Semaine suivante
+                  </button>
+                </div>
                 <p style={{ margin: 0, fontSize: '0.9rem' }}>
-                  Semaine <strong>{board?.weekKey}</strong> — cochez un ou plusieurs jours pour la même animation.
+                  Semaine <strong>{managerWeekKey}</strong> (lundi → dimanche) — cochez un ou plusieurs jours pour la
+                  même animation.
                 </p>
                 <form
                   className="camaris-form"
@@ -550,7 +601,7 @@ const CamarisSemaineStandalone = () => {
                       type="button"
                       className="camaris-btn-secondary"
                       onClick={() =>
-                        setEditForm({ id: '', title: '', body: '', daysOfWeek: [], weekKey: board?.weekKey || '' })
+                        setEditForm({ id: '', title: '', body: '', daysOfWeek: [], weekKey: managerWeekKey })
                       }
                     >
                       Nouveau
