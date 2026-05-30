@@ -10,6 +10,10 @@ const {
   clampMiniCountPerFormula,
   validateBreakfastMiniViennoiserie
 } = require('../utils/partnerMiniViennoiserie');
+const {
+  normalizeMealTypesMode,
+  allowedMealTypesFromMode
+} = require('../utils/partnerMealTypesMode');
 
 const getSite = (req) => (req.query.site || req.body.site || 'longuenesse').toLowerCase();
 const siteMap = { lon: 'longuenesse', plan: 'arras' };
@@ -111,6 +115,7 @@ const partnerLogin = async (req, res) => {
     await company.save();
 
     const contactName = String(company.contactName || '').trim();
+    const mealTypesMode = normalizeMealTypesMode(company.mealTypesMode);
     const token = jwt.sign(
       {
         role: 'partner_company',
@@ -118,6 +123,7 @@ const partnerLogin = async (req, res) => {
         email: company.email,
         name: company.name,
         contactName,
+        mealTypesMode,
         site
       },
       getJwtSecret(),
@@ -131,6 +137,7 @@ const partnerLogin = async (req, res) => {
         id: company._id,
         name: company.name,
         contactName,
+        mealTypesMode,
         email: company.email,
         phone: company.phone
       }
@@ -151,6 +158,7 @@ const partnerMe = async (req, res) => {
         id: company._id,
         name: company.name,
         contactName: company.contactName || '',
+        mealTypesMode: normalizeMealTypesMode(company.mealTypesMode),
         email: company.email,
         phone: company.phone
       }
@@ -192,7 +200,7 @@ const createMyOrder = async (req, res) => {
     if (Number.isNaN(dt.getTime())) return res.status(400).json({ success: false, error: 'Date/heure invalide' });
 
     const quantity = Math.max(1, Math.floor(Number(req.body?.quantity) || 1));
-    const company = await PartnerCompany.findById(req.partnerCompanyId).select('name contactName');
+    const company = await PartnerCompany.findById(req.partnerCompanyId).select('name contactName mealTypesMode');
     const companyName = String(company?.name || req.partnerCompanyName || '').trim();
     const contactName = String(
       req.body?.contactName || company?.contactName || req.partnerCompanyContactName || ''
@@ -202,6 +210,16 @@ const createMyOrder = async (req, res) => {
         success: false,
         error:
           'Contact non renseigné sur votre compte. Demandez à la boulangerie de l’ajouter dans Filmara (onglet Entreprises).'
+      });
+    }
+    const mealMode = normalizeMealTypesMode(
+      company?.mealTypesMode || req.partnerCompanyMealTypesMode
+    );
+    const allowedMeals = allowedMealTypesFromMode(mealMode);
+    if (!allowedMeals.includes(mealType)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Type de formule non autorisé pour votre entreprise.'
       });
     }
 
@@ -272,10 +290,11 @@ const createMyOrder = async (req, res) => {
 // --- Admin ---
 const adminCreateCompany = async (req, res) => {
   try {
-    const { name, phone, email, contactName } = req.body;
+    const { name, phone, email, contactName, mealTypesMode: mealTypesModeRaw } = req.body;
     if (!name || !email) return res.status(400).json({ success: false, error: 'Nom et email requis' });
     const contactTrim = String(contactName || '').trim();
     if (!contactTrim) return res.status(400).json({ success: false, error: 'Nom du contact requis' });
+    const mealTypesMode = normalizeMealTypesMode(mealTypesModeRaw);
 
     const site = normalizeSite(getSite(req));
     const emailNorm = String(email).toLowerCase().trim();
@@ -288,6 +307,7 @@ const adminCreateCompany = async (req, res) => {
       }
       existing.name = String(name).trim();
       existing.contactName = contactTrim;
+      existing.mealTypesMode = mealTypesMode;
       existing.phone = phone ? String(phone).trim() : '';
       existing.site = site;
       existing.password = password;
@@ -300,6 +320,7 @@ const adminCreateCompany = async (req, res) => {
           phone: existing.phone || '',
           email: existing.email,
           contactName: existing.contactName || '',
+          mealTypesMode: existing.mealTypesMode,
           active: true,
           plainPassword: password
         })
@@ -310,6 +331,7 @@ const adminCreateCompany = async (req, res) => {
           id: existing._id,
           name: existing.name,
           contactName: existing.contactName || '',
+          mealTypesMode: normalizeMealTypesMode(existing.mealTypesMode),
           email: existing.email,
           phone: existing.phone
         },
@@ -321,6 +343,7 @@ const adminCreateCompany = async (req, res) => {
     const company = await PartnerCompany.create({
       name: String(name).trim(),
       contactName: contactTrim,
+      mealTypesMode,
       phone: phone ? String(phone).trim() : '',
       email: emailNorm,
       site,
@@ -335,6 +358,7 @@ const adminCreateCompany = async (req, res) => {
         phone: company.phone || '',
         email: company.email,
         contactName: company.contactName || '',
+        mealTypesMode: company.mealTypesMode,
         active: true,
         plainPassword: password
       })
@@ -346,6 +370,7 @@ const adminCreateCompany = async (req, res) => {
         id: company._id,
         name: company.name,
         contactName: company.contactName || '',
+        mealTypesMode: normalizeMealTypesMode(company.mealTypesMode),
         email: company.email,
         phone: company.phone
       },
@@ -357,6 +382,7 @@ const adminCreateCompany = async (req, res) => {
       if (dup && !dup.active) {
         dup.name = String(name).trim();
         dup.contactName = contactTrim;
+        dup.mealTypesMode = mealTypesMode;
         dup.phone = phone ? String(phone).trim() : '';
         dup.site = site;
         dup.password = password;
@@ -369,6 +395,7 @@ const adminCreateCompany = async (req, res) => {
             phone: dup.phone || '',
             email: dup.email,
             contactName: dup.contactName || '',
+            mealTypesMode: dup.mealTypesMode,
             active: true,
             plainPassword: password
           })
@@ -379,6 +406,7 @@ const adminCreateCompany = async (req, res) => {
             id: dup._id,
             name: dup.name,
             contactName: dup.contactName || '',
+            mealTypesMode: normalizeMealTypesMode(dup.mealTypesMode),
             email: dup.email,
             phone: dup.phone
           },
@@ -514,6 +542,7 @@ const adminSendInvite = async (req, res) => {
         phone: company.phone || '',
         email: company.email,
         contactName: company.contactName || '',
+        mealTypesMode: normalizeMealTypesMode(company.mealTypesMode),
         active: true,
         plainPassword: newPassword
       })
@@ -532,8 +561,9 @@ const adminUpdateCompany = async (req, res) => {
     const company = await PartnerCompany.findById(id);
     if (!company) return res.status(404).json({ success: false, error: 'Entreprise non trouvée' });
 
-    const { contactName, name, phone } = req.body || {};
+    const { contactName, name, phone, mealTypesMode: mealTypesModeRaw } = req.body || {};
     if (contactName !== undefined) company.contactName = String(contactName).trim();
+    if (mealTypesModeRaw !== undefined) company.mealTypesMode = normalizeMealTypesMode(mealTypesModeRaw);
     if (name !== undefined && String(name).trim()) company.name = String(name).trim();
     if (phone !== undefined) company.phone = String(phone).trim();
     company.site = site;
@@ -546,6 +576,7 @@ const adminUpdateCompany = async (req, res) => {
         phone: company.phone || '',
         email: company.email,
         contactName: company.contactName || '',
+        mealTypesMode: normalizeMealTypesMode(company.mealTypesMode),
         active: company.active
       })
     );
@@ -556,6 +587,7 @@ const adminUpdateCompany = async (req, res) => {
         id: company._id,
         name: company.name,
         contactName: company.contactName || '',
+        mealTypesMode: normalizeMealTypesMode(company.mealTypesMode),
         email: company.email,
         phone: company.phone,
         site: company.site || 'longuenesse',
@@ -589,6 +621,7 @@ const adminListCompanies = async (req, res) => {
         id: c._id,
         name: c.name,
         contactName: c.contactName || '',
+        mealTypesMode: normalizeMealTypesMode(c.mealTypesMode),
         email: c.email,
         phone: c.phone,
         site: c.site || 'longuenesse',

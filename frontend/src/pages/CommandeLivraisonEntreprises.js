@@ -2,6 +2,16 @@ import React, { useEffect, useMemo, useState } from 'react';
 import api from '../services/api';
 import { getSiteKey } from '../config/site';
 
+const mealTypesModeOptions = [
+  { value: 'both', label: 'Petit déjeuner et déjeuner' },
+  { value: 'breakfast', label: 'Petit déjeuner uniquement' },
+  { value: 'lunch', label: 'Déjeuner uniquement' }
+];
+
+function mealTypesModeLabel(mode) {
+  return mealTypesModeOptions.find((o) => o.value === mode)?.label || mealTypesModeOptions[0].label;
+}
+
 const statusLabels = {
   submitted: 'Envoyée',
   acknowledged: 'Pris en compte',
@@ -67,8 +77,15 @@ const CommandeLivraisonEntreprises = () => {
   const [companies, setCompanies] = useState([]);
   const [companiesLoading, setCompaniesLoading] = useState(false);
   const [showInactiveCompanies, setShowInactiveCompanies] = useState(false);
-  const [newCompany, setNewCompany] = useState({ name: '', contactName: '', phone: '', email: '' });
+  const [newCompany, setNewCompany] = useState({
+    name: '',
+    contactName: '',
+    phone: '',
+    email: '',
+    mealTypesMode: 'both'
+  });
   const [contactEdits, setContactEdits] = useState({});
+  const [mealTypesEdits, setMealTypesEdits] = useState({});
   const [createdPassword, setCreatedPassword] = useState(null);
 
   const [formulasLoading, setFormulasLoading] = useState(false);
@@ -98,16 +115,22 @@ const CommandeLivraisonEntreprises = () => {
       const list = Array.isArray(res.data?.data) ? res.data.data : [];
       setCompanies(list);
       const edits = {};
+      const mealEdits = {};
       for (const c of list) {
         const id = c.id || c._id;
-        if (id) edits[id] = c.contactName || '';
+        if (id) {
+          edits[id] = c.contactName || '';
+          mealEdits[id] = c.mealTypesMode || 'both';
+        }
       }
       setContactEdits(edits);
+      setMealTypesEdits(mealEdits);
     } catch (e) {
       console.error(e);
       alert('Impossible de charger les entreprises (droits admin requis).');
       setCompanies([]);
       setContactEdits({});
+      setMealTypesEdits({});
     } finally {
       setCompaniesLoading(false);
     }
@@ -120,7 +143,8 @@ const CommandeLivraisonEntreprises = () => {
         name: String(newCompany.name || '').trim(),
         contactName: String(newCompany.contactName || '').trim(),
         phone: String(newCompany.phone || '').trim(),
-        email: String(newCompany.email || '').trim()
+        email: String(newCompany.email || '').trim(),
+        mealTypesMode: newCompany.mealTypesMode || 'both'
       };
       if (!payload.name || !payload.email) {
         alert('Nom entreprise et email requis.');
@@ -136,7 +160,7 @@ const CommandeLivraisonEntreprises = () => {
       if (res.data?.reactivated) {
         alert('Compte existant réactivé avec cet e-mail (nouveau mot de passe affiché ci-dessous).');
       }
-      setNewCompany({ name: '', contactName: '', phone: '', email: '' });
+      setNewCompany({ name: '', contactName: '', phone: '', email: '', mealTypesMode: 'both' });
       await loadCompanies();
     } catch (e) {
       console.error(e);
@@ -144,7 +168,7 @@ const CommandeLivraisonEntreprises = () => {
     }
   };
 
-  const saveCompanyContact = async (company) => {
+  const saveCompanySettings = async (company) => {
     try {
       const companyId = company.id || company._id;
       const contactName = String(contactEdits[companyId] ?? company.contactName ?? '').trim();
@@ -152,15 +176,16 @@ const CommandeLivraisonEntreprises = () => {
         alert('Indiquez un nom de contact.');
         return;
       }
+      const mealTypesMode = mealTypesEdits[companyId] || company.mealTypesMode || 'both';
       await api.patch(
         `/partner-admin/companies/${companyId}`,
-        { contactName },
+        { contactName, mealTypesMode },
         { params: { site } }
       );
       await loadCompanies();
     } catch (e) {
       console.error(e);
-      alert(e?.response?.data?.error || 'Enregistrement du contact impossible.');
+      alert(e?.response?.data?.error || 'Enregistrement impossible.');
     }
   };
 
@@ -539,6 +564,20 @@ const CommandeLivraisonEntreprises = () => {
                 onChange={(e) => setNewCompany((p) => ({ ...p, email: e.target.value }))}
               />
             </div>
+            <label style={{ display: 'block', marginTop: 10 }}>
+              <span style={{ fontWeight: 700, fontSize: 13 }}>Formules visibles sur le site commande (Vercel)</span>
+              <select
+                value={newCompany.mealTypesMode}
+                onChange={(e) => setNewCompany((p) => ({ ...p, mealTypesMode: e.target.value }))}
+                style={{ display: 'block', marginTop: 6, width: '100%', maxWidth: 420, padding: '8px 10px', borderRadius: 8 }}
+              >
+                {mealTypesModeOptions.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+            </label>
             <div style={{ display: 'flex', gap: '0.5rem', marginTop: 10, flexWrap: 'wrap' }}>
               <button onClick={createCompany} style={{ padding: '8px 12px', borderRadius: '8px' }}>
                 Créer
@@ -582,6 +621,9 @@ const CommandeLivraisonEntreprises = () => {
                         <div style={{ color: '#b45309', marginTop: 4, fontSize: 13 }}>Contact non renseigné</div>
                       )}
                       <div style={{ color: '#555', marginTop: 4 }}>{c.email}{c.phone ? ` • ${c.phone}` : ''}</div>
+                      <div style={{ color: '#475569', marginTop: 6, fontSize: 13 }}>
+                        Site commande : <strong>{mealTypesModeLabel(c.mealTypesMode || 'both')}</strong>
+                      </div>
                       <div
                         style={{
                           marginTop: 8,
@@ -599,12 +641,26 @@ const CommandeLivraisonEntreprises = () => {
                           }
                           style={{ flex: '1 1 200px', minWidth: 160, padding: '6px 8px', borderRadius: 6 }}
                         />
+                        <select
+                          value={mealTypesEdits[c.id] ?? c.mealTypesMode ?? 'both'}
+                          onChange={(e) =>
+                            setMealTypesEdits((p) => ({ ...p, [c.id]: e.target.value }))
+                          }
+                          style={{ flex: '1 1 220px', minWidth: 200, padding: '6px 8px', borderRadius: 6 }}
+                          title="Formules visibles sur Vercel"
+                        >
+                          {mealTypesModeOptions.map((o) => (
+                            <option key={o.value} value={o.value}>
+                              {o.label}
+                            </option>
+                          ))}
+                        </select>
                         <button
                           type="button"
-                          onClick={() => saveCompanyContact(c)}
+                          onClick={() => saveCompanySettings(c)}
                           style={{ padding: '6px 10px', borderRadius: '8px' }}
                         >
-                          Enregistrer contact
+                          Enregistrer
                         </button>
                       </div>
                       <div style={{ color: '#666', marginTop: 4, fontSize: 13 }}>

@@ -25,7 +25,7 @@ async function post(body) {
 }
 
 /** Création / mise à jour + mot de passe en clair (hash côté Render déjà fait ; le miroir peut refaire pareil). */
-function syncUpsert({ site, name, phone, email, active, plainPassword, contactName }) {
+function syncUpsert({ site, name, phone, email, active, plainPassword, contactName, mealTypesMode }) {
   const body = {
     action: 'upsert',
     site,
@@ -33,7 +33,8 @@ function syncUpsert({ site, name, phone, email, active, plainPassword, contactNa
     phone: phone || '',
     email: String(email).toLowerCase().trim(),
     active: active !== false,
-    contactName: contactName != null ? String(contactName).trim() : ''
+    contactName: contactName != null ? String(contactName).trim() : '',
+    mealTypesMode: mealTypesMode != null ? String(mealTypesMode) : 'both'
   };
   if (plainPassword) body.password = plainPassword;
   return post(body);
