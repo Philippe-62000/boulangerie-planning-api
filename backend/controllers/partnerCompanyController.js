@@ -12,8 +12,12 @@ const {
 } = require('../utils/partnerMiniViennoiserie');
 const {
   normalizeMealTypesMode,
-  allowedMealTypesFromMode
-} = require('../utils/partnerMealTypesMode');
+  parseOffersInput,
+  resolveCompanyOffers,
+  allowedMealTypesFromOffers,
+  mealTypesModeFromOffers,
+  serializeCompanyOffers
+} = require('../utils/partnerCompanyOffers');
 
 const getSite = (req) => (req.query.site || req.body.site || 'longuenesse').toLowerCase();
 const siteMap = { lon: 'longuenesse', plan: 'arras' };
@@ -25,6 +29,71 @@ const generateRandomPassword = () => {
   for (let i = 0; i < 10; i++) password += chars.charAt(Math.floor(Math.random() * chars.length));
   return password;
 };
+
+function companyPayloadForClient(company) {
+  const offers = resolveCompanyOffers(company);
+  return {
+    id: company._id,
+    name: company.name,
+    contactName: company.contactName || '',
+    email: company.email,
+    phone: company.phone || '',
+    isAnonymous: !!company.isAnonymous,
+    firstName: company.firstName || '',
+    lastName: company.lastName || '',
+    structureName: company.structureName || '',
+    mealTypesMode: mealTypesModeFromOffers(offers),
+    ...offers
+  };
+}
+
+function jwtPayloadForCompany(company, site) {
+  const offers = resolveCompanyOffers(company);
+  return {
+    role: 'partner_company',
+    companyId: company._id,
+    email: company.email,
+    name: company.name,
+    contactName: String(company.contactName || '').trim(),
+    isAnonymous: !!company.isAnonymous,
+    mealTypesMode: mealTypesModeFromOffers(offers),
+    ...offers,
+    site
+  };
+}
+
+function applyOffersToCompany(company, body) {
+  const offers = parseOffersInput(body);
+  company.offerBreakfast = offers.offerBreakfast;
+  company.offerLunch = offers.offerLunch;
+  company.offerDevis = offers.offerDevis;
+  company.offerCommande = offers.offerCommande;
+  company.mealTypesMode = mealTypesModeFromOffers(offers);
+}
+
+function buildSimpleOrderSnapshot({ orderKind, requestDetail, fulfillment, companyName, contactName, prospect }) {
+  const kindLabel = orderKind === 'devis' ? 'Demande de devis' : 'Commande libre';
+  const lines = [];
+  if (companyName) lines.push(`Entreprise : ${companyName}`);
+  if (contactName) lines.push(`Contact : ${contactName}`);
+  if (prospect?.firstName || prospect?.lastName) {
+    lines.push(`Nom : ${[prospect.firstName, prospect.lastName].filter(Boolean).join(' ')}`);
+  }
+  if (prospect?.structureName) lines.push(`Structure : ${prospect.structureName}`);
+  if (prospect?.phone) lines.push(`Téléphone : ${prospect.phone}`);
+  if (prospect?.email) lines.push(`E-mail : ${prospect.email}`);
+  lines.push(`Mode : ${fulfillment === 'delivery' ? 'Livraison' : 'Retrait magasin'}`);
+  if (requestDetail) lines.push(`Détail : ${requestDetail}`);
+  return {
+    label: kindLabel,
+    priceCents: 0,
+    description: requestDetail || '',
+    items: lines,
+    quantity: 1,
+    remarks: requestDetail || '',
+    orderKind
+  };
+}
 
 async function attachCompanyInfoToOrders(orders) {
   const list = Array.isArray(orders) ? orders : [];
@@ -114,33 +183,13 @@ const partnerLogin = async (req, res) => {
     company.lastLoginAt = new Date();
     await company.save();
 
-    const contactName = String(company.contactName || '').trim();
-    const mealTypesMode = normalizeMealTypesMode(company.mealTypesMode);
-    const token = jwt.sign(
-      {
-        role: 'partner_company',
-        companyId: company._id,
-        email: company.email,
-        name: company.name,
-        contactName,
-        mealTypesMode,
-        site
-      },
-      getJwtSecret(),
-      { expiresIn: '30d' }
-    );
+    const siteNorm = normalizeSite(String(company.site || site));
+    const token = jwt.sign(jwtPayloadForCompany(company, siteNorm), getJwtSecret(), { expiresIn: '30d' });
 
     res.json({
       success: true,
       token,
-      company: {
-        id: company._id,
-        name: company.name,
-        contactName,
-        mealTypesMode,
-        email: company.email,
-        phone: company.phone
-      }
+      company: companyPayloadForClient(company)
     });
   } catch (err) {
     console.error('❌ partnerLogin:', err);
@@ -154,14 +203,7 @@ const partnerMe = async (req, res) => {
     if (!company) return res.status(404).json({ success: false, error: 'Entreprise non trouvée' });
     res.json({
       success: true,
-      data: {
-        id: company._id,
-        name: company.name,
-        contactName: company.contactName || '',
-        mealTypesMode: normalizeMealTypesMode(company.mealTypesMode),
-        email: company.email,
-        phone: company.phone
-      }
+      data: companyPayloadForClient(company)
     });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
@@ -192,16 +234,103 @@ const partnerGetFormulas = async (req, res) => {
 const createMyOrder = async (req, res) => {
   try {
     const site = normalizeSite(getSite(req));
-    const { fulfillment, datetime, mealType, tier, miniViennoiserieDetail } = req.body;
-    if (!fulfillment || !datetime || !mealType || !tier) {
-      return res.status(400).json({ success: false, error: 'Champs requis: fulfillment, datetime, mealType, tier' });
+    const orderKind = String(req.body?.orderKind || 'formula').toLowerCase();
+    const { fulfillment, datetime } = req.body;
+    if (!fulfillment || !datetime) {
+      return res.status(400).json({ success: false, error: 'Champs requis: fulfillment, datetime' });
     }
     const dt = new Date(datetime);
     if (Number.isNaN(dt.getTime())) return res.status(400).json({ success: false, error: 'Date/heure invalide' });
 
-    const quantity = Math.max(1, Math.floor(Number(req.body?.quantity) || 1));
-    const company = await PartnerCompany.findById(req.partnerCompanyId).select('name contactName mealTypesMode');
+    const company = await PartnerCompany.findById(req.partnerCompanyId).select(
+      'name contactName mealTypesMode offerBreakfast offerLunch offerDevis offerCommande isAnonymous'
+    );
+    const offers = resolveCompanyOffers(company || { mealTypesMode: req.partnerCompanyMealTypesMode });
     const companyName = String(company?.name || req.partnerCompanyName || '').trim();
+
+    if (orderKind === 'devis' || orderKind === 'commande') {
+      if (orderKind === 'devis' && !offers.offerDevis) {
+        return res.status(400).json({ success: false, error: 'Demande de devis non autorisée pour votre compte.' });
+      }
+      if (orderKind === 'commande' && !offers.offerCommande) {
+        return res.status(400).json({ success: false, error: 'Commande libre non autorisée pour votre compte.' });
+      }
+      const requestDetail = String(req.body?.requestDetail || req.body?.remarks || '').trim();
+      if (!requestDetail) {
+        return res.status(400).json({ success: false, error: 'Détail de la demande requis.' });
+      }
+      const prospect = {
+        firstName: String(req.body?.prospectFirstName || req.body?.firstName || '').trim(),
+        lastName: String(req.body?.prospectLastName || req.body?.lastName || '').trim(),
+        structureName: String(req.body?.prospectStructureName || req.body?.structureName || '').trim(),
+        phone: String(req.body?.prospectPhone || req.body?.phone || '').trim(),
+        email: String(req.body?.prospectEmail || req.body?.email || '').trim()
+      };
+      let contactName = String(
+        req.body?.contactName || company?.contactName || req.partnerCompanyContactName || ''
+      ).trim();
+      if (company?.isAnonymous) {
+        if (!prospect.firstName || !prospect.lastName || !prospect.phone || !prospect.email) {
+          return res.status(400).json({
+            success: false,
+            error: 'Nom, prénom, téléphone et e-mail requis pour cette demande.'
+          });
+        }
+        contactName = `${prospect.firstName} ${prospect.lastName}`.trim();
+      } else if (!contactName) {
+        return res.status(400).json({
+          success: false,
+          error:
+            'Contact non renseigné sur votre compte. Demandez à la boulangerie de l’ajouter dans Filmara (onglet Entreprises).'
+        });
+      }
+      const itemsSnapshot = buildSimpleOrderSnapshot({
+        orderKind,
+        requestDetail,
+        fulfillment,
+        companyName,
+        contactName,
+        prospect: company?.isAnonymous ? prospect : null
+      });
+      const order = await PartnerOrder.create({
+        site,
+        companyId: req.partnerCompanyId,
+        companyName,
+        contactName,
+        fulfillment,
+        datetime: dt,
+        orderKind,
+        requestDetail,
+        prospectFirstName: prospect.firstName,
+        prospectLastName: prospect.lastName,
+        prospectStructureName: prospect.structureName,
+        prospectPhone: prospect.phone,
+        prospectEmail: prospect.email,
+        mealType: null,
+        tier: null,
+        quantity: 1,
+        miniViennoiserieTotal: 0,
+        miniViennoiserieDetail: [],
+        itemsSnapshot,
+        status: 'submitted',
+        statusUpdatedAt: new Date()
+      });
+      return res.json({ success: true, data: order });
+    }
+
+    const { mealType, tier, miniViennoiserieDetail } = req.body;
+    if (!mealType || !tier) {
+      return res.status(400).json({ success: false, error: 'Champs requis: mealType, tier' });
+    }
+    const allowedMeals = allowedMealTypesFromOffers(offers);
+    if (!allowedMeals.includes(mealType)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Type de formule non autorisé pour votre entreprise.'
+      });
+    }
+
+    const quantity = Math.max(1, Math.floor(Number(req.body?.quantity) || 1));
     const contactName = String(
       req.body?.contactName || company?.contactName || req.partnerCompanyContactName || ''
     ).trim();
@@ -210,16 +339,6 @@ const createMyOrder = async (req, res) => {
         success: false,
         error:
           'Contact non renseigné sur votre compte. Demandez à la boulangerie de l’ajouter dans Filmara (onglet Entreprises).'
-      });
-    }
-    const mealMode = normalizeMealTypesMode(
-      company?.mealTypesMode || req.partnerCompanyMealTypesMode
-    );
-    const allowedMeals = allowedMealTypesFromMode(mealMode);
-    if (!allowedMeals.includes(mealType)) {
-      return res.status(400).json({
-        success: false,
-        error: 'Type de formule non autorisé pour votre entreprise.'
       });
     }
 
@@ -271,6 +390,7 @@ const createMyOrder = async (req, res) => {
       contactName,
       fulfillment,
       datetime: dt,
+      orderKind: 'formula',
       mealType,
       tier,
       quantity,
@@ -290,11 +410,28 @@ const createMyOrder = async (req, res) => {
 // --- Admin ---
 const adminCreateCompany = async (req, res) => {
   try {
-    const { name, phone, email, contactName, mealTypesMode: mealTypesModeRaw } = req.body;
-    if (!name || !email) return res.status(400).json({ success: false, error: 'Nom et email requis' });
+    const {
+      name,
+      phone,
+      email,
+      contactName,
+      mealTypesMode: mealTypesModeRaw,
+      isAnonymous,
+      firstName,
+      lastName,
+      structureName
+    } = req.body;
+    const anonymous = !!isAnonymous;
+    if (!email) return res.status(400).json({ success: false, error: 'Email requis' });
     const contactTrim = String(contactName || '').trim();
-    if (!contactTrim) return res.status(400).json({ success: false, error: 'Nom du contact requis' });
-    const mealTypesMode = normalizeMealTypesMode(mealTypesModeRaw);
+    if (!anonymous && !contactTrim) {
+      return res.status(400).json({ success: false, error: 'Nom du contact requis' });
+    }
+    const nameTrim = String(name || '').trim() || (anonymous ? 'Client prospect' : '');
+    if (!nameTrim) return res.status(400).json({ success: false, error: 'Nom entreprise requis' });
+
+    const offers = parseOffersInput({ ...req.body, mealTypesMode: mealTypesModeRaw });
+    const mealTypesMode = mealTypesModeFromOffers(offers);
 
     const site = normalizeSite(getSite(req));
     const emailNorm = String(email).toLowerCase().trim();
@@ -305,9 +442,13 @@ const adminCreateCompany = async (req, res) => {
       if (existing.active) {
         return res.status(400).json({ success: false, error: 'Cet email existe déjà' });
       }
-      existing.name = String(name).trim();
+      existing.name = nameTrim;
       existing.contactName = contactTrim;
-      existing.mealTypesMode = mealTypesMode;
+      applyOffersToCompany(existing, { ...req.body, mealTypesMode: mealTypesModeRaw });
+      existing.isAnonymous = anonymous;
+      existing.firstName = String(firstName || '').trim();
+      existing.lastName = String(lastName || '').trim();
+      existing.structureName = String(structureName || '').trim();
       existing.phone = phone ? String(phone).trim() : '';
       existing.site = site;
       existing.password = password;
@@ -321,29 +462,32 @@ const adminCreateCompany = async (req, res) => {
           email: existing.email,
           contactName: existing.contactName || '',
           mealTypesMode: existing.mealTypesMode,
+          ...resolveCompanyOffers(existing),
+          isAnonymous: existing.isAnonymous,
           active: true,
           plainPassword: password
         })
       );
       return res.json({
         success: true,
-        data: {
-          id: existing._id,
-          name: existing.name,
-          contactName: existing.contactName || '',
-          mealTypesMode: normalizeMealTypesMode(existing.mealTypesMode),
-          email: existing.email,
-          phone: existing.phone
-        },
+        data: companyPayloadForClient(existing),
         password,
         reactivated: true
       });
     }
 
     const company = await PartnerCompany.create({
-      name: String(name).trim(),
+      name: nameTrim,
       contactName: contactTrim,
       mealTypesMode,
+      offerBreakfast: offers.offerBreakfast,
+      offerLunch: offers.offerLunch,
+      offerDevis: offers.offerDevis,
+      offerCommande: offers.offerCommande,
+      isAnonymous: anonymous,
+      firstName: String(firstName || '').trim(),
+      lastName: String(lastName || '').trim(),
+      structureName: String(structureName || '').trim(),
       phone: phone ? String(phone).trim() : '',
       email: emailNorm,
       site,
@@ -359,6 +503,8 @@ const adminCreateCompany = async (req, res) => {
         email: company.email,
         contactName: company.contactName || '',
         mealTypesMode: company.mealTypesMode,
+        ...resolveCompanyOffers(company),
+        isAnonymous: company.isAnonymous,
         active: true,
         plainPassword: password
       })
@@ -366,50 +512,50 @@ const adminCreateCompany = async (req, res) => {
 
     res.json({
       success: true,
-      data: {
-        id: company._id,
-        name: company.name,
-        contactName: company.contactName || '',
-        mealTypesMode: normalizeMealTypesMode(company.mealTypesMode),
-        email: company.email,
-        phone: company.phone
-      },
+      data: companyPayloadForClient(company),
       password
     });
   } catch (err) {
     if (err.code === 11000) {
+      const emailNorm = String(req.body?.email || '').toLowerCase().trim();
       const dup = await PartnerCompany.findOne({ email: emailNorm });
       if (dup && !dup.active) {
-        dup.name = String(name).trim();
+        const contactTrim = String(req.body?.contactName || '').trim();
+        const anonymous = !!req.body?.isAnonymous;
+        if (!anonymous && !contactTrim) {
+          return res.status(400).json({ success: false, error: 'Nom du contact requis' });
+        }
+        const offers = parseOffersInput(req.body);
+        const password = generateRandomPassword();
+        dup.name = String(req.body?.name || '').trim() || 'Client prospect';
         dup.contactName = contactTrim;
-        dup.mealTypesMode = mealTypesMode;
-        dup.phone = phone ? String(phone).trim() : '';
-        dup.site = site;
+        applyOffersToCompany(dup, req.body);
+        dup.isAnonymous = anonymous;
+        dup.firstName = String(req.body?.firstName || '').trim();
+        dup.lastName = String(req.body?.lastName || '').trim();
+        dup.structureName = String(req.body?.structureName || '').trim();
+        dup.phone = req.body?.phone ? String(req.body.phone).trim() : '';
+        dup.site = normalizeSite(getSite(req));
         dup.password = password;
         dup.active = true;
         await dup.save();
         setImmediate(() =>
           partnerOrderAppSync.syncUpsert({
-            site,
+            site: dup.site,
             name: dup.name,
             phone: dup.phone || '',
             email: dup.email,
             contactName: dup.contactName || '',
             mealTypesMode: dup.mealTypesMode,
+            ...resolveCompanyOffers(dup),
+            isAnonymous: dup.isAnonymous,
             active: true,
             plainPassword: password
           })
         );
         return res.json({
           success: true,
-          data: {
-            id: dup._id,
-            name: dup.name,
-            contactName: dup.contactName || '',
-            mealTypesMode: normalizeMealTypesMode(dup.mealTypesMode),
-            email: dup.email,
-            phone: dup.phone
-          },
+          data: companyPayloadForClient(dup),
           password,
           reactivated: true
         });
@@ -561,9 +707,16 @@ const adminUpdateCompany = async (req, res) => {
     const company = await PartnerCompany.findById(id);
     if (!company) return res.status(404).json({ success: false, error: 'Entreprise non trouvée' });
 
-    const { contactName, name, phone, mealTypesMode: mealTypesModeRaw } = req.body || {};
+    const { contactName, name, phone, mealTypesMode: mealTypesModeRaw, isAnonymous, firstName, lastName, structureName } =
+      req.body || {};
     if (contactName !== undefined) company.contactName = String(contactName).trim();
-    if (mealTypesModeRaw !== undefined) company.mealTypesMode = normalizeMealTypesMode(mealTypesModeRaw);
+    if (mealTypesModeRaw !== undefined || req.body?.offerBreakfast !== undefined) {
+      applyOffersToCompany(company, req.body);
+    }
+    if (isAnonymous !== undefined) company.isAnonymous = !!isAnonymous;
+    if (firstName !== undefined) company.firstName = String(firstName).trim();
+    if (lastName !== undefined) company.lastName = String(lastName).trim();
+    if (structureName !== undefined) company.structureName = String(structureName).trim();
     if (name !== undefined && String(name).trim()) company.name = String(name).trim();
     if (phone !== undefined) company.phone = String(phone).trim();
     company.site = site;
@@ -576,7 +729,9 @@ const adminUpdateCompany = async (req, res) => {
         phone: company.phone || '',
         email: company.email,
         contactName: company.contactName || '',
-        mealTypesMode: normalizeMealTypesMode(company.mealTypesMode),
+        mealTypesMode: company.mealTypesMode,
+        ...resolveCompanyOffers(company),
+        isAnonymous: company.isAnonymous,
         active: company.active
       })
     );
@@ -584,12 +739,7 @@ const adminUpdateCompany = async (req, res) => {
     res.json({
       success: true,
       data: {
-        id: company._id,
-        name: company.name,
-        contactName: company.contactName || '',
-        mealTypesMode: normalizeMealTypesMode(company.mealTypesMode),
-        email: company.email,
-        phone: company.phone,
+        ...companyPayloadForClient(company),
         site: company.site || 'longuenesse',
         active: company.active,
         lastLoginAt: company.lastLoginAt
@@ -618,12 +768,7 @@ const adminListCompanies = async (req, res) => {
     res.json({
       success: true,
       data: companies.map((c) => ({
-        id: c._id,
-        name: c.name,
-        contactName: c.contactName || '',
-        mealTypesMode: normalizeMealTypesMode(c.mealTypesMode),
-        email: c.email,
-        phone: c.phone,
+        ...companyPayloadForClient(c),
         site: c.site || 'longuenesse',
         active: c.active,
         lastLoginAt: c.lastLoginAt

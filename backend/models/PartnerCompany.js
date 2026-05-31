@@ -20,12 +20,21 @@ const partnerCompanySchema = new mongoose.Schema(
     /** Copie du hash bcrypt (même valeur que `password`) pour les clients qui lisent Mongo en direct et attendent ce nom (ex. app Vercel). */
     passwordHash: { type: String, required: false, select: false },
     active: { type: Boolean, default: true },
-    /** Formules proposées sur le site commande Vercel : both | breakfast | lunch */
+    /** Formules proposées (legacy — dérivé des cases à cocher offerBreakfast / offerLunch) */
     mealTypesMode: {
       type: String,
-      enum: ['both', 'breakfast', 'lunch'],
+      enum: ['both', 'breakfast', 'lunch', 'none'],
       default: 'both'
     },
+    offerBreakfast: { type: Boolean, default: true },
+    offerLunch: { type: Boolean, default: true },
+    offerDevis: { type: Boolean, default: false },
+    offerCommande: { type: Boolean, default: false },
+    /** Client prospect : identité complétée à la demande de devis/commande */
+    isAnonymous: { type: Boolean, default: false },
+    firstName: { type: String, trim: true, default: '' },
+    lastName: { type: String, trim: true, default: '' },
+    structureName: { type: String, trim: true, default: '' },
     lastLoginAt: { type: Date, default: null }
   },
   { timestamps: true, collection: 'partnercompanies' }

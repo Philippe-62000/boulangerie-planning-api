@@ -2,14 +2,71 @@ import React, { useEffect, useMemo, useState } from 'react';
 import api from '../services/api';
 import { getSiteKey } from '../config/site';
 
-const mealTypesModeOptions = [
-  { value: 'both', label: 'Petit déjeuner et déjeuner' },
-  { value: 'breakfast', label: 'Petit déjeuner uniquement' },
-  { value: 'lunch', label: 'Déjeuner uniquement' }
+const OFFER_OPTIONS = [
+  { key: 'offerBreakfast', label: 'Petit déjeuner' },
+  { key: 'offerLunch', label: 'Déjeuner' },
+  { key: 'offerDevis', label: 'Devis' },
+  { key: 'offerCommande', label: 'Commande' }
 ];
 
-function mealTypesModeLabel(mode) {
-  return mealTypesModeOptions.find((o) => o.value === mode)?.label || mealTypesModeOptions[0].label;
+const DEFAULT_OFFERS = {
+  offerBreakfast: true,
+  offerLunch: true,
+  offerDevis: false,
+  offerCommande: false
+};
+
+function offersFromCompany(c) {
+  if (!c) return { ...DEFAULT_OFFERS };
+  if (
+    c.offerBreakfast !== undefined ||
+    c.offerLunch !== undefined ||
+    c.offerDevis !== undefined ||
+    c.offerCommande !== undefined
+  ) {
+    return {
+      offerBreakfast: !!c.offerBreakfast,
+      offerLunch: !!c.offerLunch,
+      offerDevis: !!c.offerDevis,
+      offerCommande: !!c.offerCommande
+    };
+  }
+  const mode = c.mealTypesMode || 'both';
+  if (mode === 'breakfast') return { ...DEFAULT_OFFERS, offerBreakfast: true, offerLunch: false };
+  if (mode === 'lunch') return { ...DEFAULT_OFFERS, offerBreakfast: false, offerLunch: true };
+  if (mode === 'none') return { ...DEFAULT_OFFERS, offerBreakfast: false, offerLunch: false };
+  return { ...DEFAULT_OFFERS };
+}
+
+function offersLabel(offers) {
+  const parts = OFFER_OPTIONS.filter((o) => offers[o.key]).map((o) => o.label);
+  return parts.length ? parts.join(', ') : 'Aucune option';
+}
+
+function OfferCheckboxes({ value, onChange, idPrefix = 'offer' }) {
+  const v = { ...DEFAULT_OFFERS, ...value };
+  return (
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px 18px', marginTop: 8 }}>
+      {OFFER_OPTIONS.map((o) => (
+        <label key={o.key} style={{ display: 'flex', gap: 8, alignItems: 'center', cursor: 'pointer' }}>
+          <input
+            type="checkbox"
+            checked={!!v[o.key]}
+            onChange={(e) => onChange({ ...v, [o.key]: e.target.checked })}
+            id={`${idPrefix}-${o.key}`}
+          />
+          <span>{o.label}</span>
+        </label>
+      ))}
+    </div>
+  );
+}
+
+function orderKindLabel(o) {
+  const k = o?.orderKind || o?.itemsSnapshot?.orderKind;
+  if (k === 'devis') return 'Devis';
+  if (k === 'commande') return 'Commande libre';
+  return null;
 }
 
 const statusLabels = {
@@ -82,10 +139,15 @@ const CommandeLivraisonEntreprises = () => {
     contactName: '',
     phone: '',
     email: '',
-    mealTypesMode: 'both'
+    isAnonymous: false,
+    firstName: '',
+    lastName: '',
+    structureName: '',
+    ...DEFAULT_OFFERS
   });
   const [contactEdits, setContactEdits] = useState({});
-  const [mealTypesEdits, setMealTypesEdits] = useState({});
+  const [offerEdits, setOfferEdits] = useState({});
+  const [anonymousEdits, setAnonymousEdits] = useState({});
   const [createdPassword, setCreatedPassword] = useState(null);
 
   const [formulasLoading, setFormulasLoading] = useState(false);
@@ -115,22 +177,26 @@ const CommandeLivraisonEntreprises = () => {
       const list = Array.isArray(res.data?.data) ? res.data.data : [];
       setCompanies(list);
       const edits = {};
-      const mealEdits = {};
+      const offerMap = {};
+      const anonMap = {};
       for (const c of list) {
         const id = c.id || c._id;
         if (id) {
           edits[id] = c.contactName || '';
-          mealEdits[id] = c.mealTypesMode || 'both';
+          offerMap[id] = offersFromCompany(c);
+          anonMap[id] = !!c.isAnonymous;
         }
       }
       setContactEdits(edits);
-      setMealTypesEdits(mealEdits);
+      setOfferEdits(offerMap);
+      setAnonymousEdits(anonMap);
     } catch (e) {
       console.error(e);
       alert('Impossible de charger les entreprises (droits admin requis).');
       setCompanies([]);
       setContactEdits({});
-      setMealTypesEdits({});
+      setOfferEdits({});
+      setAnonymousEdits({});
     } finally {
       setCompaniesLoading(false);
     }
@@ -144,15 +210,26 @@ const CommandeLivraisonEntreprises = () => {
         contactName: String(newCompany.contactName || '').trim(),
         phone: String(newCompany.phone || '').trim(),
         email: String(newCompany.email || '').trim(),
-        mealTypesMode: newCompany.mealTypesMode || 'both'
+        isAnonymous: !!newCompany.isAnonymous,
+        firstName: String(newCompany.firstName || '').trim(),
+        lastName: String(newCompany.lastName || '').trim(),
+        structureName: String(newCompany.structureName || '').trim(),
+        ...offersFromCompany(newCompany)
       };
-      if (!payload.name || !payload.email) {
-        alert('Nom entreprise et email requis.');
+      if (!payload.email) {
+        alert('Email requis.');
         return;
       }
-      if (!payload.contactName) {
+      if (!payload.isAnonymous && !payload.name) {
+        alert('Nom entreprise requis.');
+        return;
+      }
+      if (!payload.isAnonymous && !payload.contactName) {
         alert('Nom du contact requis.');
         return;
+      }
+      if (payload.isAnonymous && !payload.name) {
+        payload.name = payload.structureName || 'Client prospect';
       }
       const res = await api.post('/partner-admin/companies', payload, { params: { site } });
       const pwd = res.data?.password;
@@ -160,7 +237,17 @@ const CommandeLivraisonEntreprises = () => {
       if (res.data?.reactivated) {
         alert('Compte existant réactivé avec cet e-mail (nouveau mot de passe affiché ci-dessous).');
       }
-      setNewCompany({ name: '', contactName: '', phone: '', email: '', mealTypesMode: 'both' });
+      setNewCompany({
+        name: '',
+        contactName: '',
+        phone: '',
+        email: '',
+        isAnonymous: false,
+        firstName: '',
+        lastName: '',
+        structureName: '',
+        ...DEFAULT_OFFERS
+      });
       await loadCompanies();
     } catch (e) {
       console.error(e);
@@ -171,15 +258,16 @@ const CommandeLivraisonEntreprises = () => {
   const saveCompanySettings = async (company) => {
     try {
       const companyId = company.id || company._id;
+      const isAnon = anonymousEdits[companyId] ?? company.isAnonymous;
       const contactName = String(contactEdits[companyId] ?? company.contactName ?? '').trim();
-      if (!contactName) {
+      if (!isAnon && !contactName) {
         alert('Indiquez un nom de contact.');
         return;
       }
-      const mealTypesMode = mealTypesEdits[companyId] || company.mealTypesMode || 'both';
+      const offers = offerEdits[companyId] || offersFromCompany(company);
       await api.patch(
         `/partner-admin/companies/${companyId}`,
-        { contactName, mealTypesMode },
+        { contactName, isAnonymous: !!isAnon, ...offers },
         { params: { site } }
       );
       await loadCompanies();
@@ -455,7 +543,15 @@ const CommandeLivraisonEntreprises = () => {
                         </div>
                       )}
                       <div style={{ color: '#555', marginTop: '4px' }}>
-                        <b>{o.mealType === 'breakfast' ? 'Petit déjeuner' : 'Déjeuner'}</b> • {o.tier} •{' '}
+                        {orderKindLabel(o) ? (
+                          <>
+                            <b>{orderKindLabel(o)}</b> •{' '}
+                          </>
+                        ) : (
+                          <>
+                            <b>{o.mealType === 'breakfast' ? 'Petit déjeuner' : 'Déjeuner'}</b> • {o.tier} •{' '}
+                          </>
+                        )}
                         {o.fulfillment === 'delivery' ? 'Livraison' : 'Retrait magasin'}
                         {Number(o.quantity) > 1 ? ` • ${o.quantity} formules` : ''}
                       </div>
@@ -542,41 +638,51 @@ const CommandeLivraisonEntreprises = () => {
           </label>
           <div style={{ border: '1px solid #e5e5e5', borderRadius: '10px', padding: '12px', background: '#fff' }}>
             <div style={{ fontWeight: 800, marginBottom: 8 }}>Créer une entreprise (génère un mot de passe)</div>
+            <label style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 10, color: '#444' }}>
+              <input
+                type="checkbox"
+                checked={!!newCompany.isAnonymous}
+                onChange={(e) => setNewCompany((p) => ({ ...p, isAnonymous: e.target.checked }))}
+              />
+              <span>Client anonyme (prospect — identité complétée sur devis/commande)</span>
+            </label>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '0.5rem' }}>
               <input
-                placeholder="Nom entreprise"
+                placeholder={newCompany.isAnonymous ? 'Nom affiché (facultatif)' : 'Nom entreprise'}
                 value={newCompany.name}
                 onChange={(e) => setNewCompany((p) => ({ ...p, name: e.target.value }))}
               />
-              <input
-                placeholder="Nom du contact *"
-                value={newCompany.contactName}
-                onChange={(e) => setNewCompany((p) => ({ ...p, contactName: e.target.value }))}
-              />
+              {!newCompany.isAnonymous ? (
+                <input
+                  placeholder="Nom du contact *"
+                  value={newCompany.contactName}
+                  onChange={(e) => setNewCompany((p) => ({ ...p, contactName: e.target.value }))}
+                />
+              ) : (
+                <input
+                  placeholder="Nom de la structure (facultatif)"
+                  value={newCompany.structureName}
+                  onChange={(e) => setNewCompany((p) => ({ ...p, structureName: e.target.value }))}
+                />
+              )}
               <input
                 placeholder="Téléphone"
                 value={newCompany.phone}
                 onChange={(e) => setNewCompany((p) => ({ ...p, phone: e.target.value }))}
               />
               <input
-                placeholder="Email"
+                placeholder="Email *"
                 value={newCompany.email}
                 onChange={(e) => setNewCompany((p) => ({ ...p, email: e.target.value }))}
               />
             </div>
             <label style={{ display: 'block', marginTop: 10 }}>
-              <span style={{ fontWeight: 700, fontSize: 13 }}>Formules visibles sur le site commande (Vercel)</span>
-              <select
-                value={newCompany.mealTypesMode}
-                onChange={(e) => setNewCompany((p) => ({ ...p, mealTypesMode: e.target.value }))}
-                style={{ display: 'block', marginTop: 6, width: '100%', maxWidth: 420, padding: '8px 10px', borderRadius: 8 }}
-              >
-                {mealTypesModeOptions.map((o) => (
-                  <option key={o.value} value={o.value}>
-                    {o.label}
-                  </option>
-                ))}
-              </select>
+              <span style={{ fontWeight: 700, fontSize: 13 }}>Options proposées sur le site commande (Vercel)</span>
+              <OfferCheckboxes
+                idPrefix="new-co"
+                value={newCompany}
+                onChange={(offers) => setNewCompany((p) => ({ ...p, ...offers }))}
+              />
             </label>
             <div style={{ display: 'flex', gap: '0.5rem', marginTop: 10, flexWrap: 'wrap' }}>
               <button onClick={createCompany} style={{ padding: '8px 12px', borderRadius: '8px' }}>
@@ -615,14 +721,21 @@ const CommandeLivraisonEntreprises = () => {
                   <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
                     <div>
                       <div style={{ fontWeight: 900 }}>{c.name}</div>
+                      {c.isAnonymous ? (
+                        <div style={{ color: '#6366f1', marginTop: 4, fontSize: 13, fontWeight: 700 }}>
+                          Client anonyme (prospect)
+                        </div>
+                      ) : null}
                       {c.contactName ? (
                         <div style={{ color: '#334155', marginTop: 4, fontWeight: 600 }}>Contact : {c.contactName}</div>
+                      ) : c.isAnonymous ? (
+                        <div style={{ color: '#64748b', marginTop: 4, fontSize: 13 }}>Contact à saisir sur devis/commande</div>
                       ) : (
                         <div style={{ color: '#b45309', marginTop: 4, fontSize: 13 }}>Contact non renseigné</div>
                       )}
                       <div style={{ color: '#555', marginTop: 4 }}>{c.email}{c.phone ? ` • ${c.phone}` : ''}</div>
                       <div style={{ color: '#475569', marginTop: 6, fontSize: 13 }}>
-                        Site commande : <strong>{mealTypesModeLabel(c.mealTypesMode || 'both')}</strong>
+                        Site commande : <strong>{offersLabel(offerEdits[c.id] || offersFromCompany(c))}</strong>
                       </div>
                       <div
                         style={{
@@ -641,20 +754,13 @@ const CommandeLivraisonEntreprises = () => {
                           }
                           style={{ flex: '1 1 200px', minWidth: 160, padding: '6px 8px', borderRadius: 6 }}
                         />
-                        <select
-                          value={mealTypesEdits[c.id] ?? c.mealTypesMode ?? 'both'}
-                          onChange={(e) =>
-                            setMealTypesEdits((p) => ({ ...p, [c.id]: e.target.value }))
-                          }
-                          style={{ flex: '1 1 220px', minWidth: 200, padding: '6px 8px', borderRadius: 6 }}
-                          title="Formules visibles sur Vercel"
-                        >
-                          {mealTypesModeOptions.map((o) => (
-                            <option key={o.value} value={o.value}>
-                              {o.label}
-                            </option>
-                          ))}
-                        </select>
+                        <div style={{ flex: '1 1 100%', minWidth: 280 }}>
+                          <OfferCheckboxes
+                            idPrefix={`co-${c.id}`}
+                            value={offerEdits[c.id] || offersFromCompany(c)}
+                            onChange={(offers) => setOfferEdits((p) => ({ ...p, [c.id]: offers }))}
+                          />
+                        </div>
                         <button
                           type="button"
                           onClick={() => saveCompanySettings(c)}

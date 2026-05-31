@@ -12,8 +12,21 @@ const partnerOrderSchema = new mongoose.Schema(
     fulfillment: { type: String, enum: ['delivery', 'pickup'], required: true },
     datetime: { type: Date, required: true, index: true },
 
-    mealType: { type: String, enum: ['breakfast', 'lunch'], required: true },
-    tier: { type: String, enum: ['eco', 'classic', 'premium'], required: true },
+    orderKind: {
+      type: String,
+      enum: ['formula', 'devis', 'commande'],
+      default: 'formula',
+      index: true
+    },
+    requestDetail: { type: String, trim: true, default: '' },
+    prospectFirstName: { type: String, trim: true, default: '' },
+    prospectLastName: { type: String, trim: true, default: '' },
+    prospectStructureName: { type: String, trim: true, default: '' },
+    prospectPhone: { type: String, trim: true, default: '' },
+    prospectEmail: { type: String, trim: true, default: '' },
+
+    mealType: { type: String, enum: ['breakfast', 'lunch', null], default: null },
+    tier: { type: String, enum: ['eco', 'classic', 'premium', null], default: null },
 
     /** Nombre de formules commandées (ex. 6 petits déjeuners). */
     quantity: { type: Number, default: 1, min: 1 },
