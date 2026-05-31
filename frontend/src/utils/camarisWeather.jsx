@@ -27,21 +27,21 @@ const phraseFor = (kind, tempC, isSunday = false) => {
   const t = tempC != null ? Number(tempC) : null;
   if (isSunday) {
     if (kind === 'rain' || kind === 'storm' || kind === 'drizzle') {
-      return "Il va pleuvoir aujourd'hui : stand fermé le dimanche, retrouvez-nous dès lundi.";
+      return "Il va pleuvoir aujourd'hui : l'occasion de savourer nos viennoiseries et pâtisseries maison.";
     }
     if (kind === 'snow') {
-      return "Il fait froid et l'ambiance est hivernale : stand fermé le dimanche, à bientôt en semaine.";
+      return "Il fait froid et l'ambiance est hivernale : nos viennoiseries chaudes, un vrai réconfort.";
     }
     if (t != null && t >= 26) {
-      return "Il va faire chaud aujourd'hui : stand fermé le dimanche, pensez à vous hydrater.";
+      return "Il va faire chaud aujourd'hui : pensez à vous hydrater et à nos produits frais du jour.";
     }
     if (t != null && t <= 8) {
-      return "Il va faire froid aujourd'hui : stand fermé le dimanche, nos sandwichs chauds vous attendent en semaine.";
+      return "Il va faire froid aujourd'hui : nos sandwichs chauds et pains spéciaux réchauffent la journée.";
     }
     if (kind === 'sun') {
-      return 'Beau temps : le stand Camaris reprend du lundi au samedi.';
+      return 'Beau temps : profitez de nos produits frais du jour, préparés chaque matin.';
     }
-    return 'Temps variable : stand fermé le dimanche, animations possibles en semaine.';
+    return 'Temps variable : une pause gourmande Camaris, c’est du bon pain maison et des douceurs artisanales.';
   }
   if (kind === 'rain' || kind === 'storm' || kind === 'drizzle') {
     return "Il va pleuvoir aujourd'hui : venez vous réconforter à notre stand !";

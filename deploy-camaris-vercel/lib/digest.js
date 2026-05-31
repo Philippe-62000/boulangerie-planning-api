@@ -125,9 +125,7 @@ const getPauseGourmandeBody = (d = new Date()) => {
     }
     const sundayList = pauseGourmandeDimancheCache.length
       ? pauseGourmandeDimancheCache
-      : [
-          'Le stand Camaris est fermé le dimanche : retrouvez-nous du lundi au samedi pour une pause gourmande.'
-        ];
+      : ['Pause gourmande Camaris : viennoiseries et pâtisseries préparées chaque matin par nos artisans.'];
     const idx = (d.getFullYear() * 366 + d.getMonth() * 31 + d.getDate()) % sundayList.length;
     return sundayList[idx];
   }
@@ -178,14 +176,9 @@ const AUTO_SUGGESTIONS = [
 ];
 
 const getAutoAnimation = (d = new Date()) => {
-  const isSunday = d.getDay() === 0;
   const idx = (d.getFullYear() * 7 + jsDayToFrench(d.getDay())) % AUTO_SUGGESTIONS.length;
   const pick = AUTO_SUGGESTIONS[idx];
-  let body = pick.kind === 'pauseGourmande' ? getPauseGourmandeBody(d) : pick.body || '';
-  if (isSunday && pick.title === 'Spécialité Camaris') {
-    body =
-      'Stand fermé le dimanche : des animations peuvent être prévues en semaine — consultez le calendrier de la semaine.';
-  }
+  const body = pick.kind === 'pauseGourmande' ? getPauseGourmandeBody(d) : pick.body || '';
   return {
     source: 'auto',
     title: pick.title,
