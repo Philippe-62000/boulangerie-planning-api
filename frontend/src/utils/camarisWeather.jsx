@@ -23,8 +23,26 @@ const kindFromCode = (code) => {
   return 'cloud';
 };
 
-const phraseFor = (kind, tempC) => {
+const phraseFor = (kind, tempC, isSunday = false) => {
   const t = tempC != null ? Number(tempC) : null;
+  if (isSunday) {
+    if (kind === 'rain' || kind === 'storm' || kind === 'drizzle') {
+      return "Il va pleuvoir aujourd'hui : stand fermé le dimanche, retrouvez-nous dès lundi.";
+    }
+    if (kind === 'snow') {
+      return "Il fait froid et l'ambiance est hivernale : stand fermé le dimanche, à bientôt en semaine.";
+    }
+    if (t != null && t >= 26) {
+      return "Il va faire chaud aujourd'hui : stand fermé le dimanche, pensez à vous hydrater.";
+    }
+    if (t != null && t <= 8) {
+      return "Il va faire froid aujourd'hui : stand fermé le dimanche, nos sandwichs chauds vous attendent en semaine.";
+    }
+    if (kind === 'sun') {
+      return 'Beau temps : le stand Camaris reprend du lundi au samedi.';
+    }
+    return 'Temps variable : stand fermé le dimanche, animations possibles en semaine.';
+  }
   if (kind === 'rain' || kind === 'storm' || kind === 'drizzle') {
     return "Il va pleuvoir aujourd'hui : venez vous réconforter à notre stand !";
   }
@@ -50,10 +68,11 @@ export async function fetchCamarisWeather() {
   const data = await res.json();
   const cur = data?.current;
   const kind = kindFromCode(cur?.weather_code);
+  const isSunday = new Date().getDay() === 0;
   return {
     kind,
     temperature: cur?.temperature_2m ?? null,
-    phrase: phraseFor(kind, cur?.temperature_2m)
+    phrase: phraseFor(kind, cur?.temperature_2m, isSunday)
   };
 }
 

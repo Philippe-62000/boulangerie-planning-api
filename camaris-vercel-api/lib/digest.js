@@ -8,6 +8,7 @@ let didYouKnowCache = null;
 let ephemeridesCache = null;
 let territoryCache = null;
 let pauseGourmandeCache = null;
+let pauseGourmandeDimancheCache = null;
 let sportCache = null;
 
 const loadJson = (filename) => {
@@ -117,6 +118,19 @@ const getTerritoryHighlightAsync = async (d = new Date(), siteKey = 'lon') => {
 };
 
 const getPauseGourmandeBody = (d = new Date()) => {
+  const isSunday = d.getDay() === 0;
+  if (isSunday) {
+    if (!pauseGourmandeDimancheCache) {
+      pauseGourmandeDimancheCache = loadJson('camaris-pause-gourmande-dimanche.json') || [];
+    }
+    const sundayList = pauseGourmandeDimancheCache.length
+      ? pauseGourmandeDimancheCache
+      : [
+          'Le stand Camaris est fermé le dimanche : retrouvez-nous du lundi au samedi pour une pause gourmande.'
+        ];
+    const idx = (d.getFullYear() * 366 + d.getMonth() * 31 + d.getDate()) % sundayList.length;
+    return sundayList[idx];
+  }
   if (!pauseGourmandeCache) pauseGourmandeCache = loadJson('camaris-pause-gourmande.json') || [];
   const list = pauseGourmandeCache.length
     ? pauseGourmandeCache
@@ -164,10 +178,14 @@ const AUTO_SUGGESTIONS = [
 ];
 
 const getAutoAnimation = (d = new Date()) => {
+  const isSunday = d.getDay() === 0;
   const idx = (d.getFullYear() * 7 + jsDayToFrench(d.getDay())) % AUTO_SUGGESTIONS.length;
   const pick = AUTO_SUGGESTIONS[idx];
-  const body =
-    pick.kind === 'pauseGourmande' ? getPauseGourmandeBody(d) : pick.body || '';
+  let body = pick.kind === 'pauseGourmande' ? getPauseGourmandeBody(d) : pick.body || '';
+  if (isSunday && pick.title === 'Spécialité Camaris') {
+    body =
+      'Stand fermé le dimanche : des animations peuvent être prévues en semaine — consultez le calendrier de la semaine.';
+  }
   return {
     source: 'auto',
     title: pick.title,
@@ -188,9 +206,14 @@ const getSportHighlight = (d = new Date()) => {
   const y = d.getFullYear();
 
   if (!sportCache) sportCache = loadJson('camaris-sport.json') || [];
-  const dated = sportCache.filter(
-    (e) => e.month === m && e.day === day && (e.year == null || e.year === y || e.year === 0)
-  );
+  const dated = sportCache
+    .filter((e) => e.month === m && e.day === day && (e.year == null || e.year === y || e.year === 0))
+    .sort((a, b) => {
+      const aYear = a.year === y ? 1 : 0;
+      const bYear = b.year === y ? 1 : 0;
+      if (bYear !== aYear) return bYear - aYear;
+      return (b.priority || 0) - (a.priority || 0);
+    });
   if (dated.length) {
     const audo = dated.find((e) => e.scope === 'audomarois');
     const regional = dated.find((e) => e.scope === 'pas-de-calais' || e.scope === 'local');
@@ -198,10 +221,14 @@ const getSportHighlight = (d = new Date()) => {
     return { text: pick.text };
   }
 
-  if ((m === 5 && day >= 18) || (m === 6 && day <= 9)) {
-    return {
-      text: 'Tennis : Roland-Garros — suivez les matchs du jour et les Français encore en lice.'
-    };
+  if ((m === 5 && day >= 18 && day <= 25) || (m === 6 && day === 9)) {
+    const rgFallback = [
+      'Tennis : Roland-Garros — suivez les matchs du jour et les Français encore en lice.',
+      'Tennis : Roland-Garros — tableaux hommes et dames, ambiance Porte d’Auteuil.',
+      'Tennis : Roland-Garros — terre battue parisienne, repérez les temps forts du jour.'
+    ];
+    const idx = (y * 366 + m * 31 + day) % rgFallback.length;
+    return { text: rgFallback[idx] };
   }
   if (m === 6 && y === 2026 && day >= 11 && day <= 19) {
     return { text: 'Football : Coupe du monde 2026 — phase de groupes, matchs à ne pas manquer.' };

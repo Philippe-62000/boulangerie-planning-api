@@ -5,6 +5,116 @@
     "text": "Football : reprise des championnats après la trêve — suivez les clubs français."
   },
   {
+    "year": 2026,
+    "month": 5,
+    "day": 26,
+    "scope": "france",
+    "text": "Tennis : Roland-Garros — 1er tour en cours, les Français entrent en lice sur terre battue."
+  },
+  {
+    "year": 2026,
+    "month": 5,
+    "day": 27,
+    "scope": "france",
+    "text": "Tennis : Roland-Garros — 2e tour, ambiance électrique sur le Central et les annexes."
+  },
+  {
+    "year": 2026,
+    "month": 5,
+    "day": 28,
+    "scope": "france",
+    "priority": 8,
+    "text": "Tennis : Roland-Garros — Novak Djokovic éliminé dès le 3e tour : un immense coup de tonnerre, très rare pour le numéro 1 mondial."
+  },
+  {
+    "year": 2026,
+    "month": 5,
+    "day": 29,
+    "scope": "france",
+    "text": "Tennis : Roland-Garros — 8es de finale hommes et dames : le tableau se décante sans Djokovic."
+  },
+  {
+    "year": 2026,
+    "month": 5,
+    "day": 30,
+    "scope": "france",
+    "priority": 10,
+    "text": "Football : le PSG remporte la Ligue des champions pour la 2e fois consécutive — un exploit historique pour le club parisien."
+  },
+  {
+    "year": 2026,
+    "month": 5,
+    "day": 31,
+    "scope": "france",
+    "text": "Tennis : Roland-Garros — quarts de finale du week-end ; football : la fête continue après le doublé européen du PSG."
+  },
+  {
+    "year": 2026,
+    "month": 6,
+    "day": 1,
+    "scope": "france",
+    "text": "Tennis : Roland-Garros — demi-finales à venir, après une édition déjà marquée par la surprise Djokovic."
+  },
+  {
+    "year": 2026,
+    "month": 6,
+    "day": 2,
+    "scope": "france",
+    "text": "Tennis : Roland-Garros — dernière ligne droite vers les finales hommes et dames."
+  },
+  {
+    "year": 2026,
+    "month": 6,
+    "day": 3,
+    "scope": "france",
+    "text": "Tennis : Roland-Garros — demi-finales femmes, suivez les Françaises encore en course."
+  },
+  {
+    "year": 2026,
+    "month": 6,
+    "day": 4,
+    "scope": "france",
+    "text": "Tennis : Roland-Garros — demi-finales hommes, soirées marathon sur le Central."
+  },
+  {
+    "year": 2026,
+    "month": 6,
+    "day": 5,
+    "scope": "france",
+    "text": "Tennis : Roland-Garros — veille des finales, derniers réglages sur terre battue."
+  },
+  {
+    "year": 2026,
+    "month": 6,
+    "day": 6,
+    "scope": "france",
+    "text": "Tennis : Roland-Garros — finale dames à Paris."
+  },
+  {
+    "year": 2026,
+    "month": 6,
+    "day": 7,
+    "scope": "france",
+    "text": "Tennis : Roland-Garros — finale hommes, clôture du Grand Chelem parisien."
+  },
+  {
+    "year": 2026,
+    "month": 6,
+    "day": 8,
+    "scope": "france",
+    "text": "Tennis : Roland-Garros — retour sur les temps forts d’une édition marquée par l’élimination précoce de Djokovic."
+  },
+  {
+    "month": 5,
+    "day": 26,
+    "text": "Tennis : Roland-Garros — 1er tour à Paris, ambiance terre battue."
+  },
+  {
+    "month": 6,
+    "day": 8,
+    "text": "Tennis : Roland-Garros — demi-finales et finales, soirées marathon sur le Central."
+  },
+  {
     "month": 6,
     "day": 11,
     "scope": "france",
@@ -34,16 +144,6 @@
     "month": 8,
     "day": 1,
     "text": "Jeux olympiques d’été (années olympiques) : médailles françaises en athlétisme, judo, cyclisme…"
-  },
-  {
-    "month": 5,
-    "day": 26,
-    "text": "Tennis : Roland-Garros — 1er tour à Paris, ambiance terre battue."
-  },
-  {
-    "month": 6,
-    "day": 8,
-    "text": "Tennis : Roland-Garros — demi-finales et finales, soirées marathon sur le Central."
   },
   {
     "month": 9,
