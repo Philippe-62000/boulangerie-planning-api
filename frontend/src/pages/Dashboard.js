@@ -301,7 +301,7 @@ const Dashboard = () => {
     setPartnerInviteSending(true);
     try {
       await api.post(
-        '/partner-orders/internal/quick-invite',
+        '/partner-quick-invite',
         { email, site: isLonguenesse ? 'longuenesse' : 'arras' },
         { params: { site: isLonguenesse ? 'longuenesse' : 'arras' } }
       );

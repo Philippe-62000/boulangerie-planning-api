@@ -252,8 +252,10 @@ app.use('/api/supplier-orders', require('./routes/supplierOrder'));
 console.log('✅ Routes supplier-orders montées (/api/supplier-orders/*)');
 /** POST JSON { email } — purge définitive PartnerCompany ; route courte au cas où /partner-admin/* serait obsolète sur Render */
 const partnerCompanyController = require('./controllers/partnerCompanyController');
-const { authenticateManager } = require('./middleware/auth');
+const { authenticateManager, authenticateEmployee } = require('./middleware/auth');
 app.post('/api/partner-company-purge', authenticateManager, partnerCompanyController.adminPurgePartnerCompanyByEmailPost);
+/** POST JSON { email, site? } — invitation client entreprise (dashboard) */
+app.post('/api/partner-quick-invite', authenticateEmployee, partnerCompanyController.staffQuickInviteByEmail);
 app.use('/api/product-exchanges', require('./routes/productExchanges'));
 app.use('/api/responsable-km', require('./routes/responsableKm'));
 app.use('/api/meal-reservations', require('./routes/mealReservations'));
