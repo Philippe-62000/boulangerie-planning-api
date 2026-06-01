@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import api from '../services/api';
 import { getSiteKey } from '../config/site';
+import { useAuth } from '../contexts/AuthContext';
 
 const OFFER_OPTIONS = [
   { key: 'offerBreakfast', label: 'Petit déjeuner' },
@@ -123,8 +124,10 @@ function sanitizeFormulaPayloadForSave(data) {
 }
 
 const CommandeLivraisonEntreprises = () => {
+  const { isAdmin } = useAuth();
   const siteKey = getSiteKey(); // lon | plan
   const site = siteKey === 'lon' ? 'longuenesse' : 'arras';
+  const admin = isAdmin();
 
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -383,10 +386,14 @@ const CommandeLivraisonEntreprises = () => {
   }, [filterStatus, site]);
 
   useEffect(() => {
-    if (tab === 'companies') loadCompanies();
-    if (tab === 'formulas') loadFormulas();
+    if (!admin && tab !== 'orders') setTab('orders');
+  }, [admin, tab]);
+
+  useEffect(() => {
+    if (tab === 'companies' && admin) loadCompanies();
+    if (tab === 'formulas' && admin) loadFormulas();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tab, site]);
+  }, [tab, site, admin]);
 
   useEffect(() => {
     if (tab === 'companies') loadCompanies();
@@ -399,11 +406,11 @@ const CommandeLivraisonEntreprises = () => {
 
   const updateStatus = async (orderId, nextStatus) => {
     try {
-      await api.patch(`/partner-admin/orders/${orderId}/status`, { status: nextStatus }, { params: { site } });
+      await api.patch(`/partner-orders/internal/${orderId}/status`, { status: nextStatus }, { params: { site } });
       await load();
     } catch (e) {
       console.error(e);
-      alert('Impossible de changer le statut (droits admin requis).');
+      alert(e?.response?.data?.error || 'Impossible de changer le statut de la commande.');
     }
   };
 
@@ -468,18 +475,22 @@ const CommandeLivraisonEntreprises = () => {
         >
           Commandes
         </button>
-        <button
-          onClick={() => setTab('companies')}
-          style={{ padding: '8px 12px', borderRadius: '8px', background: tab === 'companies' ? '#eef2ff' : '#fff' }}
-        >
-          Entreprises (admin)
-        </button>
-        <button
-          onClick={() => setTab('formulas')}
-          style={{ padding: '8px 12px', borderRadius: '8px', background: tab === 'formulas' ? '#eef2ff' : '#fff' }}
-        >
-          Formules (admin)
-        </button>
+        {admin ? (
+          <button
+            onClick={() => setTab('companies')}
+            style={{ padding: '8px 12px', borderRadius: '8px', background: tab === 'companies' ? '#eef2ff' : '#fff' }}
+          >
+            Entreprises (admin)
+          </button>
+        ) : null}
+        {admin ? (
+          <button
+            onClick={() => setTab('formulas')}
+            style={{ padding: '8px 12px', borderRadius: '8px', background: tab === 'formulas' ? '#eef2ff' : '#fff' }}
+          >
+            Formules (admin)
+          </button>
+        ) : null}
       </div>
 
       {tab === 'orders' && (

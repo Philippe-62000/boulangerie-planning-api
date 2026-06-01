@@ -83,6 +83,8 @@ const Dashboard = () => {
     loading: false
   });
   const [partnerOrdersPending, setPartnerOrdersPending] = useState({ count: 0, loading: false });
+  const [newPartnerClientEmail, setNewPartnerClientEmail] = useState('');
+  const [partnerInviteSending, setPartnerInviteSending] = useState(false);
   const [flourStocksWidget, setFlourStocksWidget] = useState({
     loading: false,
     items: [],
@@ -289,6 +291,29 @@ const Dashboard = () => {
     return n.toFixed(2);
   };
 
+
+  const sendPartnerClientInvite = async () => {
+    const email = String(newPartnerClientEmail || '').trim();
+    if (!email) {
+      alert('Indiquez une adresse e-mail.');
+      return;
+    }
+    setPartnerInviteSending(true);
+    try {
+      await api.post(
+        '/partner-orders/internal/quick-invite',
+        { email, site: isLonguenesse ? 'longuenesse' : 'arras' },
+        { params: { site: isLonguenesse ? 'longuenesse' : 'arras' } }
+      );
+      alert(`E-mail envoyé à ${email} avec le lien de connexion et le mot de passe.`);
+      setNewPartnerClientEmail('');
+    } catch (e) {
+      console.error(e);
+      alert(e?.response?.data?.error || "Impossible d'envoyer l'e-mail.");
+    } finally {
+      setPartnerInviteSending(false);
+    }
+  };
 
   const fetchPartnerOrdersPending = async () => {
     setPartnerOrdersPending((s) => ({ ...s, loading: true }));
@@ -1200,6 +1225,54 @@ const Dashboard = () => {
               >
                 Voir les commandes →
               </a>
+              <div
+                style={{
+                  marginTop: '1rem',
+                  paddingTop: '1rem',
+                  borderTop: '1px solid #e5e7eb'
+                }}
+              >
+                <div style={{ fontWeight: 700, marginBottom: '0.5rem' }}>Nouveau client</div>
+                <div style={{ fontSize: '0.85rem', color: '#666', marginBottom: '0.5rem' }}>
+                  Un e-mail part avec le lien{' '}
+                  <a href="https://commande-longuenesse.vercel.app/" target="_blank" rel="noreferrer">
+                    commande-longuenesse.vercel.app
+                  </a>
+                  , l&apos;identifiant (cette adresse) et un mot de passe généré.
+                </div>
+                <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
+                  <input
+                    type="email"
+                    placeholder="E-mail du client"
+                    value={newPartnerClientEmail}
+                    onChange={(e) => setNewPartnerClientEmail(e.target.value)}
+                    style={{
+                      flex: '1 1 200px',
+                      minWidth: 180,
+                      padding: '8px 10px',
+                      borderRadius: 8,
+                      border: '1px solid #ccc'
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={sendPartnerClientInvite}
+                    disabled={partnerInviteSending || !newPartnerClientEmail.trim()}
+                    style={{
+                      padding: '8px 14px',
+                      borderRadius: 8,
+                      border: 'none',
+                      background: '#667eea',
+                      color: '#fff',
+                      fontWeight: 600,
+                      cursor: partnerInviteSending ? 'wait' : 'pointer',
+                      opacity: partnerInviteSending || !newPartnerClientEmail.trim() ? 0.7 : 1
+                    }}
+                  >
+                    {partnerInviteSending ? 'Envoi…' : 'Envoyer mot de passe'}
+                  </button>
+                </div>
+              </div>
             </div>
           )}
         </div>

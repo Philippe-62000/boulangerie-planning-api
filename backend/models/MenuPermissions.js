@@ -289,6 +289,15 @@ menuPermissionsSchema.statics.createDefaultPermissions = async function() {
         order: 17
       },
       {
+        menuId: 'commande-livraison',
+        menuName: 'Commande livraison',
+        menuPath: '/commande-livraison',
+        isVisibleToAdmin: true,
+        isVisibleToEmployee: true,
+        requiredPermissions: [],
+        order: 17.5
+      },
+      {
         menuId: 'product-exchanges',
         menuName: 'Échanges entre boulangeries',
         menuPath: '/product-exchanges',

@@ -652,6 +652,22 @@ const adminDeleteCompany = async (req, res) => {
   }
 };
 
+async function sendPartnerCompanyInviteEmail(company, plainPassword, site) {
+  const orderAppUrl = process.env.PARTNER_ORDER_APP_URL || 'https://commande-longuenesse.vercel.app';
+  const subject = `Accès commande entreprises - ${company.name}`;
+  const html = `
+      <p>Bonjour,</p>
+      <p>Votre accès à la page de commande en ligne est prêt.</p>
+      <p><b>Identifiant (login) :</b> ${company.email}<br/>
+      <b>Mot de passe :</b> ${plainPassword}</p>
+      <p><b>Lien de connexion :</b> <a href="${orderAppUrl}">${orderAppUrl}</a></p>
+      <p>Vous pourrez consulter vos commandes et en créer de nouvelles selon les options activées pour votre compte.</p>
+      <p>— Boulangerie Longuenesse</p>
+    `;
+  const text = `Identifiant (login): ${company.email}\nMot de passe: ${plainPassword}\nLien: ${orderAppUrl}\n`;
+  return emailService.sendEmail(company.email, subject, html, text);
+}
+
 const adminSendInvite = async (req, res) => {
   try {
     const { id } = req.params;
@@ -662,22 +678,10 @@ const adminSendInvite = async (req, res) => {
     const newPassword = generateRandomPassword();
     company.site = site;
     company.password = newPassword;
+    company.active = true;
     await company.save();
 
-    const orderAppUrl = process.env.PARTNER_ORDER_APP_URL || 'https://commande-longuenesse.vercel.app';
-    const subject = `Accès Commande en ligne - ${company.name}`;
-    const html = `
-      <p>Bonjour,</p>
-      <p>Votre accès à la page de commande en ligne est prêt.</p>
-      <p><b>Identifiant :</b> ${company.email}<br/>
-      <b>Mot de passe :</b> ${newPassword}</p>
-      <p><b>Lien :</b> <a href="${orderAppUrl}">${orderAppUrl}</a></p>
-      <p>Vous pourrez voir vos commandes et en créer une nouvelle (petit déjeuner / déjeuner, livraison / retrait).</p>
-      <p>— Boulangerie Longuenesse</p>
-    `;
-    const text = `Identifiant: ${company.email}\nMot de passe: ${newPassword}\nLien: ${orderAppUrl}\n`;
-
-    const r = await emailService.sendEmail(company.email, subject, html, text);
+    const r = await sendPartnerCompanyInviteEmail(company, newPassword, site);
     if (!r?.success) {
       return res.status(500).json({ success: false, error: r?.error || 'Email non envoyé' });
     }
@@ -688,7 +692,9 @@ const adminSendInvite = async (req, res) => {
         phone: company.phone || '',
         email: company.email,
         contactName: company.contactName || '',
-        mealTypesMode: normalizeMealTypesMode(company.mealTypesMode),
+        mealTypesMode: company.mealTypesMode,
+        ...resolveCompanyOffers(company),
+        isAnonymous: company.isAnonymous,
         active: true,
         plainPassword: newPassword
       })
@@ -696,6 +702,90 @@ const adminSendInvite = async (req, res) => {
     res.json({ success: true });
   } catch (err) {
     console.error('❌ adminSendInvite:', err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+};
+
+/** Crée ou réactive un compte entreprise par e-mail et envoie identifiants (dashboard admin / salarié). */
+const staffQuickInviteByEmail = async (req, res) => {
+  try {
+    const site = normalizeSite(getSite(req));
+    const emailNorm = String(req.body?.email || '')
+      .toLowerCase()
+      .trim();
+    if (!emailNorm) {
+      return res.status(400).json({ success: false, error: 'Adresse e-mail requise' });
+    }
+
+    const newPassword = generateRandomPassword();
+    let company = await PartnerCompany.findOne({ email: emailNorm }).select('+password');
+    let wasCreated = false;
+
+    if (company) {
+      if (!company.active) {
+        company.active = true;
+      }
+      company.site = site;
+      company.password = newPassword;
+      if (!String(company.contactName || '').trim()) {
+        const local = emailNorm.split('@')[0] || 'Client';
+        company.contactName = local.charAt(0).toUpperCase() + local.slice(1);
+      }
+      await company.save();
+    } else {
+      const local = emailNorm.split('@')[0] || 'client';
+      const displayName = local.charAt(0).toUpperCase() + local.slice(1);
+      company = await PartnerCompany.create({
+        name: displayName,
+        contactName: displayName,
+        email: emailNorm,
+        phone: '',
+        site,
+        password: newPassword,
+        active: true,
+        offerBreakfast: true,
+        offerLunch: true,
+        offerDevis: false,
+        offerCommande: false,
+        mealTypesMode: 'both'
+      });
+      wasCreated = true;
+    }
+
+    const mailResult = await sendPartnerCompanyInviteEmail(company, newPassword, site);
+    if (!mailResult?.success) {
+      return res.status(500).json({ success: false, error: mailResult?.error || 'Email non envoyé' });
+    }
+
+    setImmediate(() =>
+      partnerOrderAppSync.syncUpsert({
+        site,
+        name: company.name,
+        phone: company.phone || '',
+        email: company.email,
+        contactName: company.contactName || '',
+        mealTypesMode: company.mealTypesMode,
+        ...resolveCompanyOffers(company),
+        isAnonymous: company.isAnonymous,
+        active: true,
+        plainPassword: newPassword
+      })
+    );
+
+    res.json({
+      success: true,
+      data: {
+        id: company._id,
+        email: company.email,
+        name: company.name,
+        created: wasCreated
+      }
+    });
+  } catch (err) {
+    if (err.code === 11000) {
+      return res.status(400).json({ success: false, error: 'Cet e-mail est déjà utilisé' });
+    }
+    console.error('❌ staffQuickInviteByEmail:', err);
     res.status(500).json({ success: false, error: err.message });
   }
 };
@@ -894,6 +984,7 @@ module.exports = {
   adminGetFormulas,
   adminUpdateFormulas,
   internalPendingCount,
-  internalListOrders
+  internalListOrders,
+  staffQuickInviteByEmail
 };
 

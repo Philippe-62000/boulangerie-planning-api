@@ -12,6 +12,8 @@ router.delete('/my/:id', authenticatePartnerCompany, controller.deletePartnerOrd
 // Internal (salariés/admin) for dashboard + listing (read-only)
 router.get('/pending-count', authenticateEmployee, controller.internalPendingCount);
 router.get('/internal', authenticateEmployee, controller.internalListOrders);
+router.patch('/internal/:id/status', authenticateEmployee, controller.adminUpdateOrderStatus);
+router.post('/internal/quick-invite', authenticateEmployee, controller.staffQuickInviteByEmail);
 router.delete('/internal/:id', authenticateEmployee, controller.deletePartnerOrderById);
 
 module.exports = router;
