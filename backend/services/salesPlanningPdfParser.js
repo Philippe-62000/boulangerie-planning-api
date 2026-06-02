@@ -11,10 +11,11 @@ async function extractTextFromPdf(buffer) {
     // erreurs du type "bad XRef entry" ou "Illegal character: 41", alors que le PDF est lisible.
     // On retente via pdfjs-dist avec stopAtErrors=false.
 
-    const header = Buffer.isBuffer(buffer) ? buffer.subarray(0, 1024).toString('latin1') : '';
+    const header = Buffer.isBuffer(buffer) ? buffer.subarray(0, 4096).toString('latin1') : '';
+    // Certains fichiers ont des octets avant "%PDF-" (BOM / wrappers / etc.)
     const looksLikePdf = /%PDF-/i.test(header);
     const shouldRetryWithPdfjs =
-      looksLikePdf &&
+      (looksLikePdf || /%PDF-/i.test(String(buffer?.subarray?.(0, 16384)?.toString?.('latin1') || ''))) &&
       /(bad\s+xref\s+entry|illegal\s+character|formaterror|invalid\s+xref|xref)/i.test(msg);
 
     if (!shouldRetryWithPdfjs) {
@@ -30,24 +31,30 @@ async function extractTextFromPdf(buffer) {
       throw err;
     }
 
-    const loadingTask = pdfjsLib.getDocument({
-      data: buffer,
-      stopAtErrors: false,
-      disableFontFace: true,
-      useSystemFonts: true
-    });
-    const doc = await loadingTask.promise;
-    let text = '';
-    for (let i = 1; i <= doc.numPages; i += 1) {
-      const page = await doc.getPage(i);
-      const content = await page.getTextContent();
-      const line = (content.items || [])
-        .map((it) => (it && typeof it.str === 'string' ? it.str : ''))
-        .filter(Boolean)
-        .join(' ');
-      text += `${line}\n`;
+    try {
+      const loadingTask = pdfjsLib.getDocument({
+        data: buffer,
+        stopAtErrors: false,
+        disableFontFace: true,
+        useSystemFonts: true
+      });
+      const doc = await loadingTask.promise;
+      let text = '';
+      for (let i = 1; i <= doc.numPages; i += 1) {
+        const page = await doc.getPage(i);
+        const content = await page.getTextContent();
+        const line = (content.items || [])
+          .map((it) => (it && typeof it.str === 'string' ? it.str : ''))
+          .filter(Boolean)
+          .join(' ');
+        text += `${line}\n`;
+      }
+      return text;
+    } catch (fallbackErr) {
+      const fbMsg = String(fallbackErr?.message || fallbackErr || '');
+      // Si même le fallback échoue, on remonte un message plus utile.
+      throw new Error(`Import PDF impossible (pdf-parse: ${msg}; pdfjs: ${fbMsg})`);
     }
-    return text;
   }
 }
 
