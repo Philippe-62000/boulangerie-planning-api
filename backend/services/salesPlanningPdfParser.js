@@ -6,10 +6,18 @@ async function extractTextFromPdf(buffer) {
     return String(data?.text || '');
   } catch (err) {
     const msg = String(err?.message || err || '');
-    // Certains PDF (souvent générés/imprimés par des systèmes tiers) ont des XRef invalides.
-    // pdf-parse (pdf.js) échoue alors avec "bad XRef entry", alors que le PDF est lisible.
+    // Certains PDF (souvent générés/imprimés par des systèmes tiers) ont des structures internes
+    // "non standard" (xref, objets corrompus, etc.). pdf-parse peut alors échouer avec des
+    // erreurs du type "bad XRef entry" ou "Illegal character: 41", alors que le PDF est lisible.
     // On retente via pdfjs-dist avec stopAtErrors=false.
-    if (!/bad\s+xref\s+entry/i.test(msg)) {
+
+    const header = Buffer.isBuffer(buffer) ? buffer.subarray(0, 1024).toString('latin1') : '';
+    const looksLikePdf = /%PDF-/i.test(header);
+    const shouldRetryWithPdfjs =
+      looksLikePdf &&
+      /(bad\s+xref\s+entry|illegal\s+character|formaterror|invalid\s+xref|xref)/i.test(msg);
+
+    if (!shouldRetryWithPdfjs) {
       throw err;
     }
 
