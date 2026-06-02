@@ -11,12 +11,18 @@ async function extractTextFromPdf(buffer) {
     // erreurs du type "bad XRef entry" ou "Illegal character: 41", alors que le PDF est lisible.
     // On retente via pdfjs-dist avec stopAtErrors=false.
 
-    const header = Buffer.isBuffer(buffer) ? buffer.subarray(0, 4096).toString('latin1') : '';
-    // Certains fichiers ont des octets avant "%PDF-" (BOM / wrappers / etc.)
-    const looksLikePdf = /%PDF-/i.test(header);
-    const shouldRetryWithPdfjs =
-      (looksLikePdf || /%PDF-/i.test(String(buffer?.subarray?.(0, 16384)?.toString?.('latin1') || ''))) &&
-      /(bad\s+xref\s+entry|illegal\s+character|formaterror|invalid\s+xref|xref)/i.test(msg);
+    // Détection robuste : certains fichiers ont des octets avant "%PDF-" (BOM / wrappers / etc.)
+    // On cherche "%PDF-" dans une fenêtre raisonnable (64 Ko) pour éviter un scan complet.
+    const isPdfBuffer = (() => {
+      if (!Buffer.isBuffer(buffer)) return false;
+      const needle = '%PDF-';
+      const hay = buffer.subarray(0, Math.min(buffer.length, 64 * 1024)).toString('latin1');
+      return hay.includes(needle);
+    })();
+
+    // Si pdf-parse échoue et que c'est bien un PDF, on tente le fallback pdfjs,
+    // même si le message d'erreur n'est pas dans notre liste (on préfère réussir l'import).
+    const shouldRetryWithPdfjs = isPdfBuffer;
 
     if (!shouldRetryWithPdfjs) {
       throw err;
