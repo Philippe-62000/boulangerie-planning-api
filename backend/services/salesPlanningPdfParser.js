@@ -1,5 +1,48 @@
 const pdfParse = require('pdf-parse');
 
+async function extractTextFromPdf(buffer) {
+  try {
+    const data = await pdfParse(buffer);
+    return String(data?.text || '');
+  } catch (err) {
+    const msg = String(err?.message || err || '');
+    // Certains PDF (souvent générés/imprimés par des systèmes tiers) ont des XRef invalides.
+    // pdf-parse (pdf.js) échoue alors avec "bad XRef entry", alors que le PDF est lisible.
+    // On retente via pdfjs-dist avec stopAtErrors=false.
+    if (!/bad\s+xref\s+entry/i.test(msg)) {
+      throw err;
+    }
+
+    let pdfjsLib;
+    try {
+      // Dépendance ajoutée côté backend: pdfjs-dist
+      pdfjsLib = require('pdfjs-dist/legacy/build/pdf.js');
+    } catch (e) {
+      // Fallback indisponible → remonter l'erreur originale (plus explicite pour l'utilisateur)
+      throw err;
+    }
+
+    const loadingTask = pdfjsLib.getDocument({
+      data: buffer,
+      stopAtErrors: false,
+      disableFontFace: true,
+      useSystemFonts: true
+    });
+    const doc = await loadingTask.promise;
+    let text = '';
+    for (let i = 1; i <= doc.numPages; i += 1) {
+      const page = await doc.getPage(i);
+      const content = await page.getTextContent();
+      const line = (content.items || [])
+        .map((it) => (it && typeof it.str === 'string' ? it.str : ''))
+        .filter(Boolean)
+        .join(' ');
+      text += `${line}\n`;
+    }
+    return text;
+  }
+}
+
 const WEEK_DAYS = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
 
 const normalizeText = (s) =>
@@ -150,8 +193,7 @@ const matchEmployee = (parsedName, employees) => {
  * @param {Array<{_id, name, role}>} employees - liste employés actifs
  */
 async function parseSalesPlanningPdf(buffer, employees = []) {
-  const data = await pdfParse(buffer);
-  const text = data.text || '';
+  const text = await extractTextFromPdf(buffer);
   const weekMeta = parseWeekMeta(text);
   if (!weekMeta) {
     throw new Error(

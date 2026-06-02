@@ -42,6 +42,7 @@ function companyPayloadForClient(company) {
     firstName: company.firstName || '',
     lastName: company.lastName || '',
     structureName: company.structureName || '',
+    createdViaDashboardForm: !!company.createdViaDashboardForm,
     mealTypesMode: mealTypesModeFromOffers(offers),
     ...offers
   };
@@ -743,11 +744,12 @@ const staffQuickInviteByEmail = async (req, res) => {
         site,
         password: newPassword,
         active: true,
-        offerBreakfast: true,
-        offerLunch: true,
-        offerDevis: false,
-        offerCommande: false,
-        mealTypesMode: 'both'
+        offerBreakfast: false,
+        offerLunch: false,
+        offerDevis: true,
+        offerCommande: true,
+        mealTypesMode: 'none',
+        createdViaDashboardForm: true
       });
       wasCreated = true;
     }
@@ -767,6 +769,7 @@ const staffQuickInviteByEmail = async (req, res) => {
         mealTypesMode: company.mealTypesMode,
         ...resolveCompanyOffers(company),
         isAnonymous: company.isAnonymous,
+        createdViaDashboardForm: company.createdViaDashboardForm,
         active: true,
         plainPassword: newPassword
       })
@@ -778,7 +781,8 @@ const staffQuickInviteByEmail = async (req, res) => {
         id: company._id,
         email: company.email,
         name: company.name,
-        created: wasCreated
+        created: wasCreated,
+        createdViaDashboardForm: !!company.createdViaDashboardForm
       }
     });
   } catch (err) {

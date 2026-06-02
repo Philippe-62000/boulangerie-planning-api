@@ -25,7 +25,22 @@ async function post(body) {
 }
 
 /** Création / mise à jour + mot de passe en clair (hash côté Render déjà fait ; le miroir peut refaire pareil). */
-function syncUpsert({ site, name, phone, email, active, plainPassword, contactName, mealTypesMode, offerBreakfast, offerLunch, offerDevis, offerCommande, isAnonymous }) {
+function syncUpsert({
+  site,
+  name,
+  phone,
+  email,
+  active,
+  plainPassword,
+  contactName,
+  mealTypesMode,
+  offerBreakfast,
+  offerLunch,
+  offerDevis,
+  offerCommande,
+  isAnonymous,
+  createdViaDashboardForm
+}) {
   const body = {
     action: 'upsert',
     site,
@@ -39,7 +54,9 @@ function syncUpsert({ site, name, phone, email, active, plainPassword, contactNa
     offerLunch: offerLunch !== undefined ? !!offerLunch : undefined,
     offerDevis: offerDevis !== undefined ? !!offerDevis : undefined,
     offerCommande: offerCommande !== undefined ? !!offerCommande : undefined,
-    isAnonymous: isAnonymous !== undefined ? !!isAnonymous : undefined
+    isAnonymous: isAnonymous !== undefined ? !!isAnonymous : undefined,
+    createdViaDashboardForm:
+      createdViaDashboardForm !== undefined ? !!createdViaDashboardForm : undefined
   };
   Object.keys(body).forEach((k) => body[k] === undefined && delete body[k]);
   if (plainPassword) body.password = plainPassword;

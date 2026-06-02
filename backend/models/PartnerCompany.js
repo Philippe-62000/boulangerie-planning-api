@@ -35,6 +35,8 @@ const partnerCompanySchema = new mongoose.Schema(
     firstName: { type: String, trim: true, default: '' },
     lastName: { type: String, trim: true, default: '' },
     structureName: { type: String, trim: true, default: '' },
+    /** Compte créé via le formulaire e-mail du dashboard Filmara (Nouveau client). */
+    createdViaDashboardForm: { type: Boolean, default: false },
     lastLoginAt: { type: Date, default: null }
   },
   { timestamps: true, collection: 'partnercompanies' }
