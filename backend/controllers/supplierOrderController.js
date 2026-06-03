@@ -10,6 +10,12 @@ const PositiveCatalog = require('../models/PositiveCatalog');
 const TgtStockEntry = require('../models/TgtStockEntry');
 const tgtPdfParser = require('../services/tgtPdfParser');
 const {
+  effectiveStockTotal,
+  hasAnyStockValue,
+  normalizeStockFields,
+  sanitizeStockPayload
+} = require('../utils/stockQtyFields');
+const {
   parseSupplier,
   catalogQuery,
   orderQuery,
@@ -461,6 +467,8 @@ function mergeCatalogWithExistingOrder(catalogLines, existingLines) {
     return computeLineMetrics({
       ...line,
       receivedQty: prev.receivedQty != null ? prev.receivedQty : line.receivedQty,
+      cartonQty: prev.cartonQty != null ? prev.cartonQty : line.cartonQty,
+      unitQty: prev.unitQty != null ? prev.unitQty : line.unitQty,
       stockQty: prev.stockQty != null ? prev.stockQty : line.stockQty,
       orderQty: prev.orderQty != null ? prev.orderQty : line.orderQty,
       consumptionQty: prev.consumptionQty != null ? prev.consumptionQty : line.consumptionQty,
@@ -490,7 +498,8 @@ function effectiveReceivedForConsumption(line) {
 /** Consommation = reçu effectif − stock ; prévision = moyenne glissante 3 sem. si dispo, sinon conso semaine. */
 function computeLineMetrics(line, avgConsumptionQty = null) {
   const receivedQty = numOrNull(line.receivedQty);
-  const stockQty = numOrNull(line.stockQty);
+  const { cartonQty, unitQty } = normalizeStockFields(line);
+  const stockTotal = effectiveStockTotal(line);
   const receivedForConso = effectiveReceivedForConsumption(line);
   let consumptionQty = numOrNull(line.consumptionQty);
   const avg =
@@ -498,8 +507,8 @@ function computeLineMetrics(line, avgConsumptionQty = null) {
       ? avgConsumptionQty
       : numOrNull(line.avgConsumptionQty);
 
-  if (receivedForConso != null && stockQty != null) {
-    consumptionQty = Math.max(0, receivedForConso - stockQty);
+  if (receivedForConso != null && stockTotal != null) {
+    consumptionQty = Math.max(0, receivedForConso - stockTotal);
   }
 
   let suggestedOrderQty = null;
@@ -512,7 +521,9 @@ function computeLineMetrics(line, avgConsumptionQty = null) {
   return {
     ...line,
     receivedQty,
-    stockQty,
+    cartonQty,
+    unitQty,
+    stockQty: null,
     consumptionQty,
     avgConsumptionQty: avg != null ? Math.round(avg * 100) / 100 : null,
     suggestedOrderQty,
@@ -553,7 +564,7 @@ async function buildRollingConsumptionMap(siteKey, excludeWeekKey, weeks = ROLLI
       let consumptionQty = numOrNull(line.consumptionQty);
       if (consumptionQty == null) {
         const received = effectiveReceivedForConsumption(line);
-        const stock = numOrNull(line.stockQty);
+        const stock = effectiveStockTotal(line);
         if (received != null && stock != null) {
           consumptionQty = Math.max(0, received - stock);
         }
@@ -607,7 +618,7 @@ function sanitizeLine(l, avgConsumptionQty = null) {
     locationId: l.locationId || null,
     locationName: String(l.locationName || '').trim(),
     receivedQty: l.receivedQty,
-    stockQty: l.stockQty,
+    ...sanitizeStockPayload(l),
     consumptionQty: l.consumptionQty,
     suggestedOrderQty: l.suggestedOrderQty,
     lastOrderQty: l.lastOrderQty,
@@ -696,10 +707,10 @@ function buildEmployeeStockByProductReplace(entries = []) {
   const stockByProductId = new Map();
   for (const entry of entries) {
     for (const item of entry.items || []) {
-      if (item.productId == null || item.stockQty == null) continue;
+      if (item.productId == null || !hasAnyStockValue(item)) continue;
       const pid = String(item.productId);
-      const qty = Math.max(0, Number(item.stockQty) || 0);
-      stockByProductId.set(pid, qty);
+      const { cartonQty, unitQty } = normalizeStockFields(item);
+      stockByProductId.set(pid, { cartonQty, unitQty });
     }
   }
   return stockByProductId;
@@ -763,7 +774,7 @@ async function buildLinesFromCatalog(siteKey, existingLines = [], options = {}) 
       locationId: locId || null,
       locationName,
       receivedQty: prev?.receivedQty ?? receivedDefault,
-      stockQty: prev?.stockQty ?? null,
+      ...sanitizeStockPayload(prev || {}),
       ...cmdValues,
       orderQty: prev?.orderQty ?? 0,
       consumptionQty: prev?.consumptionQty ?? null,
@@ -1204,11 +1215,16 @@ const applyEmployeeStocks = async (req, res) => {
       ? (order.lines || []).map((l) => (typeof l.toObject === 'function' ? l.toObject() : { ...l }))
       : await buildLinesFromCatalog(siteKey, [], { supplier });
 
-    // Import salarié = remplacement : on efface la colonne stock puis on applique l'import.
+    // Import salarié = remplacement : on efface carton/unité puis on applique l'import.
     lines = lines.map((line) => {
       const pid = String(line.productId);
-      const nextStock = stockByProductId.has(pid) ? stockByProductId.get(pid) : null;
-      return computeLineMetrics({ ...line, stockQty: nextStock });
+      const imported = stockByProductId.get(pid);
+      return computeLineMetrics({
+        ...line,
+        cartonQty: imported ? imported.cartonQty : null,
+        unitQty: imported ? imported.unitQty : null,
+        stockQty: null
+      });
     });
 
     const saved = await upsertCurrentOrder(siteKey, lines, { employeeStockEntryIds: entryIds }, supplier);
@@ -1255,7 +1271,7 @@ const applyPositiveStock = async (req, res) => {
       const plain = typeof line.toObject === 'function' ? line.toObject() : { ...line };
       const matched = matchPositiveCount(plain.productName, positiveMap, catalog.products);
       if (matched == null) return plain;
-      return { ...plain, stockQty: matched };
+      return { ...plain, cartonQty: matched, unitQty: null, stockQty: null };
     });
     const saved = await upsertCurrentOrder(siteKey, updated, {}, supplier);
 
@@ -1267,7 +1283,7 @@ const applyPositiveStock = async (req, res) => {
       meta: {
         positiveScanAt: scan?.createdAt || null,
         positiveScanId: scan?._id || null,
-        matchedCount: (saved.lines || []).filter((l) => l.stockQty != null).length
+        matchedCount: (saved.lines || []).filter((l) => hasAnyStockValue(l)).length
       }
     });
   } catch (e) {

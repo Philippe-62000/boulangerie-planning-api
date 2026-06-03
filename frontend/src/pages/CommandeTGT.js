@@ -24,14 +24,32 @@ const effectiveReceivedForConso = (line) => {
   return null;
 };
 
+const parseQtyField = (line, field) => {
+  let raw = line[field];
+  if ((raw === '' || raw == null) && field === 'cartonQty' && line.stockQty != null && line.stockQty !== '') {
+    raw = line.stockQty;
+  }
+  if (raw === '' || raw == null) return null;
+  return Math.max(0, Number(raw) || 0);
+};
+
+const stockTotalFromLine = (line) => {
+  const carton = parseQtyField(line, 'cartonQty');
+  const unit = parseQtyField(line, 'unitQty');
+  if (carton == null && unit == null) return null;
+  return (carton ?? 0) + (unit ?? 0);
+};
+
 const withMetrics = (line) => {
   const received =
     line.receivedQty === '' || line.receivedQty == null ? null : Math.max(0, Number(line.receivedQty) || 0);
-  const stock = line.stockQty === '' || line.stockQty == null ? null : Math.max(0, Number(line.stockQty) || 0);
+  const cartonQty = parseQtyField(line, 'cartonQty');
+  const unitQty = parseQtyField(line, 'unitQty');
+  const stockTotal = stockTotalFromLine({ ...line, cartonQty, unitQty });
   const receivedForConso = effectiveReceivedForConso(line);
   let consumptionQty = null;
-  if (receivedForConso != null && stock != null) {
-    consumptionQty = Math.max(0, receivedForConso - stock);
+  if (receivedForConso != null && stockTotal != null) {
+    consumptionQty = Math.max(0, receivedForConso - stockTotal);
   }
   const avg =
     line.avgConsumptionQty != null && line.avgConsumptionQty !== ''
@@ -46,7 +64,9 @@ const withMetrics = (line) => {
   return {
     ...line,
     receivedQty: received,
-    stockQty: stock,
+    cartonQty,
+    unitQty,
+    stockQty: null,
     consumptionQty,
     avgConsumptionQty: avg,
     suggestedOrderQty
@@ -338,7 +358,12 @@ const CommandeTGT = ({ channelKey = 'TGT' }) => {
     setLines((prev) =>
       prev.map((l) => {
         if (String(l.productId) !== String(productId)) return l;
-        if (field === 'receivedQty' || field === 'stockQty' || field === 'orderQty') {
+        if (
+          field === 'receivedQty' ||
+          field === 'cartonQty' ||
+          field === 'unitQty' ||
+          field === 'orderQty'
+        ) {
           if (value === '' || value == null) {
             const next = {
               ...l,
@@ -945,8 +970,8 @@ const CommandeTGT = ({ channelKey = 'TGT' }) => {
                 <p>Livraison : {formatDate(meta?.deliveryDate)}</p>
                 {printMode === 'modele' ? (
                   <p className="commande-tgt-print-sub">
-                    Produits par emplacement — historique BL (Cmd -1 à -6). Quatre cases vides à droite : stock
-                    constaté en magasin sur 4 semaines consécutives. Cmd -1 = quantité du dernier BL reçu.
+                    Produits par emplacement — historique BL (Cmd -1 à -6). Cases vides : carton et unité en
+                    magasin. Cmd -1 = quantité du dernier BL reçu.
                     Références : {cmdColumnLabels.map((c) => c.full).join(', ')}.
                   </p>
                 ) : null}
@@ -964,10 +989,15 @@ const CommandeTGT = ({ channelKey = 'TGT' }) => {
                         <div key={`p-${line.productId}`} className="modele-print-item">
                           <span className="modele-print-name">{line.productName}</span>
                           <ModelePrintHistory line={line} cmdColumnLabels={cmdColumnLabels} />
-                          <span className="modele-print-boxes" title="Stock magasin — 4 semaines">
-                            {[0, 1, 2, 3].map((n) => (
-                              <span key={n} className="modele-print-stock-box" aria-hidden="true" />
-                            ))}
+                          <span className="modele-print-boxes" title="Carton / unité en magasin">
+                            <span className="modele-print-stock-pair">
+                              <span className="modele-print-stock-lbl">C</span>
+                              <span className="modele-print-stock-box" aria-hidden="true" />
+                            </span>
+                            <span className="modele-print-stock-pair">
+                              <span className="modele-print-stock-lbl">U</span>
+                              <span className="modele-print-stock-box" aria-hidden="true" />
+                            </span>
                           </span>
                         </div>
                       ))}
@@ -999,10 +1029,11 @@ const CommandeTGT = ({ channelKey = 'TGT' }) => {
                                 {col.bl ? <span className="col-hist-bl">{col.bl}</span> : null}
                               </th>
                             ))}
-                            <th className="col-num col-saisie">Stock</th>
+                            <th className="col-num col-saisie">Carton</th>
+                            <th className="col-num col-saisie">Unité</th>
                             <th
                               className="col-num col-conso col-screen-only"
-                              title="Automatique : Cmd -1 − stock (quantité du dernier BL − stock restant)"
+                              title="Automatique : Cmd -1 − (carton + unité)"
                             >
                               Conso
                             </th>
@@ -1036,9 +1067,22 @@ const CommandeTGT = ({ channelKey = 'TGT' }) => {
                                   step="1"
                                   inputMode="numeric"
                                   className="qty-input no-print"
-                                  value={line.stockQty ?? ''}
+                                  value={line.cartonQty ?? ''}
                                   placeholder="—"
-                                  onChange={(e) => updateLine(line.productId, 'stockQty', e.target.value)}
+                                  onChange={(e) => updateLine(line.productId, 'cartonQty', e.target.value)}
+                                />
+                                <span className="print-only print-saisie-val">{line.cartonQty ?? ''}</span>
+                              </td>
+                              <td className="col-num col-saisie col-stock">
+                                <input
+                                  type="number"
+                                  min="0"
+                                  step="1"
+                                  inputMode="numeric"
+                                  className="qty-input no-print"
+                                  value={line.unitQty ?? ''}
+                                  placeholder="—"
+                                  onChange={(e) => updateLine(line.productId, 'unitQty', e.target.value)}
                                 />
                                 {employeeStockImports.length > 0 ? (
                                   <div
@@ -1048,7 +1092,7 @@ const CommandeTGT = ({ channelKey = 'TGT' }) => {
                                     {employeeStockImports.map((imp) => imp.dateLabel).join(' · ')}
                                   </div>
                                 ) : null}
-                                <span className="print-only print-saisie-val">{line.stockQty ?? ''}</span>
+                                <span className="print-only print-saisie-val">{line.unitQty ?? ''}</span>
                                 <span className="print-only print-modele-cell" aria-hidden="true" />
                               </td>
                               <td className="col-num col-conso col-screen-only">
@@ -1056,9 +1100,9 @@ const CommandeTGT = ({ channelKey = 'TGT' }) => {
                                   <span
                                     title={
                                       line.receivedQty != null
-                                        ? `Reçu BL importé (${line.receivedQty}) − stock`
+                                        ? `Reçu BL importé (${line.receivedQty}) − (carton + unité)`
                                         : line.lastOrderQty != null
-                                          ? `Cmd -1 (${line.lastOrderQty}) − stock`
+                                          ? `Cmd -1 (${line.lastOrderQty}) − (carton + unité)`
                                           : ''
                                     }
                                   >
@@ -1197,8 +1241,8 @@ const CommandeTGT = ({ channelKey = 'TGT' }) => {
               <div className="config-block">
                 <h3>Produits & emplacements</h3>
                 <p className="commande-tgt-hint">
-                  Utilisez « Désactiver » pour retirer un produit arrêté de la saisie. « Réactiver » le remet dans la
-                  liste. Les lignes en <strong className="config-no-location-label">rouge</strong> n’ont pas
+                  Cochez <strong>Stop</strong> pour retirer un produit arrêté de la saisie (équivalent à l’ancien
+                  bouton Désactiver). Les lignes en <strong className="config-no-location-label">rouge</strong> n’ont pas
                   d’emplacement défini (y compris « — emplacement — » ou « -Emplacement- ») — elles sont listées en
                   premier.
                   {configNoLocationCount > 0 ? (
@@ -1289,27 +1333,22 @@ const CommandeTGT = ({ channelKey = 'TGT' }) => {
                             </option>
                           ))}
                       </select>
-                      {isActive ? (
-                        <button
-                          type="button"
-                          className="btn btn-secondary btn-product-toggle"
-                          onClick={() => setProductActive(idx, false)}
+                      <label
+                        className="checkbox-label config-stop-label"
+                        title={
+                          isActive
+                            ? 'Produit actif dans la saisie'
+                            : 'Produit arrêté — masqué de la saisie stocks et commande'
+                        }
+                      >
+                        <input
+                          type="checkbox"
+                          checked={!isActive}
                           disabled={saving}
-                          title="Retirer ce produit de la liste de saisie"
-                        >
-                          Désactiver
-                        </button>
-                      ) : (
-                        <button
-                          type="button"
-                          className="btn btn-primary btn-product-toggle"
-                          onClick={() => setProductActive(idx, true)}
-                          disabled={saving}
-                          title="Réafficher ce produit dans la saisie"
-                        >
-                          Réactiver
-                        </button>
-                      )}
+                          onChange={(e) => setProductActive(idx, !e.target.checked)}
+                        />
+                        Stop
+                      </label>
                     </div>
                   );
                 })}

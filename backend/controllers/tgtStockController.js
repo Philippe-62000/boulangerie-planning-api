@@ -10,6 +10,7 @@ const {
   getCurrentDueWindow,
   DAY_LABELS
 } = require('../utils/tgtStockSchedule');
+const { hasAnyStockValue, normalizeStockFields } = require('../utils/stockQtyFields');
 
 const normalizeSiteKey = (raw) => (raw === 'lon' ? 'lon' : 'plan');
 const getSupplierFromReq = (req) => parseSupplier(req.query?.supplier || req.body?.supplier);
@@ -119,14 +120,18 @@ const postEntry = async (req, res) => {
     }
 
     const items = rawItems
-      .map((it) => ({
-        productId: it.productId,
-        productName: String(it.productName || '').trim(),
-        locationName: String(it.locationName || '').trim(),
-        stockQty:
-          it.stockQty === '' || it.stockQty == null ? null : Math.max(0, Number(it.stockQty) || 0)
-      }))
-      .filter((it) => it.productId && it.productName && it.stockQty != null);
+      .map((it) => {
+        const { cartonQty, unitQty } = normalizeStockFields(it);
+        return {
+          productId: it.productId,
+          productName: String(it.productName || '').trim(),
+          locationName: String(it.locationName || '').trim(),
+          cartonQty,
+          unitQty,
+          stockQty: null
+        };
+      })
+      .filter((it) => it.productId && it.productName && hasAnyStockValue(it));
 
     if (!items.length) {
       return res.status(400).json({ success: false, error: 'Saisissez au moins un stock produit' });

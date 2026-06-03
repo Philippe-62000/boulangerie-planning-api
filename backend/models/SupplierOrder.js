@@ -9,7 +9,10 @@ const supplierOrderLineSchema = new mongoose.Schema(
     locationName: { type: String, default: '' },
     /** Quantité reçue à la livraison (lundi) — BL ou reprise commande validée */
     receivedQty: { type: Number, default: null },
+    /** @deprecated Utiliser cartonQty + unitQty ; conservé pour anciennes commandes */
     stockQty: { type: Number, default: null },
+    cartonQty: { type: Number, default: null },
+    unitQty: { type: Number, default: null },
     /** Consommation = reçu − stock restant */
     consumptionQty: { type: Number, default: null },
     /** Moyenne conso sur 3 semaines glissantes (commandes validées) */

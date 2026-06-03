@@ -5,7 +5,10 @@ const tgtStockEntryItemSchema = new mongoose.Schema(
     productId: { type: mongoose.Schema.Types.ObjectId, ref: 'SupplierOrderProduct', required: true },
     productName: { type: String, required: true, trim: true },
     locationName: { type: String, default: '', trim: true },
-    stockQty: { type: Number, default: null, min: 0 }
+    /** @deprecated — anciennes saisies ; préférer cartonQty + unitQty */
+    stockQty: { type: Number, default: null, min: 0 },
+    cartonQty: { type: Number, default: null, min: 0 },
+    unitQty: { type: Number, default: null, min: 0 }
   },
   { _id: false }
 );

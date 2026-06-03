@@ -43,7 +43,8 @@ const StocksTGT = ({ channelKey = 'TGT' }) => {
   const [employees, setEmployees] = useState([]);
   const [products, setProducts] = useState([]);
   const [selectedEmployeeId, setSelectedEmployeeId] = useState('');
-  const [stockValues, setStockValues] = useState({});
+  const [cartonValues, setCartonValues] = useState({});
+  const [unitValues, setUnitValues] = useState({});
   const [comment, setComment] = useState('');
 
   const [history, setHistory] = useState([]);
@@ -154,8 +155,12 @@ const StocksTGT = ({ channelKey = 'TGT' }) => {
     return () => window.removeEventListener('afterprint', onAfterPrint);
   }, []);
 
-  const updateStock = (productId, value) => {
-    setStockValues((prev) => ({ ...prev, [String(productId)]: value }));
+  const updateCarton = (productId, value) => {
+    setCartonValues((prev) => ({ ...prev, [String(productId)]: value }));
+  };
+
+  const updateUnit = (productId, value) => {
+    setUnitValues((prev) => ({ ...prev, [String(productId)]: value }));
   };
 
   const runPrintModele = () => {
@@ -190,13 +195,19 @@ const StocksTGT = ({ channelKey = 'TGT' }) => {
 
     const items = products
       .map((p) => {
-        const raw = stockValues[String(p.productId)];
-        if (raw === '' || raw == null) return null;
+        const pid = String(p.productId);
+        const rawCarton = cartonValues[pid];
+        const rawUnit = unitValues[pid];
+        const carton =
+          rawCarton === '' || rawCarton == null ? null : Math.max(0, Number(rawCarton) || 0);
+        const unit = rawUnit === '' || rawUnit == null ? null : Math.max(0, Number(rawUnit) || 0);
+        if (carton == null && unit == null) return null;
         return {
           productId: p.productId,
           productName: p.productName,
           locationName: p.locationName,
-          stockQty: Math.max(0, Number(raw) || 0)
+          cartonQty: carton,
+          unitQty: unit
         };
       })
       .filter(Boolean);
@@ -220,7 +231,8 @@ const StocksTGT = ({ channelKey = 'TGT' }) => {
         comment: comment.trim(),
         items
       });
-      setStockValues({});
+      setCartonValues({});
+      setUnitValues({});
       setComment('');
       setMessage({
         type: 'success',
@@ -331,14 +343,16 @@ const StocksTGT = ({ channelKey = 'TGT' }) => {
                 <thead>
                   <tr>
                     <th>Produit</th>
-                    <th className="col-num">Stock</th>
+                    <th className="col-num">Carton</th>
+                    <th className="col-num">Unité</th>
                   </tr>
                 </thead>
                 <tbody>
                   {group.map((it) => (
                     <tr key={`${it.productId}-${it.productName}`}>
                       <td>{it.productName}</td>
-                      <td className="col-num">{it.stockQty ?? '—'}</td>
+                      <td className="col-num">{it.cartonQty ?? it.stockQty ?? '—'}</td>
+                      <td className="col-num">{it.unitQty ?? '—'}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -388,7 +402,7 @@ const StocksTGT = ({ channelKey = 'TGT' }) => {
 
       <div className="stocks-tgt-print-title print-only">
         <h2>Modèle {channel.stocksTitle} — {siteLabel}</h2>
-        <p>Emplacement, produit et case stock à remplir.</p>
+        <p>Emplacement, produit, colonnes Carton et Unité à remplir.</p>
       </div>
 
       {loading ? (
@@ -407,7 +421,8 @@ const StocksTGT = ({ channelKey = 'TGT' }) => {
                   <thead>
                     <tr>
                       <th>Produit</th>
-                      <th className="col-num">Stock</th>
+                      <th className="col-num">Carton</th>
+                      <th className="col-num">Unité</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -421,9 +436,21 @@ const StocksTGT = ({ channelKey = 'TGT' }) => {
                             step="1"
                             inputMode="numeric"
                             className="qty-input"
-                            value={stockValues[String(p.productId)] ?? ''}
+                            value={cartonValues[String(p.productId)] ?? ''}
                             placeholder="—"
-                            onChange={(e) => updateStock(p.productId, e.target.value)}
+                            onChange={(e) => updateCarton(p.productId, e.target.value)}
+                          />
+                        </td>
+                        <td className="col-num">
+                          <input
+                            type="number"
+                            min="0"
+                            step="1"
+                            inputMode="numeric"
+                            className="qty-input"
+                            value={unitValues[String(p.productId)] ?? ''}
+                            placeholder="—"
+                            onChange={(e) => updateUnit(p.productId, e.target.value)}
                           />
                         </td>
                       </tr>
@@ -442,6 +469,11 @@ const StocksTGT = ({ channelKey = 'TGT' }) => {
                   {group.map((p) => (
                     <div key={`p-${p.productId}`} className="modele-print-item">
                       <span className="modele-print-name">{p.productName}</span>
+                      <span className="modele-print-stock-labels">
+                        <span>Carton</span>
+                        <span>Unité</span>
+                      </span>
+                      <span className="modele-print-stock-box" aria-hidden="true" />
                       <span className="modele-print-stock-box" aria-hidden="true" />
                     </div>
                   ))}
