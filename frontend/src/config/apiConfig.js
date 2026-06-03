@@ -9,8 +9,18 @@ const API_URLS = {
   plan: 'https://boulangerie-planning-api-4-pbfy.onrender.com/api' // Arras
 };
 
+/** URL API sans espaces parasites (évite /api%20/… en production). */
+const normalizeApiBase = (url) => String(url || '').trim().replace(/\/+$/, '');
+
 export const getApiUrl = () => {
-  return getSiteKey() === 'lon' ? API_URLS.lon : (import.meta.env.VITE_API_URL || API_URLS.plan);
+  const site = getSiteKey();
+  if (site === 'lon') return API_URLS.lon;
+  // Arras : URL fixe comme Longuenesse (ne pas dépendre d'une VITE_API_URL mal saisie au build).
+  if (import.meta.env.DEV) {
+    const fromEnv = normalizeApiBase(import.meta.env.VITE_API_URL);
+    if (fromEnv) return fromEnv;
+  }
+  return API_URLS.plan;
 };
 
 /**
