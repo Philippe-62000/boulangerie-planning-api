@@ -58,8 +58,11 @@ function formatMessageSyncHint(syncResult) {
   }
   if (r.status === 404) {
     return (
-      'Message enregistré dans Filmara. Commande introuvable sur le site client — le client doit passer une nouvelle commande depuis commande-longuenesse.vercel.app.'
+      'Message enregistré dans Filmara. Commande introuvable côté Vercel : vérifiez que MONGODB_DB sur Vercel est le même nom de base que dans MONGODB_URI Render (api-3), ou repassez une commande test sur le site client.'
     );
+  }
+  if (r.skipped === 'shared_mongo') {
+    return 'Message visible sur le site client (même base Mongo, pas de synchro Vercel nécessaire).';
   }
   const detail = r.apiError || r.error || (r.status ? `HTTP ${r.status}` : 'erreur réseau');
   return `Message enregistré dans Filmara. Synchro site client échouée : ${detail}.`;

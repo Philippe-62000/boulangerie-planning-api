@@ -10,8 +10,19 @@
 const axios = require('axios');
 
 const url = process.env.PARTNER_ORDER_APP_SYNC_URL;
-const secret =
-  process.env.PARTNER_ORDER_APP_SYNC_SECRET || process.env.INTERNAL_API_SECRET || '';
+function getSyncSecret() {
+  return String(
+    process.env.PARTNER_ORDER_APP_SYNC_SECRET || process.env.INTERNAL_API_SECRET || ''
+  ).trim();
+}
+
+const secret = getSyncSecret();
+
+function shouldSyncMessageToVercel() {
+  if (process.env.PARTNER_ORDER_SKIP_VERCEL_MESSAGE_SYNC === 'true') return false;
+  if (process.env.PARTNER_ORDER_SHARED_MONGO === 'true') return false;
+  return true;
+}
 const defaultAppBase =
   process.env.PARTNER_ORDER_APP_URL || 'https://commande-longuenesse.vercel.app';
 const messageSyncUrl =
@@ -110,7 +121,11 @@ async function syncOrderMessage({
   from,
   text
 }) {
-  if (!secret) {
+  if (!shouldSyncMessageToVercel()) {
+    return { ok: true, skipped: 'shared_mongo' };
+  }
+  const syncSecret = getSyncSecret();
+  if (!syncSecret) {
     console.warn('⚠️ syncOrderMessage: secret manquant (INTERNAL_API_SECRET sur Render)');
     return { ok: false, reason: 'no_secret' };
   }
@@ -128,7 +143,7 @@ async function syncOrderMessage({
         text: String(text || '').trim()
       },
       {
-        headers: { 'Content-Type': 'application/json', 'x-internal-secret': secret },
+        headers: { 'Content-Type': 'application/json', 'x-internal-secret': syncSecret },
         timeout: 12000
       }
     );
@@ -142,10 +157,36 @@ async function syncOrderMessage({
   }
 }
 
+/** Vérifie que Render peut joindre Vercel avec le secret configuré. */
+async function pingVercelSync() {
+  const syncSecret = getSyncSecret();
+  if (!syncSecret) return { ok: false, reason: 'no_secret' };
+  const pingUrl = `${String(defaultAppBase).replace(/\/+$/, '')}/api/internal-sync-ping`;
+  try {
+    const r = await axios.post(
+      pingUrl,
+      {},
+      {
+        headers: { 'Content-Type': 'application/json', 'x-internal-secret': syncSecret },
+        timeout: 10000
+      }
+    );
+    return { ok: true, status: r.status, data: r.data };
+  } catch (e) {
+    return {
+      ok: false,
+      status: e.response?.status,
+      apiError: e.response?.data?.error,
+      error: e.message
+    };
+  }
+}
+
 module.exports = {
   syncUpsert,
   syncDeactivate,
   syncDelete,
   syncOrderDelete,
-  syncOrderMessage
+  syncOrderMessage,
+  pingVercelSync
 };
