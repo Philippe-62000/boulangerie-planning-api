@@ -8,11 +8,18 @@ import React, { useState } from 'react';
  *
  * Props:
  *   order — document commande (messages[], status, _id)
- *   apiBase — ex. process.env.NEXT_PUBLIC_PARTNER_API_UPSTREAM ou '' si routes proxy /api
+ *   apiBase — '' si proxy Vercel /api ; sinon URL base Render (sans /api)
  *   token — JWT entreprise
+ *   site — longuenesse | arras (défaut longuenesse)
  *   onReplied — callback après réponse envoyée
  */
-export default function PartnerOrderMessages({ order, apiBase = '', token, onReplied }) {
+export default function PartnerOrderMessages({
+  order,
+  apiBase = '',
+  token,
+  site = 'longuenesse',
+  onReplied
+}) {
   const [reply, setReply] = useState('');
   const [sending, setSending] = useState(false);
   const [error, setError] = useState('');
@@ -52,17 +59,18 @@ export default function PartnerOrderMessages({ order, apiBase = '', token, onRep
     setSending(true);
     setError('');
     try {
+      const siteKey = order.site || site || 'longuenesse';
       const base = String(apiBase || '').replace(/\/+$/, '');
       const url = base
-        ? `${base}/api/partner-orders/my/${id}/reply`
-        : `/api/partner-orders/my/${id}/reply`;
+        ? `${base}/api/partner-orders/my/${id}/reply?site=${encodeURIComponent(siteKey)}`
+        : `/api/partner-orders/my/${id}/reply?site=${encodeURIComponent(siteKey)}`;
       const res = await fetch(url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
+          Authorization: token.startsWith('Bearer ') ? token : `Bearer ${token}`
         },
-        body: JSON.stringify({ text, site: order.site || 'longuenesse' })
+        body: JSON.stringify({ text, site: siteKey })
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || 'Envoi impossible');
