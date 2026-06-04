@@ -62,7 +62,10 @@ function formatMessageSyncHint(syncResult) {
     );
   }
   if (r.skipped === 'shared_mongo') {
-    return 'Message visible sur le site client (même base Mongo, pas de synchro Vercel nécessaire).';
+    return (
+      'Message enregistré. Le client doit le voir sur Mes commandes (site Vercel) après rafraîchissement. ' +
+      'Si rien n’apparaît : sur Vercel, réglez MONGODB_DB sur le même nom de base que dans MONGODB_URI Render (api-3).'
+    );
   }
   const detail = r.apiError || r.error || (r.status ? `HTTP ${r.status}` : 'erreur réseau');
   return `Message enregistré dans Filmara. Synchro site client échouée : ${detail}.`;
@@ -1164,11 +1167,12 @@ const sendInternalOrderMessage = async (req, res) => {
 
     const plain = order.toObject ? order.toObject() : order;
     const [enriched] = await attachCompanyInfoToOrders([plain]);
+    const clientSyncOk = !!(syncResult?.ok || syncResult?.skipped === 'shared_mongo');
     res.json({
       success: true,
       data: enriched,
       message: formatMessageSyncHint(syncResult),
-      clientSyncOk: !!syncResult?.ok
+      clientSyncOk
     });
   } catch (err) {
     console.error('❌ sendInternalOrderMessage:', err);
