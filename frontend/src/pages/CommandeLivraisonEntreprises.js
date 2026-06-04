@@ -78,6 +78,15 @@ const statusLabels = {
   cancelled: 'Annulé'
 };
 
+const formatOrderWhen = (d) => {
+  if (!d) return '—';
+  try {
+    return new Date(d).toLocaleString('fr-FR', { dateStyle: 'full', timeStyle: 'short' });
+  } catch {
+    return '—';
+  }
+};
+
 /** Textarea « une ligne = un élément » : garde la ligne vide finale tant que l'utilisateur vient d'appuyer sur Entrée. */
 function multilineToStringList(raw) {
   const s = String(raw ?? '');
@@ -531,7 +540,10 @@ const CommandeLivraisonEntreprises = () => {
                   <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap' }}>
                     <div>
                       <div style={{ fontWeight: 800 }}>
-                        {new Date(o.datetime).toLocaleString('fr-FR', { dateStyle: 'full', timeStyle: 'short' })}
+                        Livraison : {formatOrderWhen(o.datetime)}
+                      </div>
+                      <div style={{ color: '#64748b', marginTop: '4px', fontSize: '0.92rem' }}>
+                        Commande passée le : {formatOrderWhen(o.placedAt || o.createdAt)}
                       </div>
                       {(o.companyName || o.contactName) && (
                         <div
@@ -569,6 +581,22 @@ const CommandeLivraisonEntreprises = () => {
                       <div style={{ color: '#555', marginTop: '4px' }}>
                         <span style={{ fontWeight: 700 }}>Statut :</span> {statusLabels[o.status] || o.status}
                       </div>
+                      {Array.isArray(o.statusHistoryTimeline) && o.statusHistoryTimeline.length > 0 ? (
+                        <ul
+                          style={{
+                            margin: '6px 0 0',
+                            paddingLeft: '18px',
+                            color: '#64748b',
+                            fontSize: '0.88rem'
+                          }}
+                        >
+                          {o.statusHistoryTimeline.map((entry, idx) => (
+                            <li key={`${entry.status}-${idx}`}>
+                              {statusLabels[entry.status] || entry.status} — {formatOrderWhen(entry.at)}
+                            </li>
+                          ))}
+                        </ul>
+                      ) : null}
                     </div>
                     <div style={{ minWidth: '240px' }}>
                       <div style={{ fontSize: '0.9rem', color: '#333' }}>

@@ -18,6 +18,11 @@ const {
   mealTypesModeFromOffers,
   serializeCompanyOffers
 } = require('../utils/partnerCompanyOffers');
+const {
+  initialStatusHistory,
+  appendStatusChange,
+  buildStatusHistoryTimeline
+} = require('../utils/partnerOrderStatusHistory');
 
 const getSite = (req) => (req.query.site || req.body.site || 'longuenesse').toLowerCase();
 const siteMap = { lon: 'longuenesse', plan: 'arras' };
@@ -117,6 +122,8 @@ async function attachCompanyInfoToOrders(orders) {
     if (!plain.contactName && company?.contactName) plain.contactName = company.contactName;
     if (!plain.companyEmail && company?.email) plain.companyEmail = company.email;
     if (!plain.companyPhone && company?.phone) plain.companyPhone = company.phone;
+    plain.placedAt = plain.createdAt || null;
+    plain.statusHistoryTimeline = buildStatusHistoryTimeline(plain);
     return plain;
   });
 }
@@ -314,7 +321,8 @@ const createMyOrder = async (req, res) => {
         miniViennoiserieDetail: [],
         itemsSnapshot,
         status: 'submitted',
-        statusUpdatedAt: new Date()
+        statusUpdatedAt: new Date(),
+        statusHistory: initialStatusHistory('submitted')
       });
       return res.json({ success: true, data: order });
     }
@@ -399,7 +407,8 @@ const createMyOrder = async (req, res) => {
       miniViennoiserieDetail: miniDetail,
       itemsSnapshot,
       status: 'submitted',
-      statusUpdatedAt: new Date()
+      statusUpdatedAt: new Date(),
+      statusHistory: initialStatusHistory('submitted')
     });
     res.json({ success: true, data: order });
   } catch (err) {
@@ -912,13 +921,16 @@ const adminUpdateOrderStatus = async (req, res) => {
     if (!status) return res.status(400).json({ success: false, error: 'Statut requis' });
     const allowed = new Set(['submitted', 'acknowledged', 'invoiced', 'paid', 'cancelled']);
     if (!allowed.has(status)) return res.status(400).json({ success: false, error: 'Statut invalide' });
-    const order = await PartnerOrder.findByIdAndUpdate(
-      id,
-      { status, statusUpdatedAt: new Date() },
-      { new: true }
-    );
+    const order = await PartnerOrder.findById(id);
     if (!order) return res.status(404).json({ success: false, error: 'Commande non trouvée' });
-    res.json({ success: true, data: order });
+    if (order.status !== status) {
+      appendStatusChange(order, status);
+      await order.save();
+    }
+    const plain = order.toObject ? order.toObject() : order;
+    plain.placedAt = plain.createdAt || null;
+    plain.statusHistoryTimeline = buildStatusHistoryTimeline(plain);
+    res.json({ success: true, data: plain });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }

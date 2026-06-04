@@ -56,7 +56,18 @@ const partnerOrderSchema = new mongoose.Schema(
       default: 'submitted',
       index: true
     },
-    statusUpdatedAt: { type: Date, default: Date.now }
+    statusUpdatedAt: { type: Date, default: Date.now },
+    /** Historique des changements de statut (admin Filmara). */
+    statusHistory: [
+      {
+        status: {
+          type: String,
+          enum: ['submitted', 'acknowledged', 'invoiced', 'paid', 'cancelled'],
+          required: true
+        },
+        at: { type: Date, required: true }
+      }
+    ]
   },
   { timestamps: true }
 );
