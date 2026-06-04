@@ -78,6 +78,11 @@ const statusLabels = {
   cancelled: 'Annulé'
 };
 
+const messageAlertLabels = {
+  awaiting_reply: '1 message envoyé — en attente de réponse',
+  reply_received: '1 réponse client'
+};
+
 const formatOrderWhen = (d) => {
   if (!d) return '—';
   try {
@@ -164,6 +169,10 @@ const CommandeLivraisonEntreprises = () => {
 
   const [formulasLoading, setFormulasLoading] = useState(false);
   const [formulas, setFormulas] = useState(null);
+
+  const [messageModalOrder, setMessageModalOrder] = useState(null);
+  const [messageDraft, setMessageDraft] = useState('');
+  const [messageSending, setMessageSending] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -423,6 +432,64 @@ const CommandeLivraisonEntreprises = () => {
     }
   };
 
+  const openMessageModal = async (order) => {
+    setMessageModalOrder(order);
+    setMessageDraft('');
+    if (order?.messageAlert === 'reply_received') {
+      const id = order._id || order.id;
+      if (!id) return;
+      try {
+        const res = await api.patch(`/partner-orders/internal/${id}/message-alert`, {}, { params: { site } });
+        const updated = res.data?.data;
+        if (updated) {
+          setOrders((prev) =>
+            prev.map((o) => (String(o._id || o.id) === String(id) ? { ...o, ...updated } : o))
+          );
+          setMessageModalOrder((prev) => (prev && String(prev._id || prev.id) === String(id) ? { ...prev, ...updated } : prev));
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    }
+  };
+
+  const closeMessageModal = () => {
+    setMessageModalOrder(null);
+    setMessageDraft('');
+  };
+
+  const sendOrderMessage = async () => {
+    const order = messageModalOrder;
+    const id = order?._id || order?.id;
+    const text = String(messageDraft || '').trim();
+    if (!id || !text) {
+      alert('Saisissez un message.');
+      return;
+    }
+    setMessageSending(true);
+    try {
+      const res = await api.post(
+        `/partner-orders/internal/${id}/message`,
+        { text },
+        { params: { site } }
+      );
+      const updated = res.data?.data;
+      if (updated) {
+        setOrders((prev) =>
+          prev.map((o) => (String(o._id || o.id) === String(id) ? { ...o, ...updated } : o))
+        );
+        setMessageModalOrder({ ...order, ...updated });
+      }
+      setMessageDraft('');
+      alert(res.data?.message || 'Message envoyé.');
+    } catch (e) {
+      console.error(e);
+      alert(e?.response?.data?.error || 'Envoi du message impossible.');
+    } finally {
+      setMessageSending(false);
+    }
+  };
+
   const deleteOrder = async (order) => {
     const id = order._id || order.id;
     if (!id) return;
@@ -597,6 +664,23 @@ const CommandeLivraisonEntreprises = () => {
                           ))}
                         </ul>
                       ) : null}
+                      {o.messageAlert && messageAlertLabels[o.messageAlert] ? (
+                        <div
+                          style={{
+                            marginTop: '8px',
+                            padding: '6px 10px',
+                            borderRadius: '8px',
+                            fontSize: '0.88rem',
+                            fontWeight: 700,
+                            background:
+                              o.messageAlert === 'reply_received' ? '#ecfdf5' : '#fff8e6',
+                            color: o.messageAlert === 'reply_received' ? '#047857' : '#92400e',
+                            border: `1px solid ${o.messageAlert === 'reply_received' ? '#a7f3d0' : '#fde68a'}`
+                          }}
+                        >
+                          {messageAlertLabels[o.messageAlert]}
+                        </div>
+                      ) : null}
                     </div>
                     <div style={{ minWidth: '240px' }}>
                       <div style={{ fontSize: '0.9rem', color: '#333' }}>
@@ -629,6 +713,26 @@ const CommandeLivraisonEntreprises = () => {
                   </div>
 
                   <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginTop: '10px' }}>
+                    <button
+                      type="button"
+                      onClick={() => openMessageModal(o)}
+                      disabled={o.status === 'acknowledged' || o.status === 'cancelled'}
+                      style={{
+                        padding: '6px 10px',
+                        borderRadius: '8px',
+                        border: '1px solid #667eea',
+                        background: '#eef2ff',
+                        color: '#4338ca',
+                        fontWeight: 600
+                      }}
+                      title={
+                        o.status === 'acknowledged' || o.status === 'cancelled'
+                          ? 'Message indisponible pour cette commande'
+                          : 'Demander une précision au client'
+                      }
+                    >
+                      Message
+                    </button>
                     <button onClick={() => updateStatus(o._id, 'acknowledged')} style={{ padding: '6px 10px', borderRadius: '8px' }}>
                       Pris en compte
                     </button>
@@ -1007,6 +1111,91 @@ const CommandeLivraisonEntreprises = () => {
           )}
         </div>
       )}
+
+      {messageModalOrder ? (
+        <div
+          role="presentation"
+          onClick={closeMessageModal}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(15,23,42,0.45)',
+            zIndex: 1000,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 16
+          }}
+        >
+          <div
+            role="dialog"
+            aria-labelledby="partner-order-message-title"
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: '#fff',
+              borderRadius: 12,
+              padding: 16,
+              maxWidth: 520,
+              width: '100%',
+              maxHeight: '85vh',
+              overflow: 'auto',
+              boxShadow: '0 12px 40px rgba(0,0,0,0.18)'
+            }}
+          >
+            <h3 id="partner-order-message-title" style={{ margin: '0 0 8px' }}>
+              Message client
+            </h3>
+            <p style={{ margin: '0 0 12px', color: '#64748b', fontSize: '0.9rem' }}>
+              {messageModalOrder.companyName || '—'} — livraison {formatOrderWhen(messageModalOrder.datetime)}
+            </p>
+            {Array.isArray(messageModalOrder.messages) && messageModalOrder.messages.length > 0 ? (
+              <div style={{ marginBottom: 12, display: 'grid', gap: 8 }}>
+                {messageModalOrder.messages.map((m, idx) => (
+                  <div
+                    key={idx}
+                    style={{
+                      padding: '8px 10px',
+                      borderRadius: 8,
+                      background: m.from === 'bakery' ? '#eef2ff' : '#f0fdf4',
+                      border: `1px solid ${m.from === 'bakery' ? '#c7d2fe' : '#bbf7d0'}`
+                    }}
+                  >
+                    <div style={{ fontSize: '0.78rem', fontWeight: 700, color: '#475569' }}>
+                      {m.from === 'bakery' ? 'Boulangerie' : 'Client'} — {formatOrderWhen(m.at)}
+                    </div>
+                    <div style={{ marginTop: 4, whiteSpace: 'pre-wrap' }}>{m.text}</div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p style={{ color: '#888', fontSize: '0.9rem' }}>Aucun message pour l’instant.</p>
+            )}
+            <label style={{ display: 'block', marginBottom: 12 }}>
+              <span style={{ fontWeight: 600 }}>Nouveau message</span>
+              <textarea
+                rows={4}
+                value={messageDraft}
+                onChange={(e) => setMessageDraft(e.target.value)}
+                placeholder="Demandez une précision au client…"
+                style={{ display: 'block', width: '100%', marginTop: 6, padding: 10, borderRadius: 8, border: '1px solid #ccc' }}
+              />
+            </label>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+              <button type="button" onClick={closeMessageModal} style={{ padding: '8px 14px', borderRadius: 8 }}>
+                Fermer
+              </button>
+              <button
+                type="button"
+                onClick={sendOrderMessage}
+                disabled={messageSending || !String(messageDraft).trim()}
+                style={{ padding: '8px 14px', borderRadius: 8, background: '#667eea', color: '#fff', fontWeight: 600 }}
+              >
+                {messageSending ? 'Envoi…' : 'Envoyer au client'}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 };

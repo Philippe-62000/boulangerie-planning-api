@@ -23,6 +23,13 @@ const {
   appendStatusChange,
   buildStatusHistoryTimeline
 } = require('../utils/partnerOrderStatusHistory');
+const {
+  appendOrderMessage,
+  clearOrderMessageAlert,
+  enrichOrderMessages,
+  countMessageAlertsForSite,
+  ALERT_HIDE_STATUSES
+} = require('../utils/partnerOrderMessages');
 
 const getSite = (req) => (req.query.site || req.body.site || 'longuenesse').toLowerCase();
 const siteMap = { lon: 'longuenesse', plan: 'arras' };
@@ -124,8 +131,28 @@ async function attachCompanyInfoToOrders(orders) {
     if (!plain.companyPhone && company?.phone) plain.companyPhone = company.phone;
     plain.placedAt = plain.createdAt || null;
     plain.statusHistoryTimeline = buildStatusHistoryTimeline(plain);
-    return plain;
+    return enrichOrderMessages(plain);
   });
+}
+
+async function sendPartnerOrderMessageEmail(company, order, messageText) {
+  if (!company?.email) return { success: false, error: 'E-mail entreprise manquant' };
+  const orderAppUrl = process.env.PARTNER_ORDER_APP_URL || 'https://commande-longuenesse.vercel.app';
+  const when = order?.datetime
+    ? new Date(order.datetime).toLocaleString('fr-FR', { dateStyle: 'full', timeStyle: 'short' })
+    : '—';
+  const subject = `Message concernant votre commande — ${company.name}`;
+  const html = `
+      <p>Bonjour,</p>
+      <p>La boulangerie vous a envoyé un message concernant votre commande du <b>${when}</b> :</p>
+      <blockquote style="margin:12px 0;padding:10px 14px;background:#f8fafc;border-left:4px solid #667eea;">
+        ${String(messageText).replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br/>')}
+      </blockquote>
+      <p>Connectez-vous pour répondre : <a href="${orderAppUrl}">${orderAppUrl}</a></p>
+      <p>— Boulangerie</p>
+    `;
+  const text = `Message commande (${when}):\n${messageText}\n\nRépondre sur : ${orderAppUrl}\n`;
+  return emailService.sendEmail(company.email, subject, html, text);
 }
 
 async function ensureDefaultFormulas(site) {
@@ -222,8 +249,14 @@ const partnerMe = async (req, res) => {
 const listMyOrders = async (req, res) => {
   try {
     const site = normalizeSite(getSite(req));
-    const orders = await PartnerOrder.find({ companyId: req.partnerCompanyId, site }).sort({ datetime: -1, createdAt: -1 }).limit(200);
-    res.json({ success: true, data: orders });
+    const orders = await PartnerOrder.find({ companyId: req.partnerCompanyId, site })
+      .sort({ datetime: -1, createdAt: -1 })
+      .limit(200)
+      .lean();
+    res.json({
+      success: true,
+      data: orders.map((o) => enrichOrderMessages(o))
+    });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
@@ -925,6 +958,9 @@ const adminUpdateOrderStatus = async (req, res) => {
     if (!order) return res.status(404).json({ success: false, error: 'Commande non trouvée' });
     if (order.status !== status) {
       appendStatusChange(order, status);
+      if (ALERT_HIDE_STATUSES.has(status)) {
+        clearOrderMessageAlert(order);
+      }
       await order.save();
     }
     const plain = order.toObject ? order.toObject() : order;
@@ -961,9 +997,112 @@ const adminUpdateFormulas = async (req, res) => {
 const internalPendingCount = async (req, res) => {
   try {
     const site = normalizeSite(getSite(req));
-    const count = await PartnerOrder.countDocuments({ site, status: 'submitted' });
-    res.json({ success: true, data: { count } });
+    const [count, messageAlerts] = await Promise.all([
+      PartnerOrder.countDocuments({ site, status: 'submitted' }),
+      countMessageAlertsForSite(PartnerOrder, site)
+    ]);
+    res.json({
+      success: true,
+      data: {
+        count,
+        messagesAwaitingReply: messageAlerts.awaitingReply,
+        messagesReplyReceived: messageAlerts.replyReceived
+      }
+    });
   } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+};
+
+const sendInternalOrderMessage = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const site = normalizeSite(getSite(req));
+    const text = String(req.body?.text || '').trim();
+    if (!text) return res.status(400).json({ success: false, error: 'Message requis' });
+
+    const order = await PartnerOrder.findOne({ _id: id, site });
+    if (!order) return res.status(404).json({ success: false, error: 'Commande non trouvée' });
+    if (ALERT_HIDE_STATUSES.has(order.status)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Impossible d’envoyer un message sur une commande prise en compte ou annulée.'
+      });
+    }
+
+    appendOrderMessage(order, 'bakery', text);
+    await order.save();
+
+    const company = await PartnerCompany.findById(order.companyId).select('name email').lean();
+    if (company?.email) {
+      sendPartnerOrderMessageEmail(company, order, text).catch((e) =>
+        console.error('⚠️ sendPartnerOrderMessageEmail:', e.message)
+      );
+    }
+
+    const plain = order.toObject ? order.toObject() : order;
+    const [enriched] = await attachCompanyInfoToOrders([plain]);
+    res.json({ success: true, data: enriched, message: 'Message envoyé au client.' });
+  } catch (err) {
+    console.error('❌ sendInternalOrderMessage:', err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+};
+
+const dismissInternalOrderMessageAlert = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const site = normalizeSite(getSite(req));
+    const order = await PartnerOrder.findOne({ _id: id, site });
+    if (!order) return res.status(404).json({ success: false, error: 'Commande non trouvée' });
+
+    clearOrderMessageAlert(order);
+    await order.save();
+
+    const plain = order.toObject ? order.toObject() : order;
+    const [enriched] = await attachCompanyInfoToOrders([plain]);
+    res.json({ success: true, data: enriched });
+  } catch (err) {
+    console.error('❌ dismissInternalOrderMessageAlert:', err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+};
+
+const replyMyOrderMessage = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const site = normalizeSite(getSite(req));
+    const text = String(req.body?.text || '').trim();
+    if (!text) return res.status(400).json({ success: false, error: 'Réponse requise' });
+
+    const order = await PartnerOrder.findOne({
+      _id: id,
+      site,
+      companyId: req.partnerCompanyId
+    });
+    if (!order) return res.status(404).json({ success: false, error: 'Commande non trouvée' });
+    if (ALERT_HIDE_STATUSES.has(order.status)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Cette commande n’accepte plus de messages.'
+      });
+    }
+
+    const msgs = Array.isArray(order.messages) ? order.messages : [];
+    const lastBakery = [...msgs].reverse().find((m) => m.from === 'bakery');
+    if (!lastBakery) {
+      return res.status(400).json({
+        success: false,
+        error: 'Aucun message de la boulangerie sur cette commande.'
+      });
+    }
+
+    appendOrderMessage(order, 'client', text);
+    await order.save();
+
+    res.json({ success: true, data: enrichOrderMessages(order.toObject ? order.toObject() : order) });
+  } catch (err) {
+    console.error('❌ replyMyOrderMessage:', err);
     res.status(500).json({ success: false, error: err.message });
   }
 };
@@ -1001,6 +1140,9 @@ module.exports = {
   adminUpdateFormulas,
   internalPendingCount,
   internalListOrders,
+  sendInternalOrderMessage,
+  dismissInternalOrderMessageAlert,
+  replyMyOrderMessage,
   staffQuickInviteByEmail
 };
 

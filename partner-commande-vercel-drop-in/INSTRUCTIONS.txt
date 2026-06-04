@@ -59,7 +59,16 @@ collection « partnercompanies », champs site et passwordHash après déploieme
      { fulfillment, datetime, mealType, tier, quantity, miniViennoiserieDetail: [{name, quantity}] }
    - Utiliser canSubmitBreakfastOrder() pour bloquer l’envoi si le total ne colle pas.
 
-3) Suppression commande (Filmara + Vercel si même API Render) :
+3) Messages boulangerie ↔ client (2026) :
+   - Filmara : bouton « Message » sur /lon/commande-livraison ; le client reçoit un e-mail + voit le fil sur Vercel.
+   - Vercel : intégrer partner-commande-vercel-drop-in/components/PartnerOrderMessages.jsx
+     sur chaque carte commande (props : order, token, apiBase si appels directs Render).
+   - API Render :
+     POST /api/partner-orders/internal/:id/message  (salarié Filmara, body { text })
+     POST /api/partner-orders/my/:id/reply           (client, body { text }, JWT entreprise)
+   - Même MongoDB Render/Vercel : pas de sync supplémentaire.
+
+4) Suppression commande (Filmara + Vercel si même API Render) :
    - DELETE /api/partner-orders/internal/:id (salarié Filmara)
    - DELETE /api/partner-admin/orders/:id (admin)
    - DELETE /api/partner-orders/my/:id (entreprise, ses commandes seulement)

@@ -82,7 +82,12 @@ const Dashboard = () => {
     sickLeave: 0,
     loading: false
   });
-  const [partnerOrdersPending, setPartnerOrdersPending] = useState({ count: 0, loading: false });
+  const [partnerOrdersPending, setPartnerOrdersPending] = useState({
+    count: 0,
+    messagesAwaitingReply: 0,
+    messagesReplyReceived: 0,
+    loading: false
+  });
   const [newPartnerClientEmail, setNewPartnerClientEmail] = useState('');
   const [partnerInviteSending, setPartnerInviteSending] = useState(false);
   const [flourStocksWidget, setFlourStocksWidget] = useState({
@@ -320,11 +325,21 @@ const Dashboard = () => {
     try {
       const site = isLonguenesse ? 'longuenesse' : 'arras';
       const res = await api.get('/partner-orders/pending-count', { params: { site } });
-      const count = Number(res.data?.data?.count || 0);
-      setPartnerOrdersPending({ count, loading: false });
+      const data = res.data?.data || {};
+      setPartnerOrdersPending({
+        count: Number(data.count || 0),
+        messagesAwaitingReply: Number(data.messagesAwaitingReply || 0),
+        messagesReplyReceived: Number(data.messagesReplyReceived || 0),
+        loading: false
+      });
     } catch (e) {
       console.error('Erreur pending commandes entreprises:', e);
-      setPartnerOrdersPending({ count: 0, loading: false });
+      setPartnerOrdersPending({
+        count: 0,
+        messagesAwaitingReply: 0,
+        messagesReplyReceived: 0,
+        loading: false
+      });
     }
   };
 
@@ -1213,6 +1228,21 @@ const Dashboard = () => {
               <div style={{ fontSize: '1.75rem', fontWeight: 700, color: partnerOrdersPending.count > 0 ? '#856404' : '#155724' }}>
                 {partnerOrdersPending.count}
               </div>
+              {(partnerOrdersPending.messagesAwaitingReply > 0 ||
+                partnerOrdersPending.messagesReplyReceived > 0) && (
+                <div style={{ marginTop: '0.75rem', fontSize: '0.9rem', display: 'grid', gap: '0.35rem' }}>
+                  {partnerOrdersPending.messagesAwaitingReply > 0 ? (
+                    <div style={{ color: '#92400e', fontWeight: 600 }}>
+                      {partnerOrdersPending.messagesAwaitingReply} message(s) envoyé(s) — en attente de réponse
+                    </div>
+                  ) : null}
+                  {partnerOrdersPending.messagesReplyReceived > 0 ? (
+                    <div style={{ color: '#047857', fontWeight: 600 }}>
+                      {partnerOrdersPending.messagesReplyReceived} réponse(s) client à lire
+                    </div>
+                  ) : null}
+                </div>
+              )}
               <a
                 href={isLonguenesse ? '/lon/commande-livraison' : '/plan/commande-livraison'}
                 style={{

@@ -67,7 +67,17 @@ const partnerOrderSchema = new mongoose.Schema(
         },
         at: { type: Date, required: true }
       }
-    ]
+    ],
+    /** Échanges boulangerie ↔ client (site Vercel). */
+    messages: [
+      {
+        from: { type: String, enum: ['bakery', 'client'], required: true },
+        text: { type: String, required: true, trim: true, maxlength: 2000 },
+        at: { type: Date, default: Date.now }
+      }
+    ],
+    /** Masque l’alerte dashboard après lecture ou changement de statut. */
+    messageAlertClearedAt: { type: Date, default: null }
   },
   { timestamps: true }
 );
