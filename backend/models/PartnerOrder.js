@@ -77,7 +77,9 @@ const partnerOrderSchema = new mongoose.Schema(
       }
     ],
     /** Masque l’alerte dashboard après lecture ou changement de statut. */
-    messageAlertClearedAt: { type: Date, default: null }
+    messageAlertClearedAt: { type: Date, default: null },
+    /** Id commande sur le site client Vercel (si Mongo distinct). */
+    vercelOrderId: { type: String, trim: true, default: '', index: true }
   },
   { timestamps: true }
 );

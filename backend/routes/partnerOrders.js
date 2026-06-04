@@ -3,12 +3,15 @@ const router = express.Router();
 const controller = require('../controllers/partnerCompanyController');
 const { authenticatePartnerCompany } = require('../middleware/auth');
 const { authenticateEmployee } = require('../middleware/auth');
+const requireInternalApiSecret = require('../middleware/requireInternalApiSecret');
 
 router.get('/formulas', authenticatePartnerCompany, controller.partnerGetFormulas);
 router.get('/my', authenticatePartnerCompany, controller.listMyOrders);
 router.post('/my', authenticatePartnerCompany, controller.createMyOrder);
 router.delete('/my/:id', authenticatePartnerCompany, controller.deletePartnerOrderById);
 router.post('/my/:id/reply', authenticatePartnerCompany, controller.replyMyOrderMessage);
+
+router.post('/internal-from-vercel', requireInternalApiSecret, controller.internalFromVercel);
 
 // Internal (salariés/admin) for dashboard + listing (read-only)
 router.get('/pending-count', authenticateEmployee, controller.internalPendingCount);

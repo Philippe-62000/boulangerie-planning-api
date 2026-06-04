@@ -10,7 +10,13 @@
 const axios = require('axios');
 
 const url = process.env.PARTNER_ORDER_APP_SYNC_URL;
-const secret = process.env.PARTNER_ORDER_APP_SYNC_SECRET;
+const secret =
+  process.env.PARTNER_ORDER_APP_SYNC_SECRET || process.env.INTERNAL_API_SECRET || '';
+const defaultAppBase =
+  process.env.PARTNER_ORDER_APP_URL || 'https://commande-longuenesse.vercel.app';
+const messageSyncUrl =
+  process.env.PARTNER_ORDER_APP_MESSAGE_SYNC_URL ||
+  `${String(defaultAppBase).replace(/\/+$/, '')}/api/internal-order-message`;
 
 async function post(body) {
   if (!url || !secret) return;
@@ -90,9 +96,53 @@ function syncOrderDelete({ orderId, site }) {
   });
 }
 
+/**
+ * Message boulangerie/client → Mongo du site Vercel (obligatoire si base distincte de Render).
+ * Utilise INTERNAL_API_SECRET ou PARTNER_ORDER_APP_SYNC_SECRET (même valeur que sur Vercel).
+ */
+async function syncOrderMessage({
+  site,
+  orderId,
+  renderOrderId,
+  vercelOrderId,
+  companyEmail,
+  datetime,
+  from,
+  text
+}) {
+  if (!secret) {
+    console.warn('⚠️ syncOrderMessage: secret manquant (INTERNAL_API_SECRET)');
+    return { ok: false };
+  }
+  try {
+    const r = await axios.post(
+      messageSyncUrl,
+      {
+        site: site || 'longuenesse',
+        orderId: String(orderId || vercelOrderId || renderOrderId || ''),
+        renderOrderId: renderOrderId ? String(renderOrderId) : undefined,
+        vercelOrderId: vercelOrderId ? String(vercelOrderId) : undefined,
+        companyEmail: companyEmail ? String(companyEmail).toLowerCase().trim() : undefined,
+        datetime: datetime ? new Date(datetime).toISOString() : undefined,
+        from: from === 'client' ? 'client' : 'bakery',
+        text: String(text || '').trim()
+      },
+      {
+        headers: { 'Content-Type': 'application/json', 'x-internal-secret': secret },
+        timeout: 12000
+      }
+    );
+    return { ok: true, status: r.status };
+  } catch (e) {
+    console.error('⚠️ partnerOrderAppSync message:', e.response?.status, e.response?.data || e.message);
+    return { ok: false, error: e.message };
+  }
+}
+
 module.exports = {
   syncUpsert,
   syncDeactivate,
   syncDelete,
-  syncOrderDelete
+  syncOrderDelete,
+  syncOrderMessage
 };

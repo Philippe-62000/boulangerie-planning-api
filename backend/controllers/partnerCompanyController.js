@@ -1014,6 +1014,84 @@ const internalPendingCount = async (req, res) => {
   }
 };
 
+const internalFromVercel = async (req, res) => {
+  try {
+    const site = normalizeSite(getSite(req));
+    const vercelOrderId = String(req.body?.vercelOrderId || '').trim();
+    const companyEmail = String(req.body?.companyEmail || '').toLowerCase().trim();
+    if (!vercelOrderId || !companyEmail) {
+      return res.status(400).json({ success: false, error: 'vercelOrderId et companyEmail requis' });
+    }
+
+    const company = await PartnerCompany.findOne({ site, email: companyEmail });
+    if (!company) return res.status(404).json({ success: false, error: 'Entreprise introuvable' });
+
+    const existing = await PartnerOrder.findOne({ site, vercelOrderId });
+    if (existing) {
+      return res.json({
+        success: true,
+        data: { renderOrderId: String(existing._id), vercelOrderId }
+      });
+    }
+
+    const fulfillment = req.body.fulfillment === 'pickup' ? 'pickup' : 'delivery';
+    const dt = new Date(req.body.datetime);
+    if (Number.isNaN(dt.getTime())) {
+      return res.status(400).json({ success: false, error: 'datetime invalide' });
+    }
+
+    const orderKind = String(req.body.orderKind || 'formula').toLowerCase();
+    const companyName = String(req.body.companyName || company.name || '').trim();
+    const contactName = String(req.body.contactName || company.contactName || '').trim();
+    let itemsSnapshot = req.body.itemsSnapshot;
+    if (!itemsSnapshot || typeof itemsSnapshot !== 'object') {
+      itemsSnapshot = { label: 'Commande', priceCents: 0, description: '', items: [] };
+    }
+
+    const base = {
+      site,
+      companyId: company._id,
+      companyName,
+      contactName,
+      fulfillment,
+      datetime: dt,
+      vercelOrderId,
+      itemsSnapshot,
+      status: 'submitted',
+      statusUpdatedAt: new Date(),
+      statusHistory: initialStatusHistory('submitted')
+    };
+
+    let order;
+    if (orderKind === 'devis' || orderKind === 'commande') {
+      order = await PartnerOrder.create({
+        ...base,
+        orderKind,
+        requestDetail: String(itemsSnapshot.description || itemsSnapshot.remarks || ''),
+        mealType: null,
+        tier: null,
+        quantity: 1
+      });
+    } else {
+      order = await PartnerOrder.create({
+        ...base,
+        orderKind: 'formula',
+        mealType: req.body.mealType || null,
+        tier: req.body.tier || null,
+        quantity: Math.max(1, Number(itemsSnapshot.quantity) || 1)
+      });
+    }
+
+    res.json({
+      success: true,
+      data: { renderOrderId: String(order._id), vercelOrderId }
+    });
+  } catch (err) {
+    console.error('❌ internalFromVercel:', err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+};
+
 const sendInternalOrderMessage = async (req, res) => {
   try {
     const { id } = req.params;
@@ -1034,7 +1112,18 @@ const sendInternalOrderMessage = async (req, res) => {
     await order.save();
 
     const company = await PartnerCompany.findById(order.companyId).select('name email').lean();
-    if (company?.email) {
+    const syncResult = await partnerOrderAppSync.syncOrderMessage({
+      site,
+      orderId: order.vercelOrderId || id,
+      renderOrderId: String(order._id),
+      vercelOrderId: order.vercelOrderId || '',
+      companyEmail: company?.email,
+      datetime: order.datetime,
+      from: 'bakery',
+      text
+    });
+
+    if (process.env.PARTNER_ORDER_MESSAGE_SEND_EMAIL === 'true' && company?.email) {
       sendPartnerOrderMessageEmail(company, order, text).catch((e) =>
         console.error('⚠️ sendPartnerOrderMessageEmail:', e.message)
       );
@@ -1042,7 +1131,10 @@ const sendInternalOrderMessage = async (req, res) => {
 
     const plain = order.toObject ? order.toObject() : order;
     const [enriched] = await attachCompanyInfoToOrders([plain]);
-    res.json({ success: true, data: enriched, message: 'Message envoyé au client.' });
+    const syncHint = syncResult?.ok
+      ? 'Message visible sur le site client.'
+      : 'Message enregistré côté boulangerie ; vérifiez INTERNAL_API_SECRET (Render) = INTERNAL_API_SECRET (Vercel).';
+    res.json({ success: true, data: enriched, message: syncHint });
   } catch (err) {
     console.error('❌ sendInternalOrderMessage:', err);
     res.status(500).json({ success: false, error: err.message });
@@ -1100,6 +1192,10 @@ const replyMyOrderMessage = async (req, res) => {
     appendOrderMessage(order, 'client', text);
     await order.save();
 
+    partnerOrderAppSync
+      .syncOrderMessage({ site, orderId: id, from: 'client', text })
+      .catch(() => {});
+
     res.json({ success: true, data: enrichOrderMessages(order.toObject ? order.toObject() : order) });
   } catch (err) {
     console.error('❌ replyMyOrderMessage:', err);
@@ -1140,6 +1236,7 @@ module.exports = {
   adminUpdateFormulas,
   internalPendingCount,
   internalListOrders,
+  internalFromVercel,
   sendInternalOrderMessage,
   dismissInternalOrderMessageAlert,
   replyMyOrderMessage,
