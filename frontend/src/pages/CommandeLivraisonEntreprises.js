@@ -435,6 +435,17 @@ const CommandeLivraisonEntreprises = () => {
   const openMessageModal = async (order) => {
     setMessageModalOrder(order);
     setMessageDraft('');
+    const id = order?._id || order?.id;
+    if (id) {
+      try {
+        const res = await api.get('/partner-orders/internal', { params: { site, status: '' } });
+        const list = Array.isArray(res.data?.data) ? res.data.data : [];
+        const fresh = list.find((o) => String(o._id || o.id) === String(id));
+        if (fresh) setMessageModalOrder(fresh);
+      } catch (e) {
+        console.error(e);
+      }
+    }
     if (order?.messageAlert === 'reply_received') {
       const id = order._id || order.id;
       if (!id) return;

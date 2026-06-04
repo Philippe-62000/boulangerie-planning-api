@@ -36,7 +36,7 @@ const siteMap = { lon: 'longuenesse', plan: 'arras' };
 const normalizeSite = (s) => siteMap[s] || (s === 'arras' ? 'arras' : 'longuenesse');
 
 function formatMessageSyncHint(syncResult) {
-  if (syncResult?.ok) {
+  if (syncResult?.ok && !syncResult.skipped) {
     return 'Message visible sur le site client (Mes commandes).';
   }
   const r = syncResult || {};

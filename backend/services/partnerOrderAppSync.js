@@ -19,14 +19,14 @@ function getSyncSecret() {
 const secret = getSyncSecret();
 
 /**
- * Par défaut : pas d’appel HTTP vers Vercel (Filmara et le site client lisent la même Mongo).
- * Si Mongo est vraiment séparée : PARTNER_ORDER_FORCE_VERCEL_MESSAGE_SYNC=true + INTERNAL_API_SECRET identique.
+ * Copie le message vers la base lue par le site Vercel (souvent même cluster, autre MONGODB_DB).
+ * Désactiver : PARTNER_ORDER_SKIP_VERCEL_MESSAGE_SYNC=true
+ * Ne pas copier (Mongo strictement identique partout) : PARTNER_ORDER_SHARED_MONGO=true
  */
 function shouldSyncMessageToVercel() {
   if (process.env.PARTNER_ORDER_SKIP_VERCEL_MESSAGE_SYNC === 'true') return false;
   if (process.env.PARTNER_ORDER_SHARED_MONGO === 'true') return false;
-  if (process.env.PARTNER_ORDER_FORCE_VERCEL_MESSAGE_SYNC === 'true') return true;
-  return false;
+  return true;
 }
 const defaultAppBase =
   process.env.PARTNER_ORDER_APP_URL || 'https://commande-longuenesse.vercel.app';
