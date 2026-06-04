@@ -111,8 +111,8 @@ async function syncOrderMessage({
   text
 }) {
   if (!secret) {
-    console.warn('⚠️ syncOrderMessage: secret manquant (INTERNAL_API_SECRET)');
-    return { ok: false };
+    console.warn('⚠️ syncOrderMessage: secret manquant (INTERNAL_API_SECRET sur Render)');
+    return { ok: false, reason: 'no_secret' };
   }
   try {
     const r = await axios.post(
@@ -134,8 +134,11 @@ async function syncOrderMessage({
     );
     return { ok: true, status: r.status };
   } catch (e) {
-    console.error('⚠️ partnerOrderAppSync message:', e.response?.status, e.response?.data || e.message);
-    return { ok: false, error: e.message };
+    const status = e.response?.status;
+    const apiError =
+      (e.response?.data && (e.response.data.error || e.response.data.message)) || null;
+    console.error('⚠️ partnerOrderAppSync message:', status, e.response?.data || e.message);
+    return { ok: false, reason: 'http_error', status, apiError, error: e.message };
   }
 }
 

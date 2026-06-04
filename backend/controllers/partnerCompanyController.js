@@ -35,6 +35,36 @@ const getSite = (req) => (req.query.site || req.body.site || 'longuenesse').toLo
 const siteMap = { lon: 'longuenesse', plan: 'arras' };
 const normalizeSite = (s) => siteMap[s] || (s === 'arras' ? 'arras' : 'longuenesse');
 
+function formatMessageSyncHint(syncResult) {
+  if (syncResult?.ok) {
+    return 'Message visible sur le site client (Mes commandes).';
+  }
+  const r = syncResult || {};
+  if (r.reason === 'no_secret') {
+    return (
+      'Message enregistré dans Filmara. Sur Render (service api-3), créez la variable INTERNAL_API_SECRET ' +
+      '(chaîne aléatoire), redéployez, puis copiez la même valeur dans Vercel → projet commandes → Environment Variables.'
+    );
+  }
+  if (r.status === 401) {
+    return (
+      'Message enregistré dans Filmara. Le secret ne correspond pas : INTERNAL_API_SECRET sur Render doit être strictement identique à celui sur Vercel.'
+    );
+  }
+  if (r.status === 500 && String(r.apiError || '').toLowerCase().includes('manquant')) {
+    return (
+      'Message enregistré dans Filmara. Sur Vercel, ajoutez INTERNAL_API_SECRET (même valeur que sur Render api-3), puis redéployez.'
+    );
+  }
+  if (r.status === 404) {
+    return (
+      'Message enregistré dans Filmara. Commande introuvable sur le site client — le client doit passer une nouvelle commande depuis commande-longuenesse.vercel.app.'
+    );
+  }
+  const detail = r.apiError || r.error || (r.status ? `HTTP ${r.status}` : 'erreur réseau');
+  return `Message enregistré dans Filmara. Synchro site client échouée : ${detail}.`;
+}
+
 const generateRandomPassword = () => {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789';
   let password = '';
@@ -1131,10 +1161,12 @@ const sendInternalOrderMessage = async (req, res) => {
 
     const plain = order.toObject ? order.toObject() : order;
     const [enriched] = await attachCompanyInfoToOrders([plain]);
-    const syncHint = syncResult?.ok
-      ? 'Message visible sur le site client.'
-      : 'Message enregistré côté boulangerie ; vérifiez INTERNAL_API_SECRET (Render) = INTERNAL_API_SECRET (Vercel).';
-    res.json({ success: true, data: enriched, message: syncHint });
+    res.json({
+      success: true,
+      data: enriched,
+      message: formatMessageSyncHint(syncResult),
+      clientSyncOk: !!syncResult?.ok
+    });
   } catch (err) {
     console.error('❌ sendInternalOrderMessage:', err);
     res.status(500).json({ success: false, error: err.message });
