@@ -85,7 +85,7 @@ const getProductsForEntry = async (req, res) => {
     const siteKey = normalizeSiteKey(req.query.siteKey);
     const supplier = getSupplierFromReq(req);
     const [products, locations] = await Promise.all([
-      SupplierOrderProduct.find({ ...catalogQuery(siteKey, supplier), isActive: true })
+      SupplierOrderProduct.find({ ...catalogQuery(siteKey, supplier) })
         .sort({ order: 1, name: 1 })
         .lean(),
       SupplierOrderLocation.find({ ...catalogQuery(siteKey, supplier), isActive: true })
@@ -96,8 +96,12 @@ const getProductsForEntry = async (req, res) => {
     const items = products.map((p) => ({
       productId: p._id,
       productName: p.name,
+      locationId: p.locationId || null,
       locationName: p.locationName || locById.get(String(p.locationId)) || '',
-      supplierCode: p.supplierCode || ''
+      supplierCode: p.supplierCode || '',
+      unit: p.unit || 'pièce',
+      order: p.order ?? 0,
+      isActive: p.isActive !== false
     }));
     res.json({ success: true, data: items, locations: locations.map((l) => l.name) });
   } catch (e) {
@@ -125,6 +129,7 @@ const postEntry = async (req, res) => {
         return {
           productId: it.productId,
           productName: String(it.productName || '').trim(),
+          supplierCode: String(it.supplierCode || '').trim(),
           locationName: String(it.locationName || '').trim(),
           cartonQty,
           unitQty,

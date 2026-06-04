@@ -320,13 +320,6 @@
   line-height: 1;
 }
 
-.config-stop-label {
-  flex-shrink: 0;
-  white-space: nowrap;
-  font-weight: 600;
-  color: #b45309;
-}
-
 .commande-tgt-table .col-order {
   width: 5.5rem;
 }

@@ -11,7 +11,7 @@ export const ORDER_CHANNELS = {
     menuStocksId: 'stocks-tgt',
     showPositive: true,
     showSeedArras: true,
-    showProductOrderControls: false,
+    showProductOrderControls: true,
     emptyProductsHint: 'Configurez le catalogue dans Commande TGT.',
     stockScheduleMenuLabel: 'Stocks TGT'
   },

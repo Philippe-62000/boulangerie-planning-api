@@ -98,6 +98,26 @@
   text-align: center;
 }
 
+.stocks-tgt-table .col-stop {
+  width: 3.5rem;
+  text-align: center;
+}
+
+.stocks-tgt-table .col-stop input[type='checkbox'] {
+  width: 1.1rem;
+  height: 1.1rem;
+  cursor: pointer;
+}
+
+.stocks-tgt-row--stopped td {
+  opacity: 0.65;
+  background: #f8f9fa;
+}
+
+.stocks-tgt-row--stopped .qty-input:disabled {
+  background: #eee;
+}
+
 .stocks-tgt-table .qty-input {
   width: 4.5rem;
   padding: 0.35rem;
@@ -187,43 +207,78 @@
   border: 1px solid #333;
 }
 
-.modele-print-columns {
-  column-count: 3;
-  column-gap: 0.5rem;
+.modele-print-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.6rem;
+  margin-bottom: 0.35rem;
+  table-layout: fixed;
 }
 
-.modele-print-item {
-  break-inside: avoid;
-  display: flex;
-  align-items: center;
-  gap: 0.35rem;
-  padding: 0.12rem 0;
-  font-size: 0.68rem;
-  border-bottom: 1px dotted #bbb;
+.modele-print-table th,
+.modele-print-table td {
+  border: 1px solid #333;
+  padding: 0.15rem 0.25rem;
+  vertical-align: middle;
 }
 
-.modele-print-name {
-  flex: 1;
+.modele-print-table thead th {
+  background: #e8e8e8;
+  font-weight: 800;
+  text-align: center;
+}
+
+.modele-print-th-product,
+.modele-print-td-product {
+  text-align: left;
   font-weight: 600;
-  line-height: 1.15;
+  width: 28%;
 }
 
-.modele-print-stock-labels {
-  display: flex;
-  flex-direction: column;
-  font-size: 0.55rem;
-  font-weight: 700;
-  line-height: 1.1;
-  flex-shrink: 0;
+.modele-print-th-week {
+  font-size: 0.58rem;
+  letter-spacing: 0.02em;
+  border-left: 2px solid #333;
+}
+
+.modele-print-th-week:first-of-type {
+  border-left: 1px solid #333;
+}
+
+.modele-print-week-start {
+  border-left: 2px solid #333 !important;
+}
+
+.modele-print-th-qty,
+.modele-print-td-qty {
+  width: 2.4%;
+  text-align: center;
+  padding: 0.1rem !important;
+}
+
+.modele-print-th-stop,
+.modele-print-td-stop {
+  width: 2.4%;
+  text-align: center;
+  padding: 0.1rem !important;
 }
 
 .modele-print-stock-box {
   display: inline-block;
-  width: 1.25rem;
-  height: 1.65rem;
+  width: 1.1rem;
+  height: 1.45rem;
   border: 1px solid #333;
-  flex-shrink: 0;
   background: #fff;
+  vertical-align: middle;
+}
+
+.modele-print-stop-box {
+  display: inline-block;
+  width: 0.85rem;
+  height: 0.85rem;
+  border: 1px solid #333;
+  background: #fff;
+  vertical-align: middle;
 }
 
 @media print {

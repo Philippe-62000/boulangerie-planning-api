@@ -731,7 +731,23 @@ const CommandeLivraisonEntreprises = () => {
                 >
                   <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
                     <div>
-                      <div style={{ fontWeight: 900 }}>{c.name}</div>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', gap: 8 }}>
+                        <span style={{ fontWeight: 900 }}>{c.name}</span>
+                        {c.createdViaDashboardForm ? (
+                          <span
+                            style={{
+                              fontSize: 12,
+                              fontWeight: 700,
+                              color: '#0f766e',
+                              background: '#ccfbf1',
+                              padding: '2px 8px',
+                              borderRadius: 6
+                            }}
+                          >
+                            créé par formulaire
+                          </span>
+                        ) : null}
+                      </div>
                       {c.isAnonymous ? (
                         <div style={{ color: '#6366f1', marginTop: 4, fontSize: 13, fontWeight: 700 }}>
                           Client anonyme (prospect)

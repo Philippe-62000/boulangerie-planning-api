@@ -523,7 +523,8 @@ function computeLineMetrics(line, avgConsumptionQty = null) {
     receivedQty,
     cartonQty,
     unitQty,
-    stockQty: null,
+    /** Total affichage / anciennes interfaces (carton + unité). */
+    stockQty: stockTotal,
     consumptionQty,
     avgConsumptionQty: avg != null ? Math.round(avg * 100) / 100 : null,
     suggestedOrderQty,
@@ -704,16 +705,51 @@ async function buildEmployeeStockImportMeta(siteKey, entryIds = []) {
  * écrase les quantités précédentes produit par produit (pas de cumul).
  */
 function buildEmployeeStockByProductReplace(entries = []) {
-  const stockByProductId = new Map();
+  const byProductId = new Map();
+  const byProductName = new Map();
+  const byProductCode = new Map();
+  let importItems = 0;
   for (const entry of entries) {
     for (const item of entry.items || []) {
-      if (item.productId == null || !hasAnyStockValue(item)) continue;
-      const pid = String(item.productId);
+      if (!hasAnyStockValue(item)) continue;
+      importItems += 1;
       const { cartonQty, unitQty } = normalizeStockFields(item);
-      stockByProductId.set(pid, { cartonQty, unitQty });
+      const payload = { cartonQty, unitQty };
+      if (item.productId != null) {
+        byProductId.set(String(item.productId), payload);
+      }
+      const nameKey = normalizeName(item.productName);
+      if (nameKey) byProductName.set(nameKey, payload);
+      const code = String(item.supplierCode || '').trim();
+      if (code) {
+        byProductCode.set(code, payload);
+        const norm = normalizeSupplierCode(code);
+        if (norm && norm !== code) byProductCode.set(norm, payload);
+      }
     }
   }
-  return stockByProductId;
+  return { byProductId, byProductName, byProductCode, importItems };
+}
+
+/** Résout le stock importé sur une ligne commande (id, code ou nom produit). */
+function resolveEmployeeStockForLine(line, stockMaps) {
+  if (!stockMaps) return null;
+  const pid = line.productId != null ? String(line.productId) : '';
+  if (pid && stockMaps.byProductId.has(pid)) {
+    return stockMaps.byProductId.get(pid);
+  }
+  const code = String(line.supplierCode || '').trim();
+  if (code) {
+    const hit =
+      stockMaps.byProductCode.get(code) ||
+      stockMaps.byProductCode.get(normalizeSupplierCode(code));
+    if (hit) return hit;
+  }
+  const nameKey = normalizeName(line.productName);
+  if (nameKey && stockMaps.byProductName.has(nameKey)) {
+    return stockMaps.byProductName.get(nameKey);
+  }
+  return null;
 }
 
 async function buildLinesFromCatalog(siteKey, existingLines = [], options = {}) {
@@ -1206,7 +1242,7 @@ const applyEmployeeStocks = async (req, res) => {
       return res.status(404).json({ success: false, error: 'Aucun import stocks salarié trouvé' });
     }
 
-    const stockByProductId = buildEmployeeStockByProductReplace(entries);
+    const stockMaps = buildEmployeeStockByProductReplace(entries);
     const deliveryDate = getCurrentDeliveryFriday();
     const weekKey = deliveryWeekKey(deliveryDate);
 
@@ -1216,9 +1252,10 @@ const applyEmployeeStocks = async (req, res) => {
       : await buildLinesFromCatalog(siteKey, [], { supplier });
 
     // Import salarié = remplacement : on efface carton/unité puis on applique l'import.
+    let matchedLines = 0;
     lines = lines.map((line) => {
-      const pid = String(line.productId);
-      const imported = stockByProductId.get(pid);
+      const imported = resolveEmployeeStockForLine(line, stockMaps);
+      if (imported) matchedLines += 1;
       return computeLineMetrics({
         ...line,
         cartonQty: imported ? imported.cartonQty : null,
@@ -1235,7 +1272,8 @@ const applyEmployeeStocks = async (req, res) => {
       data: saved,
       meta: {
         importCount: entries.length,
-        matchedProducts: stockByProductId.size,
+        importItems: stockMaps.importItems,
+        matchedProducts: matchedLines,
         employeeStockImports
       }
     });

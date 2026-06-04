@@ -22,6 +22,10 @@ const formatDateTime = (d) => {
 
 const resolveLocationName = (name) => (name && String(name).trim()) || 'Sans emplacement';
 
+/** Nombre de semaines sur le modèle papier (triplet Carton / Unité / Stop répété). */
+const MODELE_PRINT_WEEKS = 3;
+const MODELE_PRINT_WEEK_LABELS = Array.from({ length: MODELE_PRINT_WEEKS }, (_, i) => `Sem. ${i + 1}`);
+
 const StocksTGT = ({ channelKey = 'TGT' }) => {
   const channel = getOrderChannel(channelKey);
   const supplier = channel.supplier;
@@ -163,6 +167,44 @@ const StocksTGT = ({ channelKey = 'TGT' }) => {
     setUnitValues((prev) => ({ ...prev, [String(productId)]: value }));
   };
 
+  const toggleProductStop = async (product, stopChecked) => {
+    const active = !stopChecked;
+    const name = String(product?.productName || '').trim();
+    if (!name) {
+      setMessage({ type: 'error', text: 'Nom produit manquant.' });
+      return;
+    }
+    try {
+      await api.put('/supplier-orders/products', {
+        siteKey,
+        supplier,
+        items: [
+          {
+            _id: product.productId,
+            name,
+            supplierCode: product.supplierCode || '',
+            locationId: product.locationId || null,
+            locationName: product.locationName || '',
+            unit: product.unit || 'pièce',
+            order: Number(product.order) || 0,
+            isActive: active
+          }
+        ]
+      });
+      setProducts((prev) =>
+        prev.map((p) =>
+          String(p.productId) === String(product.productId) ? { ...p, isActive: active } : p
+        )
+      );
+    } catch (e) {
+      console.error(e);
+      setMessage({
+        type: 'error',
+        text: e.response?.data?.error || 'Impossible de mettre à jour le produit.'
+      });
+    }
+  };
+
   const runPrintModele = () => {
     setPrintMode(true);
     window.setTimeout(() => window.print(), 280);
@@ -194,6 +236,7 @@ const StocksTGT = ({ channelKey = 'TGT' }) => {
     }
 
     const items = products
+      .filter((p) => p.isActive !== false)
       .map((p) => {
         const pid = String(p.productId);
         const rawCarton = cartonValues[pid];
@@ -205,6 +248,7 @@ const StocksTGT = ({ channelKey = 'TGT' }) => {
         return {
           productId: p.productId,
           productName: p.productName,
+          supplierCode: p.supplierCode || '',
           locationName: p.locationName,
           cartonQty: carton,
           unitQty: unit
@@ -402,7 +446,10 @@ const StocksTGT = ({ channelKey = 'TGT' }) => {
 
       <div className="stocks-tgt-print-title print-only">
         <h2>Modèle {channel.stocksTitle} — {siteLabel}</h2>
-        <p>Emplacement, produit, colonnes Carton et Unité à remplir.</p>
+        <p>
+          Par emplacement : 3 semaines d’affilée — pour chaque semaine, cases vides Carton, Unité et case Stop
+          (cocher Stop si le produit est arrêté cette semaine).
+        </p>
       </div>
 
       {loading ? (
@@ -410,7 +457,7 @@ const StocksTGT = ({ channelKey = 'TGT' }) => {
       ) : loadError ? (
         <p className="stocks-tgt-empty">{loadError}</p>
       ) : groupedProducts.length === 0 ? (
-        <p className="stocks-tgt-empty">Aucun produit actif. {channel.emptyProductsHint}</p>
+        <p className="stocks-tgt-empty">Aucun produit dans le catalogue. {channel.emptyProductsHint}</p>
       ) : (
         <>
           <div className="stocks-tgt-saisie no-print">
@@ -423,11 +470,17 @@ const StocksTGT = ({ channelKey = 'TGT' }) => {
                       <th>Produit</th>
                       <th className="col-num">Carton</th>
                       <th className="col-num">Unité</th>
+                      <th className="col-stop">Stop</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {group.map((p) => (
-                      <tr key={String(p.productId)}>
+                    {group.map((p) => {
+                      const stopped = p.isActive === false;
+                      return (
+                      <tr
+                        key={String(p.productId)}
+                        className={stopped ? 'stocks-tgt-row--stopped' : ''}
+                      >
                         <td>{p.productName}</td>
                         <td className="col-num">
                           <input
@@ -438,6 +491,7 @@ const StocksTGT = ({ channelKey = 'TGT' }) => {
                             className="qty-input"
                             value={cartonValues[String(p.productId)] ?? ''}
                             placeholder="—"
+                            disabled={stopped}
                             onChange={(e) => updateCarton(p.productId, e.target.value)}
                           />
                         </td>
@@ -450,11 +504,21 @@ const StocksTGT = ({ channelKey = 'TGT' }) => {
                             className="qty-input"
                             value={unitValues[String(p.productId)] ?? ''}
                             placeholder="—"
+                            disabled={stopped}
                             onChange={(e) => updateUnit(p.productId, e.target.value)}
                           />
                         </td>
+                        <td className="col-stop">
+                          <input
+                            type="checkbox"
+                            checked={stopped}
+                            title="Coché = produit arrêté (masqué des prochaines saisies actives)"
+                            onChange={(e) => toggleProductStop(p, e.target.checked)}
+                          />
+                        </td>
                       </tr>
-                    ))}
+                    );
+                    })}
                   </tbody>
                 </table>
               </section>
@@ -465,19 +529,49 @@ const StocksTGT = ({ channelKey = 'TGT' }) => {
             {groupedProducts.map(([locName, group]) => (
               <section key={`print-${locName}`} className="modele-print-section">
                 <h3 className="modele-print-loc">{locName}</h3>
-                <div className="modele-print-columns">
-                  {group.map((p) => (
-                    <div key={`p-${p.productId}`} className="modele-print-item">
-                      <span className="modele-print-name">{p.productName}</span>
-                      <span className="modele-print-stock-labels">
-                        <span>Carton</span>
-                        <span>Unité</span>
-                      </span>
-                      <span className="modele-print-stock-box" aria-hidden="true" />
-                      <span className="modele-print-stock-box" aria-hidden="true" />
-                    </div>
-                  ))}
-                </div>
+                <table className="modele-print-table">
+                  <thead>
+                    <tr>
+                      <th className="modele-print-th-product" rowSpan={2}>
+                        Produit
+                      </th>
+                      {MODELE_PRINT_WEEK_LABELS.map((label) => (
+                        <th key={label} className="modele-print-th-week" colSpan={3}>
+                          {label}
+                        </th>
+                      ))}
+                    </tr>
+                    <tr>
+                      {MODELE_PRINT_WEEK_LABELS.map((label) => (
+                        <React.Fragment key={`${label}-cols`}>
+                          <th className="modele-print-th-qty modele-print-week-start">Carton</th>
+                          <th className="modele-print-th-qty">Unité</th>
+                          <th className="modele-print-th-stop">Stop</th>
+                        </React.Fragment>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {group.map((p) => (
+                      <tr key={`p-${p.productId}`}>
+                        <td className="modele-print-td-product">{p.productName}</td>
+                        {MODELE_PRINT_WEEK_LABELS.map((label) => (
+                          <React.Fragment key={`${p.productId}-${label}`}>
+                            <td className="modele-print-td-qty modele-print-week-start">
+                              <span className="modele-print-stock-box" aria-hidden="true" />
+                            </td>
+                            <td className="modele-print-td-qty">
+                              <span className="modele-print-stock-box" aria-hidden="true" />
+                            </td>
+                            <td className="modele-print-td-stop">
+                              <span className="modele-print-stop-box" aria-hidden="true" />
+                            </td>
+                          </React.Fragment>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </section>
             ))}
           </div>

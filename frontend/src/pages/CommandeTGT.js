@@ -66,7 +66,7 @@ const withMetrics = (line) => {
     receivedQty: received,
     cartonQty,
     unitQty,
-    stockQty: null,
+    stockQty: stockTotal,
     consumptionQty,
     avgConsumptionQty: avg,
     suggestedOrderQty
@@ -214,7 +214,9 @@ const CommandeTGT = ({ channelKey = 'TGT' }) => {
     const res = await api.get('/supplier-orders/current', { params: apiQ() });
     if (seq !== loadSeqRef.current) return;
     const data = res.data?.data;
-    setLines(Array.isArray(data?.lines) ? data.lines : []);
+    setLines(
+      Array.isArray(data?.lines) ? data.lines.map((l) => withMetrics(l)) : []
+    );
     setOrderStatus(data?.status || 'draft');
     setMeta(res.data?.meta || null);
   }, [siteKey, apiQ]);
@@ -556,7 +558,10 @@ const CommandeTGT = ({ channelKey = 'TGT' }) => {
       const res = await api.post('/supplier-orders/current/apply-employee-stocks', apiQ({
         entryIds: selectedStockEntryIds
       }));
-      setLines(Array.isArray(res.data?.data?.lines) ? res.data.data.lines : lines);
+      const importedLines = Array.isArray(res.data?.data?.lines)
+        ? res.data.data.lines.map((l) => withMetrics(l))
+        : lines;
+      setLines(importedLines);
       if (res.data?.meta) {
         setMeta((m) => ({
           ...m,
@@ -564,10 +569,16 @@ const CommandeTGT = ({ channelKey = 'TGT' }) => {
         }));
       }
       const matched = res.data?.meta?.matchedProducts ?? 0;
+      const importItems = res.data?.meta?.importItems;
       const count = res.data?.meta?.importCount ?? selectedStockEntryIds.length;
+      const itemsTxt =
+        importItems != null ? ` (${importItems} ligne(s) dans l’import)` : '';
       setMessage({
         type: 'success',
-        text: `Stocks salariés importés (remplacement) : ${count} import(s), ${matched} produit(s) renseignés.`
+        text:
+          matched > 0
+            ? `Stocks salariés importés (remplacement) : ${count} import(s), ${matched} produit(s) mis à jour sur la commande${itemsTxt}.`
+            : `Import enregistré (${count}) mais aucune ligne de la commande ne correspond${itemsTxt} — vérifiez le catalogue ou réimportez les produits.`
       });
       setStockImportModalOpen(false);
     } catch (e) {
@@ -1241,8 +1252,8 @@ const CommandeTGT = ({ channelKey = 'TGT' }) => {
               <div className="config-block">
                 <h3>Produits & emplacements</h3>
                 <p className="commande-tgt-hint">
-                  Cochez <strong>Stop</strong> pour retirer un produit arrêté de la saisie (équivalent à l’ancien
-                  bouton Désactiver). Les lignes en <strong className="config-no-location-label">rouge</strong> n’ont pas
+                  Utilisez « Désactiver » pour retirer un produit arrêté de la saisie (la case <strong>Stop</strong> se
+                  gère sur la page Stocks). Les lignes en <strong className="config-no-location-label">rouge</strong> n’ont pas
                   d’emplacement défini (y compris « — emplacement — » ou « -Emplacement- ») — elles sont listées en
                   premier.
                   {configNoLocationCount > 0 ? (
@@ -1333,22 +1344,27 @@ const CommandeTGT = ({ channelKey = 'TGT' }) => {
                             </option>
                           ))}
                       </select>
-                      <label
-                        className="checkbox-label config-stop-label"
-                        title={
-                          isActive
-                            ? 'Produit actif dans la saisie'
-                            : 'Produit arrêté — masqué de la saisie stocks et commande'
-                        }
-                      >
-                        <input
-                          type="checkbox"
-                          checked={!isActive}
+                      {isActive ? (
+                        <button
+                          type="button"
+                          className="btn btn-secondary btn-product-toggle"
+                          onClick={() => setProductActive(idx, false)}
                           disabled={saving}
-                          onChange={(e) => setProductActive(idx, !e.target.checked)}
-                        />
-                        Stop
-                      </label>
+                          title="Retirer ce produit de la liste de saisie"
+                        >
+                          Désactiver
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          className="btn btn-primary btn-product-toggle"
+                          onClick={() => setProductActive(idx, true)}
+                          disabled={saving}
+                          title="Réafficher ce produit dans la saisie"
+                        >
+                          Réactiver
+                        </button>
+                      )}
                     </div>
                   );
                 })}
