@@ -36,6 +36,7 @@ const {
   ALERT_HIDE_STATUSES
 } = require('../utils/partnerOrderMessages');
 const { getParisDayString, addParisDays } = require('../utils/parisDay');
+const { getPartnerOrderAppUrl, getPartnerSiteDisplayLabel } = require('../utils/partnerSiteConfig');
 
 /** Commandes « pris en compte » à honorer à la date de livraison. */
 const ACKNOWLEDGED_STATUS = 'acknowledged';
@@ -273,9 +274,10 @@ async function attachCompanyInfoToOrders(orders) {
   });
 }
 
-async function sendPartnerOrderMessageEmail(company, order, messageText) {
+async function sendPartnerOrderMessageEmail(company, order, messageText, site) {
   if (!company?.email) return { success: false, error: 'E-mail entreprise manquant' };
-  const orderAppUrl = process.env.PARTNER_ORDER_APP_URL || 'https://commande-longuenesse.vercel.app';
+  const orderAppUrl = getPartnerOrderAppUrl(site || order?.site || company?.site);
+  const siteLabel = getPartnerSiteDisplayLabel(site || order?.site || company?.site);
   const when = order?.datetime
     ? new Date(order.datetime).toLocaleString('fr-FR', { dateStyle: 'full', timeStyle: 'short' })
     : '—';
@@ -287,7 +289,7 @@ async function sendPartnerOrderMessageEmail(company, order, messageText) {
         ${String(messageText).replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br/>')}
       </blockquote>
       <p>Connectez-vous pour répondre : <a href="${orderAppUrl}">${orderAppUrl}</a></p>
-      <p>— Boulangerie</p>
+      <p>— Boulangerie ${siteLabel}</p>
     `;
   const text = `Message commande (${when}):\n${messageText}\n\nRépondre sur : ${orderAppUrl}\n`;
   return emailService.sendEmail(company.email, subject, html, text);
@@ -927,7 +929,8 @@ const adminDeleteCompany = async (req, res) => {
 };
 
 async function sendPartnerCompanyInviteEmail(company, plainPassword, site) {
-  const orderAppUrl = process.env.PARTNER_ORDER_APP_URL || 'https://commande-longuenesse.vercel.app';
+  const orderAppUrl = getPartnerOrderAppUrl(site);
+  const siteLabel = getPartnerSiteDisplayLabel(site);
   const subject = `Accès commande entreprises - ${company.name}`;
   const html = `
       <p>Bonjour,</p>
@@ -936,7 +939,7 @@ async function sendPartnerCompanyInviteEmail(company, plainPassword, site) {
       <b>Mot de passe :</b> ${plainPassword}</p>
       <p><b>Lien de connexion :</b> <a href="${orderAppUrl}">${orderAppUrl}</a></p>
       <p>Vous pourrez consulter vos commandes et en créer de nouvelles selon les options activées pour votre compte.</p>
-      <p>— Boulangerie Longuenesse</p>
+      <p>— Boulangerie ${siteLabel}</p>
     `;
   const text = `Identifiant (login): ${company.email}\nMot de passe: ${plainPassword}\nLien: ${orderAppUrl}\n`;
   return emailService.sendEmail(company.email, subject, html, text);
@@ -1416,7 +1419,7 @@ const sendInternalOrderMessage = async (req, res) => {
     });
 
     if (process.env.PARTNER_ORDER_MESSAGE_SEND_EMAIL === 'true' && company?.email) {
-      sendPartnerOrderMessageEmail(company, order, text).catch((e) =>
+      sendPartnerOrderMessageEmail(company, order, text, site).catch((e) =>
         console.error('⚠️ sendPartnerOrderMessageEmail:', e.message)
       );
     }

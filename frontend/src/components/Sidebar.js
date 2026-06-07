@@ -73,7 +73,7 @@ const Sidebar = () => {
     { path: '/ambassadeur', label: 'Ambassadeur', icon: '⭐', menuId: 'ambassadeur' },
     { path: '/plateaux-repas', label: 'Plateaux repas', icon: '🍽️', menuId: 'plateaux-repas' },
     { path: '/commandes-en-ligne', label: 'Commandes en ligne', icon: '🛒', menuId: 'commandes-en-ligne' },
-    { path: '/commande-livraison', label: 'Commande livraison', icon: '🚚', menuId: 'commande-livraison', longuenesseOnly: true }
+    { path: '/commande-livraison', label: 'Commande livraison', icon: '🚚', menuId: 'commande-livraison' }
   ];
 
   const PAIES_MENU_ITEMS = [
@@ -297,7 +297,7 @@ const Sidebar = () => {
     { path: '/employee-dashboard', label: 'Mes Documents', icon: '📁', menuId: 'employee-dashboard' },
     { path: '/ambassadeur', label: 'Ambassadeur', icon: '⭐', menuId: 'ambassadeur' },
     { path: '/commandes-en-ligne', label: 'Commandes en ligne', icon: '🛒', menuId: 'commandes-en-ligne' },
-    { path: '/commande-livraison', label: 'Commande livraison', icon: '🚚', menuId: 'commande-livraison', longuenesseOnly: true },
+    { path: '/commande-livraison', label: 'Commande livraison', icon: '🚚', menuId: 'commande-livraison' },
     { path: '/product-exchanges', label: 'Échanges entre boulangeries', icon: '🔄', menuId: 'product-exchanges' },
     { path: '/frais-km-responsable', label: 'Frais KM Responsable', icon: '🚗', menuId: 'frais-km-responsable' },
     { path: '/plateaux-repas', label: 'Plateaux repas', icon: '🍽️', menuId: 'plateaux-repas' },

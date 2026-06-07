@@ -8,6 +8,7 @@
  *   PARTNER_ORDER_APP_SYNC_SECRET = même secret que côté endpoint (header x-internal-secret)
  */
 const axios = require('axios');
+const { getPartnerOrderAppUrl } = require('../utils/partnerSiteConfig');
 
 const url = process.env.PARTNER_ORDER_APP_SYNC_URL;
 function getSyncSecret() {
@@ -28,8 +29,7 @@ function shouldSyncMessageToVercel() {
   if (process.env.PARTNER_ORDER_SHARED_MONGO === 'true') return false;
   return true;
 }
-const defaultAppBase =
-  process.env.PARTNER_ORDER_APP_URL || 'https://commande-longuenesse.vercel.app';
+const defaultAppBase = getPartnerOrderAppUrl(process.env.PARTNER_SITE || process.env.DEFAULT_SITE);
 const messageSyncUrl =
   process.env.PARTNER_ORDER_APP_MESSAGE_SYNC_URL ||
   `${String(defaultAppBase).replace(/\/+$/, '')}/api/internal-order-message`;
