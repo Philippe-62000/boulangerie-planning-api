@@ -30,18 +30,48 @@ const {
   countMessageAlertsForSite,
   ALERT_HIDE_STATUSES
 } = require('../utils/partnerOrderMessages');
-const { getParisDayString, getParisDayBounds, addParisDays } = require('../utils/parisDay');
+const { getParisDayString, addParisDays } = require('../utils/parisDay');
 
-/** Commandes validées (pris en compte ou plus) à honorer à la date de livraison. */
-const VALIDATED_TO_HONOR_STATUSES = ['acknowledged', 'invoiced', 'paid'];
+/** Commandes « pris en compte » à honorer à la date de livraison. */
+const ACKNOWLEDGED_STATUS = 'acknowledged';
 
-async function countValidatedOrdersForParisDay(site, dayStr) {
-  const { start, end } = getParisDayBounds(dayStr);
-  return PartnerOrder.countDocuments({
-    site,
-    status: { $in: VALIDATED_TO_HONOR_STATUSES },
-    datetime: { $gte: start, $lt: end }
-  });
+function siteMatchQuery(site) {
+  if (site === 'longuenesse') return { site: { $in: ['longuenesse', 'lon'] } };
+  if (site === 'arras') return { site: { $in: ['arras', 'plan'] } };
+  return { site };
+}
+
+async function countAcknowledgedOrdersByParisDays(site, dayStrings) {
+  const days = Array.isArray(dayStrings) ? dayStrings.filter(Boolean) : [];
+  if (days.length === 0) return [];
+
+  const rows = await PartnerOrder.aggregate([
+    {
+      $match: {
+        ...siteMatchQuery(site),
+        status: ACKNOWLEDGED_STATUS,
+        datetime: { $exists: true, $ne: null }
+      }
+    },
+    {
+      $addFields: {
+        deliveryParisDay: {
+          $dateToString: {
+            format: '%Y-%m-%d',
+            date: {
+              $convert: { input: '$datetime', to: 'date', onError: null, onNull: null }
+            },
+            timezone: 'Europe/Paris'
+          }
+        }
+      }
+    },
+    { $match: { deliveryParisDay: { $in: days } } },
+    { $group: { _id: '$deliveryParisDay', count: { $sum: 1 } } }
+  ]);
+
+  const byDay = new Map(rows.map((r) => [r._id, r.count]));
+  return days.map((d) => byDay.get(d) || 0);
 }
 
 const getSite = (req) => (req.query.site || req.body.site || 'longuenesse').toLowerCase();
@@ -1047,20 +1077,26 @@ const internalPendingCount = async (req, res) => {
   try {
     const site = normalizeSite(getSite(req));
     const todayParis = getParisDayString(new Date());
-    const [count, messageAlerts, j0, j1, j2] = await Promise.all([
-      PartnerOrder.countDocuments({ site, status: 'submitted' }),
+    const dayJ1 = addParisDays(todayParis, 1);
+    const dayJ2 = addParisDays(todayParis, 2);
+    const [count, messageAlerts, honorCounts] = await Promise.all([
+      PartnerOrder.countDocuments({ ...siteMatchQuery(site), status: 'submitted' }),
       countMessageAlertsForSite(PartnerOrder, site),
-      countValidatedOrdersForParisDay(site, todayParis),
-      countValidatedOrdersForParisDay(site, addParisDays(todayParis, 1)),
-      countValidatedOrdersForParisDay(site, addParisDays(todayParis, 2))
+      countAcknowledgedOrdersByParisDays(site, [todayParis, dayJ1, dayJ2])
     ]);
+    const [j0, j1, j2] = honorCounts;
     res.json({
       success: true,
       data: {
         count,
         messagesAwaitingReply: messageAlerts.awaitingReply,
         messagesReplyReceived: messageAlerts.replyReceived,
-        validatedToHonor: { j0, j1, j2 }
+        validatedToHonor: {
+          j0,
+          j1,
+          j2,
+          dates: { j0: todayParis, j1: dayJ1, j2: dayJ2 }
+        }
       }
     });
   } catch (err) {

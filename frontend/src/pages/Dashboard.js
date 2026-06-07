@@ -86,7 +86,7 @@ const Dashboard = () => {
     count: 0,
     messagesAwaitingReply: 0,
     messagesReplyReceived: 0,
-    validatedToHonor: { j0: 0, j1: 0, j2: 0 },
+    validatedToHonor: { j0: 0, j1: 0, j2: 0, dates: { j0: '', j1: '', j2: '' } },
     loading: false
   });
   const [newPartnerClientEmail, setNewPartnerClientEmail] = useState('');
@@ -335,7 +335,12 @@ const Dashboard = () => {
         validatedToHonor: {
           j0: Number(validated.j0 || 0),
           j1: Number(validated.j1 || 0),
-          j2: Number(validated.j2 || 0)
+          j2: Number(validated.j2 || 0),
+          dates: {
+            j0: validated.dates?.j0 || '',
+            j1: validated.dates?.j1 || '',
+            j2: validated.dates?.j2 || ''
+          }
         },
         loading: false
       });
@@ -345,7 +350,7 @@ const Dashboard = () => {
         count: 0,
         messagesAwaitingReply: 0,
         messagesReplyReceived: 0,
-        validatedToHonor: { j0: 0, j1: 0, j2: 0 },
+        validatedToHonor: { j0: 0, j1: 0, j2: 0, dates: { j0: '', j1: '', j2: '' } },
         loading: false
       });
     }
@@ -354,6 +359,17 @@ const Dashboard = () => {
   const formatPartnerOrderCount = (n) => {
     const v = Number(n) || 0;
     return `${v} commande${v !== 1 ? 's' : ''}`;
+  };
+
+  const formatPartnerHonorDayLabel = (isoDay) => {
+    if (!isoDay) return '';
+    try {
+      const [y, m, d] = String(isoDay).split('-').map(Number);
+      const dt = new Date(Date.UTC(y, m - 1, d, 12, 0, 0));
+      return dt.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' });
+    } catch {
+      return isoDay;
+    }
   };
 
   const fetchDashboardData = async () => {
@@ -1264,7 +1280,7 @@ const Dashboard = () => {
                 }}
               >
                 <div style={{ fontSize: '0.85rem', color: '#555', marginBottom: '0.5rem' }}>
-                  Commandes validées à honorer
+                  Commandes « pris en compte » à honorer
                 </div>
                 <div
                   style={{
@@ -1275,9 +1291,27 @@ const Dashboard = () => {
                     color: '#374151'
                   }}
                 >
-                  <div>J : {formatPartnerOrderCount(partnerOrdersPending.validatedToHonor.j0)}</div>
-                  <div>J+1 : {formatPartnerOrderCount(partnerOrdersPending.validatedToHonor.j1)}</div>
-                  <div>J+2 : {formatPartnerOrderCount(partnerOrdersPending.validatedToHonor.j2)}</div>
+                  <div>
+                    J
+                    {partnerOrdersPending.validatedToHonor.dates?.j0
+                      ? ` (${formatPartnerHonorDayLabel(partnerOrdersPending.validatedToHonor.dates.j0)})`
+                      : ''}{' '}
+                    : {formatPartnerOrderCount(partnerOrdersPending.validatedToHonor.j0)}
+                  </div>
+                  <div>
+                    J+1
+                    {partnerOrdersPending.validatedToHonor.dates?.j1
+                      ? ` (${formatPartnerHonorDayLabel(partnerOrdersPending.validatedToHonor.dates.j1)})`
+                      : ''}{' '}
+                    : {formatPartnerOrderCount(partnerOrdersPending.validatedToHonor.j1)}
+                  </div>
+                  <div>
+                    J+2
+                    {partnerOrdersPending.validatedToHonor.dates?.j2
+                      ? ` (${formatPartnerHonorDayLabel(partnerOrdersPending.validatedToHonor.dates.j2)})`
+                      : ''}{' '}
+                    : {formatPartnerOrderCount(partnerOrdersPending.validatedToHonor.j2)}
+                  </div>
                 </div>
               </div>
               <a
