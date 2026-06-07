@@ -1251,74 +1251,97 @@ const Dashboard = () => {
                 backgroundColor: partnerOrdersPending.count > 0 ? '#fff8e6' : '#f8fff9'
               }}
             >
-              <div style={{ fontSize: '0.85rem', color: '#555', marginBottom: '0.35rem' }}>
-                Commandes en attente (non traitées)
-              </div>
-              <div style={{ fontSize: '1.75rem', fontWeight: 700, color: partnerOrdersPending.count > 0 ? '#856404' : '#155724' }}>
-                {partnerOrdersPending.count}
-              </div>
-              {(partnerOrdersPending.messagesAwaitingReply > 0 ||
-                partnerOrdersPending.messagesReplyReceived > 0) && (
-                <div style={{ marginTop: '0.75rem', fontSize: '0.9rem', display: 'grid', gap: '0.35rem' }}>
-                  {partnerOrdersPending.messagesAwaitingReply > 0 ? (
-                    <div style={{ color: '#92400e', fontWeight: 600 }}>
-                      {partnerOrdersPending.messagesAwaitingReply} message(s) envoyé(s) — en attente de réponse
-                    </div>
-                  ) : null}
-                  {partnerOrdersPending.messagesReplyReceived > 0 ? (
-                    <div style={{ color: '#047857', fontWeight: 600 }}>
-                      {partnerOrdersPending.messagesReplyReceived} réponse(s) client à lire
-                    </div>
-                  ) : null}
-                </div>
-              )}
               <div
                 style={{
-                  marginTop: '1rem',
-                  paddingTop: '1rem',
-                  borderTop: '1px solid #e5e7eb'
+                  display: 'grid',
+                  gridTemplateColumns: isLonguenesse ? 'minmax(0, 1fr) minmax(360px, 1fr)' : 'minmax(0, 1fr) 360px',
+                  gap: '1.25rem',
+                  alignItems: 'start'
                 }}
               >
-                <div style={{ fontSize: '0.85rem', color: '#555', marginBottom: '0.5rem' }}>
-                  Commandes « pris en compte » à honorer
+                <div>
+                  <div style={{ fontSize: '0.85rem', color: '#555', marginBottom: '0.35rem' }}>
+                    Commandes en attente (non traitées)
+                  </div>
+                  <div
+                    style={{
+                      fontSize: '1.75rem',
+                      fontWeight: 700,
+                      color: partnerOrdersPending.count > 0 ? '#856404' : '#155724'
+                    }}
+                  >
+                    {partnerOrdersPending.count}
+                  </div>
+                  {(partnerOrdersPending.messagesAwaitingReply > 0 ||
+                    partnerOrdersPending.messagesReplyReceived > 0) && (
+                    <div style={{ marginTop: '0.75rem', fontSize: '0.9rem', display: 'grid', gap: '0.35rem' }}>
+                      {partnerOrdersPending.messagesAwaitingReply > 0 ? (
+                        <div style={{ color: '#92400e', fontWeight: 600 }}>
+                          {partnerOrdersPending.messagesAwaitingReply} message(s) envoyé(s) — en attente de réponse
+                        </div>
+                      ) : null}
+                      {partnerOrdersPending.messagesReplyReceived > 0 ? (
+                        <div style={{ color: '#047857', fontWeight: 600 }}>
+                          {partnerOrdersPending.messagesReplyReceived} réponse(s) client à lire
+                        </div>
+                      ) : null}
+                    </div>
+                  )}
                 </div>
+
                 <div
                   style={{
-                    display: 'grid',
-                    gap: '0.35rem',
-                    fontSize: '0.95rem',
-                    fontWeight: 600,
-                    color: '#374151'
+                    border: '1px solid #e2e8f0',
+                    borderRadius: '12px',
+                    padding: '12px 14px',
+                    background: '#fff',
+                    maxWidth: isLonguenesse ? 360 : undefined,
+                    width: isLonguenesse ? '100%' : undefined,
+                    justifySelf: isLonguenesse ? 'center' : undefined
                   }}
                 >
-                  <div>
-                    J
-                    {partnerOrdersPending.validatedToHonor.dates?.j0
-                      ? ` (${formatPartnerHonorDayLabel(partnerOrdersPending.validatedToHonor.dates.j0)})`
-                      : ''}{' '}
-                    : {formatPartnerOrderCount(partnerOrdersPending.validatedToHonor.j0)}
+                  <div style={{ fontSize: '0.85rem', color: '#555', marginBottom: '0.5rem' }}>
+                    Commandes « pris en compte » à honorer
                   </div>
-                  <div>
-                    J+1
-                    {partnerOrdersPending.validatedToHonor.dates?.j1
-                      ? ` (${formatPartnerHonorDayLabel(partnerOrdersPending.validatedToHonor.dates.j1)})`
-                      : ''}{' '}
-                    : {formatPartnerOrderCount(partnerOrdersPending.validatedToHonor.j1)}
-                  </div>
-                  <div>
-                    J+2
-                    {partnerOrdersPending.validatedToHonor.dates?.j2
-                      ? ` (${formatPartnerHonorDayLabel(partnerOrdersPending.validatedToHonor.dates.j2)})`
-                      : ''}{' '}
-                    : {formatPartnerOrderCount(partnerOrdersPending.validatedToHonor.j2)}
+                  <div
+                    style={{
+                      display: 'grid',
+                      gap: '0.35rem',
+                      fontSize: '0.95rem',
+                      fontWeight: 600,
+                      color: '#374151'
+                    }}
+                  >
+                    <div>
+                      J
+                      {partnerOrdersPending.validatedToHonor.dates?.j0
+                        ? ` (${formatPartnerHonorDayLabel(partnerOrdersPending.validatedToHonor.dates.j0)})`
+                        : ''}{' '}
+                      : {formatPartnerOrderCount(partnerOrdersPending.validatedToHonor.j0)}
+                    </div>
+                    <div>
+                      J+1
+                      {partnerOrdersPending.validatedToHonor.dates?.j1
+                        ? ` (${formatPartnerHonorDayLabel(partnerOrdersPending.validatedToHonor.dates.j1)})`
+                        : ''}{' '}
+                      : {formatPartnerOrderCount(partnerOrdersPending.validatedToHonor.j1)}
+                    </div>
+                    <div>
+                      J+2
+                      {partnerOrdersPending.validatedToHonor.dates?.j2
+                        ? ` (${formatPartnerHonorDayLabel(partnerOrdersPending.validatedToHonor.dates.j2)})`
+                        : ''}{' '}
+                      : {formatPartnerOrderCount(partnerOrdersPending.validatedToHonor.j2)}
+                    </div>
                   </div>
                 </div>
               </div>
+
               <a
                 href={isLonguenesse ? '/lon/commande-livraison' : '/plan/commande-livraison'}
                 style={{
                   display: 'inline-block',
-                  marginTop: '0.5rem',
+                  marginTop: '1rem',
                   fontSize: '0.9rem',
                   fontWeight: 600,
                   color: '#667eea'
