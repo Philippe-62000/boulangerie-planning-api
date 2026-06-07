@@ -10,12 +10,16 @@ const {
   clampMiniCountPerFormula,
   validateBreakfastMiniViennoiserie
 } = require('../utils/partnerMiniViennoiserie');
+const { filterDuplicateVercelMirrorOrders } = require('../utils/partnerOrderDedup');
 const {
   normalizeMealTypesMode,
   parseOffersInput,
   parseEnabledProductListKeys,
+  parseFulfillmentModeInput,
   resolveCompanyOffers,
+  resolveCompanyFulfillmentMode,
   allowedMealTypesFromOffers,
+  isFulfillmentAllowedForCompany,
   mealTypesModeFromOffers,
   serializeCompanyOffers
 } = require('../utils/partnerCompanyOffers');
@@ -139,6 +143,7 @@ function companyPayloadForClient(company) {
     enabledProductListKeys: Array.isArray(company.enabledProductListKeys)
       ? company.enabledProductListKeys
       : [],
+    fulfillmentMode: resolveCompanyFulfillmentMode(company),
     ...offers
   };
 }
@@ -172,6 +177,8 @@ function applyOffersToCompany(company, body) {
   } else if (!offers.offerListe) {
     company.enabledProductListKeys = [];
   }
+  const fulfillmentMode = parseFulfillmentModeInput(body);
+  if (fulfillmentMode !== undefined) company.fulfillmentMode = fulfillmentMode;
 }
 
 function buildListOrderSnapshot({
@@ -411,14 +418,25 @@ const createMyOrder = async (req, res) => {
     if (!fulfillment || !datetime) {
       return res.status(400).json({ success: false, error: 'Champs requis: fulfillment, datetime' });
     }
+    const fulfillmentNorm = fulfillment === 'pickup' ? 'pickup' : 'delivery';
     const dt = new Date(datetime);
     if (Number.isNaN(dt.getTime())) return res.status(400).json({ success: false, error: 'Date/heure invalide' });
 
     const company = await PartnerCompany.findById(req.partnerCompanyId).select(
-      'name contactName mealTypesMode offerBreakfast offerLunch offerDevis offerCommande offerListe enabledProductListKeys isAnonymous'
+      'name contactName mealTypesMode offerBreakfast offerLunch offerDevis offerCommande offerListe enabledProductListKeys fulfillmentMode isAnonymous'
     );
     const offers = resolveCompanyOffers(company || { mealTypesMode: req.partnerCompanyMealTypesMode });
     const companyName = String(company?.name || req.partnerCompanyName || '').trim();
+
+    if (!isFulfillmentAllowedForCompany(company || {}, fulfillmentNorm)) {
+      return res.status(400).json({
+        success: false,
+        error:
+          fulfillmentNorm === 'pickup'
+            ? 'Retrait magasin non autorisé pour votre compte.'
+            : 'Livraison non autorisée pour votre compte.'
+      });
+    }
 
     if (orderKind === 'devis' || orderKind === 'commande') {
       if (orderKind === 'devis' && !offers.offerDevis) {
@@ -459,7 +477,7 @@ const createMyOrder = async (req, res) => {
       const itemsSnapshot = buildSimpleOrderSnapshot({
         orderKind,
         requestDetail,
-        fulfillment,
+        fulfillment: fulfillmentNorm,
         companyName,
         contactName,
         prospect: company?.isAnonymous ? prospect : null
@@ -469,7 +487,7 @@ const createMyOrder = async (req, res) => {
         companyId: req.partnerCompanyId,
         companyName,
         contactName,
-        fulfillment,
+        fulfillment: fulfillmentNorm,
         datetime: dt,
         orderKind,
         requestDetail,
@@ -538,7 +556,7 @@ const createMyOrder = async (req, res) => {
         listKey,
         listName: listDef.name || listKey,
         listQuantities,
-        fulfillment,
+        fulfillment: fulfillmentNorm,
         companyName,
         contactName,
         remarks
@@ -548,7 +566,7 @@ const createMyOrder = async (req, res) => {
         companyId: req.partnerCompanyId,
         companyName,
         contactName,
-        fulfillment,
+        fulfillment: fulfillmentNorm,
         datetime: dt,
         orderKind: 'liste',
         mealType: null,
@@ -711,6 +729,7 @@ const adminCreateCompany = async (req, res) => {
           mealTypesMode: existing.mealTypesMode,
           ...resolveCompanyOffers(existing),
           enabledProductListKeys: existing.enabledProductListKeys || [],
+          fulfillmentMode: resolveCompanyFulfillmentMode(existing),
           isAnonymous: existing.isAnonymous,
           active: true,
           plainPassword: password
@@ -734,6 +753,7 @@ const adminCreateCompany = async (req, res) => {
       offerCommande: offers.offerCommande,
       offerListe: offers.offerListe,
       enabledProductListKeys: parseEnabledProductListKeys(req.body) || [],
+      fulfillmentMode: parseFulfillmentModeInput(req.body) || 'both',
       isAnonymous: anonymous,
       firstName: String(firstName || '').trim(),
       lastName: String(lastName || '').trim(),
@@ -755,6 +775,7 @@ const adminCreateCompany = async (req, res) => {
         mealTypesMode: company.mealTypesMode,
         ...resolveCompanyOffers(company),
         enabledProductListKeys: company.enabledProductListKeys || [],
+        fulfillmentMode: resolveCompanyFulfillmentMode(company),
         isAnonymous: company.isAnonymous,
         active: true,
         plainPassword: password
@@ -800,6 +821,7 @@ const adminCreateCompany = async (req, res) => {
             mealTypesMode: dup.mealTypesMode,
             ...resolveCompanyOffers(dup),
             enabledProductListKeys: dup.enabledProductListKeys || [],
+            fulfillmentMode: resolveCompanyFulfillmentMode(dup),
             isAnonymous: dup.isAnonymous,
             active: true,
             plainPassword: password
@@ -947,6 +969,7 @@ const adminSendInvite = async (req, res) => {
         mealTypesMode: company.mealTypesMode,
         ...resolveCompanyOffers(company),
         enabledProductListKeys: company.enabledProductListKeys || [],
+        fulfillmentMode: resolveCompanyFulfillmentMode(company),
         isAnonymous: company.isAnonymous,
         active: true,
         plainPassword: newPassword
@@ -1021,6 +1044,7 @@ const staffQuickInviteByEmail = async (req, res) => {
         mealTypesMode: company.mealTypesMode,
         ...resolveCompanyOffers(company),
         enabledProductListKeys: company.enabledProductListKeys || [],
+        fulfillmentMode: resolveCompanyFulfillmentMode(company),
         isAnonymous: company.isAnonymous,
         createdViaDashboardForm: company.createdViaDashboardForm,
         active: true,
@@ -1057,12 +1081,25 @@ const adminUpdateCompany = async (req, res) => {
     const { contactName, name, phone, mealTypesMode: mealTypesModeRaw, isAnonymous, firstName, lastName, structureName } =
       req.body || {};
     if (contactName !== undefined) company.contactName = String(contactName).trim();
-    if (mealTypesModeRaw !== undefined || req.body?.offerBreakfast !== undefined || req.body?.offerListe !== undefined) {
+    if (
+      mealTypesModeRaw !== undefined ||
+      req.body?.offerBreakfast !== undefined ||
+      req.body?.offerListe !== undefined
+    ) {
       applyOffersToCompany(company, req.body);
     }
     const listKeysOnly = parseEnabledProductListKeys(req.body);
     if (listKeysOnly !== undefined && req.body?.offerBreakfast === undefined && req.body?.offerListe === undefined) {
       company.enabledProductListKeys = listKeysOnly;
+    }
+    const fulfillmentOnly = parseFulfillmentModeInput(req.body);
+    if (
+      fulfillmentOnly !== undefined &&
+      req.body?.offerBreakfast === undefined &&
+      req.body?.offerListe === undefined &&
+      listKeysOnly === undefined
+    ) {
+      company.fulfillmentMode = fulfillmentOnly;
     }
     if (isAnonymous !== undefined) company.isAnonymous = !!isAnonymous;
     if (firstName !== undefined) company.firstName = String(firstName).trim();
@@ -1083,6 +1120,7 @@ const adminUpdateCompany = async (req, res) => {
         mealTypesMode: company.mealTypesMode,
         ...resolveCompanyOffers(company),
         enabledProductListKeys: company.enabledProductListKeys || [],
+        fulfillmentMode: resolveCompanyFulfillmentMode(company),
         isAnonymous: company.isAnonymous,
         active: company.active
       })
@@ -1138,7 +1176,10 @@ const adminListOrders = async (req, res) => {
     const q = { site };
     if (status) q.status = status;
     const orders = await PartnerOrder.find(q).sort({ statusUpdatedAt: -1, datetime: -1 }).limit(500);
-    res.json({ success: true, data: await attachCompanyInfoToOrders(orders) });
+    const deduped = filterDuplicateVercelMirrorOrders(
+      orders.map((o) => (o.toObject ? o.toObject() : o))
+    );
+    res.json({ success: true, data: await attachCompanyInfoToOrders(deduped) });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
@@ -1252,6 +1293,22 @@ const internalFromVercel = async (req, res) => {
 
     const company = await PartnerCompany.findOne({ site, email: companyEmail });
     if (!company) return res.status(404).json({ success: false, error: 'Entreprise introuvable' });
+
+    let existingByVercelId = null;
+    try {
+      existingByVercelId = await PartnerOrder.findById(vercelOrderId);
+    } catch {
+      existingByVercelId = null;
+    }
+    if (
+      existingByVercelId &&
+      String(existingByVercelId.companyId || '') === String(company._id)
+    ) {
+      return res.json({
+        success: true,
+        data: { renderOrderId: String(existingByVercelId._id), vercelOrderId }
+      });
+    }
 
     const existing = await PartnerOrder.findOne({ site, vercelOrderId });
     if (existing) {
@@ -1448,7 +1505,10 @@ const internalListOrders = async (req, res) => {
     const q = { site };
     if (status) q.status = status;
     const orders = await PartnerOrder.find(q).sort({ statusUpdatedAt: -1, datetime: -1 }).limit(500);
-    res.json({ success: true, data: await attachCompanyInfoToOrders(orders) });
+    const deduped = filterDuplicateVercelMirrorOrders(
+      orders.map((o) => (o.toObject ? o.toObject() : o))
+    );
+    res.json({ success: true, data: await attachCompanyInfoToOrders(deduped) });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }

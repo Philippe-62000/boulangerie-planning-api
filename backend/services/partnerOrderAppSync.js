@@ -62,6 +62,7 @@ function syncUpsert({
   offerCommande,
   offerListe,
   enabledProductListKeys,
+  fulfillmentMode,
   isAnonymous,
   createdViaDashboardForm
 }) {
@@ -83,6 +84,7 @@ function syncUpsert({
       enabledProductListKeys !== undefined
         ? (Array.isArray(enabledProductListKeys) ? enabledProductListKeys : [])
         : undefined,
+    fulfillmentMode: fulfillmentMode !== undefined ? String(fulfillmentMode) : undefined,
     isAnonymous: isAnonymous !== undefined ? !!isAnonymous : undefined,
     createdViaDashboardForm:
       createdViaDashboardForm !== undefined ? !!createdViaDashboardForm : undefined

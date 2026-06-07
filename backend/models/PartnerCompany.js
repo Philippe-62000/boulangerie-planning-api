@@ -33,6 +33,12 @@ const partnerCompanySchema = new mongoose.Schema(
     offerListe: { type: Boolean, default: false },
     /** Clés des listes (PartnerFormulaConfig.productLists) visibles pour cette entreprise. */
     enabledProductListKeys: [{ type: String, trim: true }],
+    /** Livraison / retrait autorisés sur le site commande (Vercel). */
+    fulfillmentMode: {
+      type: String,
+      enum: ['delivery', 'pickup', 'both'],
+      default: 'both'
+    },
     /** Client prospect : identité complétée à la demande de devis/commande */
     isAnonymous: { type: Boolean, default: false },
     firstName: { type: String, trim: true, default: '' },

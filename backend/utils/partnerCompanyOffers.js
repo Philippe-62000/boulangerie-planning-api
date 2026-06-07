@@ -118,6 +118,34 @@ function mealTypesModeLabel(mode) {
   return companyOffersLabel(offersFromMealTypesMode(mode));
 }
 
+const FULFILLMENT_MODES = new Set(['delivery', 'pickup', 'both']);
+
+function normalizeFulfillmentMode(value) {
+  const s = String(value || 'both').toLowerCase();
+  return FULFILLMENT_MODES.has(s) ? s : 'both';
+}
+
+function parseFulfillmentModeInput(body = {}) {
+  if (body.fulfillmentMode === undefined) return undefined;
+  return normalizeFulfillmentMode(body.fulfillmentMode);
+}
+
+function resolveCompanyFulfillmentMode(company) {
+  return normalizeFulfillmentMode(company?.fulfillmentMode);
+}
+
+function allowedFulfillmentFromMode(mode) {
+  const m = normalizeFulfillmentMode(mode);
+  if (m === 'delivery') return ['delivery'];
+  if (m === 'pickup') return ['pickup'];
+  return ['delivery', 'pickup'];
+}
+
+function isFulfillmentAllowedForCompany(company, fulfillment) {
+  const f = fulfillment === 'pickup' ? 'pickup' : 'delivery';
+  return allowedFulfillmentFromMode(resolveCompanyFulfillmentMode(company)).includes(f);
+}
+
 module.exports = {
   normalizeMealTypesMode,
   offersFromMealTypesMode,
@@ -129,5 +157,10 @@ module.exports = {
   companyOffersLabel,
   serializeCompanyOffers,
   allowedMealTypesFromMode,
-  mealTypesModeLabel
+  mealTypesModeLabel,
+  normalizeFulfillmentMode,
+  parseFulfillmentModeInput,
+  resolveCompanyFulfillmentMode,
+  allowedFulfillmentFromMode,
+  isFulfillmentAllowedForCompany
 };

@@ -19,6 +19,17 @@ const DEFAULT_OFFERS = {
   offerListe: false
 };
 
+const FULFILLMENT_MODE_OPTIONS = [
+  { value: 'both', label: 'Livraison et retrait' },
+  { value: 'delivery', label: 'Livraison uniquement' },
+  { value: 'pickup', label: 'Retrait uniquement' }
+];
+
+function normalizeFulfillmentMode(value) {
+  const s = String(value || 'both').toLowerCase();
+  return s === 'delivery' || s === 'pickup' ? s : 'both';
+}
+
 function offersFromCompany(c) {
   if (!c) return { ...DEFAULT_OFFERS };
   if (
@@ -94,6 +105,27 @@ function OfferCheckboxes({ value, onChange, idPrefix = 'offer', productLists, en
         </div>
       ) : null}
     </>
+  );
+}
+
+function FulfillmentModeSelect({ value, onChange, idPrefix = 'fulfillment' }) {
+  const v = normalizeFulfillmentMode(value);
+  return (
+    <label style={{ display: 'block', marginTop: 10 }}>
+      <span style={{ fontWeight: 700, fontSize: 13 }}>Mode sur le site commande (Vercel)</span>
+      <select
+        id={`${idPrefix}-fulfillment-mode`}
+        value={v}
+        onChange={(e) => onChange(e.target.value)}
+        style={{ display: 'block', marginTop: 6, padding: '8px 10px', borderRadius: 8, width: '100%', maxWidth: 320 }}
+      >
+        {FULFILLMENT_MODE_OPTIONS.map((o) => (
+          <option key={o.value} value={o.value}>
+            {o.label}
+          </option>
+        ))}
+      </select>
+    </label>
   );
 }
 
@@ -232,6 +264,7 @@ const CommandeLivraisonEntreprises = () => {
   const [contactEdits, setContactEdits] = useState({});
   const [offerEdits, setOfferEdits] = useState({});
   const [listEdits, setListEdits] = useState({});
+  const [fulfillmentEdits, setFulfillmentEdits] = useState({});
   const [anonymousEdits, setAnonymousEdits] = useState({});
   const [createdPassword, setCreatedPassword] = useState(null);
 
@@ -268,6 +301,7 @@ const CommandeLivraisonEntreprises = () => {
       const edits = {};
       const offerMap = {};
       const listMap = {};
+      const fulfillmentMap = {};
       const anonMap = {};
       for (const c of list) {
         const id = c.id || c._id;
@@ -275,12 +309,14 @@ const CommandeLivraisonEntreprises = () => {
           edits[id] = c.contactName || '';
           offerMap[id] = offersFromCompany(c);
           listMap[id] = Array.isArray(c.enabledProductListKeys) ? [...c.enabledProductListKeys] : [];
+          fulfillmentMap[id] = normalizeFulfillmentMode(c.fulfillmentMode);
           anonMap[id] = !!c.isAnonymous;
         }
       }
       setContactEdits(edits);
       setOfferEdits(offerMap);
       setListEdits(listMap);
+      setFulfillmentEdits(fulfillmentMap);
       setAnonymousEdits(anonMap);
     } catch (e) {
       console.error(e);
@@ -289,6 +325,7 @@ const CommandeLivraisonEntreprises = () => {
       setContactEdits({});
       setOfferEdits({});
       setListEdits({});
+      setFulfillmentEdits({});
       setAnonymousEdits({});
     } finally {
       setCompaniesLoading(false);
@@ -312,7 +349,8 @@ const CommandeLivraisonEntreprises = () => {
           ? Array.isArray(newCompany.enabledProductListKeys)
             ? newCompany.enabledProductListKeys
             : []
-          : []
+          : [],
+        fulfillmentMode: normalizeFulfillmentMode(newCompany.fulfillmentMode)
       };
       if (!payload.email) {
         alert('Email requis.');
@@ -345,7 +383,8 @@ const CommandeLivraisonEntreprises = () => {
         lastName: '',
         structureName: '',
         ...DEFAULT_OFFERS,
-        enabledProductListKeys: []
+        enabledProductListKeys: [],
+        fulfillmentMode: 'both'
       });
       await loadCompanies();
     } catch (e) {
@@ -369,7 +408,15 @@ const CommandeLivraisonEntreprises = () => {
         : [];
       await api.patch(
         `/partner-admin/companies/${companyId}`,
-        { contactName, isAnonymous: !!isAnon, ...offers, enabledProductListKeys },
+        {
+          contactName,
+          isAnonymous: !!isAnon,
+          ...offers,
+          enabledProductListKeys,
+          fulfillmentMode: normalizeFulfillmentMode(
+            fulfillmentEdits[companyId] ?? company.fulfillmentMode
+          )
+        },
         { params: { site } }
       );
       await loadCompanies();
@@ -979,6 +1026,11 @@ const CommandeLivraisonEntreprises = () => {
                 }
               />
             </label>
+            <FulfillmentModeSelect
+              idPrefix="new-co"
+              value={newCompany.fulfillmentMode || 'both'}
+              onChange={(mode) => setNewCompany((p) => ({ ...p, fulfillmentMode: mode }))}
+            />
             <div style={{ display: 'flex', gap: '0.5rem', marginTop: 10, flexWrap: 'wrap' }}>
               <button onClick={createCompany} style={{ padding: '8px 12px', borderRadius: '8px' }}>
                 Créer
@@ -1082,6 +1134,11 @@ const CommandeLivraisonEntreprises = () => {
                             }
                           />
                         </div>
+                        <FulfillmentModeSelect
+                          idPrefix={`co-${c.id}`}
+                          value={fulfillmentEdits[c.id] ?? c.fulfillmentMode ?? 'both'}
+                          onChange={(mode) => setFulfillmentEdits((p) => ({ ...p, [c.id]: mode }))}
+                        />
                         <button
                           type="button"
                           onClick={() => saveCompanySettings(c)}
