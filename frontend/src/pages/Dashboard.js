@@ -86,6 +86,7 @@ const Dashboard = () => {
     count: 0,
     messagesAwaitingReply: 0,
     messagesReplyReceived: 0,
+    validatedToHonor: { j0: 0, j1: 0, j2: 0 },
     loading: false
   });
   const [newPartnerClientEmail, setNewPartnerClientEmail] = useState('');
@@ -326,10 +327,16 @@ const Dashboard = () => {
       const site = isLonguenesse ? 'longuenesse' : 'arras';
       const res = await api.get('/partner-orders/pending-count', { params: { site } });
       const data = res.data?.data || {};
+      const validated = data.validatedToHonor || {};
       setPartnerOrdersPending({
         count: Number(data.count || 0),
         messagesAwaitingReply: Number(data.messagesAwaitingReply || 0),
         messagesReplyReceived: Number(data.messagesReplyReceived || 0),
+        validatedToHonor: {
+          j0: Number(validated.j0 || 0),
+          j1: Number(validated.j1 || 0),
+          j2: Number(validated.j2 || 0)
+        },
         loading: false
       });
     } catch (e) {
@@ -338,9 +345,15 @@ const Dashboard = () => {
         count: 0,
         messagesAwaitingReply: 0,
         messagesReplyReceived: 0,
+        validatedToHonor: { j0: 0, j1: 0, j2: 0 },
         loading: false
       });
     }
+  };
+
+  const formatPartnerOrderCount = (n) => {
+    const v = Number(n) || 0;
+    return `${v} commande${v !== 1 ? 's' : ''}`;
   };
 
   const fetchDashboardData = async () => {
@@ -1243,6 +1256,30 @@ const Dashboard = () => {
                   ) : null}
                 </div>
               )}
+              <div
+                style={{
+                  marginTop: '1rem',
+                  paddingTop: '1rem',
+                  borderTop: '1px solid #e5e7eb'
+                }}
+              >
+                <div style={{ fontSize: '0.85rem', color: '#555', marginBottom: '0.5rem' }}>
+                  Commandes validées à honorer
+                </div>
+                <div
+                  style={{
+                    display: 'grid',
+                    gap: '0.35rem',
+                    fontSize: '0.95rem',
+                    fontWeight: 600,
+                    color: '#374151'
+                  }}
+                >
+                  <div>J : {formatPartnerOrderCount(partnerOrdersPending.validatedToHonor.j0)}</div>
+                  <div>J+1 : {formatPartnerOrderCount(partnerOrdersPending.validatedToHonor.j1)}</div>
+                  <div>J+2 : {formatPartnerOrderCount(partnerOrdersPending.validatedToHonor.j2)}</div>
+                </div>
+              </div>
               <a
                 href={isLonguenesse ? '/lon/commande-livraison' : '/plan/commande-livraison'}
                 style={{

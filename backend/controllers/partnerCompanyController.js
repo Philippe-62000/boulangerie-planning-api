@@ -30,6 +30,19 @@ const {
   countMessageAlertsForSite,
   ALERT_HIDE_STATUSES
 } = require('../utils/partnerOrderMessages');
+const { getParisDayString, getParisDayBounds, addParisDays } = require('../utils/parisDay');
+
+/** Commandes validées (pris en compte ou plus) à honorer à la date de livraison. */
+const VALIDATED_TO_HONOR_STATUSES = ['acknowledged', 'invoiced', 'paid'];
+
+async function countValidatedOrdersForParisDay(site, dayStr) {
+  const { start, end } = getParisDayBounds(dayStr);
+  return PartnerOrder.countDocuments({
+    site,
+    status: { $in: VALIDATED_TO_HONOR_STATUSES },
+    datetime: { $gte: start, $lt: end }
+  });
+}
 
 const getSite = (req) => (req.query.site || req.body.site || 'longuenesse').toLowerCase();
 const siteMap = { lon: 'longuenesse', plan: 'arras' };
@@ -1033,16 +1046,21 @@ const adminUpdateFormulas = async (req, res) => {
 const internalPendingCount = async (req, res) => {
   try {
     const site = normalizeSite(getSite(req));
-    const [count, messageAlerts] = await Promise.all([
+    const todayParis = getParisDayString(new Date());
+    const [count, messageAlerts, j0, j1, j2] = await Promise.all([
       PartnerOrder.countDocuments({ site, status: 'submitted' }),
-      countMessageAlertsForSite(PartnerOrder, site)
+      countMessageAlertsForSite(PartnerOrder, site),
+      countValidatedOrdersForParisDay(site, todayParis),
+      countValidatedOrdersForParisDay(site, addParisDays(todayParis, 1)),
+      countValidatedOrdersForParisDay(site, addParisDays(todayParis, 2))
     ]);
     res.json({
       success: true,
       data: {
         count,
         messagesAwaitingReply: messageAlerts.awaitingReply,
-        messagesReplyReceived: messageAlerts.replyReceived
+        messagesReplyReceived: messageAlerts.replyReceived,
+        validatedToHonor: { j0, j1, j2 }
       }
     });
   } catch (err) {
