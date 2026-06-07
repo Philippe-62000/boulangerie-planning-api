@@ -13,6 +13,7 @@ const {
 const {
   normalizeMealTypesMode,
   parseOffersInput,
+  parseEnabledProductListKeys,
   resolveCompanyOffers,
   allowedMealTypesFromOffers,
   mealTypesModeFromOffers,
@@ -135,6 +136,9 @@ function companyPayloadForClient(company) {
     structureName: company.structureName || '',
     createdViaDashboardForm: !!company.createdViaDashboardForm,
     mealTypesMode: mealTypesModeFromOffers(offers),
+    enabledProductListKeys: Array.isArray(company.enabledProductListKeys)
+      ? company.enabledProductListKeys
+      : [],
     ...offers
   };
 }
@@ -160,7 +164,55 @@ function applyOffersToCompany(company, body) {
   company.offerLunch = offers.offerLunch;
   company.offerDevis = offers.offerDevis;
   company.offerCommande = offers.offerCommande;
+  company.offerListe = offers.offerListe;
   company.mealTypesMode = mealTypesModeFromOffers(offers);
+  const listKeys = parseEnabledProductListKeys(body);
+  if (listKeys !== undefined) {
+    company.enabledProductListKeys = listKeys;
+  } else if (!offers.offerListe) {
+    company.enabledProductListKeys = [];
+  }
+}
+
+function buildListOrderSnapshot({
+  listKey,
+  listName,
+  listQuantities,
+  fulfillment,
+  companyName,
+  contactName,
+  remarks
+}) {
+  const lines = [];
+  if (companyName) lines.push(`Entreprise : ${companyName}`);
+  if (contactName) lines.push(`Contact : ${contactName}`);
+  lines.push(`Liste : ${listName}`);
+  lines.push(`Mode : ${fulfillment === 'delivery' ? 'Livraison' : 'Retrait magasin'}`);
+  let total = 0;
+  const normalized = {};
+  for (const [product, qty] of Object.entries(listQuantities || {})) {
+    const p = String(product || '').trim();
+    const q = Math.max(0, Math.floor(Number(qty) || 0));
+    if (p && q > 0) {
+      lines.push(`${p} : ${q}`);
+      normalized[p] = q;
+      total += q;
+    }
+  }
+  lines.push(`Total produits : ${total}`);
+  if (remarks) lines.push(`Remarques : ${remarks}`);
+  return {
+    label: `Liste — ${listName}`,
+    priceCents: 0,
+    description: '',
+    items: lines,
+    quantity: total,
+    remarks: remarks || '',
+    orderKind: 'liste',
+    listKey,
+    listName,
+    selections: { listQuantities: normalized, totalProducts: total }
+  };
 }
 
 function buildSimpleOrderSnapshot({ orderKind, requestDetail, fulfillment, companyName, contactName, prospect }) {
@@ -363,7 +415,7 @@ const createMyOrder = async (req, res) => {
     if (Number.isNaN(dt.getTime())) return res.status(400).json({ success: false, error: 'Date/heure invalide' });
 
     const company = await PartnerCompany.findById(req.partnerCompanyId).select(
-      'name contactName mealTypesMode offerBreakfast offerLunch offerDevis offerCommande isAnonymous'
+      'name contactName mealTypesMode offerBreakfast offerLunch offerDevis offerCommande offerListe enabledProductListKeys isAnonymous'
     );
     const offers = resolveCompanyOffers(company || { mealTypesMode: req.partnerCompanyMealTypesMode });
     const companyName = String(company?.name || req.partnerCompanyName || '').trim();
@@ -429,6 +481,79 @@ const createMyOrder = async (req, res) => {
         mealType: null,
         tier: null,
         quantity: 1,
+        miniViennoiserieTotal: 0,
+        miniViennoiserieDetail: [],
+        itemsSnapshot,
+        status: 'submitted',
+        statusUpdatedAt: new Date(),
+        statusHistory: initialStatusHistory('submitted')
+      });
+      return res.json({ success: true, data: order });
+    }
+
+    if (orderKind === 'liste') {
+      if (!offers.offerListe) {
+        return res.status(400).json({ success: false, error: 'Commande liste non autorisée pour votre compte.' });
+      }
+      const enabledKeys = Array.isArray(company?.enabledProductListKeys)
+        ? company.enabledProductListKeys.map(String)
+        : [];
+      const listKey = String(req.body?.listKey || '').trim();
+      if (!listKey || !enabledKeys.includes(listKey)) {
+        return res.status(400).json({ success: false, error: 'Liste non autorisée pour votre compte.' });
+      }
+      const formulas = await ensureDefaultFormulas(site);
+      const productLists = Array.isArray(formulas?.productLists) ? formulas.productLists : [];
+      const listDef = productLists.find((pl) => String(pl.listKey) === listKey);
+      if (!listDef) {
+        return res.status(400).json({ success: false, error: 'Liste introuvable (configuration Filmara).' });
+      }
+      const rawQty = req.body?.listQuantities || req.body?.quantities || {};
+      const listQuantities = {};
+      let total = 0;
+      for (const item of listDef.items || []) {
+        const p = String(item || '').trim();
+        if (!p) continue;
+        const q = Math.max(0, Math.floor(Number(rawQty[p]) || 0));
+        if (q > 0) {
+          listQuantities[p] = q;
+          total += q;
+        }
+      }
+      if (total === 0) {
+        return res.status(400).json({ success: false, error: 'Saisissez au moins un produit.' });
+      }
+      const contactName = String(
+        req.body?.contactName || company?.contactName || req.partnerCompanyContactName || ''
+      ).trim();
+      if (!contactName) {
+        return res.status(400).json({
+          success: false,
+          error:
+            'Contact non renseigné sur votre compte. Demandez à la boulangerie de l’ajouter dans Filmara (onglet Entreprises).'
+        });
+      }
+      const remarks = String(req.body?.remarks || '').trim();
+      const itemsSnapshot = buildListOrderSnapshot({
+        listKey,
+        listName: listDef.name || listKey,
+        listQuantities,
+        fulfillment,
+        companyName,
+        contactName,
+        remarks
+      });
+      const order = await PartnerOrder.create({
+        site,
+        companyId: req.partnerCompanyId,
+        companyName,
+        contactName,
+        fulfillment,
+        datetime: dt,
+        orderKind: 'liste',
+        mealType: null,
+        tier: null,
+        quantity: total,
         miniViennoiserieTotal: 0,
         miniViennoiserieDetail: [],
         itemsSnapshot,
@@ -585,6 +710,7 @@ const adminCreateCompany = async (req, res) => {
           contactName: existing.contactName || '',
           mealTypesMode: existing.mealTypesMode,
           ...resolveCompanyOffers(existing),
+          enabledProductListKeys: existing.enabledProductListKeys || [],
           isAnonymous: existing.isAnonymous,
           active: true,
           plainPassword: password
@@ -606,6 +732,8 @@ const adminCreateCompany = async (req, res) => {
       offerLunch: offers.offerLunch,
       offerDevis: offers.offerDevis,
       offerCommande: offers.offerCommande,
+      offerListe: offers.offerListe,
+      enabledProductListKeys: parseEnabledProductListKeys(req.body) || [],
       isAnonymous: anonymous,
       firstName: String(firstName || '').trim(),
       lastName: String(lastName || '').trim(),
@@ -626,6 +754,7 @@ const adminCreateCompany = async (req, res) => {
         contactName: company.contactName || '',
         mealTypesMode: company.mealTypesMode,
         ...resolveCompanyOffers(company),
+        enabledProductListKeys: company.enabledProductListKeys || [],
         isAnonymous: company.isAnonymous,
         active: true,
         plainPassword: password
@@ -670,6 +799,7 @@ const adminCreateCompany = async (req, res) => {
             contactName: dup.contactName || '',
             mealTypesMode: dup.mealTypesMode,
             ...resolveCompanyOffers(dup),
+            enabledProductListKeys: dup.enabledProductListKeys || [],
             isAnonymous: dup.isAnonymous,
             active: true,
             plainPassword: password
@@ -816,6 +946,7 @@ const adminSendInvite = async (req, res) => {
         contactName: company.contactName || '',
         mealTypesMode: company.mealTypesMode,
         ...resolveCompanyOffers(company),
+        enabledProductListKeys: company.enabledProductListKeys || [],
         isAnonymous: company.isAnonymous,
         active: true,
         plainPassword: newPassword
@@ -889,6 +1020,7 @@ const staffQuickInviteByEmail = async (req, res) => {
         contactName: company.contactName || '',
         mealTypesMode: company.mealTypesMode,
         ...resolveCompanyOffers(company),
+        enabledProductListKeys: company.enabledProductListKeys || [],
         isAnonymous: company.isAnonymous,
         createdViaDashboardForm: company.createdViaDashboardForm,
         active: true,
@@ -925,8 +1057,12 @@ const adminUpdateCompany = async (req, res) => {
     const { contactName, name, phone, mealTypesMode: mealTypesModeRaw, isAnonymous, firstName, lastName, structureName } =
       req.body || {};
     if (contactName !== undefined) company.contactName = String(contactName).trim();
-    if (mealTypesModeRaw !== undefined || req.body?.offerBreakfast !== undefined) {
+    if (mealTypesModeRaw !== undefined || req.body?.offerBreakfast !== undefined || req.body?.offerListe !== undefined) {
       applyOffersToCompany(company, req.body);
+    }
+    const listKeysOnly = parseEnabledProductListKeys(req.body);
+    if (listKeysOnly !== undefined && req.body?.offerBreakfast === undefined && req.body?.offerListe === undefined) {
+      company.enabledProductListKeys = listKeysOnly;
     }
     if (isAnonymous !== undefined) company.isAnonymous = !!isAnonymous;
     if (firstName !== undefined) company.firstName = String(firstName).trim();
@@ -946,6 +1082,7 @@ const adminUpdateCompany = async (req, res) => {
         contactName: company.contactName || '',
         mealTypesMode: company.mealTypesMode,
         ...resolveCompanyOffers(company),
+        enabledProductListKeys: company.enabledProductListKeys || [],
         isAnonymous: company.isAnonymous,
         active: company.active
       })
@@ -1161,6 +1298,14 @@ const internalFromVercel = async (req, res) => {
         mealType: null,
         tier: null,
         quantity: 1
+      });
+    } else if (orderKind === 'liste') {
+      order = await PartnerOrder.create({
+        ...base,
+        orderKind: 'liste',
+        mealType: null,
+        tier: null,
+        quantity: Math.max(0, Number(itemsSnapshot.quantity) || Number(req.body.quantity) || 0)
       });
     } else {
       order = await PartnerOrder.create({

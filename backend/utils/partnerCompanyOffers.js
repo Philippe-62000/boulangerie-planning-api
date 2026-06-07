@@ -8,15 +8,15 @@ function normalizeMealTypesMode(value) {
 function offersFromMealTypesMode(mode) {
   const m = normalizeMealTypesMode(mode);
   if (m === 'breakfast') {
-    return { offerBreakfast: true, offerLunch: false, offerDevis: false, offerCommande: false };
+    return { offerBreakfast: true, offerLunch: false, offerDevis: false, offerCommande: false, offerListe: false };
   }
   if (m === 'lunch') {
-    return { offerBreakfast: false, offerLunch: true, offerDevis: false, offerCommande: false };
+    return { offerBreakfast: false, offerLunch: true, offerDevis: false, offerCommande: false, offerListe: false };
   }
   if (m === 'none') {
-    return { offerBreakfast: false, offerLunch: false, offerDevis: false, offerCommande: false };
+    return { offerBreakfast: false, offerLunch: false, offerDevis: false, offerCommande: false, offerListe: false };
   }
-  return { offerBreakfast: true, offerLunch: true, offerDevis: false, offerCommande: false };
+  return { offerBreakfast: true, offerLunch: true, offerDevis: false, offerCommande: false, offerListe: false };
 }
 
 function mealTypesModeFromOffers(offers) {
@@ -33,14 +33,16 @@ function parseOffersInput(body = {}) {
     body.offerBreakfast !== undefined ||
     body.offerLunch !== undefined ||
     body.offerDevis !== undefined ||
-    body.offerCommande !== undefined;
+    body.offerCommande !== undefined ||
+    body.offerListe !== undefined;
 
   if (hasExplicit) {
     return {
       offerBreakfast: !!body.offerBreakfast,
       offerLunch: !!body.offerLunch,
       offerDevis: !!body.offerDevis,
-      offerCommande: !!body.offerCommande
+      offerCommande: !!body.offerCommande,
+      offerListe: !!body.offerListe
     };
   }
 
@@ -51,19 +53,27 @@ function parseOffersInput(body = {}) {
   return offersFromMealTypesMode('both');
 }
 
+function parseEnabledProductListKeys(body = {}) {
+  if (body.enabledProductListKeys === undefined) return undefined;
+  if (!Array.isArray(body.enabledProductListKeys)) return [];
+  return body.enabledProductListKeys.map(String).filter(Boolean);
+}
+
 function resolveCompanyOffers(company) {
   if (!company) return offersFromMealTypesMode('both');
   const hasExplicit =
     company.offerBreakfast !== undefined ||
     company.offerLunch !== undefined ||
     company.offerDevis !== undefined ||
-    company.offerCommande !== undefined;
+    company.offerCommande !== undefined ||
+    company.offerListe !== undefined;
   if (hasExplicit) {
     return {
       offerBreakfast: !!company.offerBreakfast,
       offerLunch: !!company.offerLunch,
       offerDevis: !!company.offerDevis,
-      offerCommande: !!company.offerCommande
+      offerCommande: !!company.offerCommande,
+      offerListe: !!company.offerListe
     };
   }
   return offersFromMealTypesMode(company.mealTypesMode);
@@ -82,6 +92,7 @@ function companyOffersLabel(offers) {
   if (offers?.offerLunch) parts.push('Déjeuner');
   if (offers?.offerDevis) parts.push('Devis');
   if (offers?.offerCommande) parts.push('Commande');
+  if (offers?.offerListe) parts.push('Liste');
   return parts.length ? parts.join(', ') : 'Aucune option';
 }
 
@@ -90,7 +101,10 @@ function serializeCompanyOffers(company) {
   return {
     ...offers,
     mealTypesMode: mealTypesModeFromOffers(offers),
-    offersLabel: companyOffersLabel(offers)
+    offersLabel: companyOffersLabel(offers),
+    enabledProductListKeys: Array.isArray(company?.enabledProductListKeys)
+      ? company.enabledProductListKeys
+      : []
   };
 }
 
@@ -109,6 +123,7 @@ module.exports = {
   offersFromMealTypesMode,
   mealTypesModeFromOffers,
   parseOffersInput,
+  parseEnabledProductListKeys,
   resolveCompanyOffers,
   allowedMealTypesFromOffers,
   companyOffersLabel,

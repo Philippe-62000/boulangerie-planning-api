@@ -30,6 +30,9 @@ const partnerCompanySchema = new mongoose.Schema(
     offerLunch: { type: Boolean, default: true },
     offerDevis: { type: Boolean, default: false },
     offerCommande: { type: Boolean, default: false },
+    offerListe: { type: Boolean, default: false },
+    /** Clés des listes (PartnerFormulaConfig.productLists) visibles pour cette entreprise. */
+    enabledProductListKeys: [{ type: String, trim: true }],
     /** Client prospect : identité complétée à la demande de devis/commande */
     isAnonymous: { type: Boolean, default: false },
     firstName: { type: String, trim: true, default: '' },

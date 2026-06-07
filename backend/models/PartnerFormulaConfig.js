@@ -34,7 +34,15 @@ const partnerFormulaConfigSchema = new mongoose.Schema(
       eco: { type: tierSchema, required: true },
       classic: { type: tierSchema, required: true },
       premium: { type: tierSchema, required: true }
-    }
+    },
+    /** Listes produits configurables (site-wide) — activées par entreprise. */
+    productLists: [
+      {
+        listKey: { type: String, trim: true, required: true },
+        name: { type: String, trim: true, required: true },
+        items: [{ type: String, trim: true }]
+      }
+    ]
   },
   { timestamps: true }
 );

@@ -7,14 +7,16 @@ const OFFER_OPTIONS = [
   { key: 'offerBreakfast', label: 'Petit déjeuner' },
   { key: 'offerLunch', label: 'Déjeuner' },
   { key: 'offerDevis', label: 'Devis' },
-  { key: 'offerCommande', label: 'Commande' }
+  { key: 'offerCommande', label: 'Commande' },
+  { key: 'offerListe', label: 'Liste' }
 ];
 
 const DEFAULT_OFFERS = {
   offerBreakfast: true,
   offerLunch: true,
   offerDevis: false,
-  offerCommande: false
+  offerCommande: false,
+  offerListe: false
 };
 
 function offersFromCompany(c) {
@@ -23,13 +25,15 @@ function offersFromCompany(c) {
     c.offerBreakfast !== undefined ||
     c.offerLunch !== undefined ||
     c.offerDevis !== undefined ||
-    c.offerCommande !== undefined
+    c.offerCommande !== undefined ||
+    c.offerListe !== undefined
   ) {
     return {
       offerBreakfast: !!c.offerBreakfast,
       offerLunch: !!c.offerLunch,
       offerDevis: !!c.offerDevis,
-      offerCommande: !!c.offerCommande
+      offerCommande: !!c.offerCommande,
+      offerListe: !!c.offerListe
     };
   }
   const mode = c.mealTypesMode || 'both';
@@ -44,22 +48,52 @@ function offersLabel(offers) {
   return parts.length ? parts.join(', ') : 'Aucune option';
 }
 
-function OfferCheckboxes({ value, onChange, idPrefix = 'offer' }) {
+function OfferCheckboxes({ value, onChange, idPrefix = 'offer', productLists, enabledListKeys, onEnabledListKeysChange }) {
   const v = { ...DEFAULT_OFFERS, ...value };
+  const lists = Array.isArray(productLists) ? productLists : [];
+  const selectedKeys = Array.isArray(enabledListKeys) ? enabledListKeys : [];
   return (
-    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px 18px', marginTop: 8 }}>
-      {OFFER_OPTIONS.map((o) => (
-        <label key={o.key} style={{ display: 'flex', gap: 8, alignItems: 'center', cursor: 'pointer' }}>
-          <input
-            type="checkbox"
-            checked={!!v[o.key]}
-            onChange={(e) => onChange({ ...v, [o.key]: e.target.checked })}
-            id={`${idPrefix}-${o.key}`}
-          />
-          <span>{o.label}</span>
-        </label>
-      ))}
-    </div>
+    <>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px 18px', marginTop: 8 }}>
+        {OFFER_OPTIONS.map((o) => (
+          <label key={o.key} style={{ display: 'flex', gap: 8, alignItems: 'center', cursor: 'pointer' }}>
+            <input
+              type="checkbox"
+              checked={!!v[o.key]}
+              onChange={(e) => onChange({ ...v, [o.key]: e.target.checked })}
+              id={`${idPrefix}-${o.key}`}
+            />
+            <span>{o.label}</span>
+          </label>
+        ))}
+      </div>
+      {v.offerListe && lists.length > 0 && onEnabledListKeysChange ? (
+        <div style={{ marginTop: 10, padding: '10px 12px', borderRadius: 8, background: '#f8fafc', border: '1px solid #e2e8f0' }}>
+          <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 8 }}>Listes à afficher sur le site commande</div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px 16px' }}>
+            {lists.map((pl) => (
+              <label key={pl.listKey} style={{ display: 'flex', gap: 8, alignItems: 'center', cursor: 'pointer' }}>
+                <input
+                  type="checkbox"
+                  checked={selectedKeys.includes(pl.listKey)}
+                  onChange={(e) => {
+                    const next = e.target.checked
+                      ? [...selectedKeys, pl.listKey]
+                      : selectedKeys.filter((k) => k !== pl.listKey);
+                    onEnabledListKeysChange(next);
+                  }}
+                />
+                <span>{pl.name || pl.listKey}</span>
+              </label>
+            ))}
+          </div>
+        </div>
+      ) : v.offerListe && lists.length === 0 ? (
+        <div style={{ marginTop: 8, color: '#b45309', fontSize: 13 }}>
+          Aucune liste définie — créez-en dans l’onglet Formules (admin).
+        </div>
+      ) : null}
+    </>
   );
 }
 
@@ -67,7 +101,26 @@ function orderKindLabel(o) {
   const k = o?.orderKind || o?.itemsSnapshot?.orderKind;
   if (k === 'devis') return 'Devis';
   if (k === 'commande') return 'Commande libre';
+  if (k === 'liste') return 'Liste produits';
   return null;
+}
+
+function slugifyListKey(name, usedKeys) {
+  let base = String(name || '')
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '');
+  if (!base) base = 'liste';
+  let key = base;
+  let i = 2;
+  const used = new Set(usedKeys || []);
+  while (used.has(key)) {
+    key = `${base}-${i++}`;
+  }
+  return key;
 }
 
 const statusLabels = {
@@ -134,6 +187,19 @@ function sanitizeFormulaPayloadForSave(data) {
       }
     }
   }
+  if (Array.isArray(next.productLists)) {
+    next.productLists = next.productLists
+      .map((pl, idx) => ({
+        listKey: String(pl.listKey || '').trim() || `liste-${idx + 1}`,
+        name: String(pl.name || '').trim(),
+        items: Array.isArray(pl.items)
+          ? pl.items.map((x) => String(x).trim()).filter((x) => x.length > 0)
+          : []
+      }))
+      .filter((pl) => pl.name && pl.items.length > 0);
+  } else {
+    next.productLists = [];
+  }
   return next;
 }
 
@@ -160,10 +226,12 @@ const CommandeLivraisonEntreprises = () => {
     firstName: '',
     lastName: '',
     structureName: '',
-    ...DEFAULT_OFFERS
+    ...DEFAULT_OFFERS,
+    enabledProductListKeys: []
   });
   const [contactEdits, setContactEdits] = useState({});
   const [offerEdits, setOfferEdits] = useState({});
+  const [listEdits, setListEdits] = useState({});
   const [anonymousEdits, setAnonymousEdits] = useState({});
   const [createdPassword, setCreatedPassword] = useState(null);
 
@@ -199,17 +267,20 @@ const CommandeLivraisonEntreprises = () => {
       setCompanies(list);
       const edits = {};
       const offerMap = {};
+      const listMap = {};
       const anonMap = {};
       for (const c of list) {
         const id = c.id || c._id;
         if (id) {
           edits[id] = c.contactName || '';
           offerMap[id] = offersFromCompany(c);
+          listMap[id] = Array.isArray(c.enabledProductListKeys) ? [...c.enabledProductListKeys] : [];
           anonMap[id] = !!c.isAnonymous;
         }
       }
       setContactEdits(edits);
       setOfferEdits(offerMap);
+      setListEdits(listMap);
       setAnonymousEdits(anonMap);
     } catch (e) {
       console.error(e);
@@ -217,6 +288,7 @@ const CommandeLivraisonEntreprises = () => {
       setCompanies([]);
       setContactEdits({});
       setOfferEdits({});
+      setListEdits({});
       setAnonymousEdits({});
     } finally {
       setCompaniesLoading(false);
@@ -235,7 +307,12 @@ const CommandeLivraisonEntreprises = () => {
         firstName: String(newCompany.firstName || '').trim(),
         lastName: String(newCompany.lastName || '').trim(),
         structureName: String(newCompany.structureName || '').trim(),
-        ...offersFromCompany(newCompany)
+        ...offersFromCompany(newCompany),
+        enabledProductListKeys: newCompany.offerListe
+          ? Array.isArray(newCompany.enabledProductListKeys)
+            ? newCompany.enabledProductListKeys
+            : []
+          : []
       };
       if (!payload.email) {
         alert('Email requis.');
@@ -267,7 +344,8 @@ const CommandeLivraisonEntreprises = () => {
         firstName: '',
         lastName: '',
         structureName: '',
-        ...DEFAULT_OFFERS
+        ...DEFAULT_OFFERS,
+        enabledProductListKeys: []
       });
       await loadCompanies();
     } catch (e) {
@@ -286,9 +364,12 @@ const CommandeLivraisonEntreprises = () => {
         return;
       }
       const offers = offerEdits[companyId] || offersFromCompany(company);
+      const enabledProductListKeys = offers.offerListe
+        ? listEdits[companyId] || company.enabledProductListKeys || []
+        : [];
       await api.patch(
         `/partner-admin/companies/${companyId}`,
-        { contactName, isAnonymous: !!isAnon, ...offers },
+        { contactName, isAnonymous: !!isAnon, ...offers, enabledProductListKeys },
         { params: { site } }
       );
       await loadCompanies();
@@ -408,7 +489,10 @@ const CommandeLivraisonEntreprises = () => {
   }, [admin, tab]);
 
   useEffect(() => {
-    if (tab === 'companies' && admin) loadCompanies();
+    if (tab === 'companies' && admin) {
+      loadCompanies();
+      loadFormulas();
+    }
     if (tab === 'formulas' && admin) loadFormulas();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab, site, admin]);
@@ -548,6 +632,52 @@ const CommandeLivraisonEntreprises = () => {
     const items = multilineToStringList(textareaValue);
     updateFormulaField(mealType, tier, field, items);
   };
+
+  const addProductList = () => {
+    setFormulas((prev) => {
+      if (!prev) return prev;
+      const next = structuredClone(prev);
+      const lists = Array.isArray(next.productLists) ? next.productLists : [];
+      const usedKeys = lists.map((pl) => pl.listKey);
+      const listKey = slugifyListKey(`liste-${lists.length + 1}`, usedKeys);
+      lists.push({ listKey, name: `Liste ${lists.length + 1}`, items: [] });
+      next.productLists = lists;
+      return next;
+    });
+  };
+
+  const updateProductListField = (index, field, value) => {
+    setFormulas((prev) => {
+      if (!prev) return prev;
+      const next = structuredClone(prev);
+      const lists = Array.isArray(next.productLists) ? next.productLists : [];
+      if (!lists[index]) return prev;
+      lists[index][field] = value;
+      if (field === 'name' && !String(lists[index].listKey || '').trim()) {
+        const usedKeys = lists.filter((_, i) => i !== index).map((pl) => pl.listKey);
+        lists[index].listKey = slugifyListKey(value, usedKeys);
+      }
+      next.productLists = lists;
+      return next;
+    });
+  };
+
+  const updateProductListItems = (index, textareaValue) => {
+    updateProductListField(index, 'items', multilineToStringList(textareaValue));
+  };
+
+  const removeProductList = (index) => {
+    setFormulas((prev) => {
+      if (!prev) return prev;
+      const next = structuredClone(prev);
+      const lists = Array.isArray(next.productLists) ? [...next.productLists] : [];
+      lists.splice(index, 1);
+      next.productLists = lists;
+      return next;
+    });
+  };
+
+  const productListsForCompanies = Array.isArray(formulas?.productLists) ? formulas.productLists : [];
   return (
     <div className="card">
       <h2 style={{ marginTop: 0 }}>🚚 Commandes Livraison (Entreprises)</h2>
@@ -835,7 +965,18 @@ const CommandeLivraisonEntreprises = () => {
               <OfferCheckboxes
                 idPrefix="new-co"
                 value={newCompany}
-                onChange={(offers) => setNewCompany((p) => ({ ...p, ...offers }))}
+                productLists={productListsForCompanies}
+                enabledListKeys={newCompany.enabledProductListKeys || []}
+                onChange={(offers) =>
+                  setNewCompany((p) => ({
+                    ...p,
+                    ...offers,
+                    enabledProductListKeys: offers.offerListe ? p.enabledProductListKeys || [] : []
+                  }))
+                }
+                onEnabledListKeysChange={(keys) =>
+                  setNewCompany((p) => ({ ...p, enabledProductListKeys: keys }))
+                }
               />
             </label>
             <div style={{ display: 'flex', gap: '0.5rem', marginTop: 10, flexWrap: 'wrap' }}>
@@ -928,7 +1069,17 @@ const CommandeLivraisonEntreprises = () => {
                           <OfferCheckboxes
                             idPrefix={`co-${c.id}`}
                             value={offerEdits[c.id] || offersFromCompany(c)}
-                            onChange={(offers) => setOfferEdits((p) => ({ ...p, [c.id]: offers }))}
+                            productLists={productListsForCompanies}
+                            enabledListKeys={listEdits[c.id] || c.enabledProductListKeys || []}
+                            onChange={(offers) =>
+                              setOfferEdits((p) => ({
+                                ...p,
+                                [c.id]: offers
+                              }))
+                            }
+                            onEnabledListKeysChange={(keys) =>
+                              setListEdits((p) => ({ ...p, [c.id]: keys }))
+                            }
                           />
                         </div>
                         <button
@@ -1118,6 +1269,52 @@ const CommandeLivraisonEntreprises = () => {
                   </div>
                 </div>
               ))}
+              <div style={{ border: '1px solid #e5e5e5', borderRadius: '10px', padding: '12px', background: '#fff' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
+                  <div style={{ fontWeight: 900 }}>Listes produits (site commande)</div>
+                  <button type="button" onClick={addProductList} style={{ padding: '8px 12px', borderRadius: '8px' }}>
+                    Ajouter une liste
+                  </button>
+                </div>
+                <div style={{ color: '#64748b', fontSize: 13, marginTop: 6 }}>
+                  Chaque liste a un nom et des produits (1 ligne = 1 produit). Activez-les par entreprise dans l’onglet Entreprises.
+                </div>
+                {(Array.isArray(formulas.productLists) ? formulas.productLists : []).length === 0 ? (
+                  <p style={{ color: '#666', marginTop: 12 }}>Aucune liste — cliquez « Ajouter une liste ».</p>
+                ) : (
+                  <div style={{ display: 'grid', gap: '0.75rem', marginTop: 12 }}>
+                    {formulas.productLists.map((pl, idx) => (
+                      <div key={pl.listKey || idx} style={{ border: '1px solid #eee', borderRadius: 10, padding: 10 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+                          <div style={{ fontWeight: 800 }}>Liste {idx + 1}</div>
+                          <button
+                            type="button"
+                            onClick={() => removeProductList(idx)}
+                            style={{ padding: '4px 10px', borderRadius: 8, border: '1px solid #dc2626', color: '#b91c1c', background: '#fff' }}
+                          >
+                            Supprimer
+                          </button>
+                        </div>
+                        <input
+                          placeholder="Nom de la liste (ex. Plateaux été)"
+                          style={{ marginTop: 8, width: '100%', padding: '8px 10px', borderRadius: 8 }}
+                          value={pl.name || ''}
+                          onChange={(e) => updateProductListField(idx, 'name', e.target.value)}
+                        />
+                        <div style={{ marginTop: 6, color: '#64748b', fontSize: 12 }}>
+                          Clé technique : <code>{pl.listKey || '—'}</code>
+                        </div>
+                        <textarea
+                          placeholder="Produits : 1 ligne = 1 produit (ex. salade melon, sandwich beurre)"
+                          style={{ marginTop: 8, width: '100%', minHeight: 90 }}
+                          value={Array.isArray(pl.items) ? pl.items.join('\n') : ''}
+                          onChange={(e) => updateProductListItems(idx, e.target.value)}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           )}
         </div>

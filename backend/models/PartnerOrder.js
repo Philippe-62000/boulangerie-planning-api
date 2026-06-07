@@ -14,7 +14,7 @@ const partnerOrderSchema = new mongoose.Schema(
 
     orderKind: {
       type: String,
-      enum: ['formula', 'devis', 'commande'],
+      enum: ['formula', 'devis', 'commande', 'liste'],
       default: 'formula',
       index: true
     },

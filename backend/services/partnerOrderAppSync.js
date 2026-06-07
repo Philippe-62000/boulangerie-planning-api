@@ -60,6 +60,8 @@ function syncUpsert({
   offerLunch,
   offerDevis,
   offerCommande,
+  offerListe,
+  enabledProductListKeys,
   isAnonymous,
   createdViaDashboardForm
 }) {
@@ -76,6 +78,11 @@ function syncUpsert({
     offerLunch: offerLunch !== undefined ? !!offerLunch : undefined,
     offerDevis: offerDevis !== undefined ? !!offerDevis : undefined,
     offerCommande: offerCommande !== undefined ? !!offerCommande : undefined,
+    offerListe: offerListe !== undefined ? !!offerListe : undefined,
+    enabledProductListKeys:
+      enabledProductListKeys !== undefined
+        ? (Array.isArray(enabledProductListKeys) ? enabledProductListKeys : [])
+        : undefined,
     isAnonymous: isAnonymous !== undefined ? !!isAnonymous : undefined,
     createdViaDashboardForm:
       createdViaDashboardForm !== undefined ? !!createdViaDashboardForm : undefined
