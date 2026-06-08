@@ -93,7 +93,10 @@ const partnerOrderSchema = new mongoose.Schema(
         default: null
       },
       requestedAt: { type: Date, default: null },
-      acknowledgedAt: { type: Date, default: null }
+      acknowledgedAt: { type: Date, default: null },
+      /** Contenu modifié proposé par le client (appliqué à la confirmation admin). */
+      proposedChanges: { type: mongoose.Schema.Types.Mixed, default: null }
+    }
     }
   },
   { timestamps: true }

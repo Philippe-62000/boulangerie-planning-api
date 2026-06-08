@@ -901,6 +901,15 @@ const CommandeLivraisonEntreprises = () => {
                           {o.clientRequest.requestedAt
                             ? ` — ${formatOrderWhen(o.clientRequest.requestedAt)}`
                             : ''}
+                          {o.clientRequest.type === 'modify' &&
+                          Array.isArray(o.clientRequest.proposedChanges?.itemsSnapshot?.items) &&
+                          o.clientRequest.proposedChanges.itemsSnapshot.items.length > 0 ? (
+                            <ul style={{ margin: '8px 0 0', paddingLeft: 18, fontWeight: 500 }}>
+                              {o.clientRequest.proposedChanges.itemsSnapshot.items.slice(0, 40).map((line, idx) => (
+                                <li key={idx}>{line}</li>
+                              ))}
+                            </ul>
+                          ) : null}
                         </div>
                       ) : null}
                     </div>

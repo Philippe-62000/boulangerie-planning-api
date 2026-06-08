@@ -45,6 +45,7 @@ const {
   acknowledgeClientRequest,
   clientRequestQuery
 } = require('../utils/partnerClientRequest');
+const { applyProposedOrderChanges } = require('../utils/applyProposedOrderChanges');
 
 /** Commandes « pris en compte » à honorer à la date de livraison. */
 const ACKNOWLEDGED_STATUS = 'acknowledged';
@@ -1298,7 +1299,7 @@ const internalPendingCount = async (req, res) => {
   }
 };
 
-async function applyClientRequestToOrder(order, type) {
+async function applyClientRequestToOrder(order, type, proposedChanges = null) {
   if (!canClientSubmitRequest(order)) {
     const err = new Error(
       hasPendingClientRequest(order)
@@ -1308,7 +1309,7 @@ async function applyClientRequestToOrder(order, type) {
     err.statusCode = 400;
     throw err;
   }
-  order.clientRequest = buildClientRequest(type);
+  order.clientRequest = buildClientRequest(type, proposedChanges);
   await order.save();
   return order;
 }
@@ -1329,8 +1330,16 @@ const requestMyOrderClientAction = async (req, res) => {
     });
     if (!order) return res.status(404).json({ success: false, error: 'Commande non trouvée' });
 
+    const proposedChanges =
+      type === 'modify' && req.body?.proposedChanges && typeof req.body.proposedChanges === 'object'
+        ? req.body.proposedChanges
+        : null;
+    if (type === 'modify' && !proposedChanges) {
+      return res.status(400).json({ success: false, error: 'proposedChanges requis pour une modification' });
+    }
+
     try {
-      await applyClientRequestToOrder(order, type);
+      await applyClientRequestToOrder(order, type, proposedChanges);
     } catch (e) {
       return res.status(e.statusCode || 400).json({ success: false, error: e.message });
     }
@@ -1382,8 +1391,13 @@ const internalClientRequestFromVercel = async (req, res) => {
 
     if (!order) return res.status(404).json({ success: false, error: 'Commande non trouvée' });
 
+    const proposedChanges =
+      req.body?.proposedChanges && typeof req.body.proposedChanges === 'object'
+        ? req.body.proposedChanges
+        : null;
+
     try {
-      await applyClientRequestToOrder(order, type);
+      await applyClientRequestToOrder(order, type, type === 'modify' ? proposedChanges : null);
     } catch (e) {
       return res.status(e.statusCode || 400).json({ success: false, error: e.message });
     }
@@ -1413,10 +1427,14 @@ const adminAcknowledgeClientRequest = async (req, res) => {
       return res.status(400).json({ success: false, error: 'Aucune demande client en attente sur cette commande.' });
     }
 
+    const proposedChanges = order.clientRequest?.proposedChanges || null;
     const requestType = acknowledgeClientRequest(order);
     if (requestType === 'cancel' && order.status !== 'cancelled') {
       appendStatusChange(order, 'cancelled');
       clearOrderMessageAlert(order);
+    }
+    if (requestType === 'modify' && proposedChanges) {
+      applyProposedOrderChanges(order, proposedChanges);
     }
 
     await order.save();

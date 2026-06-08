@@ -13,16 +13,21 @@ function canClientSubmitRequest(order) {
   return cr.status === 'acknowledged';
 }
 
-function buildClientRequest(type) {
+function buildClientRequest(type, proposedChanges = null) {
   if (!CLIENT_REQUEST_TYPES.has(type)) {
     throw new Error('Type de demande invalide');
   }
-  return {
+  const req = {
     type,
     status: 'pending',
     requestedAt: new Date(),
-    acknowledgedAt: null
+    acknowledgedAt: null,
+    proposedChanges: null
   };
+  if (type === 'modify' && proposedChanges && typeof proposedChanges === 'object') {
+    req.proposedChanges = proposedChanges;
+  }
+  return req;
 }
 
 function acknowledgeClientRequest(order) {
