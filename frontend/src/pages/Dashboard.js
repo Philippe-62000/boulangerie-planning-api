@@ -86,6 +86,8 @@ const Dashboard = () => {
     count: 0,
     messagesAwaitingReply: 0,
     messagesReplyReceived: 0,
+    cancelRequestsPending: 0,
+    modifyRequestsPending: 0,
     validatedToHonor: { j0: 0, j1: 0, j2: 0, dates: { j0: '', j1: '', j2: '' } },
     loading: false
   });
@@ -332,6 +334,8 @@ const Dashboard = () => {
         count: Number(data.count || 0),
         messagesAwaitingReply: Number(data.messagesAwaitingReply || 0),
         messagesReplyReceived: Number(data.messagesReplyReceived || 0),
+        cancelRequestsPending: Number(data.cancelRequestsPending || 0),
+        modifyRequestsPending: Number(data.modifyRequestsPending || 0),
         validatedToHonor: {
           j0: Number(validated.j0 || 0),
           j1: Number(validated.j1 || 0),
@@ -350,6 +354,8 @@ const Dashboard = () => {
         count: 0,
         messagesAwaitingReply: 0,
         messagesReplyReceived: 0,
+        cancelRequestsPending: 0,
+        modifyRequestsPending: 0,
         validatedToHonor: { j0: 0, j1: 0, j2: 0, dates: { j0: '', j1: '', j2: '' } },
         loading: false
       });
@@ -1273,7 +1279,9 @@ const Dashboard = () => {
                     {partnerOrdersPending.count}
                   </div>
                   {(partnerOrdersPending.messagesAwaitingReply > 0 ||
-                    partnerOrdersPending.messagesReplyReceived > 0) && (
+                    partnerOrdersPending.messagesReplyReceived > 0 ||
+                    partnerOrdersPending.cancelRequestsPending > 0 ||
+                    partnerOrdersPending.modifyRequestsPending > 0) && (
                     <div style={{ marginTop: '0.75rem', fontSize: '0.9rem', display: 'grid', gap: '0.35rem' }}>
                       {partnerOrdersPending.messagesAwaitingReply > 0 ? (
                         <div style={{ color: '#92400e', fontWeight: 600 }}>
@@ -1283,6 +1291,16 @@ const Dashboard = () => {
                       {partnerOrdersPending.messagesReplyReceived > 0 ? (
                         <div style={{ color: '#047857', fontWeight: 600 }}>
                           {partnerOrdersPending.messagesReplyReceived} réponse(s) client à lire
+                        </div>
+                      ) : null}
+                      {partnerOrdersPending.cancelRequestsPending > 0 ? (
+                        <div style={{ color: '#b91c1c', fontWeight: 600 }}>
+                          {formatPartnerOrderCount(partnerOrdersPending.cancelRequestsPending)} annulée(s) — à confirmer
+                        </div>
+                      ) : null}
+                      {partnerOrdersPending.modifyRequestsPending > 0 ? (
+                        <div style={{ color: '#c2410c', fontWeight: 600 }}>
+                          {formatPartnerOrderCount(partnerOrdersPending.modifyRequestsPending)} modifiée(s) — à confirmer
                         </div>
                       ) : null}
                     </div>

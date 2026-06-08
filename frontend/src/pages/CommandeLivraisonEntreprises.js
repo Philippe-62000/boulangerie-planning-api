@@ -168,6 +168,11 @@ const messageAlertLabels = {
   reply_received: '1 réponse client'
 };
 
+const clientRequestLabels = {
+  cancel: 'Demande d\'annulation client',
+  modify: 'Demande de modification client'
+};
+
 const formatOrderWhen = (d) => {
   if (!d) return '—';
   try {
@@ -563,6 +568,16 @@ const CommandeLivraisonEntreprises = () => {
     }
   };
 
+  const acknowledgeClientRequest = async (orderId) => {
+    try {
+      await api.patch(`/partner-orders/internal/${orderId}/client-request`, {}, { params: { site } });
+      await load();
+    } catch (e) {
+      console.error(e);
+      alert(e?.response?.data?.error || 'Impossible de confirmer la demande client.');
+    }
+  };
+
   const openMessageModal = async (order) => {
     setMessageModalOrder(order);
     setMessageDraft('');
@@ -869,6 +884,25 @@ const CommandeLivraisonEntreprises = () => {
                           {messageAlertLabels[o.messageAlert]}
                         </div>
                       ) : null}
+                      {o.clientRequest?.status === 'pending' && clientRequestLabels[o.clientRequest.type] ? (
+                        <div
+                          style={{
+                            marginTop: '8px',
+                            padding: '6px 10px',
+                            borderRadius: '8px',
+                            fontSize: '0.88rem',
+                            fontWeight: 700,
+                            background: o.clientRequest.type === 'cancel' ? '#fef2f2' : '#fff7ed',
+                            color: o.clientRequest.type === 'cancel' ? '#b91c1c' : '#c2410c',
+                            border: `1px solid ${o.clientRequest.type === 'cancel' ? '#fecaca' : '#fed7aa'}`
+                          }}
+                        >
+                          {clientRequestLabels[o.clientRequest.type]}
+                          {o.clientRequest.requestedAt
+                            ? ` — ${formatOrderWhen(o.clientRequest.requestedAt)}`
+                            : ''}
+                        </div>
+                      ) : null}
                     </div>
                     <div style={{ minWidth: '240px' }}>
                       <div style={{ fontSize: '0.9rem', color: '#333' }}>
@@ -901,6 +935,24 @@ const CommandeLivraisonEntreprises = () => {
                   </div>
 
                   <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginTop: '10px' }}>
+                    {o.clientRequest?.status === 'pending' ? (
+                      <button
+                        type="button"
+                        onClick={() => acknowledgeClientRequest(o._id)}
+                        style={{
+                          padding: '6px 10px',
+                          borderRadius: '8px',
+                          border: '1px solid #16a34a',
+                          background: '#ecfdf5',
+                          color: '#15803d',
+                          fontWeight: 700
+                        }}
+                      >
+                        {o.clientRequest.type === 'cancel'
+                          ? 'Confirmer prise en compte de l\'annulation'
+                          : 'Confirmer prise en compte de la modification'}
+                      </button>
+                    ) : null}
                     <button
                       type="button"
                       onClick={() => openMessageModal(o)}

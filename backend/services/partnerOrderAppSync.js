@@ -33,6 +33,9 @@ const defaultAppBase = getPartnerOrderAppUrl(process.env.PARTNER_SITE || process
 const messageSyncUrl =
   process.env.PARTNER_ORDER_APP_MESSAGE_SYNC_URL ||
   `${String(defaultAppBase).replace(/\/+$/, '')}/api/internal-order-message`;
+const clientRequestSyncUrl =
+  process.env.PARTNER_ORDER_APP_CLIENT_REQUEST_SYNC_URL ||
+  `${String(defaultAppBase).replace(/\/+$/, '')}/api/internal-order-client-request`;
 
 async function post(body) {
   if (!url || !secret) return;
@@ -171,6 +174,46 @@ async function syncOrderMessage({
   }
 }
 
+/** Demande client ou prise en compte admin → Mongo Vercel. */
+async function syncOrderClientRequest({
+  site,
+  orderId,
+  vercelOrderId,
+  clientRequest,
+  status
+}) {
+  if (!shouldSyncMessageToVercel()) {
+    return { ok: true, skipped: 'shared_mongo' };
+  }
+  const syncSecret = getSyncSecret();
+  if (!syncSecret) {
+    console.warn('⚠️ syncOrderClientRequest: secret manquant (INTERNAL_API_SECRET sur Render)');
+    return { ok: false, reason: 'no_secret' };
+  }
+  try {
+    const r = await axios.post(
+      clientRequestSyncUrl,
+      {
+        site: site || 'longuenesse',
+        orderId: String(vercelOrderId || orderId || ''),
+        renderOrderId: orderId ? String(orderId) : undefined,
+        vercelOrderId: vercelOrderId ? String(vercelOrderId) : undefined,
+        clientRequest,
+        status
+      },
+      {
+        headers: { 'Content-Type': 'application/json', 'x-internal-secret': syncSecret },
+        timeout: 12000
+      }
+    );
+    return { ok: true, status: r.status };
+  } catch (e) {
+    const statusCode = e.response?.status;
+    console.error('⚠️ partnerOrderAppSync clientRequest:', statusCode, e.response?.data || e.message);
+    return { ok: false, reason: 'http_error', status: statusCode, error: e.message };
+  }
+}
+
 /** Vérifie que Render peut joindre Vercel avec le secret configuré. */
 async function pingVercelSync() {
   const syncSecret = getSyncSecret();
@@ -202,5 +245,6 @@ module.exports = {
   syncDelete,
   syncOrderDelete,
   syncOrderMessage,
+  syncOrderClientRequest,
   pingVercelSync
 };

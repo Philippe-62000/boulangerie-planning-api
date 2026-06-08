@@ -37,6 +37,14 @@ const {
 } = require('../utils/partnerOrderMessages');
 const { getParisDayString, addParisDays } = require('../utils/parisDay');
 const { getPartnerOrderAppUrl, getPartnerSiteDisplayLabel } = require('../utils/partnerSiteConfig');
+const {
+  CLIENT_REQUEST_TYPES,
+  hasPendingClientRequest,
+  canClientSubmitRequest,
+  buildClientRequest,
+  acknowledgeClientRequest,
+  clientRequestQuery
+} = require('../utils/partnerClientRequest');
 
 /** Commandes « pris en compte » à honorer à la date de livraison. */
 const ACKNOWLEDGED_STATUS = 'acknowledged';
@@ -1260,10 +1268,13 @@ const internalPendingCount = async (req, res) => {
     const todayParis = getParisDayString(new Date());
     const dayJ1 = addParisDays(todayParis, 1);
     const dayJ2 = addParisDays(todayParis, 2);
-    const [count, messageAlerts, honorCounts] = await Promise.all([
-      PartnerOrder.countDocuments({ ...siteMatchQuery(site), status: 'submitted' }),
+    const siteQ = siteMatchQuery(site);
+    const [count, messageAlerts, honorCounts, cancelRequestsPending, modifyRequestsPending] = await Promise.all([
+      PartnerOrder.countDocuments({ ...siteQ, status: 'submitted' }),
       countMessageAlertsForSite(PartnerOrder, site),
-      countAcknowledgedOrdersByParisDays(site, [todayParis, dayJ1, dayJ2])
+      countAcknowledgedOrdersByParisDays(site, [todayParis, dayJ1, dayJ2]),
+      PartnerOrder.countDocuments({ ...siteQ, ...clientRequestQuery('cancel') }),
+      PartnerOrder.countDocuments({ ...siteQ, ...clientRequestQuery('modify') })
     ]);
     const [j0, j1, j2] = honorCounts;
     res.json({
@@ -1272,6 +1283,8 @@ const internalPendingCount = async (req, res) => {
         count,
         messagesAwaitingReply: messageAlerts.awaitingReply,
         messagesReplyReceived: messageAlerts.replyReceived,
+        cancelRequestsPending,
+        modifyRequestsPending,
         validatedToHonor: {
           j0,
           j1,
@@ -1281,6 +1294,149 @@ const internalPendingCount = async (req, res) => {
       }
     });
   } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+};
+
+async function applyClientRequestToOrder(order, type) {
+  if (!canClientSubmitRequest(order)) {
+    const err = new Error(
+      hasPendingClientRequest(order)
+        ? 'Une demande est déjà en attente pour cette commande.'
+        : 'Seules les commandes prises en compte peuvent être annulées ou modifiées.'
+    );
+    err.statusCode = 400;
+    throw err;
+  }
+  order.clientRequest = buildClientRequest(type);
+  await order.save();
+  return order;
+}
+
+const requestMyOrderClientAction = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const site = normalizeSite(getSite(req));
+    const type = String(req.body?.type || '').toLowerCase();
+    if (!CLIENT_REQUEST_TYPES.has(type)) {
+      return res.status(400).json({ success: false, error: 'type requis (cancel ou modify)' });
+    }
+
+    const order = await PartnerOrder.findOne({
+      _id: id,
+      site,
+      companyId: req.partnerCompanyId
+    });
+    if (!order) return res.status(404).json({ success: false, error: 'Commande non trouvée' });
+
+    try {
+      await applyClientRequestToOrder(order, type);
+    } catch (e) {
+      return res.status(e.statusCode || 400).json({ success: false, error: e.message });
+    }
+
+    const plain = order.toObject ? order.toObject() : order;
+    res.json({ success: true, data: enrichOrderMessages(plain) });
+  } catch (err) {
+    console.error('❌ requestMyOrderClientAction:', err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+};
+
+const internalClientRequestFromVercel = async (req, res) => {
+  try {
+    const site = normalizeSite(getSite(req));
+    const type = String(req.body?.type || '').toLowerCase();
+    if (!CLIENT_REQUEST_TYPES.has(type)) {
+      return res.status(400).json({ success: false, error: 'type requis (cancel ou modify)' });
+    }
+
+    const vercelOrderId = String(req.body?.vercelOrderId || '').trim();
+    const companyEmail = String(req.body?.companyEmail || '').toLowerCase().trim();
+    let order = null;
+
+    if (vercelOrderId) {
+      order = await PartnerOrder.findOne({ site, vercelOrderId });
+      if (!order) {
+        try {
+          const byId = await PartnerOrder.findById(vercelOrderId);
+          if (byId && normalizeSite(String(byId.site || '')) === site) order = byId;
+        } catch {
+          /* ignore */
+        }
+      }
+    }
+
+    if (!order && companyEmail && req.body.datetime) {
+      const company = await PartnerCompany.findOne({ site, email: companyEmail });
+      const dt = new Date(req.body.datetime);
+      if (company && !Number.isNaN(dt.getTime())) {
+        const windowMs = 15 * 60 * 1000;
+        order = await PartnerOrder.findOne({
+          site,
+          companyId: company._id,
+          datetime: { $gte: new Date(dt.getTime() - windowMs), $lte: new Date(dt.getTime() + windowMs) }
+        });
+      }
+    }
+
+    if (!order) return res.status(404).json({ success: false, error: 'Commande non trouvée' });
+
+    try {
+      await applyClientRequestToOrder(order, type);
+    } catch (e) {
+      return res.status(e.statusCode || 400).json({ success: false, error: e.message });
+    }
+
+    if (!order.vercelOrderId && vercelOrderId) {
+      order.vercelOrderId = vercelOrderId;
+      await order.save();
+    }
+
+    res.json({
+      success: true,
+      data: { renderOrderId: String(order._id), vercelOrderId: order.vercelOrderId || vercelOrderId }
+    });
+  } catch (err) {
+    console.error('❌ internalClientRequestFromVercel:', err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+};
+
+const adminAcknowledgeClientRequest = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const site = normalizeSite(getSite(req));
+    const order = await PartnerOrder.findOne({ _id: id, ...siteMatchQuery(site) });
+    if (!order) return res.status(404).json({ success: false, error: 'Commande non trouvée' });
+    if (!hasPendingClientRequest(order)) {
+      return res.status(400).json({ success: false, error: 'Aucune demande client en attente sur cette commande.' });
+    }
+
+    const requestType = acknowledgeClientRequest(order);
+    if (requestType === 'cancel' && order.status !== 'cancelled') {
+      appendStatusChange(order, 'cancelled');
+      clearOrderMessageAlert(order);
+    }
+
+    await order.save();
+
+    partnerOrderAppSync
+      .syncOrderClientRequest({
+        site: order.site,
+        orderId: order._id,
+        vercelOrderId: order.vercelOrderId,
+        clientRequest: order.clientRequest,
+        status: order.status
+      })
+      .catch(() => {});
+
+    const plain = order.toObject ? order.toObject() : order;
+    plain.placedAt = plain.createdAt || null;
+    plain.statusHistoryTimeline = buildStatusHistoryTimeline(plain);
+    res.json({ success: true, data: plain });
+  } catch (err) {
+    console.error('❌ adminAcknowledgeClientRequest:', err);
     res.status(500).json({ success: false, error: err.message });
   }
 };
@@ -1541,6 +1697,9 @@ module.exports = {
   sendInternalOrderMessage,
   dismissInternalOrderMessageAlert,
   replyMyOrderMessage,
+  requestMyOrderClientAction,
+  internalClientRequestFromVercel,
+  adminAcknowledgeClientRequest,
   staffQuickInviteByEmail
 };
 

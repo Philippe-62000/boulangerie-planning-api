@@ -79,7 +79,22 @@ const partnerOrderSchema = new mongoose.Schema(
     /** Masque l’alerte dashboard après lecture ou changement de statut. */
     messageAlertClearedAt: { type: Date, default: null },
     /** Id commande sur le site client Vercel (si Mongo distinct). */
-    vercelOrderId: { type: String, trim: true, default: '', index: true }
+    vercelOrderId: { type: String, trim: true, default: '', index: true },
+    /** Demande client d'annulation ou de modification (commande « pris en compte »). */
+    clientRequest: {
+      type: {
+        type: String,
+        enum: ['cancel', 'modify', null],
+        default: null
+      },
+      status: {
+        type: String,
+        enum: ['pending', 'acknowledged', null],
+        default: null
+      },
+      requestedAt: { type: Date, default: null },
+      acknowledgedAt: { type: Date, default: null }
+    }
   },
   { timestamps: true }
 );
