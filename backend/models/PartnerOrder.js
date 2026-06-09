@@ -97,7 +97,6 @@ const partnerOrderSchema = new mongoose.Schema(
       /** Contenu modifié proposé par le client (appliqué à la confirmation admin). */
       proposedChanges: { type: mongoose.Schema.Types.Mixed, default: null }
     }
-    }
   },
   { timestamps: true }
 );
