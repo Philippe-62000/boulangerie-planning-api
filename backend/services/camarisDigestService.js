@@ -221,7 +221,16 @@ const getSportHighlight = (d = new Date()) => {
     return { text: pick.text };
   }
 
-  if ((m === 5 && day >= 18 && day <= 25) || (m === 6 && day === 9)) {
+  if (m === 6 && y === 2026 && day >= 9 && day <= 19) {
+    const wcFallback = [
+      'Football : Coupe du monde 2026 — les Bleus après leur 3-1 contre l’Irlande du Nord, cap sur le Mondial.',
+      'Football : Coupe du monde 2026 — phase de groupes, matchs à ne pas manquer.',
+      'Football : Coupe du monde 2026 — suivez l’équipe de France et les temps forts du tournoi.'
+    ];
+    const idx = (y * 366 + m * 31 + day) % wcFallback.length;
+    return { text: wcFallback[idx] };
+  }
+  if ((m === 5 && day >= 26) || (m === 6 && day >= 1 && day <= 8)) {
     const rgFallback = [
       'Tennis : Roland-Garros — suivez les matchs du jour et les Français encore en lice.',
       'Tennis : Roland-Garros — tableaux hommes et dames, ambiance Porte d’Auteuil.',
@@ -229,9 +238,6 @@ const getSportHighlight = (d = new Date()) => {
     ];
     const idx = (y * 366 + m * 31 + day) % rgFallback.length;
     return { text: rgFallback[idx] };
-  }
-  if (m === 6 && y === 2026 && day >= 11 && day <= 19) {
-    return { text: 'Football : Coupe du monde 2026 — phase de groupes, matchs à ne pas manquer.' };
   }
   if (m === 6 && (day === 14 || day === 15 || day === 18)) {
     return { text: 'Football : Euro / sélections — soirées de matchs internationaux.' };

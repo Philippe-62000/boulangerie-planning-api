@@ -102,7 +102,23 @@
     "month": 6,
     "day": 8,
     "scope": "france",
-    "text": "Tennis : Roland-Garros — retour sur les temps forts d’une édition marquée par l’élimination précoce de Djokovic."
+    "priority": 10,
+    "text": "Football : France 3-1 Irlande du Nord à Lille — triplé de Michael Olise, dernier match de préparation avant la Coupe du monde 2026."
+  },
+  {
+    "year": 2026,
+    "month": 6,
+    "day": 9,
+    "scope": "france",
+    "priority": 10,
+    "text": "Football : les Bleus valident leur préparation (3-1 contre l’Irlande du Nord) et s’envolent pour le Mondial — ouverture du tournoi le 11 juin, premier match des Bleus le 16 face au Sénégal."
+  },
+  {
+    "year": 2026,
+    "month": 6,
+    "day": 10,
+    "scope": "france",
+    "text": "Football : Coupe du monde 2026 — ouverture demain aux États-Unis, au Canada et au Mexique ; l’équipe de France retrouve son camp de base à Boston."
   },
   {
     "month": 5,
@@ -110,15 +126,20 @@
     "text": "Tennis : Roland-Garros — 1er tour à Paris, ambiance terre battue."
   },
   {
-    "month": 6,
-    "day": 8,
-    "text": "Tennis : Roland-Garros — demi-finales et finales, soirées marathon sur le Central."
-  },
-  {
+    "year": 2026,
     "month": 6,
     "day": 11,
     "scope": "france",
-    "text": "Coupe du monde de football : ouverture du tournoi — matchs à suivre en famille."
+    "priority": 10,
+    "text": "Football : Coupe du monde 2026 — coup d’envoi du tournoi, suivez les premiers matchs de la phase de groupes."
+  },
+  {
+    "year": 2026,
+    "month": 6,
+    "day": 16,
+    "scope": "france",
+    "priority": 10,
+    "text": "Football : Coupe du monde 2026 — les Bleus débutent face au Sénégal au MetLife Stadium de New York."
   },
   {
     "month": 6,
