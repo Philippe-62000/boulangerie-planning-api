@@ -9,6 +9,7 @@ const formatDateTime = (d) => {
   if (!d) return '—';
   try {
     return new Date(d).toLocaleString('fr-FR', {
+      timeZone: 'Europe/Paris',
       day: '2-digit',
       month: '2-digit',
       year: 'numeric',

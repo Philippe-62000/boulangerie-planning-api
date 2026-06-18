@@ -13,6 +13,22 @@ const formatDate = (d) => {
   }
 };
 
+const formatDateTime = (d) => {
+  if (!d) return '—';
+  try {
+    return new Date(d).toLocaleString('fr-FR', {
+      timeZone: 'Europe/Paris',
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  } catch {
+    return '—';
+  }
+};
+
 /** Recalcule conso côté client ; prévision = moy. 3 sem. si fournie par l’API. */
 const effectiveReceivedForConso = (line) => {
   if (line.receivedQty !== '' && line.receivedQty != null) {
@@ -24,27 +40,33 @@ const effectiveReceivedForConso = (line) => {
   return null;
 };
 
-const parseQtyField = (line, field) => {
-  let raw = line[field];
-  if ((raw === '' || raw == null) && field === 'cartonQty' && line.stockQty != null && line.stockQty !== '') {
-    raw = line.stockQty;
-  }
+const parseQtyRaw = (raw) => {
   if (raw === '' || raw == null) return null;
   return Math.max(0, Number(raw) || 0);
 };
 
+/** Aligné sur backend/utils/stockQtyFields — ne pas recopier stockQty dans carton si unité est saisie. */
+const normalizeStockFieldsLine = (line) => {
+  const legacy =
+    line.stockQty !== '' && line.stockQty != null ? parseQtyRaw(line.stockQty) : null;
+  let cartonQty = parseQtyRaw(line.cartonQty);
+  let unitQty = parseQtyRaw(line.unitQty);
+  if (cartonQty == null && unitQty == null && legacy != null) {
+    cartonQty = legacy;
+  }
+  return { cartonQty, unitQty };
+};
+
 const stockTotalFromLine = (line) => {
-  const carton = parseQtyField(line, 'cartonQty');
-  const unit = parseQtyField(line, 'unitQty');
-  if (carton == null && unit == null) return null;
-  return (carton ?? 0) + (unit ?? 0);
+  const { cartonQty, unitQty } = normalizeStockFieldsLine(line);
+  if (cartonQty == null && unitQty == null) return null;
+  return (cartonQty ?? 0) + (unitQty ?? 0);
 };
 
 const withMetrics = (line) => {
   const received =
     line.receivedQty === '' || line.receivedQty == null ? null : Math.max(0, Number(line.receivedQty) || 0);
-  const cartonQty = parseQtyField(line, 'cartonQty');
-  const unitQty = parseQtyField(line, 'unitQty');
+  const { cartonQty, unitQty } = normalizeStockFieldsLine(line);
   const stockTotal = stockTotalFromLine({ ...line, cartonQty, unitQty });
   const receivedForConso = effectiveReceivedForConso(line);
   let consumptionQty = null;
@@ -974,6 +996,17 @@ const CommandeTGT = ({ channelKey = 'TGT' }) => {
                 <p className="commande-tgt-info no-print">Cette semaine est déjà validée. Vous pouvez encore modifier puis ré-enregistrer.</p>
               )}
 
+              {employeeStockImports.length > 0 ? (
+                <p className="commande-tgt-info no-print" style={{ marginBottom: 12 }}>
+                  Stocks salariés importés :{' '}
+                  {employeeStockImports
+                    .map((imp) => `${imp.employeeName || 'Salarié'} (${imp.dateLabel || '—'})`)
+                    .join(' · ')}
+                  . Colonnes <strong>Carton</strong> / <strong>Unité</strong> = stock magasin ;{' '}
+                  <strong>Cmd -1…-6</strong> = historique BL (pas le stock).
+                </p>
+              ) : null}
+
               <div className="commande-tgt-print-title print-only">
                 <h2>
                   {printMode === 'modele' ? 'Modèle commande TGT' : 'Commande TGT'} — {siteLabel}
@@ -1095,14 +1128,6 @@ const CommandeTGT = ({ channelKey = 'TGT' }) => {
                                   placeholder="—"
                                   onChange={(e) => updateLine(line.productId, 'unitQty', e.target.value)}
                                 />
-                                {employeeStockImports.length > 0 ? (
-                                  <div
-                                    className="stock-import-dates no-print"
-                                    title="Imports stocks salariés cumulés"
-                                  >
-                                    {employeeStockImports.map((imp) => imp.dateLabel).join(' · ')}
-                                  </div>
-                                ) : null}
                                 <span className="print-only print-saisie-val">{line.unitQty ?? ''}</span>
                                 <span className="print-only print-modele-cell" aria-hidden="true" />
                               </td>
@@ -1459,8 +1484,9 @@ const CommandeTGT = ({ channelKey = 'TGT' }) => {
           <div className="commande-tgt-modal" onClick={(e) => e.stopPropagation()}>
             <h3 id="stock-import-modal-title">Importer stocks salarié</h3>
             <p className="commande-tgt-hint">
-              Cochez un ou plusieurs envois depuis le menu {channel.stockScheduleMenuLabel}. Les quantités sont
-              cumulées (ex. 0 puis 1 = 1).
+              Cochez la saisie à reprendre (menu {channel.stockScheduleMenuLabel}). Si plusieurs imports sont
+              cochés, le <strong>plus récent</strong> remplace les quantités carton / unité produit par produit
+              (pas de cumul).
             </p>
             {stockImportLoading ? (
               <p>Chargement des imports…</p>
@@ -1482,11 +1508,12 @@ const CommandeTGT = ({ channelKey = 'TGT' }) => {
                           disabled={saving}
                         />
                         <span>
-                          <strong>{formatDate(entry.createdAt)}</strong>
+                          <strong>{formatDateTime(entry.createdAt)}</strong>
                           {' — '}
                           {entry.employeeName || 'Salarié'}
                           {' · '}
                           {entry.itemsCount ?? 0} produit(s)
+                          {entry.comment ? ` · « ${entry.comment} »` : ''}
                         </span>
                       </label>
                     </li>
