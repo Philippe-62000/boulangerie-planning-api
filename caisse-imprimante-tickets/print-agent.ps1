@@ -47,8 +47,19 @@ $Config = Get-Content -Raw -Encoding UTF8 $ConfigPath | ConvertFrom-Json
 $ApiUrl = $Config.apiUrl.TrimEnd('/')
 $Site = $Config.site
 $PrintKey = $Config.printKey
-$PrinterName = $Config.printerName
+$PrinterName = [string]$Config.printerName
 $PollSeconds = if ($Config.pollSeconds) { [int]$Config.pollSeconds } else { 60 }
+
+# printerName vide => imprimante par defaut de Windows
+if (-not $PrinterName -or $PrinterName.Trim() -eq '') {
+    $defaultPrinter = Get-CimInstance -ClassName Win32_Printer -Filter 'Default = TRUE' -ErrorAction SilentlyContinue
+    if ($defaultPrinter) {
+        $PrinterName = $defaultPrinter.Name
+    } else {
+        Write-Log "ERREUR: printerName vide et aucune imprimante par defaut trouvee."
+        exit 1
+    }
+}
 
 if (-not $PrintKey -or $PrintKey -eq 'METTRE_LA_CLE_ICI') {
     Write-Log "ERREUR: renseignez printKey dans config.json (valeur de PRINT_AGENT_KEY sur Render)."

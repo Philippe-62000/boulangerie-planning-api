@@ -36,9 +36,11 @@ commande : l'impression sert à la fois d'alerte sonore et de bon de commande.
    - caisse de **Longuenesse** : copier `config.longuenesse.json` → `config.json`
 3. Ouvrir `config.json` avec le Bloc-notes et remplacer `METTRE_LA_CLE_ICI`
    par la valeur de `PRINT_AGENT_KEY` mise sur Render.
-4. Vérifier le nom exact de l'imprimante dans Windows
-   (Paramètres → Imprimantes et scanners) et l'ajuster dans `config.json`
-   (`printerName`) s'il diffère de « ODP 333 ».
+4. Le nom d'imprimante est préréglé sur « Archange Printer » (nom du pilote
+   de l'ODP 333 sur les caisses Crisalid). Si besoin, vérifier le nom exact
+   dans Windows (Paramètres → Imprimantes et scanners) et l'ajuster dans
+   `config.json` (`printerName`). Astuce : laisser `printerName` vide (`""`)
+   pour utiliser automatiquement l'imprimante par défaut de Windows.
 5. Double-cliquer `test-impression.bat` : un ticket de test doit sortir.
    - Si rien ne sort, ouvrir `print-agent.log` : en cas de mauvais nom
      d'imprimante, le journal liste les noms disponibles.

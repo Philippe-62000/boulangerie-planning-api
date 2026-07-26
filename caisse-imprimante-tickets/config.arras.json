@@ -2,6 +2,6 @@
   "site": "arras",
   "apiUrl": "https://boulangerie-planning-api-4-pbfy.onrender.com/api",
   "printKey": "METTRE_LA_CLE_ICI",
-  "printerName": "ODP 333",
+  "printerName": "Archange Printer",
   "pollSeconds": 60
 }
