@@ -1,0 +1,7 @@
+{
+  "site": "longuenesse",
+  "apiUrl": "https://boulangerie-planning-api-3.onrender.com/api",
+  "printKey": "METTRE_LA_CLE_ICI",
+  "printerName": "ODP 333",
+  "pollSeconds": 60
+}

@@ -78,6 +78,8 @@ const partnerOrderSchema = new mongoose.Schema(
     ],
     /** Masque l’alerte dashboard après lecture ou changement de statut. */
     messageAlertClearedAt: { type: Date, default: null },
+    /** Ticket imprimé sur la caisse (agent d'impression boutique). */
+    printedAt: { type: Date, default: null },
     /** Id commande sur le site client Vercel (si Mongo distinct). */
     vercelOrderId: { type: String, trim: true, default: '', index: true },
     /** Demande client d'annulation ou de modification (commande « pris en compte »). */
@@ -94,6 +96,8 @@ const partnerOrderSchema = new mongoose.Schema(
       },
       requestedAt: { type: Date, default: null },
       acknowledgedAt: { type: Date, default: null },
+      /** Ticket « demande client » imprimé sur la caisse. */
+      printedAt: { type: Date, default: null },
       /** Contenu modifié proposé par le client (appliqué à la confirmation admin). */
       proposedChanges: { type: mongoose.Schema.Types.Mixed, default: null }
     }
