@@ -2,6 +2,8 @@
   "site": "arras",
   "apiUrl": "https://boulangerie-planning-api-4-pbfy.onrender.com/api",
   "printKey": "METTRE_LA_CLE_ICI",
-  "printerName": "Archange Printer",
+  "printerIp": "METTRE_IP_IMPRIMANTE_ICI",
+  "printerPort": 9100,
+  "printerName": "",
   "pollSeconds": 60
 }

@@ -48,21 +48,31 @@ $ApiUrl = $Config.apiUrl.TrimEnd('/')
 $Site = $Config.site
 $PrintKey = $Config.printKey
 $PrinterName = [string]$Config.printerName
+$PrinterIp = [string]$Config.printerIp
+$PrinterPort = if ($Config.printerPort) { [int]$Config.printerPort } else { 9100 }
 $PollSeconds = if ($Config.pollSeconds) { [int]$Config.pollSeconds } else { 60 }
 
-# printerName vide => imprimante par defaut de Windows
-if (-not $PrinterName -or $PrinterName.Trim() -eq '') {
+# Mode d'impression :
+#  - printerIp renseigne  => envoi direct TCP 9100 (imprimante ticket reseau)
+#  - sinon printerName    => spouleur Windows (imprimante locale USB)
+#  - les deux vides       => imprimante Windows par defaut
+$NetworkMode = ($PrinterIp -and $PrinterIp.Trim() -ne '')
+if (-not $NetworkMode -and (-not $PrinterName -or $PrinterName.Trim() -eq '')) {
     $defaultPrinter = Get-CimInstance -ClassName Win32_Printer -Filter 'Default = TRUE' -ErrorAction SilentlyContinue
     if ($defaultPrinter) {
         $PrinterName = $defaultPrinter.Name
     } else {
-        Write-Log "ERREUR: printerName vide et aucune imprimante par defaut trouvee."
+        Write-Log "ERREUR: printerIp et printerName vides, et aucune imprimante par defaut trouvee."
         exit 1
     }
 }
 
 if (-not $PrintKey -or $PrintKey -eq 'METTRE_LA_CLE_ICI') {
     Write-Log "ERREUR: renseignez printKey dans config.json (valeur de PRINT_AGENT_KEY sur Render)."
+    exit 1
+}
+if ($Config.printerIp -eq 'METTRE_IP_IMPRIMANTE_ICI') {
+    Write-Log "ERREUR: renseignez printerIp dans config.json (adresse IP de l'imprimante ticket, ex. 192.168.1.50)."
     exit 1
 }
 
@@ -166,8 +176,33 @@ function Get-EscPosBytes($Ticket) {
     return $ms.ToArray()
 }
 
+function Send-BytesToNetworkPrinter([byte[]]$Bytes) {
+    $client = $null
+    try {
+        $client = New-Object System.Net.Sockets.TcpClient
+        $connectTask = $client.ConnectAsync($PrinterIp, $PrinterPort)
+        if (-not $connectTask.Wait(5000)) {
+            throw "connexion a ${PrinterIp}:${PrinterPort} impossible (delai depasse)"
+        }
+        $stream = $client.GetStream()
+        $stream.Write($Bytes, 0, $Bytes.Length)
+        $stream.Flush()
+        Start-Sleep -Milliseconds 300   # laisser partir les octets avant fermeture
+        $stream.Close()
+        return $true
+    } catch {
+        Write-Log "ERREUR: impression reseau vers ${PrinterIp}:${PrinterPort} : $($_.Exception.Message)"
+        return $false
+    } finally {
+        if ($client) { $client.Close() }
+    }
+}
+
 function Print-Ticket($Ticket) {
     $bytes = Get-EscPosBytes $Ticket
+    if ($NetworkMode) {
+        return Send-BytesToNetworkPrinter $bytes
+    }
     $ok = [RawPrinterHelper]::SendBytes($PrinterName, $bytes)
     if (-not $ok) {
         $available = (Get-Printer | Select-Object -ExpandProperty Name) -join ', '
@@ -199,7 +234,8 @@ if ($TestPrint) {
 # ----------------------------------------------------------------------
 # Boucle principale
 # ----------------------------------------------------------------------
-Write-Log "Agent demarre. Site=$Site  API=$ApiUrl  Imprimante=$PrinterName  Cycle=${PollSeconds}s"
+$printTarget = if ($NetworkMode) { "reseau ${PrinterIp}:${PrinterPort}" } else { "Windows '$PrinterName'" }
+Write-Log "Agent demarre. Site=$Site  API=$ApiUrl  Imprimante=$printTarget  Cycle=${PollSeconds}s"
 $headers = @{ 'x-print-key' = $PrintKey }
 
 while ($true) {

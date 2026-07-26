@@ -36,11 +36,17 @@ commande : l'impression sert à la fois d'alerte sonore et de bon de commande.
    - caisse de **Longuenesse** : copier `config.longuenesse.json` → `config.json`
 3. Ouvrir `config.json` avec le Bloc-notes et remplacer `METTRE_LA_CLE_ICI`
    par la valeur de `PRINT_AGENT_KEY` mise sur Render.
-4. Le nom d'imprimante est préréglé sur « Archange Printer » (nom du pilote
-   de l'ODP 333 sur les caisses Crisalid). Si besoin, vérifier le nom exact
-   dans Windows (Paramètres → Imprimantes et scanners) et l'ajuster dans
-   `config.json` (`printerName`). Astuce : laisser `printerName` vide (`""`)
-   pour utiliser automatiquement l'imprimante par défaut de Windows.
+4. Renseigner l'imprimante dans `config.json` :
+   - **Imprimante ticket réseau** (cas des boutiques : la tablette de
+     commande en ligne imprime déjà dessus) : mettre son adresse IP dans
+     `printerIp` (ex. `"192.168.1.50"`). Le port 9100 est le standard.
+     Pour trouver l'IP : regarder dans les réglages d'impression de la
+     tablette de commande en ligne, ou imprimer la page d'auto-test de
+     l'imprimante (l'éteindre, maintenir le bouton FEED enfoncé, la
+     rallumer : la page imprimée indique l'adresse IP).
+   - **Imprimante USB locale** : laisser `printerIp` vide (`""`) et mettre
+     le nom Windows de l'imprimante dans `printerName`. Si `printerName`
+     est vide aussi, l'imprimante par défaut de Windows est utilisée.
 5. Double-cliquer `test-impression.bat` : un ticket de test doit sortir.
    - Si rien ne sort, ouvrir `print-agent.log` : en cas de mauvais nom
      d'imprimante, le journal liste les noms disponibles.
@@ -61,9 +67,12 @@ commande : l'impression sert à la fois d'alerte sonore et de bon de commande.
 
 ## Dépannage
 
-- **Rien ne s'imprime, log « impression impossible »** : le `printerName` de
-  `config.json` ne correspond pas au nom Windows de l'imprimante ; le journal
-  liste les imprimantes disponibles.
+- **Log « impression reseau … impossible »** : mauvaise adresse IP dans
+  `printerIp`, imprimante éteinte, ou le PC n'est pas sur le même réseau que
+  l'imprimante. Vérifier avec `ping <ip>` depuis l'invite de commandes.
+- **Rien ne s'imprime, log « impression impossible »** (mode Windows) : le
+  `printerName` de `config.json` ne correspond pas au nom Windows de
+  l'imprimante ; le journal liste les imprimantes disponibles.
 - **Log « Clé agent impression invalide »** : la clé `printKey` de
   `config.json` ne correspond pas à `PRINT_AGENT_KEY` sur Render.
 - **Erreurs réseau ponctuelles** : normales (serveur Render en veille) ;
