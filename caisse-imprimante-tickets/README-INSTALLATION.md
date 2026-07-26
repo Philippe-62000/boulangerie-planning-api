@@ -15,7 +15,7 @@ commande : l'impression sert à la fois d'alerte sonore et de bon de commande.
   ticket ne sort jamais deux fois, même si la caisse redémarre.
 - Sécurité anti-rafale : seules les commandes de moins de 72 h sont imprimées,
   10 tickets maximum par cycle.
-- Plage horaire (`pollStartHour` / `pollEndHour`, par défaut 6 h → 18 h) :
+- Plage horaire (`pollStartHour` / `pollEndHour`, par défaut 6 h → 20 h) :
   en dehors, l'agent n'appelle pas le serveur, ce qui laisse Render se mettre
   en veille la nuit (important sur le plan gratuit : quota de 750 h/mois).
   Une commande passée pendant la nuit s'imprime à la reprise le matin.

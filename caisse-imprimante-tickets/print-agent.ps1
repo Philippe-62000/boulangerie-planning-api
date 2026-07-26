@@ -53,7 +53,7 @@ $PrinterPort = if ($Config.printerPort) { [int]$Config.printerPort } else { 9100
 $PollSeconds = if ($Config.pollSeconds) { [int]$Config.pollSeconds } else { 60 }
 # Plage horaire d'activite (plan Render gratuit : laisser le serveur dormir la nuit)
 $PollStartHour = if ($null -ne $Config.pollStartHour) { [int]$Config.pollStartHour } else { 6 }
-$PollEndHour = if ($null -ne $Config.pollEndHour) { [int]$Config.pollEndHour } else { 18 }
+$PollEndHour = if ($null -ne $Config.pollEndHour) { [int]$Config.pollEndHour } else { 20 }
 
 # Mode d'impression :
 #  - printerIp renseigne  => envoi direct TCP 9100 (imprimante ticket reseau)

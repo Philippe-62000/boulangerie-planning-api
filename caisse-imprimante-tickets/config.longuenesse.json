@@ -7,5 +7,5 @@
   "printerName": "",
   "pollSeconds": 60,
   "pollStartHour": 6,
-  "pollEndHour": 18
+  "pollEndHour": 20
 }
