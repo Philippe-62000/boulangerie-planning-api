@@ -5,5 +5,7 @@
   "printerIp": "METTRE_IP_IMPRIMANTE_ICI",
   "printerPort": 9100,
   "printerName": "",
-  "pollSeconds": 60
+  "pollSeconds": 60,
+  "pollStartHour": 6,
+  "pollEndHour": 18
 }

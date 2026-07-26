@@ -51,6 +51,9 @@ $PrinterName = [string]$Config.printerName
 $PrinterIp = [string]$Config.printerIp
 $PrinterPort = if ($Config.printerPort) { [int]$Config.printerPort } else { 9100 }
 $PollSeconds = if ($Config.pollSeconds) { [int]$Config.pollSeconds } else { 60 }
+# Plage horaire d'activite (plan Render gratuit : laisser le serveur dormir la nuit)
+$PollStartHour = if ($null -ne $Config.pollStartHour) { [int]$Config.pollStartHour } else { 6 }
+$PollEndHour = if ($null -ne $Config.pollEndHour) { [int]$Config.pollEndHour } else { 18 }
 
 # Mode d'impression :
 #  - printerIp renseigne  => envoi direct TCP 9100 (imprimante ticket reseau)
@@ -235,10 +238,26 @@ if ($TestPrint) {
 # Boucle principale
 # ----------------------------------------------------------------------
 $printTarget = if ($NetworkMode) { "reseau ${PrinterIp}:${PrinterPort}" } else { "Windows '$PrinterName'" }
-Write-Log "Agent demarre. Site=$Site  API=$ApiUrl  Imprimante=$printTarget  Cycle=${PollSeconds}s"
+Write-Log "Agent demarre. Site=$Site  API=$ApiUrl  Imprimante=$printTarget  Cycle=${PollSeconds}s  Plage=${PollStartHour}h-${PollEndHour}h"
 $headers = @{ 'x-print-key' = $PrintKey }
+$wasPaused = $false
 
 while ($true) {
+    # Hors plage horaire : pas d'appel serveur (Render peut dormir), sauf en mode -Once (test)
+    $hour = (Get-Date).Hour
+    if (-not $Once -and ($hour -lt $PollStartHour -or $hour -ge $PollEndHour)) {
+        if (-not $wasPaused) {
+            Write-Log "Pause nocturne (reprise a ${PollStartHour}h)."
+            $wasPaused = $true
+        }
+        Start-Sleep -Seconds 300
+        continue
+    }
+    if ($wasPaused) {
+        Write-Log 'Reprise apres pause nocturne.'
+        $wasPaused = $false
+    }
+
     try {
         $resp = Invoke-RestMethod -Uri "$ApiUrl/partner-orders/print-queue?site=$Site" `
             -Headers $headers -Method Get -TimeoutSec 90

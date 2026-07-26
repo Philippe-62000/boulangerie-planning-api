@@ -1,9 +1,11 @@
 {
   "site": "arras",
   "apiUrl": "https://boulangerie-planning-api-4-pbfy.onrender.com/api",
-  "printKey": "METTRE_LA_CLE_ICI",
-  "printerIp": "METTRE_IP_IMPRIMANTE_ICI",
+  "printKey": "41DF1D45dffrzs45DF#DX87896qs4sd1&M@DD56k_9Arras",
+  "printerIp": "192.168.001.192",
   "printerPort": 9100,
   "printerName": "",
-  "pollSeconds": 60
+  "pollSeconds": 60,
+  "pollStartHour": 6,
+  "pollEndHour": 18
 }
