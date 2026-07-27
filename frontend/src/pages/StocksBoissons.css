@@ -1,0 +1,110 @@
+.bev-page .bev-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: flex-end;
+}
+
+.bev-file-btn {
+  display: inline-flex;
+  align-items: center;
+}
+
+.bev-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.85rem;
+  color: #555;
+}
+
+.bev-field.grow {
+  flex: 1;
+  min-width: 180px;
+}
+
+.bev-msg {
+  padding: 10px 12px;
+  border-radius: 10px;
+  margin-bottom: 12px;
+}
+
+.bev-msg.ok {
+  background: #e8f7ee;
+  color: #1b5e20;
+}
+
+.bev-msg.err {
+  background: #fdecea;
+  color: #8b1a1a;
+}
+
+.bev-summary {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.bev-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.bev-table-wrap {
+  overflow-x: auto;
+}
+
+.bev-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.92rem;
+}
+
+.bev-table th,
+.bev-table td {
+  border-bottom: 1px solid #e8e8e8;
+  padding: 8px 6px;
+  text-align: left;
+  vertical-align: middle;
+}
+
+.bev-table th {
+  background: #f7f8fa;
+  font-weight: 600;
+}
+
+.bev-table .num {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.bev-table .order {
+  font-weight: 700;
+  color: #1a4d8c;
+}
+
+.bev-stock-input {
+  width: 88px;
+  text-align: right;
+}
+
+.bev-history {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.bev-history li {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  padding: 10px 0;
+  border-bottom: 1px solid #eee;
+  flex-wrap: wrap;
+}

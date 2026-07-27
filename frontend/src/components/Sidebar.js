@@ -93,6 +93,7 @@ const Sidebar = () => {
     { path: '/stocks', label: 'Stocks farines', icon: '📦', menuId: 'stocks' },
     { path: '/stocks-tgt', label: 'Stocks TGT', icon: '📋', menuId: 'stocks-tgt' },
     { path: '/stocks-millange', label: "Stocks Mill'Ange", icon: '📋', menuId: 'stocks-millange' },
+    { path: '/stocks-boissons', label: 'Boisson & Emballages', icon: '🥤', menuId: 'stocks-boissons' },
     { path: '/positive', label: 'Positive (IA)', icon: '📷', menuId: 'positive' },
     { path: '/commande-tgt', label: 'Commande TGT', icon: '🛒', menuId: 'commande-tgt' },
     { path: '/commande-millange', label: "Commande Mill'Ange", icon: '🛒', menuId: 'commande-millange' }
@@ -142,6 +143,7 @@ const Sidebar = () => {
         { menuId: 'stocks-tgt', isVisibleToAdmin: true, isVisibleToEmployee: true },
         { menuId: 'commande-millange', isVisibleToAdmin: true, isVisibleToEmployee: true },
         { menuId: 'stocks-millange', isVisibleToAdmin: true, isVisibleToEmployee: true },
+        { menuId: 'stocks-boissons', isVisibleToAdmin: true, isVisibleToEmployee: false },
         { menuId: 'sick-leave-management', isVisibleToAdmin: true, isVisibleToEmployee: false },
         { menuId: 'mutuelle-management', isVisibleToAdmin: true, isVisibleToEmployee: false },
         { menuId: 'vacation-management', isVisibleToAdmin: true, isVisibleToEmployee: false },
@@ -316,7 +318,8 @@ const Sidebar = () => {
       (menuId === 'frais-km-responsable' ||
         menuId === 'vehicle' ||
         menuId === 'compte-client-depots' ||
-        menuId === 'stocks')
+        menuId === 'stocks' ||
+        menuId === 'stocks-boissons')
     )
       return true;
 

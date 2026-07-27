@@ -52,6 +52,7 @@ import CommandeTGT from './pages/CommandeTGT';
 import CommandeMillAnge from './pages/CommandeMillAnge';
 import StocksTGT from './pages/StocksTGT';
 import StocksMillAnge from './pages/StocksMillAnge';
+import StocksBoissons from './pages/StocksBoissons';
 import { getSiteBasename } from './config/site';
 
 const AppContent = () => {
@@ -187,6 +188,13 @@ const AppContent = () => {
               <ProtectedRoute>
                 <MenuPermissionGate menuId="stocks-millange">
                   <StocksMillAnge />
+                </MenuPermissionGate>
+              </ProtectedRoute>
+            } />
+            <Route path="/stocks-boissons" element={
+              <ProtectedRoute>
+                <MenuPermissionGate menuId="stocks-boissons">
+                  <StocksBoissons />
                 </MenuPermissionGate>
               </ProtectedRoute>
             } />

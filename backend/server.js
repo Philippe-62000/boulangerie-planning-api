@@ -246,6 +246,8 @@ app.use('/api/partner-admin', require('./routes/partnerAdmin'));
 app.use('/api/stocks', require('./routes/stocks'));
 app.use('/api/tgt-stocks', require('./routes/tgtStock'));
 console.log('✅ Routes tgt-stocks montées (/api/tgt-stocks/*)');
+app.use('/api/beverage-orders', require('./routes/beverageOrders'));
+console.log('✅ Routes beverage-orders montées (/api/beverage-orders/*)');
 app.use('/api/positive', require('./routes/positive'));
 console.log('✅ Routes positive montées (/api/positive/*)');
 app.use('/api/supplier-orders', require('./routes/supplierOrder'));
