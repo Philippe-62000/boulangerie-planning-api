@@ -1,0 +1,76 @@
+.message-vente-page {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 1.5rem 1rem 3rem;
+}
+
+.message-vente-header h1 {
+  margin: 0 0 0.35rem;
+  font-size: 1.75rem;
+  color: #2c1810;
+}
+
+.message-vente-header p {
+  margin: 0 0 1.5rem;
+  color: #666;
+  font-size: 0.95rem;
+  line-height: 1.4;
+}
+
+.message-vente-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.message-vente-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.message-vente-field > span {
+  font-weight: 600;
+  color: #333;
+  font-size: 0.95rem;
+}
+
+.message-vente-field select,
+.message-vente-field textarea {
+  font: inherit;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid #cfc5b8;
+  border-radius: 8px;
+  background: #fff;
+  color: #222;
+}
+
+.message-vente-field select:focus,
+.message-vente-field textarea:focus {
+  outline: none;
+  border-color: #a67c52;
+  box-shadow: 0 0 0 2px rgba(166, 124, 82, 0.2);
+}
+
+.message-vente-field textarea {
+  resize: vertical;
+  min-height: 220px;
+  line-height: 1.45;
+}
+
+.message-vente-field small {
+  color: #888;
+  font-size: 0.8rem;
+  text-align: right;
+}
+
+.message-vente-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.message-vente-actions .btn {
+  min-width: 140px;
+  padding: 0.7rem 1.25rem;
+  font-size: 1rem;
+}

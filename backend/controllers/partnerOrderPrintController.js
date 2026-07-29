@@ -5,6 +5,8 @@
  * Le texte du ticket est construit ici pour garder l'agent le plus simple possible.
  */
 const PartnerOrder = require('../models/PartnerOrder');
+const StaffPrintMessage = require('../models/StaffPrintMessage');
+const { AUDIENCE_LABELS } = require('./staffPrintMessageController');
 
 const TICKET_WIDTH = 42; // caractères par ligne (imprimante 80 mm, marge de sécurité)
 const DEFAULT_WINDOW_HOURS = 72; // ne jamais imprimer un stock d'anciennes commandes
@@ -61,6 +63,45 @@ function wrapText(text, width = TICKET_WIDTH, indent = '') {
   }
   if (current) lines.push(current);
   return lines;
+}
+
+/** Conserve les retours à la ligne (copier-coller) puis coupe chaque ligne. */
+function wrapPreservingNewlines(text, width = TICKET_WIDTH) {
+  const paragraphs = String(text || '').replace(/\r\n/g, '\n').split('\n');
+  const lines = [];
+  for (const para of paragraphs) {
+    if (!para.trim()) {
+      lines.push('');
+      continue;
+    }
+    wrapText(para, width).forEach((l) => lines.push(l));
+  }
+  return lines;
+}
+
+function buildStaffMessageTicket(doc) {
+  const site = normalizeSite(doc.site);
+  const audienceLabel = AUDIENCE_LABELS[doc.audience] || doc.audience;
+  const lines = [];
+
+  lines.push(separator());
+  pushWrapped(lines, 'Pour', audienceLabel);
+  lines.push(separator());
+  lines.push('Contenu du message :');
+  wrapPreservingNewlines(doc.message, TICKET_WIDTH).forEach((l) => lines.push(l));
+  lines.push(separator());
+  pushWrapped(lines, 'Envoye le', formatParisDateTime(doc.createdAt));
+  if (doc.createdByName) {
+    pushWrapped(lines, 'Par', doc.createdByName);
+  }
+
+  return {
+    id: String(doc._id),
+    kind: 'staffMessage',
+    title: 'MESSAGE',
+    subtitle: `INTERNE - ${SITE_LABELS[site]}`,
+    lines
+  };
 }
 
 function separator() {
@@ -182,7 +223,7 @@ const printQueue = async (req, res) => {
     );
     const since = new Date(Date.now() - windowHours * 3600 * 1000);
 
-    const [newOrders, requestOrders] = await Promise.all([
+    const [newOrders, requestOrders, staffMessages] = await Promise.all([
       PartnerOrder.find({
         ...siteQ,
         status: 'submitted',
@@ -200,12 +241,21 @@ const printQueue = async (req, res) => {
       })
         .sort({ 'clientRequest.requestedAt': 1 })
         .limit(MAX_TICKETS_PER_CALL)
+        .lean(),
+      StaffPrintMessage.find({
+        ...siteQ,
+        printedAt: null,
+        createdAt: { $gte: since }
+      })
+        .sort({ createdAt: 1 })
+        .limit(MAX_TICKETS_PER_CALL)
         .lean()
     ]);
 
     const tickets = [
       ...newOrders.map(buildOrderTicket),
-      ...requestOrders.map(buildClientRequestTicket)
+      ...requestOrders.map(buildClientRequestTicket),
+      ...staffMessages.map(buildStaffMessageTicket)
     ];
 
     res.json({ success: true, data: { tickets } });
@@ -224,9 +274,15 @@ const printQueueAck = async (req, res) => {
     const clientRequestOrderIds = Array.isArray(req.body?.clientRequestOrderIds)
       ? req.body.clientRequestOrderIds
       : [];
+    const staffMessageIds = Array.isArray(req.body?.staffMessageIds)
+      ? req.body.staffMessageIds
+      : [];
     const now = new Date();
 
-    const [ordersResult, requestsResult] = await Promise.all([
+    // Compat agents anciens : staffMessage ids mis dans orderIds → marquer aussi StaffPrintMessage
+    const staffIdsCombined = [...new Set([...staffMessageIds, ...orderIds])];
+
+    const [ordersResult, requestsResult, staffResult] = await Promise.all([
       orderIds.length > 0
         ? PartnerOrder.updateMany(
             { _id: { $in: orderIds }, ...siteQ },
@@ -238,6 +294,12 @@ const printQueueAck = async (req, res) => {
             { _id: { $in: clientRequestOrderIds }, ...siteQ },
             { $set: { 'clientRequest.printedAt': now } }
           )
+        : { modifiedCount: 0 },
+      staffIdsCombined.length > 0
+        ? StaffPrintMessage.updateMany(
+            { _id: { $in: staffIdsCombined }, ...siteQ },
+            { $set: { printedAt: now } }
+          )
         : { modifiedCount: 0 }
     ]);
 
@@ -245,7 +307,8 @@ const printQueueAck = async (req, res) => {
       success: true,
       data: {
         ordersMarked: ordersResult.modifiedCount || 0,
-        clientRequestsMarked: requestsResult.modifiedCount || 0
+        clientRequestsMarked: requestsResult.modifiedCount || 0,
+        staffMessagesMarked: staffResult.modifiedCount || 0
       }
     });
   } catch (err) {

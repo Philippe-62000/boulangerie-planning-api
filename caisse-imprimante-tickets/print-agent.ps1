@@ -267,21 +267,24 @@ while ($true) {
             Write-Log "$($tickets.Count) ticket(s) a imprimer."
             $printedOrders = @()
             $printedRequests = @()
+            $printedStaff = @()
 
             foreach ($t in $tickets) {
                 if (Print-Ticket $t) {
                     Write-Log "Imprime : $($t.title) ($($t.id))"
                     if ($t.kind -eq 'clientRequest') { $printedRequests += $t.id }
+                    elseif ($t.kind -eq 'staffMessage') { $printedStaff += $t.id }
                     else { $printedOrders += $t.id }
                     Start-Sleep -Milliseconds 500
                 }
             }
 
-            if ($printedOrders.Count -gt 0 -or $printedRequests.Count -gt 0) {
+            if ($printedOrders.Count -gt 0 -or $printedRequests.Count -gt 0 -or $printedStaff.Count -gt 0) {
                 $body = @{
                     site                  = $Site
                     orderIds              = $printedOrders
                     clientRequestOrderIds = $printedRequests
+                    staffMessageIds       = $printedStaff
                 } | ConvertTo-Json
                 Invoke-RestMethod -Uri "$ApiUrl/partner-orders/print-queue/ack" `
                     -Headers $headers -Method Post -Body $body `

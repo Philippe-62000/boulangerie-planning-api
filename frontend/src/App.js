@@ -53,6 +53,7 @@ import CommandeMillAnge from './pages/CommandeMillAnge';
 import StocksTGT from './pages/StocksTGT';
 import StocksMillAnge from './pages/StocksMillAnge';
 import StocksBoissons from './pages/StocksBoissons';
+import MessageVente from './pages/MessageVente';
 import { getSiteBasename } from './config/site';
 
 const AppContent = () => {
@@ -101,6 +102,13 @@ const AppContent = () => {
             <Route path="/sales-stats" element={
               <ProtectedRoute requiredPermission="view_sales_stats">
                 <SalesStats />
+              </ProtectedRoute>
+            } />
+            <Route path="/message-vente" element={
+              <ProtectedRoute>
+                <MenuPermissionGate menuId="message-vente">
+                  <MessageVente />
+                </MenuPermissionGate>
               </ProtectedRoute>
             } />
             <Route path="/absences" element={

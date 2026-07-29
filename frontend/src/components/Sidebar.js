@@ -70,6 +70,7 @@ const Sidebar = () => {
 
   const VENTE_MENU_ITEMS = [
     { path: '/sales-stats', label: 'Stats Vente', icon: '💰', menuId: 'sales-stats' },
+    { path: '/message-vente', label: 'Message', icon: '✉️', menuId: 'message-vente' },
     { path: '/ambassadeur', label: 'Ambassadeur', icon: '⭐', menuId: 'ambassadeur' },
     { path: '/plateaux-repas', label: 'Plateaux repas', icon: '🍽️', menuId: 'plateaux-repas' },
     { path: '/commandes-en-ligne', label: 'Commandes en ligne', icon: '🛒', menuId: 'commandes-en-ligne' },
@@ -130,6 +131,7 @@ const Sidebar = () => {
         { menuId: 'constraints', isVisibleToAdmin: true, isVisibleToEmployee: false },
         { menuId: 'planning', isVisibleToAdmin: true, isVisibleToEmployee: true },
         { menuId: 'sales-stats', isVisibleToAdmin: true, isVisibleToEmployee: true },
+        { menuId: 'message-vente', isVisibleToAdmin: true, isVisibleToEmployee: true },
         { menuId: 'absences', isVisibleToAdmin: true, isVisibleToEmployee: true },
         { menuId: 'meal-expenses', isVisibleToAdmin: true, isVisibleToEmployee: true },
         { menuId: 'km-expenses', isVisibleToAdmin: true, isVisibleToEmployee: true },
@@ -167,6 +169,7 @@ const Sidebar = () => {
         { menuId: 'dashboard', isVisibleToAdmin: false, isVisibleToEmployee: true },
         { menuId: 'planning', isVisibleToAdmin: false, isVisibleToEmployee: false },
         { menuId: 'sales-stats', isVisibleToAdmin: false, isVisibleToEmployee: true },
+        { menuId: 'message-vente', isVisibleToAdmin: false, isVisibleToEmployee: true },
         { menuId: 'absences', isVisibleToAdmin: false, isVisibleToEmployee: true },
         { menuId: 'meal-expenses', isVisibleToAdmin: false, isVisibleToEmployee: true },
         { menuId: 'km-expenses', isVisibleToAdmin: false, isVisibleToEmployee: false },
@@ -289,6 +292,7 @@ const Sidebar = () => {
     { path: '/constraints', label: 'Contraintes hebdomadaires', icon: '📋', menuId: 'constraints' },
     { path: '/planning', label: 'Génération du planning', icon: '🎯', menuId: 'planning' },
     { path: '/sales-stats', label: 'Stats Vente', icon: '💰', menuId: 'sales-stats' },
+    { path: '/message-vente', label: 'Message', icon: '✉️', menuId: 'message-vente' },
     { path: '/absences', label: 'État des absences', icon: '📈', menuId: 'absences' },
     { path: '/meal-expenses', label: 'Frais Repas', icon: '🍽️', menuId: 'meal-expenses' },
     { path: '/km-expenses', label: 'Frais KM', icon: '🚗', menuId: 'km-expenses' },
@@ -319,7 +323,8 @@ const Sidebar = () => {
         menuId === 'vehicle' ||
         menuId === 'compte-client-depots' ||
         menuId === 'stocks' ||
-        menuId === 'stocks-boissons')
+        menuId === 'stocks-boissons' ||
+        menuId === 'message-vente')
     )
       return true;
 

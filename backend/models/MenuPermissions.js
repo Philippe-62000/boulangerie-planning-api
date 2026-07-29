@@ -109,6 +109,15 @@ menuPermissionsSchema.statics.createDefaultPermissions = async function() {
         order: 5
       },
       {
+        menuId: 'message-vente',
+        menuName: 'Message',
+        menuPath: '/message-vente',
+        isVisibleToAdmin: true,
+        isVisibleToEmployee: true,
+        requiredPermissions: [],
+        order: 5.1
+      },
+      {
         menuId: 'parameters',
         menuName: 'Paramètres',
         menuPath: '/parameters',
