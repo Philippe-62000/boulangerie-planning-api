@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import api from '../services/api';
 import { getSiteKey } from '../config/site';
 import './Stocks.css';
@@ -6,57 +6,140 @@ import './StocksBoissons.css';
 
 const DEFAULT_MARGIN = 10;
 
-function computeToOrder(consumedQty, stockQty, marginPercent) {
+function normalizePackSize(raw) {
+  return Number(raw) === 24 ? 24 : 12;
+}
+
+function computeUnitsNeeded(consumedQty, stockQty, marginPercent) {
   const consumed = Math.max(0, Number(consumedQty) || 0);
   const stock = Math.max(0, Number(stockQty) || 0);
   const margin = Math.max(0, Number(marginPercent) || 0);
-  const need = Math.ceil(consumed * (1 + margin / 100));
-  return Math.max(0, need - stock);
+  return Math.max(0, Math.ceil(consumed * (1 + margin / 100)) - stock);
+}
+
+function recomputeLine(p, marginPercent) {
+  const packSize = normalizePackSize(p.packSize);
+  const toOrderQty = computeUnitsNeeded(p.consumedQty, p.stockQty, p.marginPercent ?? marginPercent);
+  const packsToOrder = toOrderQty <= 0 ? 0 : Math.ceil(toOrderQty / packSize);
+  return {
+    ...p,
+    packSize,
+    toOrderQty,
+    packsToOrder,
+    orderUnits: packsToOrder * packSize
+  };
+}
+
+function isEmballage(category) {
+  return /emballage/i.test(String(category || ''));
 }
 
 const StocksBoissons = () => {
   const siteKey = getSiteKey() === 'lon' ? 'lon' : 'plan';
   const siteLabel = siteKey === 'lon' ? 'Longuenesse' : 'Arras';
 
+  const [mainTab, setMainTab] = useState('boissons'); // boissons | emballages | ecarts
   const [marginPercent, setMarginPercent] = useState(DEFAULT_MARGIN);
   const [periodLabel, setPeriodLabel] = useState('');
   const [sourceFileName, setSourceFileName] = useState('');
+  const [previousMeta, setPreviousMeta] = useState(null);
+  const [currentId, setCurrentId] = useState(null);
   const [products, setProducts] = useState([]);
+  const [comparison, setComparison] = useState([]);
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [booting, setBooting] = useState(true);
   const [message, setMessage] = useState(null);
-  const [filterCategory, setFilterCategory] = useState('all');
+  const [filterFamily, setFilterFamily] = useState('all');
 
-  const loadHistory = async () => {
+  const loadHistory = useCallback(async () => {
     try {
       const res = await api.get('/beverage-orders', { params: { siteKey, limit: 15 } });
       setHistory(res.data?.data || []);
     } catch (e) {
       console.error(e);
     }
+  }, [siteKey]);
+
+  const applyDoc = (doc, opts = {}) => {
+    if (!doc) return;
+    setProducts((doc.products || []).map((p) => recomputeLine(p, doc.marginPercent ?? DEFAULT_MARGIN)));
+    setPeriodLabel(doc.periodLabel || '');
+    setSourceFileName(doc.sourceFileName || '');
+    setMarginPercent(doc.marginPercent ?? DEFAULT_MARGIN);
+    setCurrentId(doc._id || null);
+    if (opts.clearComparison) setComparison([]);
+    if (doc.previousPeriodLabel || doc.previousSourceFileName) {
+      setPreviousMeta({
+        periodLabel: doc.previousPeriodLabel || '',
+        sourceFileName: doc.previousSourceFileName || ''
+      });
+    }
   };
 
   useEffect(() => {
-    loadHistory();
-  }, [siteKey]);
+    let cancelled = false;
+    (async () => {
+      setBooting(true);
+      try {
+        const [curRes] = await Promise.all([
+          api.get('/beverage-orders/current', { params: { siteKey } }),
+          loadHistory()
+        ]);
+        if (cancelled) return;
+        const doc = curRes.data?.data;
+        if (doc?.products?.length) {
+          applyDoc(doc, { clearComparison: true });
+          setMessage({
+            type: 'ok',
+            text: `Ventes en mémoire : ${doc.periodLabel || doc.sourceFileName || 'dernière sauvegarde'}. Vous pouvez les garder ou uploader un nouveau PDF.`
+          });
+        }
+      } catch (e) {
+        console.error(e);
+      } finally {
+        if (!cancelled) setBooting(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [siteKey, loadHistory]);
 
-  const categories = useMemo(() => {
-    const set = new Set(products.map((p) => p.category));
+  const tabProducts = useMemo(() => {
+    if (mainTab === 'emballages') return products.filter((p) => isEmballage(p.category));
+    if (mainTab === 'boissons') return products.filter((p) => !isEmballage(p.category));
+    return products;
+  }, [products, mainTab]);
+
+  const families = useMemo(() => {
+    const set = new Set(tabProducts.map((p) => p.category));
     return ['all', ...Array.from(set)];
-  }, [products]);
+  }, [tabProducts]);
 
   const visibleProducts = useMemo(() => {
-    if (filterCategory === 'all') return products;
-    return products.filter((p) => p.category === filterCategory);
-  }, [products, filterCategory]);
+    if (filterFamily === 'all') return tabProducts;
+    return tabProducts.filter((p) => p.category === filterFamily);
+  }, [tabProducts, filterFamily]);
+
+  const comparisonForTab = useMemo(() => {
+    if (mainTab === 'emballages') return comparison.filter((a) => isEmballage(a.category));
+    if (mainTab === 'boissons') return comparison.filter((a) => !isEmballage(a.category));
+    return comparison;
+  }, [comparison, mainTab]);
 
   const totals = useMemo(() => {
-    const consumed = products.reduce((s, p) => s + (Number(p.consumedQty) || 0), 0);
-    const toOrder = products.reduce((s, p) => s + (Number(p.toOrderQty) || 0), 0);
-    const lines = products.filter((p) => (Number(p.toOrderQty) || 0) > 0).length;
-    return { consumed, toOrder, lines };
-  }, [products]);
+    const list = tabProducts;
+    return {
+      refs: list.length,
+      consumed: list.reduce((s, p) => s + (Number(p.consumedQty) || 0), 0),
+      unitsNeeded: list.reduce((s, p) => s + (Number(p.toOrderQty) || 0), 0),
+      packs: list.reduce((s, p) => s + (Number(p.packsToOrder) || 0), 0),
+      orderUnits: list.reduce((s, p) => s + (Number(p.orderUnits) || 0), 0),
+      lines: list.filter((p) => (Number(p.packsToOrder) || 0) > 0).length
+    };
+  }, [tabProducts]);
 
   const onUpload = async (e) => {
     const file = e.target.files?.[0];
@@ -68,17 +151,24 @@ const StocksBoissons = () => {
       const form = new FormData();
       form.append('file', file);
       form.append('marginPercent', String(marginPercent));
+      form.append('siteKey', siteKey);
+      if (currentId) form.append('previousProposalId', currentId);
       const res = await api.post('/beverage-orders/parse', form, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
       const data = res.data?.data;
-      setProducts(data?.products || []);
+      const nextProducts = (data?.products || []).map((p) => recomputeLine(p, data?.marginPercent ?? marginPercent));
+      setProducts(nextProducts);
       setSourceFileName(data?.sourceFileName || file.name);
       setPeriodLabel(data?.periodHint || '');
-      setFilterCategory('all');
+      setComparison(data?.comparison || []);
+      setPreviousMeta(data?.previous || null);
+      setCurrentId(null);
+      setFilterFamily('all');
+      if ((data?.comparison || []).length) setMainTab('ecarts');
       setMessage({
         type: 'ok',
-        text: `${(data?.products || []).length} référence(s) extraites (${(data?.categories || []).length} familles). Saisissez les stocks restants.`
+        text: `${nextProducts.length} référence(s) mises à jour. Stocks et tailles de colis repris si connus. ${(data?.comparison || []).length} écart(s) détecté(s).`
       });
     } catch (err) {
       setMessage({
@@ -90,17 +180,11 @@ const StocksBoissons = () => {
     }
   };
 
-  const updateStock = (name, category, raw) => {
-    const stockQty = Math.max(0, parseInt(String(raw).replace(/\D/g, ''), 10) || 0);
+  const patchProduct = (name, category, patch) => {
     setProducts((prev) =>
       prev.map((p) => {
         if (p.name !== name || p.category !== category) return p;
-        const margin = p.marginPercent != null ? p.marginPercent : marginPercent;
-        return {
-          ...p,
-          stockQty,
-          toOrderQty: computeToOrder(p.consumedQty, stockQty, margin)
-        };
+        return recomputeLine({ ...p, ...patch }, marginPercent);
       })
     );
   };
@@ -109,11 +193,18 @@ const StocksBoissons = () => {
     const margin = Math.max(0, Number(value) || 0);
     setMarginPercent(margin);
     setProducts((prev) =>
-      prev.map((p) => ({
-        ...p,
-        marginPercent: margin,
-        toOrderQty: computeToOrder(p.consumedQty, p.stockQty, margin)
-      }))
+      prev.map((p) => recomputeLine({ ...p, marginPercent: margin }, margin))
+    );
+  };
+
+  const applyPackSizeToVisible = (size) => {
+    const packSize = normalizePackSize(size);
+    const keys = new Set(visibleProducts.map((p) => `${p.category}||${p.name}`));
+    setProducts((prev) =>
+      prev.map((p) => {
+        if (!keys.has(`${p.category}||${p.name}`)) return p;
+        return recomputeLine({ ...p, packSize }, marginPercent);
+      })
     );
   };
 
@@ -122,14 +213,18 @@ const StocksBoissons = () => {
     setSaving(true);
     setMessage(null);
     try {
-      await api.post('/beverage-orders', {
+      const res = await api.post('/beverage-orders', {
         siteKey,
         periodLabel,
         sourceFileName,
         marginPercent,
+        previousPeriodLabel: previousMeta?.periodLabel || '',
+        previousSourceFileName: previousMeta?.sourceFileName || '',
         products
       });
-      setMessage({ type: 'ok', text: 'Proposition de commande enregistrée.' });
+      const doc = res.data?.data;
+      setCurrentId(doc?._id || null);
+      setMessage({ type: 'ok', text: 'Ventes et proposition enregistrées (mémorisées pour la prochaine fois).' });
       await loadHistory();
     } catch (err) {
       setMessage({
@@ -146,11 +241,7 @@ const StocksBoissons = () => {
       const res = await api.get(`/beverage-orders/${id}`, { params: { siteKey } });
       const doc = res.data?.data;
       if (!doc) return;
-      setProducts(doc.products || []);
-      setPeriodLabel(doc.periodLabel || '');
-      setSourceFileName(doc.sourceFileName || '');
-      setMarginPercent(doc.marginPercent ?? DEFAULT_MARGIN);
-      setFilterCategory('all');
+      applyDoc(doc, { clearComparison: true });
       setMessage({ type: 'ok', text: 'Proposition rechargée.' });
     } catch (err) {
       setMessage({ type: 'err', text: err.response?.data?.error || 'Erreur chargement' });
@@ -161,34 +252,62 @@ const StocksBoissons = () => {
     if (!window.confirm('Supprimer cette proposition ?')) return;
     try {
       await api.delete(`/beverage-orders/${id}`, { params: { siteKey } });
+      if (String(currentId) === String(id)) setCurrentId(null);
       await loadHistory();
     } catch (err) {
       setMessage({ type: 'err', text: err.response?.data?.error || 'Erreur suppression' });
     }
   };
 
+  const compareWithHistory = async (previousId) => {
+    if (!currentId || !previousId) {
+      setMessage({
+        type: 'err',
+        text: 'Enregistrez d’abord la proposition actuelle, puis choisissez une ancienne pour comparer.'
+      });
+      return;
+    }
+    try {
+      const res = await api.post('/beverage-orders/compare', {
+        siteKey,
+        currentId,
+        previousId
+      });
+      setComparison(res.data?.data?.comparison || []);
+      setMainTab('ecarts');
+      setMessage({ type: 'ok', text: 'Comparaison chargée dans l’onglet Écarts.' });
+    } catch (err) {
+      setMessage({ type: 'err', text: err.response?.data?.error || 'Erreur comparaison' });
+    }
+  };
+
   const printOrder = () => {
-    const rows = products.filter((p) => (Number(p.toOrderQty) || 0) > 0);
-    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"/><title>Commande boissons</title>
+    const rows = tabProducts.filter((p) => (Number(p.packsToOrder) || 0) > 0);
+    const title = mainTab === 'emballages' ? 'Emballages' : 'Boissons';
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"/><title>Commande ${title}</title>
       <style>
         body{font-family:Segoe UI,Arial,sans-serif;padding:24px;color:#222}
         h1{margin:0 0 8px} .meta{color:#555;margin-bottom:16px}
         table{border-collapse:collapse;width:100%} th,td{border:1px solid #ccc;padding:6px 8px;text-align:left}
         th{background:#f5f5f5} .num{text-align:right}
       </style></head><body>
-      <h1>Commande boissons & emballages — ${siteLabel}</h1>
+      <h1>Commande ${title} — ${siteLabel}</h1>
       <div class="meta">Période : ${periodLabel || '—'} · Marge ${marginPercent}% · Fichier : ${sourceFileName || '—'}<br/>
       Commande le jeudi pour livraison le mardi</div>
-      <table><thead><tr><th>Famille</th><th>Référence</th><th class="num">Conso</th><th class="num">Stock</th><th class="num">À commander</th></tr></thead>
+      <table><thead><tr>
+        <th>Famille</th><th>Référence</th><th class="num">Conso</th><th class="num">Stock</th>
+        <th class="num">Besoin u.</th><th class="num">/colis</th><th class="num">Colis</th><th class="num">Unités cmd</th>
+      </tr></thead>
       <tbody>
       ${rows
         .map(
           (p) =>
-            `<tr><td>${p.category}</td><td>${p.name}</td><td class="num">${p.consumedQty}</td><td class="num">${p.stockQty}</td><td class="num"><b>${p.toOrderQty}</b></td></tr>`
+            `<tr><td>${p.category}</td><td>${p.name}</td><td class="num">${p.consumedQty}</td><td class="num">${p.stockQty}</td><td class="num">${p.toOrderQty}</td><td class="num">${p.packSize}</td><td class="num"><b>${p.packsToOrder}</b></td><td class="num">${p.orderUnits}</td></tr>`
         )
         .join('')}
       </tbody></table>
-      <p><b>Total à commander :</b> ${rows.reduce((s, p) => s + (p.toOrderQty || 0), 0)} unités (${rows.length} références)</p>
+      <p><b>Total :</b> ${rows.reduce((s, p) => s + (p.packsToOrder || 0), 0)} colis
+      (${rows.reduce((s, p) => s + (p.orderUnits || 0), 0)} unités) — ${rows.length} références</p>
       </body></html>`;
     const w = window.open('', '_blank');
     if (!w) {
@@ -198,9 +317,7 @@ const StocksBoissons = () => {
     w.document.write(html);
     w.document.close();
     w.focus();
-    setTimeout(() => {
-      w.print();
-    }, 250);
+    setTimeout(() => w.print(), 250);
   };
 
   return (
@@ -209,49 +326,67 @@ const StocksBoissons = () => {
         <div>
           <h1>Boisson & Emballages</h1>
           <div className="stocks-subtitle">
-            Site : {siteLabel} — Importez la synthèse Crisalid de la semaine passée
+            Site : {siteLabel} — Commande le jeudi pour livraison le mardi
           </div>
         </div>
       </header>
 
       <section className="stocks-card">
-        <h2>1. Importer le PDF de la semaine</h2>
-        <p className="stocks-hint">
-          Fichier type <code>SYNTHESEInvendus…pdf</code>. Familles lues : Boissons 33cl / 50cl,
-          Eaux, Boissons Premium, Eaux aromatisées 50cl, Emballages. Consommation = ventes +
-          offerts. Commande le <b>jeudi</b> pour livraison le <b>mardi</b>.
-        </p>
-        <div className="bev-toolbar">
-          <label className="stocks-btn primary bev-file-btn">
-            {loading ? 'Analyse…' : 'Choisir le PDF'}
-            <input type="file" accept="application/pdf,.pdf" hidden disabled={loading} onChange={onUpload} />
-          </label>
-          <label className="bev-field">
-            Marge d&apos;erreur (%)
-            <input
-              type="number"
-              min="0"
-              max="100"
-              className="stocks-input"
-              value={marginPercent}
-              onChange={(e) => applyMarginToAll(e.target.value)}
-            />
-          </label>
-          <label className="bev-field grow">
-            Libellé période
-            <input
-              type="text"
-              className="stocks-input"
-              value={periodLabel}
-              onChange={(e) => setPeriodLabel(e.target.value)}
-              placeholder="ex. semaine du 20/07 au 26/07"
-            />
-          </label>
-        </div>
-        {sourceFileName && (
-          <div className="stocks-hint" style={{ marginTop: 8 }}>
-            Fichier : {sourceFileName}
-          </div>
+        <h2>Ventes de la semaine</h2>
+        {booting ? (
+          <p className="stocks-hint">Chargement des ventes mémorisées…</p>
+        ) : (
+          <>
+            {products.length > 0 ? (
+              <div className="bev-memory">
+                <div>
+                  <b>Ventes en cours :</b> {periodLabel || '—'}
+                  {sourceFileName ? ` · ${sourceFileName}` : ''}
+                  <div className="stocks-hint">
+                    Les garder pour saisir les stocks / colis, ou uploader un nouveau PDF pour mettre à
+                    jour les ventes (stocks et tailles de colis sont repris).
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <p className="stocks-hint">
+                Aucune vente en mémoire. Importez un PDF Crisalid (SYNTHESEInvendus…).
+              </p>
+            )}
+            <div className="bev-toolbar">
+              <label className="stocks-btn primary bev-file-btn">
+                {loading ? 'Analyse…' : products.length ? 'Mettre à jour les ventes (PDF)' : 'Importer le PDF'}
+                <input
+                  type="file"
+                  accept="application/pdf,.pdf"
+                  hidden
+                  disabled={loading}
+                  onChange={onUpload}
+                />
+              </label>
+              <label className="bev-field">
+                Marge (%)
+                <input
+                  type="number"
+                  min="0"
+                  max="100"
+                  className="stocks-input"
+                  value={marginPercent}
+                  onChange={(e) => applyMarginToAll(e.target.value)}
+                />
+              </label>
+              <label className="bev-field grow">
+                Libellé période
+                <input
+                  type="text"
+                  className="stocks-input"
+                  value={periodLabel}
+                  onChange={(e) => setPeriodLabel(e.target.value)}
+                  placeholder="ex. semaine du 20/07 au 26/07"
+                />
+              </label>
+            </div>
+          </>
         )}
       </section>
 
@@ -259,27 +394,70 @@ const StocksBoissons = () => {
         <div className={`bev-msg ${message.type === 'ok' ? 'ok' : 'err'}`}>{message.text}</div>
       )}
 
-      {products.length > 0 && (
+      <div className="stocks-tabs bev-main-tabs">
+        <button
+          type="button"
+          className={`stocks-tab ${mainTab === 'boissons' ? 'active' : ''}`}
+          onClick={() => {
+            setMainTab('boissons');
+            setFilterFamily('all');
+          }}
+        >
+          Boissons
+        </button>
+        <button
+          type="button"
+          className={`stocks-tab ${mainTab === 'emballages' ? 'active' : ''}`}
+          onClick={() => {
+            setMainTab('emballages');
+            setFilterFamily('all');
+          }}
+        >
+          Emballages
+        </button>
+        <button
+          type="button"
+          className={`stocks-tab ${mainTab === 'ecarts' ? 'active' : ''}`}
+          onClick={() => setMainTab('ecarts')}
+        >
+          Écarts {comparison.length ? `(${comparison.length})` : ''}
+        </button>
+      </div>
+
+      {mainTab !== 'ecarts' && products.length > 0 && (
         <section className="stocks-card">
           <div className="bev-summary">
             <div>
-              <b>{products.length}</b> références · conso semaine <b>{totals.consumed}</b> · à
-              commander <b>{totals.toOrder}</b> ({totals.lines} lignes)
+              <b>{totals.refs}</b> réf. · conso <b>{totals.consumed}</b> · besoin{' '}
+              <b>{totals.unitsNeeded}</b> u. · <b>{totals.packs}</b> colis ({totals.orderUnits} u.) ·{' '}
+              {totals.lines} lignes
             </div>
             <div className="bev-actions">
               <select
                 className="stocks-input"
-                value={filterCategory}
-                onChange={(e) => setFilterCategory(e.target.value)}
+                value={filterFamily}
+                onChange={(e) => setFilterFamily(e.target.value)}
               >
-                {categories.map((c) => (
+                {families.map((c) => (
                   <option key={c} value={c}>
                     {c === 'all' ? 'Toutes les familles' : c}
                   </option>
                 ))}
               </select>
+              <select
+                className="stocks-input"
+                defaultValue=""
+                onChange={(e) => {
+                  if (e.target.value) applyPackSizeToVisible(e.target.value);
+                  e.target.value = '';
+                }}
+              >
+                <option value="">Colis (sélection)…</option>
+                <option value="12">Mettre ×12</option>
+                <option value="24">Mettre ×24</option>
+              </select>
               <button type="button" className="stocks-btn" onClick={printOrder}>
-                Imprimer la commande
+                Imprimer
               </button>
               <button type="button" className="stocks-btn primary" disabled={saving} onClick={save}>
                 {saving ? 'Enregistrement…' : 'Enregistrer'}
@@ -296,36 +474,119 @@ const StocksBoissons = () => {
                   <th>Ventes</th>
                   <th>Offerts</th>
                   <th>Conso</th>
-                  <th>Stock restant</th>
-                  <th>À commander</th>
+                  <th>Préc.</th>
+                  <th>Stock</th>
+                  <th>/colis</th>
+                  <th>Besoin u.</th>
+                  <th>Colis</th>
+                  <th>U. cmd</th>
                 </tr>
               </thead>
               <tbody>
-                {visibleProducts.map((p) => (
-                  <tr key={`${p.category}-${p.name}`}>
-                    <td>{p.category}</td>
-                    <td>{p.name}</td>
-                    <td className="num">{p.ventesQty}</td>
-                    <td className="num">{p.offertsQty}</td>
-                    <td className="num">{p.consumedQty}</td>
-                    <td className="num">
-                      <input
-                        type="number"
-                        min="0"
-                        className="stocks-input bev-stock-input"
-                        value={p.stockQty ?? 0}
-                        onChange={(e) => updateStock(p.name, p.category, e.target.value)}
-                      />
-                    </td>
-                    <td className="num order">{p.toOrderQty}</td>
-                  </tr>
-                ))}
+                {visibleProducts.map((p) => {
+                  const prev = p.previousConsumedQty;
+                  const drop =
+                    prev != null && Number(prev) > 0 && Number(p.consumedQty) < Number(prev) * 0.6;
+                  return (
+                    <tr
+                      key={`${p.category}-${p.name}`}
+                      className={drop ? 'bev-row-alert' : undefined}
+                    >
+                      <td>{p.category}</td>
+                      <td>{p.name}</td>
+                      <td className="num">{p.ventesQty}</td>
+                      <td className="num">{p.offertsQty}</td>
+                      <td className="num">{p.consumedQty}</td>
+                      <td className="num muted">{prev != null ? prev : '—'}</td>
+                      <td className="num">
+                        <input
+                          type="number"
+                          min="0"
+                          className="stocks-input bev-stock-input"
+                          value={p.stockQty ?? 0}
+                          onChange={(e) =>
+                            patchProduct(p.name, p.category, {
+                              stockQty: Math.max(0, parseInt(e.target.value, 10) || 0)
+                            })
+                          }
+                        />
+                      </td>
+                      <td className="num">
+                        <select
+                          className="stocks-input bev-pack-select"
+                          value={normalizePackSize(p.packSize)}
+                          onChange={(e) =>
+                            patchProduct(p.name, p.category, {
+                              packSize: normalizePackSize(e.target.value)
+                            })
+                          }
+                        >
+                          <option value={12}>12</option>
+                          <option value={24}>24</option>
+                        </select>
+                      </td>
+                      <td className="num">{p.toOrderQty}</td>
+                      <td className="num order">{p.packsToOrder}</td>
+                      <td className="num">{p.orderUnits}</td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
           <p className="stocks-hint">
-            Formule : à commander = plafond(conso × (1 + marge%)) − stock restant (minimum 0).
+            Exemple : conso 60, stock 5, marge 0 % → besoin 55 → colis de 12 →{' '}
+            <b>5 colis</b> (60 unités). Formule : plafond(conso × (1+marge%)) − stock, puis arrondi
+            au colis supérieur.
           </p>
+        </section>
+      )}
+
+      {mainTab === 'ecarts' && (
+        <section className="stocks-card">
+          <h2>Écarts entre deux périodes</h2>
+          <p className="stocks-hint">
+            Utile pour repérer une rupture : si un produit ne s’est presque plus vendu alors qu’il
+            partait bien avant, les ventes du dernier fichier sous-estiment le besoin.
+            {previousMeta
+              ? ` Comparaison avec : ${previousMeta.periodLabel || previousMeta.sourceFileName || 'période précédente'}.`
+              : ''}
+          </p>
+          {comparisonForTab.length === 0 ? (
+            <p className="stocks-hint">
+              Aucun écart notable. Uploadez un nouveau PDF alors que des ventes sont déjà en mémoire,
+              ou comparez deux enregistrements dans l’historique.
+            </p>
+          ) : (
+            <div className="bev-table-wrap">
+              <table className="bev-table">
+                <thead>
+                  <tr>
+                    <th>Alerte</th>
+                    <th>Référence</th>
+                    <th>Famille</th>
+                    <th>Avant</th>
+                    <th>Maintenant</th>
+                    <th>Écart</th>
+                    <th>Message</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {comparisonForTab.map((a) => (
+                    <tr key={`${a.type}-${a.name}`} className={`bev-sev-${a.severity}`}>
+                      <td>{a.severity === 'alert' ? '⚠' : a.severity === 'warn' ? '!' : 'i'}</td>
+                      <td>{a.name}</td>
+                      <td>{a.category}</td>
+                      <td className="num">{a.previousQty}</td>
+                      <td className="num">{a.currentQty}</td>
+                      <td className="num">{a.delta > 0 ? `+${a.delta}` : a.delta}</td>
+                      <td>{a.message}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </section>
       )}
 
@@ -339,6 +600,7 @@ const StocksBoissons = () => {
               <li key={h._id}>
                 <div>
                   <b>{new Date(h.createdAt).toLocaleString('fr-FR')}</b>
+                  {h.isCurrent ? ' · courante' : ''}
                   {h.periodLabel ? ` — ${h.periodLabel}` : ''}
                   <span className="stocks-hint">
                     {' '}
@@ -348,6 +610,15 @@ const StocksBoissons = () => {
                 <div className="bev-actions">
                   <button type="button" className="stocks-btn" onClick={() => loadProposal(h._id)}>
                     Ouvrir
+                  </button>
+                  <button
+                    type="button"
+                    className="stocks-btn"
+                    onClick={() => compareWithHistory(h._id)}
+                    disabled={!currentId || String(currentId) === String(h._id)}
+                    title="Comparer la proposition courante enregistrée avec celle-ci"
+                  >
+                    Comparer
                   </button>
                   <button type="button" className="stocks-btn" onClick={() => removeProposal(h._id)}>
                     Supprimer

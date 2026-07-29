@@ -7,9 +7,18 @@ const productLineSchema = new mongoose.Schema(
     ventesQty: { type: Number, default: 0 },
     offertsQty: { type: Number, default: 0 },
     consumedQty: { type: Number, default: 0 },
+    /** Conso de la période précédente (pour affichage écart). */
+    previousConsumedQty: { type: Number, default: null },
     stockQty: { type: Number, default: 0 },
     marginPercent: { type: Number, default: 10 },
-    toOrderQty: { type: Number, default: 0 }
+    /** Unités par colis (12 ou 24). */
+    packSize: { type: Number, enum: [12, 24], default: 12 },
+    /** Unités manquantes avant arrondi colis. */
+    toOrderQty: { type: Number, default: 0 },
+    /** Nombre de colis à commander (arrondi au-dessus). */
+    packsToOrder: { type: Number, default: 0 },
+    /** Unités réellement commandées (= packs × packSize). */
+    orderUnits: { type: Number, default: 0 }
   },
   { _id: false }
 );
@@ -21,11 +30,17 @@ const beverageOrderProposalSchema = new mongoose.Schema(
     sourceFileName: { type: String, default: '' },
     marginPercent: { type: Number, default: 10 },
     note: { type: String, default: 'Commande le jeudi pour livraison le mardi' },
-    products: [productLineSchema]
+    /** Snapshot des ventes de la période immédiatement précédente (pour écarts). */
+    previousPeriodLabel: { type: String, default: '' },
+    previousSourceFileName: { type: String, default: '' },
+    products: [productLineSchema],
+    /** true = ventes courantes à réutiliser au prochain chargement de page. */
+    isCurrent: { type: Boolean, default: true, index: true }
   },
   { timestamps: true }
 );
 
 beverageOrderProposalSchema.index({ siteKey: 1, createdAt: -1 });
+beverageOrderProposalSchema.index({ siteKey: 1, isCurrent: 1, updatedAt: -1 });
 
 module.exports = mongoose.model('BeverageOrderProposal', beverageOrderProposalSchema);
