@@ -13,6 +13,8 @@ const productLineSchema = new mongoose.Schema(
     marginPercent: { type: Number, default: 10 },
     /** Unités par colis (12 ou 24). */
     packSize: { type: Number, enum: [12, 24], default: 12 },
+    /** Ordre d’affichage (bon de commande). */
+    sortOrder: { type: Number, default: 9999 },
     /** Unités manquantes avant arrondi colis. */
     toOrderQty: { type: Number, default: 0 },
     /** Nombre de colis à commander (arrondi au-dessus). */

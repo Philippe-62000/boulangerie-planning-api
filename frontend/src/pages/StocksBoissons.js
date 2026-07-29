@@ -24,10 +24,20 @@ function recomputeLine(p, marginPercent) {
   return {
     ...p,
     packSize,
+    sortOrder: Number.isFinite(Number(p.sortOrder)) ? Number(p.sortOrder) : 9999,
     toOrderQty,
     packsToOrder,
     orderUnits: packsToOrder * packSize
   };
+}
+
+function sortByOrder(list) {
+  return [...(list || [])].sort((a, b) => {
+    const oa = Number.isFinite(Number(a.sortOrder)) ? Number(a.sortOrder) : 9999;
+    const ob = Number.isFinite(Number(b.sortOrder)) ? Number(b.sortOrder) : 9999;
+    if (oa !== ob) return oa - ob;
+    return String(a.name || '').localeCompare(String(b.name || ''), 'fr');
+  });
 }
 
 function isEmballage(category) {
@@ -52,6 +62,7 @@ const StocksBoissons = () => {
   const [booting, setBooting] = useState(true);
   const [message, setMessage] = useState(null);
   const [filterFamily, setFilterFamily] = useState('all');
+  const [savingOrder, setSavingOrder] = useState(false);
 
   const loadHistory = useCallback(async () => {
     try {
@@ -64,7 +75,9 @@ const StocksBoissons = () => {
 
   const applyDoc = (doc, opts = {}) => {
     if (!doc) return;
-    setProducts((doc.products || []).map((p) => recomputeLine(p, doc.marginPercent ?? DEFAULT_MARGIN)));
+    setProducts(
+      sortByOrder((doc.products || []).map((p) => recomputeLine(p, doc.marginPercent ?? DEFAULT_MARGIN)))
+    );
     setPeriodLabel(doc.periodLabel || '');
     setSourceFileName(doc.sourceFileName || '');
     setMarginPercent(doc.marginPercent ?? DEFAULT_MARGIN);
@@ -108,9 +121,13 @@ const StocksBoissons = () => {
   }, [siteKey, loadHistory]);
 
   const tabProducts = useMemo(() => {
-    if (mainTab === 'emballages') return products.filter((p) => isEmballage(p.category));
-    if (mainTab === 'boissons') return products.filter((p) => !isEmballage(p.category));
-    return products;
+    const filtered =
+      mainTab === 'emballages'
+        ? products.filter((p) => isEmballage(p.category))
+        : mainTab === 'boissons'
+          ? products.filter((p) => !isEmballage(p.category))
+          : products;
+    return sortByOrder(filtered);
   }, [products, mainTab]);
 
   const families = useMemo(() => {
@@ -157,7 +174,9 @@ const StocksBoissons = () => {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
       const data = res.data?.data;
-      const nextProducts = (data?.products || []).map((p) => recomputeLine(p, data?.marginPercent ?? marginPercent));
+      const nextProducts = sortByOrder(
+        (data?.products || []).map((p) => recomputeLine(p, data?.marginPercent ?? marginPercent))
+      );
       setProducts(nextProducts);
       setSourceFileName(data?.sourceFileName || file.name);
       setPeriodLabel(data?.periodHint || '');
@@ -177,6 +196,73 @@ const StocksBoissons = () => {
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const moveLine = (name, category, direction) => {
+    setProducts((prev) => {
+      const inTab = sortByOrder(
+        prev.filter((p) =>
+          mainTab === 'emballages' ? isEmballage(p.category) : !isEmballage(p.category)
+        )
+      );
+      const idx = inTab.findIndex((p) => p.name === name && p.category === category);
+      const swapIdx = idx + direction;
+      if (idx < 0 || swapIdx < 0 || swapIdx >= inTab.length) return prev;
+
+      const reordered = [...inTab];
+      const [item] = reordered.splice(idx, 1);
+      reordered.splice(swapIdx, 0, item);
+
+      const orderMap = new Map(
+        reordered.map((p, i) => [`${p.category}||${p.name}`, i])
+      );
+
+      // Les lignes de l’autre onglet gardent leur ordre relatif
+      const other = sortByOrder(
+        prev.filter((p) =>
+          mainTab === 'emballages' ? !isEmballage(p.category) : isEmballage(p.category)
+        )
+      );
+      const otherBase = mainTab === 'emballages' ? 0 : 1000;
+      const tabBase = mainTab === 'emballages' ? 1000 : 0;
+
+      return prev.map((p) => {
+        const key = `${p.category}||${p.name}`;
+        if (orderMap.has(key)) {
+          return { ...p, sortOrder: tabBase + orderMap.get(key) };
+        }
+        const oi = other.findIndex((o) => o.name === p.name && o.category === p.category);
+        if (oi >= 0) return { ...p, sortOrder: otherBase + oi };
+        return p;
+      });
+    });
+  };
+
+  const saveLineOrder = async () => {
+    if (!products.length) return;
+    setSavingOrder(true);
+    setMessage(null);
+    try {
+      const sorted = sortByOrder(products);
+      const items = sorted.map((p, idx) => ({
+        name: p.name,
+        packSize: p.packSize,
+        sortOrder: Number.isFinite(Number(p.sortOrder)) ? Number(p.sortOrder) : idx
+      }));
+      await api.put('/beverage-orders/line-order', { siteKey, items });
+      setProducts(sorted.map((p, idx) => ({ ...p, sortOrder: items[idx].sortOrder })));
+      setMessage({
+        type: 'ok',
+        text: 'Ordre des lignes enregistré pour les prochaines commandes.'
+      });
+    } catch (err) {
+      setMessage({
+        type: 'err',
+        text: err.response?.data?.error || 'Erreur enregistrement de l’ordre'
+      });
+    } finally {
+      setSavingOrder(false);
     }
   };
 
@@ -459,6 +545,15 @@ const StocksBoissons = () => {
               <button type="button" className="stocks-btn" onClick={printOrder}>
                 Imprimer
               </button>
+              <button
+                type="button"
+                className="stocks-btn"
+                disabled={savingOrder || !products.length}
+                onClick={saveLineOrder}
+                title="Mémoriser l’ordre des lignes pour les prochaines commandes"
+              >
+                {savingOrder ? 'Ordre…' : 'Enregistrer l’ordre'}
+              </button>
               <button type="button" className="stocks-btn primary" disabled={saving} onClick={save}>
                 {saving ? 'Enregistrement…' : 'Enregistrer'}
               </button>
@@ -469,6 +564,7 @@ const StocksBoissons = () => {
             <table className="bev-table">
               <thead>
                 <tr>
+                  <th>Ordre</th>
                   <th>Famille</th>
                   <th>Référence</th>
                   <th>Ventes</th>
@@ -483,7 +579,7 @@ const StocksBoissons = () => {
                 </tr>
               </thead>
               <tbody>
-                {visibleProducts.map((p) => {
+                {visibleProducts.map((p, rowIdx) => {
                   const prev = p.previousConsumedQty;
                   const drop =
                     prev != null && Number(prev) > 0 && Number(p.consumedQty) < Number(prev) * 0.6;
@@ -492,6 +588,26 @@ const StocksBoissons = () => {
                       key={`${p.category}-${p.name}`}
                       className={drop ? 'bev-row-alert' : undefined}
                     >
+                      <td className="bev-order-cell">
+                        <button
+                          type="button"
+                          className="bev-order-btn"
+                          disabled={rowIdx === 0 || filterFamily !== 'all'}
+                          onClick={() => moveLine(p.name, p.category, -1)}
+                          title="Monter"
+                        >
+                          ↑
+                        </button>
+                        <button
+                          type="button"
+                          className="bev-order-btn"
+                          disabled={rowIdx >= visibleProducts.length - 1 || filterFamily !== 'all'}
+                          onClick={() => moveLine(p.name, p.category, 1)}
+                          title="Descendre"
+                        >
+                          ↓
+                        </button>
+                      </td>
                       <td>{p.category}</td>
                       <td>{p.name}</td>
                       <td className="num">{p.ventesQty}</td>
@@ -535,9 +651,9 @@ const StocksBoissons = () => {
             </table>
           </div>
           <p className="stocks-hint">
-            Exemple : conso 60, stock 5, marge 0 % → besoin 55 → colis de 12 →{' '}
-            <b>5 colis</b> (60 unités). Formule : plafond(conso × (1+marge%)) − stock, puis arrondi
-            au colis supérieur.
+            Utilisez ↑ ↓ pour classer les lignes comme sur votre bon de commande, puis{' '}
+            <b>Enregistrer l’ordre</b> (filtre « Toutes les familles » requis pour déplacer).
+            Exemple colis : conso 60, stock 5 → besoin 55 → colis de 12 → <b>5 colis</b>.
           </p>
         </section>
       )}

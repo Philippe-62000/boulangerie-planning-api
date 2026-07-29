@@ -114,6 +114,27 @@
   width: 64px;
 }
 
+.bev-order-cell {
+  white-space: nowrap;
+  width: 64px;
+}
+
+.bev-order-btn {
+  border: 1px solid #d0d5dd;
+  background: #fff;
+  border-radius: 6px;
+  width: 28px;
+  height: 28px;
+  margin-right: 2px;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.bev-order-btn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
 .bev-row-alert {
   background: #fff6e8;
 }

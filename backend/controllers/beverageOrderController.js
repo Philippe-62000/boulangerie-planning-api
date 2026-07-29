@@ -33,18 +33,31 @@ function extractPeriodHint(text) {
   return d ? `Édité le ${d[1]}` : '';
 }
 
-async function loadPackMap(siteKey) {
+async function loadProductPrefs(siteKey) {
   const rows = await BeveragePackConfig.find({ siteKey }).lean();
   const map = new Map();
   for (const r of rows) {
-    map.set(String(r.name).trim().toUpperCase(), normalizePackSize(r.packSize));
+    map.set(String(r.name).trim().toUpperCase(), {
+      packSize: normalizePackSize(r.packSize),
+      sortOrder: Number.isFinite(Number(r.sortOrder)) ? Number(r.sortOrder) : 9999
+    });
   }
   return map;
 }
 
-async function upsertPackSizes(siteKey, products) {
+function sortProductsByOrder(products) {
+  return [...(products || [])].sort((a, b) => {
+    const oa = Number.isFinite(Number(a.sortOrder)) ? Number(a.sortOrder) : 9999;
+    const ob = Number.isFinite(Number(b.sortOrder)) ? Number(b.sortOrder) : 9999;
+    if (oa !== ob) return oa - ob;
+    return String(a.name || '').localeCompare(String(b.name || ''), 'fr');
+  });
+}
+
+async function upsertProductPrefs(siteKey, products) {
   const ops = [];
   const seen = new Set();
+  let autoIndex = 0;
   for (const p of products || []) {
     const name = String(p.name || '').trim();
     if (!name) continue;
@@ -52,10 +65,13 @@ async function upsertPackSizes(siteKey, products) {
     if (seen.has(key)) continue;
     seen.add(key);
     const packSize = normalizePackSize(p.packSize);
+    const sortOrder = Number.isFinite(Number(p.sortOrder)) ? Number(p.sortOrder) : autoIndex;
+    autoIndex += 1;
+    const $set = { packSize, sortOrder };
     ops.push({
       updateOne: {
         filter: { siteKey, name },
-        update: { $set: { packSize } },
+        update: { $set },
         upsert: true
       }
     });
@@ -63,25 +79,46 @@ async function upsertPackSizes(siteKey, products) {
   if (ops.length) await BeveragePackConfig.bulkWrite(ops, { ordered: false });
 }
 
-function mergeWithPrevious(parsedProducts, previousProducts, packMap, marginPercent) {
+function mergeWithPrevious(parsedProducts, previousProducts, prefsMap, marginPercent) {
   const prevByName = new Map();
   for (const p of previousProducts || []) {
     if (!p?.name) continue;
     prevByName.set(String(p.name).trim().toUpperCase(), p);
   }
 
-  return parsedProducts.map((p) => {
+  let nextNewOrder = 0;
+  for (const pref of prefsMap.values()) {
+    if (Number.isFinite(pref.sortOrder) && pref.sortOrder < 9000) {
+      nextNewOrder = Math.max(nextNewOrder, pref.sortOrder + 1);
+    }
+  }
+  for (const p of previousProducts || []) {
+    if (Number.isFinite(Number(p.sortOrder)) && Number(p.sortOrder) < 9000) {
+      nextNewOrder = Math.max(nextNewOrder, Number(p.sortOrder) + 1);
+    }
+  }
+
+  const merged = parsedProducts.map((p) => {
     const key = String(p.name).trim().toUpperCase();
     const prev = prevByName.get(key);
+    const prefs = prefsMap.get(key);
     const packSize =
       (prev && prev.packSize) ||
-      packMap.get(key) ||
+      prefs?.packSize ||
       normalizePackSize(p.packSize, 12);
+    let sortOrder = 9999;
+    if (prev && Number.isFinite(Number(prev.sortOrder))) sortOrder = Number(prev.sortOrder);
+    else if (prefs && Number.isFinite(Number(prefs.sortOrder))) sortOrder = Number(prefs.sortOrder);
+    else {
+      sortOrder = nextNewOrder;
+      nextNewOrder += 1;
+    }
     return enrichOrderFields(
       {
         ...p,
         stockQty: prev ? Number(prev.stockQty) || 0 : 0,
         packSize,
+        sortOrder,
         previousConsumedQty: prev ? Number(prev.consumedQty) || 0 : null,
         marginPercent: prev?.marginPercent != null ? prev.marginPercent : marginPercent
       },
@@ -89,6 +126,8 @@ function mergeWithPrevious(parsedProducts, previousProducts, packMap, marginPerc
       packSize
     );
   });
+
+  return sortProductsByOrder(merged);
 }
 
 const uploadMiddleware = upload.single('file');
@@ -103,6 +142,22 @@ const getCurrent = async (req, res) => {
     if (!doc) {
       doc = await BeverageOrderProposal.findOne({ siteKey }).sort({ createdAt: -1 }).lean();
     }
+    if (doc?.products?.length) {
+      const prefs = await loadProductPrefs(siteKey);
+      doc.products = sortProductsByOrder(
+        doc.products.map((p) => {
+          const key = String(p.name || '').trim().toUpperCase();
+          const pref = prefs.get(key);
+          if (pref) {
+            if (!Number.isFinite(Number(p.sortOrder)) || Number(p.sortOrder) >= 9000) {
+              p.sortOrder = pref.sortOrder;
+            }
+            if (!p.packSize) p.packSize = pref.packSize;
+          }
+          return p;
+        })
+      );
+    }
     res.json({ success: true, data: doc || null });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
@@ -113,25 +168,69 @@ const getCurrent = async (req, res) => {
 const getPackConfig = async (req, res) => {
   try {
     const siteKey = normalizeSiteKey(req.query?.siteKey);
-    const rows = await BeveragePackConfig.find({ siteKey }).sort({ name: 1 }).lean();
+    const rows = await BeveragePackConfig.find({ siteKey }).sort({ sortOrder: 1, name: 1 }).lean();
     res.json({ success: true, data: rows });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
 };
 
-/** PUT /api/beverage-orders/pack-config — [{ name, packSize }] */
+/** PUT /api/beverage-orders/pack-config — [{ name, packSize, sortOrder? }] */
 const savePackConfig = async (req, res) => {
   try {
     const siteKey = normalizeSiteKey(req.body?.siteKey || req.query?.siteKey);
     const items = Array.isArray(req.body?.items) ? req.body.items : [];
-    await upsertPackSizes(
+    await upsertProductPrefs(
       siteKey,
-      items.map((i) => ({ name: i.name, packSize: i.packSize }))
+      items.map((i) => ({ name: i.name, packSize: i.packSize, sortOrder: i.sortOrder }))
     );
-    const rows = await BeveragePackConfig.find({ siteKey }).sort({ name: 1 }).lean();
+    const rows = await BeveragePackConfig.find({ siteKey }).sort({ sortOrder: 1, name: 1 }).lean();
     res.json({ success: true, data: rows });
   } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+};
+
+/** PUT /api/beverage-orders/line-order — enregistre l’ordre des lignes (bon de commande). */
+const saveLineOrder = async (req, res) => {
+  try {
+    const siteKey = normalizeSiteKey(req.body?.siteKey || req.query?.siteKey);
+    const items = Array.isArray(req.body?.items) ? req.body.items : [];
+    if (!items.length) {
+      return res.status(400).json({ success: false, error: 'items requis' });
+    }
+    const normalized = items
+      .map((i, idx) => ({
+        name: String(i.name || '').trim(),
+        packSize: i.packSize,
+        sortOrder: Number.isFinite(Number(i.sortOrder)) ? Number(i.sortOrder) : idx
+      }))
+      .filter((i) => i.name);
+    await upsertProductPrefs(siteKey, normalized);
+
+    // Mettre à jour aussi la proposition courante si elle existe
+    const current = await BeverageOrderProposal.findOne({ siteKey, isCurrent: true }).sort({
+      updatedAt: -1
+    });
+    if (current?.products?.length) {
+      const orderMap = new Map(
+        normalized.map((i) => [i.name.toUpperCase(), i.sortOrder])
+      );
+      current.products = sortProductsByOrder(
+        current.products.map((p) => {
+          const key = String(p.name || '').trim().toUpperCase();
+          if (orderMap.has(key)) p.sortOrder = orderMap.get(key);
+          return p;
+        })
+      );
+      current.markModified('products');
+      await current.save();
+    }
+
+    const rows = await BeveragePackConfig.find({ siteKey }).sort({ sortOrder: 1, name: 1 }).lean();
+    res.json({ success: true, data: rows });
+  } catch (err) {
+    console.error('❌ beverageOrders.saveLineOrder:', err);
     res.status(500).json({ success: false, error: err.message });
   }
 };
@@ -154,7 +253,7 @@ const parsePdf = async (req, res) => {
     }
 
     const marginPercent = Math.max(0, Number(req.body?.marginPercent) || 10);
-    const packMap = await loadPackMap(siteKey);
+    const prefsMap = await loadProductPrefs(siteKey);
 
     let previousDoc = null;
     try {
@@ -189,7 +288,7 @@ const parsePdf = async (req, res) => {
     const products = mergeWithPrevious(
       rawProducts,
       previousDoc?.products || [],
-      packMap,
+      prefsMap,
       marginPercent
     );
 
@@ -268,27 +367,30 @@ const saveProposal = async (req, res) => {
       return res.status(400).json({ success: false, error: 'Aucun produit à enregistrer' });
     }
 
-    const products = productsIn
-      .map((p) =>
-        enrichOrderFields(
-          {
-            category: String(p.category || '').trim() || 'Divers',
-            name: String(p.name || '').trim(),
-            ventesQty: Math.max(0, Number(p.ventesQty) || 0),
-            offertsQty: Math.max(0, Number(p.offertsQty) || 0),
-            consumedQty: p.consumedQty,
-            previousConsumedQty:
-              p.previousConsumedQty != null ? Number(p.previousConsumedQty) : null,
-            stockQty: p.stockQty,
-            marginPercent: p.marginPercent,
-            packSize: p.packSize
-          },
-          marginPercent
+    const products = sortProductsByOrder(
+      productsIn
+        .map((p, idx) =>
+          enrichOrderFields(
+            {
+              category: String(p.category || '').trim() || 'Divers',
+              name: String(p.name || '').trim(),
+              ventesQty: Math.max(0, Number(p.ventesQty) || 0),
+              offertsQty: Math.max(0, Number(p.offertsQty) || 0),
+              consumedQty: p.consumedQty,
+              previousConsumedQty:
+                p.previousConsumedQty != null ? Number(p.previousConsumedQty) : null,
+              stockQty: p.stockQty,
+              marginPercent: p.marginPercent,
+              packSize: p.packSize,
+              sortOrder: Number.isFinite(Number(p.sortOrder)) ? Number(p.sortOrder) : idx
+            },
+            marginPercent
+          )
         )
-      )
-      .filter((p) => p.name);
+        .filter((p) => p.name)
+    );
 
-    await upsertPackSizes(siteKey, products);
+    await upsertProductPrefs(siteKey, products);
     await BeverageOrderProposal.updateMany({ siteKey, isCurrent: true }, { $set: { isCurrent: false } });
 
     const doc = await BeverageOrderProposal.create({
@@ -361,5 +463,6 @@ module.exports = {
   getCurrent,
   getPackConfig,
   savePackConfig,
+  saveLineOrder,
   compareProposals
 };
