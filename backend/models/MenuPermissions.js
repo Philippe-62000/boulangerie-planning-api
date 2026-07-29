@@ -172,6 +172,15 @@ menuPermissionsSchema.statics.createDefaultPermissions = async function() {
         order: 6.641
       },
       {
+        menuId: 'stocks-boissons',
+        menuName: 'Boisson & Emballages',
+        menuPath: '/stocks-boissons',
+        isVisibleToAdmin: true,
+        isVisibleToEmployee: false,
+        requiredPermissions: [],
+        order: 6.642
+      },
+      {
         menuId: 'employee-status',
         menuName: 'État Salariés',
         menuPath: '/employee-status',
