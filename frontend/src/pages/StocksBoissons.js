@@ -395,6 +395,62 @@ const StocksBoissons = () => {
       <p><b>Total :</b> ${rows.reduce((s, p) => s + (p.packsToOrder || 0), 0)} colis
       (${rows.reduce((s, p) => s + (p.orderUnits || 0), 0)} unités) — ${rows.length} références</p>
       </body></html>`;
+    openPrintWindow(html);
+  };
+
+  const printStockSheet = () => {
+    const rows = visibleProducts.length ? visibleProducts : tabProducts;
+    if (!rows.length) {
+      setMessage({ type: 'err', text: 'Aucune référence à imprimer.' });
+      return;
+    }
+    const title = mainTab === 'emballages' ? 'Emballages' : 'Boissons';
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"/><title>Relevé stocks ${title}</title>
+      <style>
+        body{font-family:Segoe UI,Arial,sans-serif;padding:20px;color:#222;font-size:13px}
+        h1{margin:0 0 6px;font-size:18px} .meta{color:#555;margin-bottom:14px;font-size:12px}
+        table{border-collapse:collapse;width:100%} th,td{border:1px solid #333;padding:8px 6px;text-align:left}
+        th{background:#eee} .box{width:70px;height:22px} .num{text-align:right;width:64px}
+        @media print { body{padding:0} }
+      </style></head><body>
+      <h1>Relevé de stocks — ${title} — ${siteLabel}</h1>
+      <div class="meta">
+        Date : _______________ &nbsp;&nbsp; Période ventes : ${periodLabel || '—'} &nbsp;&nbsp; Fichier : ${sourceFileName || '—'}<br/>
+        Noter le stock restant à la main, puis saisir les quantités dans Filmara.
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th style="width:28px">N°</th>
+            <th>Famille</th>
+            <th>Référence</th>
+            <th class="num">Conso sem.</th>
+            <th>Stock restant</th>
+            <th>Notes</th>
+          </tr>
+        </thead>
+        <tbody>
+        ${rows
+          .map(
+            (p, i) =>
+              `<tr>
+                <td>${i + 1}</td>
+                <td>${p.category || ''}</td>
+                <td>${p.name}</td>
+                <td class="num">${p.consumedQty ?? ''}</td>
+                <td><div class="box"></div></td>
+                <td></td>
+              </tr>`
+          )
+          .join('')}
+        </tbody>
+      </table>
+      <p style="margin-top:16px;font-size:12px;color:#555">${rows.length} référence(s)</p>
+      </body></html>`;
+    openPrintWindow(html);
+  };
+
+  const openPrintWindow = (html) => {
     const w = window.open('', '_blank');
     if (!w) {
       alert('Autorisez les pop-ups pour imprimer.');
@@ -542,8 +598,16 @@ const StocksBoissons = () => {
                 <option value="12">Mettre ×12</option>
                 <option value="24">Mettre ×24</option>
               </select>
-              <button type="button" className="stocks-btn" onClick={printOrder}>
-                Imprimer
+              <button
+                type="button"
+                className="stocks-btn"
+                onClick={printStockSheet}
+                title="Feuille à remplir à la main pour noter les stocks"
+              >
+                Imprimer feuille stock
+              </button>
+              <button type="button" className="stocks-btn" onClick={printOrder} title="Bon de commande calculé">
+                Imprimer commande
               </button>
               <button
                 type="button"
