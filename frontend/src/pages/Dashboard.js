@@ -5,6 +5,7 @@ import { getSiteKey } from '../config/site';
 import { buildFlourStocksStatusClient } from '../utils/flourStockStatus';
 import { formatDailyConsumptionKg, parseKgPerSack } from '../utils/flourUnits';
 import { useAuth } from '../contexts/AuthContext';
+import ApprenticePlanningPanel from '../components/ApprenticePlanningPanel';
 
 const normalizePersonName = (name) =>
   String(name || '')
@@ -1928,6 +1929,7 @@ const Dashboard = () => {
       {/* État Contrat : Apprentis */}
       <div className="card">
         <h3>📋 État Contrat : Apprentis</h3>
+        <ApprenticePlanningPanel apprentices={apprenticeEmployees} />
         {apprenticeEmployees.length === 0 ? (
           <p>Aucun apprenti</p>
         ) : (
