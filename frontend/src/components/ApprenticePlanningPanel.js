@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { toast } from 'react-toastify';
 import api from '../services/api';
 import { getSiteKey } from '../config/site';
@@ -41,7 +42,7 @@ function toIsoLocal(d) {
 
 function buildMonthCells(year, monthIndex) {
   const first = new Date(year, monthIndex, 1);
-  const startOffset = (first.getDay() + 6) % 7; // lundi = 0
+  const startOffset = (first.getDay() + 6) % 7;
   const daysInMonth = new Date(year, monthIndex + 1, 0).getDate();
   const cells = [];
   for (let i = 0; i < startOffset; i += 1) cells.push(null);
@@ -52,9 +53,22 @@ function buildMonthCells(year, monthIndex) {
   return cells;
 }
 
+function isActiveApprentice(emp) {
+  if (!emp) return false;
+  if (emp.isActive === false) return false;
+  if (!emp.contractEndDate) return true;
+  const end = new Date(emp.contractEndDate);
+  end.setHours(0, 0, 0, 0);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return end >= today;
+}
+
 const ApprenticePlanningPanel = ({ apprentices = [] }) => {
   const [showUpload, setShowUpload] = useState(false);
   const [showGlobal, setShowGlobal] = useState(false);
+  const [showManual, setShowManual] = useState(false);
+  const [uploadMode, setUploadMode] = useState('pdf'); // pdf | manual
   const [employeeId, setEmployeeId] = useState('');
   const [file, setFile] = useState(null);
   const [uploading, setUploading] = useState(false);
@@ -64,9 +78,21 @@ const ApprenticePlanningPanel = ({ apprentices = [] }) => {
     const n = new Date();
     return { year: n.getFullYear(), month: n.getMonth() };
   });
+  const [manualCursor, setManualCursor] = useState(() => {
+    const n = new Date();
+    return { year: n.getFullYear(), month: n.getMonth() };
+  });
+  const [manualDates, setManualDates] = useState(() => new Set());
+  const [manualPlanningId, setManualPlanningId] = useState(null);
+  const [savingManual, setSavingManual] = useState(false);
   const [planningByEmployee, setPlanningByEmployee] = useState({});
 
   const siteKey = getSiteKey();
+
+  const activeApprentices = useMemo(
+    () => (apprentices || []).filter(isActiveApprentice),
+    [apprentices]
+  );
 
   const loadListMeta = useCallback(async () => {
     try {
@@ -74,7 +100,9 @@ const ApprenticePlanningPanel = ({ apprentices = [] }) => {
       if (res.data?.success) {
         const map = {};
         (res.data.data || []).forEach((p) => {
-          const id = String(p.employeeId?._id || p.employeeId);
+          const emp = p.employeeId;
+          if (emp && !isActiveApprentice(emp)) return;
+          const id = String(emp?._id || p.employeeId);
           map[id] = p;
         });
         setPlanningByEmployee(map);
@@ -105,7 +133,26 @@ const ApprenticePlanningPanel = ({ apprentices = [] }) => {
     }
   };
 
-  const handleUpload = async (e) => {
+  const openManualEditor = (opts = {}) => {
+    const empId = opts.employeeId || employeeId || '';
+    const dates = new Set(opts.trainingDates || []);
+    setEmployeeId(empId);
+    setManualPlanningId(opts.planningId || null);
+    setManualDates(dates);
+    setShowUpload(false);
+    setShowManual(true);
+  };
+
+  const toggleManualDay = (iso) => {
+    setManualDates((prev) => {
+      const next = new Set(prev);
+      if (next.has(iso)) next.delete(iso);
+      else next.add(iso);
+      return next;
+    });
+  };
+
+  const handleUploadPdf = async (e) => {
     e.preventDefault();
     if (!employeeId) {
       toast.error('Sélectionnez un apprenti');
@@ -124,10 +171,18 @@ const ApprenticePlanningPanel = ({ apprentices = [] }) => {
       const res = await api.post('/apprentice-plannings', fd);
       if (res.data?.success) {
         toast.success(res.data.message || 'Planning enregistré');
-        setShowUpload(false);
-        setFile(null);
-        setEmployeeId('');
         await loadListMeta();
+        setFile(null);
+        if (res.data.needsManualDates) {
+          openManualEditor({
+            employeeId,
+            planningId: res.data.data?._id,
+            trainingDates: res.data.data?.trainingDates || []
+          });
+        } else {
+          setShowUpload(false);
+          setEmployeeId('');
+        }
       } else {
         toast.error(res.data?.error || 'Erreur');
       }
@@ -135,6 +190,48 @@ const ApprenticePlanningPanel = ({ apprentices = [] }) => {
       toast.error(err.response?.data?.error || err.message);
     } finally {
       setUploading(false);
+    }
+  };
+
+  const handleSaveManual = async (e) => {
+    e.preventDefault();
+    if (!employeeId) {
+      toast.error('Sélectionnez un apprenti');
+      return;
+    }
+    const dates = [...manualDates].sort();
+    if (dates.length === 0) {
+      toast.error('Cliquez sur les jours de formation dans le calendrier');
+      return;
+    }
+    setSavingManual(true);
+    try {
+      let res;
+      if (manualPlanningId) {
+        res = await api.put(`/apprentice-plannings/${manualPlanningId}/dates`, {
+          trainingDates: dates
+        });
+      } else {
+        res = await api.post('/apprentice-plannings/manual', {
+          employeeId,
+          siteKey,
+          trainingDates: dates
+        });
+      }
+      if (res.data?.success) {
+        toast.success(res.data.message || 'Jours enregistrés');
+        setShowManual(false);
+        setEmployeeId('');
+        setManualDates(new Set());
+        setManualPlanningId(null);
+        await loadListMeta();
+      } else {
+        toast.error(res.data?.error || 'Erreur');
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.error || err.message);
+    } finally {
+      setSavingManual(false);
     }
   };
 
@@ -188,105 +285,241 @@ const ApprenticePlanningPanel = ({ apprentices = [] }) => {
     [cursor.year, cursor.month]
   );
 
-  return (
-    <div className="apprentice-planning-panel">
-      <div className="app-plan-actions">
-        <button type="button" className="btn btn-primary" onClick={() => setShowUpload(true)}>
-          Ajout planning
-        </button>
-        <button type="button" className="btn btn-secondary" onClick={openGlobal}>
-          Planning global
-        </button>
-      </div>
+  const manualCells = useMemo(
+    () => buildMonthCells(manualCursor.year, manualCursor.month),
+    [manualCursor.year, manualCursor.month]
+  );
 
-      {apprentices.length > 0 && (
-        <div className="app-plan-status-hint">
-          {apprentices.map((emp) => {
-            const p = planningByEmployee[String(emp._id)];
-            return (
-              <span key={emp._id} className={`app-plan-chip ${p ? 'has' : 'missing'}`}>
-                {emp.name}
-                {p ? ' · PDF' : ' · sans PDF'}
-              </span>
-            );
-          })}
-        </div>
-      )}
+  const closeOnBackdrop = (setter) => (e) => {
+    if (e.target === e.currentTarget) setter(false);
+  };
 
-      {showUpload && (
-        <div className="app-plan-modal-backdrop" onClick={() => !uploading && setShowUpload(false)}>
-          <div className="app-plan-modal" onClick={(e) => e.stopPropagation()}>
+  const uploadModal = showUpload
+    ? createPortal(
+        <div className="app-plan-modal-backdrop" onMouseDown={closeOnBackdrop(setShowUpload)}>
+          <div className="app-plan-modal" onMouseDown={(e) => e.stopPropagation()}>
             <h3>Ajouter un planning apprenti</h3>
-            <form onSubmit={handleUpload}>
+            <div className="app-plan-tabs">
+              <button
+                type="button"
+                className={uploadMode === 'pdf' ? 'active' : ''}
+                onClick={() => setUploadMode('pdf')}
+              >
+                Importer PDF
+              </button>
+              <button
+                type="button"
+                className={uploadMode === 'manual' ? 'active' : ''}
+                onClick={() => {
+                  setUploadMode('manual');
+                  setShowUpload(false);
+                  openManualEditor({ employeeId });
+                }}
+              >
+                Saisie manuelle des jours
+              </button>
+            </div>
+
+            {uploadMode === 'pdf' && (
+              <form onSubmit={handleUploadPdf}>
+                <label>
+                  <span>Apprenti</span>
+                  <select
+                    value={employeeId}
+                    onChange={(e) => setEmployeeId(e.target.value)}
+                    disabled={uploading}
+                    required
+                  >
+                    <option value="">— Choisir —</option>
+                    {activeApprentices.map((emp) => (
+                      <option key={emp._id} value={emp._id}>
+                        {emp.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  <span>Fichier PDF (planning officiel)</span>
+                  <input
+                    type="file"
+                    accept="application/pdf,.pdf"
+                    onChange={(e) => setFile(e.target.files?.[0] || null)}
+                    disabled={uploading}
+                    required
+                  />
+                </label>
+                <p className="app-plan-help">
+                  Si le PDF ne permet pas de détecter les jours (ex. calendriers Altern&apos;Emploi),
+                  la saisie manuelle s&apos;ouvrira automatiquement après l&apos;import.
+                </p>
+                <div className="app-plan-modal-actions">
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    disabled={uploading}
+                    onClick={() => setShowUpload(false)}
+                  >
+                    Annuler
+                  </button>
+                  <button type="submit" className="btn btn-primary" disabled={uploading}>
+                    {uploading ? 'Envoi…' : 'Enregistrer le PDF'}
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
+        </div>,
+        document.body
+      )
+    : null;
+
+  const manualModal = showManual
+    ? createPortal(
+        <div className="app-plan-modal-backdrop" onMouseDown={closeOnBackdrop(setShowManual)}>
+          <div
+            className="app-plan-modal app-plan-modal-wide"
+            onMouseDown={(e) => e.stopPropagation()}
+          >
+            <div className="app-plan-global-header">
+              <h3>Saisie manuelle des jours de formation</h3>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => setShowManual(false)}
+              >
+                Fermer
+              </button>
+            </div>
+            <form onSubmit={handleSaveManual}>
               <label>
                 <span>Apprenti</span>
                 <select
                   value={employeeId}
-                  onChange={(e) => setEmployeeId(e.target.value)}
-                  disabled={uploading}
+                  onChange={(e) => {
+                    setEmployeeId(e.target.value);
+                    setManualPlanningId(
+                      planningByEmployee[e.target.value]?._id || null
+                    );
+                    const existing = planningByEmployee[e.target.value]?.trainingDates || [];
+                    setManualDates(new Set(existing));
+                  }}
+                  disabled={savingManual}
                   required
                 >
                   <option value="">— Choisir —</option>
-                  {apprentices.map((emp) => (
+                  {activeApprentices.map((emp) => (
                     <option key={emp._id} value={emp._id}>
                       {emp.name}
                     </option>
                   ))}
                 </select>
               </label>
-              <label>
-                <span>Fichier PDF (planning officiel)</span>
-                <input
-                  type="file"
-                  accept="application/pdf,.pdf"
-                  onChange={(e) => setFile(e.target.files?.[0] || null)}
-                  disabled={uploading}
-                  required
-                />
-              </label>
+
               <p className="app-plan-help">
-                Les jours de formation sont détectés automatiquement quand le PDF le permet
-                (calendriers type CFA MEM). Sinon, les jours renseignés sur la fiche salarié sont
-                utilisés pour le planning global.
+                Cliquez sur chaque jour de formation pour l&apos;ajouter ou le retirer.{' '}
+                <strong>{manualDates.size}</strong> jour(s) sélectionné(s).
               </p>
-              <div className="app-plan-modal-actions">
+
+              <div className="app-plan-month-nav">
                 <button
                   type="button"
                   className="btn btn-secondary"
-                  disabled={uploading}
-                  onClick={() => setShowUpload(false)}
+                  onClick={() =>
+                    setManualCursor((c) => {
+                      const d = new Date(c.year, c.month - 1, 1);
+                      return { year: d.getFullYear(), month: d.getMonth() };
+                    })
+                  }
+                >
+                  ←
+                </button>
+                <strong>
+                  {MONTHS_FR[manualCursor.month]} {manualCursor.year}
+                </strong>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() =>
+                    setManualCursor((c) => {
+                      const d = new Date(c.year, c.month + 1, 1);
+                      return { year: d.getFullYear(), month: d.getMonth() };
+                    })
+                  }
+                >
+                  →
+                </button>
+              </div>
+
+              <div className="app-plan-calendar app-plan-calendar-pick">
+                {WEEKDAYS_FR.map((w) => (
+                  <div key={w} className="app-plan-cal-head">
+                    {w}
+                  </div>
+                ))}
+                {manualCells.map((day, idx) => {
+                  if (!day) {
+                    return <div key={`me-${idx}`} className="app-plan-cal-cell empty" />;
+                  }
+                  const iso = toIsoLocal(day);
+                  const selected = manualDates.has(iso);
+                  return (
+                    <button
+                      key={iso}
+                      type="button"
+                      className={`app-plan-cal-cell pick ${selected ? 'selected' : ''}`}
+                      onClick={() => toggleManualDay(iso)}
+                    >
+                      <div className="app-plan-day-num">{day.getDate()}</div>
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div className="app-plan-modal-actions" style={{ marginTop: '1rem' }}>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  disabled={savingManual}
+                  onClick={() => setShowManual(false)}
                 >
                   Annuler
                 </button>
-                <button type="submit" className="btn btn-primary" disabled={uploading}>
-                  {uploading ? 'Envoi…' : 'Enregistrer'}
+                <button type="submit" className="btn btn-primary" disabled={savingManual}>
+                  {savingManual ? 'Enregistrement…' : 'Enregistrer les jours'}
                 </button>
               </div>
             </form>
           </div>
-        </div>
-      )}
+        </div>,
+        document.body
+      )
+    : null;
 
-      {showGlobal && (
-        <div className="app-plan-modal-backdrop" onClick={() => setShowGlobal(false)}>
+  const globalModal = showGlobal
+    ? createPortal(
+        <div className="app-plan-modal-backdrop" onMouseDown={closeOnBackdrop(setShowGlobal)}>
           <div
             className="app-plan-modal app-plan-modal-wide"
-            onClick={(e) => e.stopPropagation()}
+            onMouseDown={(e) => e.stopPropagation()}
           >
             <div className="app-plan-global-header">
               <h3>Planning global apprentis</h3>
-              <button type="button" className="btn btn-secondary" onClick={() => setShowGlobal(false)}>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => setShowGlobal(false)}
+              >
                 Fermer
               </button>
             </div>
 
-            {loadingGlobal ? (
+            {loadingGlobal && globalRows.length === 0 ? (
               <p>Chargement…</p>
             ) : (
               <>
                 <div className="app-plan-legend">
                   {globalRows.map((r) => (
-                    <div key={r.employeeId} className="app-plan-legend-row">
+                    <div key={String(r.employeeId)} className="app-plan-legend-row">
                       <span
                         className="app-plan-dot"
                         style={{ background: colorByEmployee[String(r.employeeId)] }}
@@ -294,10 +527,10 @@ const ApprenticePlanningPanel = ({ apprentices = [] }) => {
                       <strong>{r.name}</strong>
                       <span className="app-plan-muted">
                         {r.trainingDates?.length || 0} jour(s)
-                        {r.datesSource === 'weekdays' ? ' · fiche salarié' : ''}
+                        {r.datesSource === 'manual' ? ' · saisie manuelle' : ''}
                         {r.datesSource === 'pdf-mem' ? ' · PDF' : ''}
                       </span>
-                      {r.planningId ? (
+                      {r.hasFile ? (
                         <button
                           type="button"
                           className="btn btn-link"
@@ -305,14 +538,32 @@ const ApprenticePlanningPanel = ({ apprentices = [] }) => {
                             downloadPlanning(r.planningId, r.fileName || `${r.name}.pdf`)
                           }
                         >
-                          Télécharger le planning officiel
+                          Télécharger le PDF
                         </button>
                       ) : (
                         <span className="app-plan-muted">Pas de PDF</span>
                       )}
+                      <button
+                        type="button"
+                        className="btn btn-link"
+                        onClick={() =>
+                          openManualEditor({
+                            employeeId: r.employeeId,
+                            planningId: r.planningId,
+                            trainingDates: r.trainingDates || []
+                          })
+                        }
+                      >
+                        Modifier les jours
+                      </button>
                     </div>
                   ))}
-                  {globalRows.length === 0 && <p>Aucun apprenti</p>}
+                  {globalRows.length === 0 && (
+                    <p>
+                      Aucun planning intégré pour un apprenti en cours. Utilisez « Ajout planning »
+                      puis importez un PDF ou saisissez les jours manuellement.
+                    </p>
+                  )}
                 </div>
 
                 <div className="app-plan-month-nav">
@@ -382,8 +633,53 @@ const ApprenticePlanningPanel = ({ apprentices = [] }) => {
               </>
             )}
           </div>
+        </div>,
+        document.body
+      )
+    : null;
+
+  return (
+    <div className="apprentice-planning-panel">
+      <div className="app-plan-actions">
+        <button
+          type="button"
+          className="btn btn-primary"
+          onClick={() => {
+            setUploadMode('pdf');
+            setShowUpload(true);
+          }}
+        >
+          Ajout planning
+        </button>
+        <button
+          type="button"
+          className="btn btn-secondary"
+          onClick={() => openManualEditor({})}
+        >
+          Saisie manuelle
+        </button>
+        <button type="button" className="btn btn-secondary" onClick={openGlobal}>
+          Planning global
+        </button>
+      </div>
+
+      {activeApprentices.length > 0 && (
+        <div className="app-plan-status-hint">
+          {activeApprentices.map((emp) => {
+            const p = planningByEmployee[String(emp._id)];
+            return (
+              <span key={emp._id} className={`app-plan-chip ${p ? 'has' : 'missing'}`}>
+                {emp.name}
+                {p ? ' · intégré' : ' · sans planning'}
+              </span>
+            );
+          })}
         </div>
       )}
+
+      {uploadModal}
+      {manualModal}
+      {globalModal}
     </div>
   );
 };

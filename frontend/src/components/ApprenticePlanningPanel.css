@@ -43,6 +43,32 @@
   align-items: center;
   justify-content: center;
   padding: 1rem;
+  /* évite le scintillement lié au repaint du dashboard derrière */
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  contain: layout paint;
+}
+
+.app-plan-tabs {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.app-plan-tabs button {
+  flex: 1;
+  border: 1px solid #d0c6b8;
+  background: #f7f4ef;
+  border-radius: 8px;
+  padding: 0.5rem 0.75rem;
+  cursor: pointer;
+  font: inherit;
+}
+
+.app-plan-tabs button.active {
+  background: #2c1810;
+  color: #fff;
+  border-color: #2c1810;
 }
 
 .app-plan-modal {
@@ -181,6 +207,25 @@
   border-radius: 6px;
   padding: 4px;
   background: #fff;
+  contain: layout paint;
+}
+
+.app-plan-cal-cell.pick {
+  cursor: pointer;
+  width: 100%;
+  text-align: left;
+  font: inherit;
+  min-height: 48px;
+}
+
+.app-plan-cal-cell.pick.selected {
+  background: #1a5fb4;
+  border-color: #1a5fb4;
+  color: #fff;
+}
+
+.app-plan-cal-cell.pick.selected .app-plan-day-num {
+  color: #fff;
 }
 
 .app-plan-cal-cell.empty {

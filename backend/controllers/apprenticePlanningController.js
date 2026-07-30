@@ -3,10 +3,7 @@ const path = require('path');
 const ApprenticePlanning = require('../models/ApprenticePlanning');
 const Employee = require('../models/Employee');
 const sftpService = require('../services/sftpService');
-const {
-  parseApprenticePlanningPdf,
-  expandWeekdaysToDates
-} = require('../utils/parseApprenticePlanningPdf');
+const { parseApprenticePlanningPdf } = require('../utils/parseApprenticePlanningPdf');
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -31,17 +28,6 @@ function nasBasePath() {
   return process.env.SFTP_BASE_PATH || process.env.NAS_BASE_PATH || '/n8n/uploads/documents';
 }
 
-function schoolYearStartFromDates(dates) {
-  if (!dates || dates.length === 0) {
-    const now = new Date();
-    const y = now.getFullYear();
-    return now.getMonth() >= 8 ? y : y - 1;
-  }
-  const first = dates.slice().sort()[0];
-  const [y, m] = first.split('-').map(Number);
-  return m >= 9 ? y : y - 1;
-}
-
 const listPlannings = async (req, res) => {
   try {
     const siteKey = normalizeSiteKey(req.query.siteKey || req.query.site);
@@ -56,38 +42,71 @@ const listPlannings = async (req, res) => {
   }
 };
 
-/** Vue globale : apprentis + jours de formation + lien PDF */
+function startOfToday() {
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
+function isContractFinished(emp) {
+  if (!emp) return true;
+  if (emp.isActive === false) return true;
+  if (!emp.contractEndDate) return false;
+  const end = new Date(emp.contractEndDate);
+  end.setHours(0, 0, 0, 0);
+  return end < startOfToday();
+}
+
+function normalizeTrainingDates(raw) {
+  if (!Array.isArray(raw)) return [];
+  const out = new Set();
+  for (const v of raw) {
+    const s = String(v || '').trim().slice(0, 10);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) continue;
+    const [y, m, d] = s.split('-').map(Number);
+    const dt = new Date(Date.UTC(y, m - 1, d));
+    if (
+      dt.getUTCFullYear() === y &&
+      dt.getUTCMonth() === m - 1 &&
+      dt.getUTCDate() === d
+    ) {
+      out.add(s);
+    }
+  }
+  return [...out].sort();
+}
+
+/** Vue globale : uniquement apprentis actifs avec un planning déjà intégré */
 const getGlobalView = async (req, res) => {
   try {
     const siteKey = normalizeSiteKey(req.query.siteKey || req.query.site);
-    const apprentices = await Employee.find({ contractType: 'Apprentissage' })
-      .select('name trainingDays contractEndDate')
-      .sort({ name: 1 })
+    const plannings = await ApprenticePlanning.find({ siteKey })
+      .populate('employeeId', 'name trainingDays contractEndDate contractType isActive')
       .lean();
-    const plannings = await ApprenticePlanning.find({ siteKey }).lean();
-    const byEmp = new Map(plannings.map((p) => [String(p.employeeId), p]));
 
-    const data = apprentices.map((emp) => {
-      const p = byEmp.get(String(emp._id));
-      let trainingDates = p?.trainingDates || [];
-      let datesSource = p?.datesSource || 'none';
-      if ((!trainingDates || trainingDates.length === 0) && emp.trainingDays?.length) {
-        const sy = schoolYearStartFromDates([]);
-        trainingDates = expandWeekdaysToDates(emp.trainingDays, sy);
-        datesSource = 'weekdays';
-      }
-      return {
-        employeeId: emp._id,
-        name: emp.name,
-        trainingDays: emp.trainingDays || [],
-        contractEndDate: emp.contractEndDate || null,
-        planningId: p?._id || null,
-        fileName: p?.originalName || p?.fileName || null,
-        uploadedAt: p?.updatedAt || p?.createdAt || null,
-        datesSource,
-        trainingDates
-      };
-    });
+    const data = plannings
+      .filter((p) => {
+        const emp = p.employeeId;
+        if (!emp || emp.contractType !== 'Apprentissage') return false;
+        if (isContractFinished(emp)) return false;
+        return true;
+      })
+      .map((p) => {
+        const emp = p.employeeId;
+        return {
+          employeeId: emp._id,
+          name: emp.name,
+          trainingDays: emp.trainingDays || [],
+          contractEndDate: emp.contractEndDate || null,
+          planningId: p._id,
+          fileName: p.originalName || p.fileName || null,
+          hasFile: Boolean(p.filePath),
+          uploadedAt: p.updatedAt || p.createdAt || null,
+          datesSource: p.datesSource || 'none',
+          trainingDates: Array.isArray(p.trainingDates) ? p.trainingDates : []
+        };
+      })
+      .sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), 'fr'));
 
     res.json({ success: true, data });
   } catch (err) {
@@ -119,14 +138,9 @@ const uploadPlanning = async (req, res) => {
     }
 
     const parsed = await parseApprenticePlanningPdf(req.file.buffer);
-    let trainingDates = parsed.trainingDates || [];
-    let datesSource = parsed.source || 'none';
-
-    if (trainingDates.length === 0 && employee.trainingDays?.length) {
-      const sy = schoolYearStartFromDates([]);
-      trainingDates = expandWeekdaysToDates(employee.trainingDays, sy);
-      datesSource = 'weekdays';
-    }
+    const trainingDates = parsed.trainingDates || [];
+    const datesSource = parsed.source || 'none';
+    const needsManualDates = trainingDates.length === 0;
 
     const safeName = String(employee.name || 'apprenti')
       .normalize('NFD')
@@ -146,6 +160,13 @@ const uploadPlanning = async (req, res) => {
 
     const uploadedByName = req.employeeName || req.user?.name || '';
 
+    const existing = await ApprenticePlanning.findOne({ employeeId }).lean();
+    const keepManualDates =
+      needsManualDates &&
+      existing?.datesSource === 'manual' &&
+      Array.isArray(existing.trainingDates) &&
+      existing.trainingDates.length > 0;
+
     const doc = await ApprenticePlanning.findOneAndUpdate(
       { employeeId },
       {
@@ -155,8 +176,8 @@ const uploadPlanning = async (req, res) => {
           originalName: req.file.originalname || fileName,
           filePath: remotePath,
           mimeType: req.file.mimetype || 'application/pdf',
-          trainingDates,
-          datesSource,
+          trainingDates: keepManualDates ? existing.trainingDates : trainingDates,
+          datesSource: keepManualDates ? 'manual' : datesSource,
           label: path.parse(req.file.originalname || '').name || '',
           uploadedByName
         }
@@ -167,15 +188,114 @@ const uploadPlanning = async (req, res) => {
     res.json({
       success: true,
       data: doc,
+      needsManualDates: needsManualDates && !keepManualDates,
       message:
         datesSource === 'pdf-mem'
           ? `Planning enregistré — ${trainingDates.length} jour(s) de formation détectés dans le PDF.`
-          : datesSource === 'weekdays'
-            ? `Planning enregistré — jours dérivés des jours de formation du salarié (${trainingDates.length}).`
-            : 'Planning enregistré. Aucun jour de formation détecté automatiquement (téléchargement PDF disponible).'
+          : keepManualDates
+            ? 'PDF enregistré — les jours saisis manuellement ont été conservés.'
+            : 'PDF enregistré, mais aucun jour détecté automatiquement. Saisissez les jours de formation manuellement.'
     });
   } catch (err) {
     console.error('❌ uploadPlanning:', err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+};
+
+/** Création / mise à jour des jours sans PDF (saisie manuelle) */
+const saveManualDates = async (req, res) => {
+  try {
+    const siteKey = normalizeSiteKey(req.body?.siteKey || req.query?.siteKey);
+    const employeeId = req.body?.employeeId;
+    const trainingDates = normalizeTrainingDates(req.body?.trainingDates);
+
+    if (!employeeId) {
+      return res.status(400).json({ success: false, error: 'Salarié obligatoire' });
+    }
+    if (trainingDates.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'Sélectionnez au moins un jour de formation'
+      });
+    }
+
+    const employee = await Employee.findById(employeeId).lean();
+    if (!employee) {
+      return res.status(404).json({ success: false, error: 'Salarié introuvable' });
+    }
+    if (employee.contractType !== 'Apprentissage') {
+      return res.status(400).json({
+        success: false,
+        error: 'Ce salarié n’est pas en contrat d’apprentissage'
+      });
+    }
+    if (isContractFinished(employee)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Ce contrat d’apprentissage est terminé'
+      });
+    }
+
+    const uploadedByName = req.employeeName || req.user?.name || '';
+    const existing = await ApprenticePlanning.findOne({ employeeId });
+
+    const doc = await ApprenticePlanning.findOneAndUpdate(
+      { employeeId },
+      {
+        $set: {
+          siteKey,
+          trainingDates,
+          datesSource: 'manual',
+          uploadedByName,
+          ...(existing
+            ? {}
+            : {
+                fileName: 'saisie-manuelle.pdf',
+                originalName: 'Saisie manuelle',
+                filePath: '',
+                mimeType: 'application/pdf',
+                label: 'Saisie manuelle'
+              })
+        }
+      },
+      { upsert: true, new: true }
+    );
+
+    res.json({
+      success: true,
+      data: doc,
+      message: `${trainingDates.length} jour(s) de formation enregistrés.`
+    });
+  } catch (err) {
+    console.error('❌ saveManualDates:', err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+};
+
+const updateTrainingDates = async (req, res) => {
+  try {
+    const trainingDates = normalizeTrainingDates(req.body?.trainingDates);
+    if (trainingDates.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'Sélectionnez au moins un jour de formation'
+      });
+    }
+    const doc = await ApprenticePlanning.findByIdAndUpdate(
+      req.params.id,
+      { $set: { trainingDates, datesSource: 'manual' } },
+      { new: true }
+    );
+    if (!doc) {
+      return res.status(404).json({ success: false, error: 'Planning introuvable' });
+    }
+    res.json({
+      success: true,
+      data: doc,
+      message: `${trainingDates.length} jour(s) de formation enregistrés.`
+    });
+  } catch (err) {
+    console.error('❌ updateTrainingDates:', err);
     res.status(500).json({ success: false, error: err.message });
   }
 };
@@ -185,6 +305,12 @@ const downloadPlanning = async (req, res) => {
     const doc = await ApprenticePlanning.findById(req.params.id).populate('employeeId', 'name');
     if (!doc) {
       return res.status(404).json({ success: false, error: 'Planning introuvable' });
+    }
+    if (!doc.filePath) {
+      return res.status(404).json({
+        success: false,
+        error: 'Aucun PDF officiel pour ce planning (saisie manuelle uniquement)'
+      });
     }
 
     let buffer;
@@ -231,6 +357,8 @@ module.exports = {
   listPlannings,
   getGlobalView,
   uploadPlanning,
+  saveManualDates,
+  updateTrainingDates,
   downloadPlanning,
   deletePlanning
 };
