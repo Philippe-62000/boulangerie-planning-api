@@ -1,7 +1,9 @@
 /**
  * Extraction des jours de formation depuis les PDF calendrier CFA / In Situ Learning.
- * - Colonnes mois = bord gauche du libellé → mois suivant (évite le décalage d'1 mois)
+ * - Colonnes mois = bord gauche du libellé → mois suivant
+ * - Jours ancrés par « n° + lettre » (évite le marqueur « 7 » heures)
  * - Couleurs via rendu PDF (canvas) : bleu=examen, rose=CFA, vert=In Situ Learning
+ * - Dernière colonne parfois sans texte : échantillonnage par lignes Y globales
  */
 const MONTHS = {
   janvier: 1,
@@ -67,15 +69,24 @@ function loadCanvas() {
 }
 
 function classifyRgb(r, g, b) {
+  if (r > 235 && g > 235 && b > 235) return null;
   const chroma = Math.max(r, g, b) - Math.min(r, g, b);
-  if (chroma < 35) return null;
-  // Bleu / cyan → période d'examen
-  if (b > 140 && b >= r - 10 && b >= g && b - Math.min(r, g) > 40) return 'examen';
-  // Rose / magenta → CFA
-  if (r > 160 && b > 120 && g < 180 && r - g > 20) return 'cfa';
+  if (chroma < 40) return null;
+  // Orange fériés
+  if (r > 200 && g > 90 && g < 190 && b < 100 && r > b + 80) return null;
+  // Bleu → examen
+  if (b > 150 && b > r + 30 && b >= g) return 'examen';
+  // Rose → CFA
+  if (r > 170 && b > 140 && g < 170 && r > g + 30 && b > g + 20) return 'cfa';
   // Vert → In Situ Learning
-  if (g > 130 && g >= r && g >= b && g - Math.min(r, b) > 25) return 'insitu';
+  if (g > 130 && g > r + 25 && g > b + 25) return 'insitu';
   return null;
+}
+
+function median(arr) {
+  if (!arr || !arr.length) return null;
+  const a = [...arr].sort((x, y) => x - y);
+  return a[Math.floor(a.length / 2)];
 }
 
 function buildMonthColumns(items) {
@@ -94,19 +105,10 @@ function buildMonthColumns(items) {
       month: MONTHS[norm(m.str)],
       year: yNear[0] ? Number(yNear[0].str) : new Date().getFullYear(),
       xLeft: m.x,
-      // Le libellé du mois est au bord gauche de la colonne
       xRight: next ? next.x : m.x + 55,
       page: m.page
     };
   });
-}
-
-function assignColumn(cols, x, page) {
-  return (
-    cols.find(
-      (c) => c.page === page && x >= c.xLeft - 2 && x < c.xRight - 2
-    ) || null
-  );
 }
 
 async function extractTextItemsFromPage(page, pageNum) {
@@ -121,28 +123,137 @@ async function extractTextItemsFromPage(page, pageNum) {
     .filter((i) => i.str);
 }
 
+function buildDayAnchors(items, cols) {
+  const anchors = [];
+  for (const col of cols) {
+    const letters = items.filter(
+      (i) =>
+        i.page === col.page &&
+        /^[LMMJVSD]$/.test(i.str) &&
+        i.x >= col.xLeft &&
+        i.x < col.xRight &&
+        i.y > 112 &&
+        i.y < 328
+    );
+    for (const letter of letters) {
+      // N° de jour juste à gauche de la lettre (ignore le « 7 » heures plus à gauche)
+      const nums = items.filter(
+        (i) =>
+          i.page === letter.page &&
+          /^\d{1,2}$/.test(i.str) &&
+          Math.abs(i.y - letter.y) < 2.5 &&
+          i.x < letter.x &&
+          letter.x - i.x < 18 &&
+          i.x >= col.xLeft - 2
+      );
+      if (!nums.length) continue;
+      nums.sort((a, b) => b.x - a.x);
+      const num = nums[0];
+      const day = Number(num.str);
+      if (day < 1 || day > 31) continue;
+      if (!isValidIsoDate(col.year, col.month, day)) continue;
+      anchors.push({ col, day, x: num.x, y: num.y });
+    }
+  }
+  return anchors;
+}
+
+function buildAssignedY(anchors) {
+  const dayYs = {};
+  for (const a of anchors) {
+    if (!dayYs[a.day]) dayYs[a.day] = [];
+    dayYs[a.day].push(a.y);
+  }
+  const assignedY = {};
+  assignedY[1] = median((dayYs[1] || []).filter((y) => y > 300)) || median(dayYs[1]);
+  for (let d = 2; d <= 31; d += 1) {
+    const prev = assignedY[d - 1];
+    if (prev == null) break;
+    const below = (dayYs[d] || []).filter((y) => y < prev - 2).sort((a, b) => b - a);
+    const near = below.filter((y) => y > prev - 16);
+    assignedY[d] = near.length ? median(near) : below[0] || null;
+  }
+  return assignedY;
+}
+
+function sampleCellKind(ctx, scale, pageHeight, canvas, col, day, x, y, assignedY) {
+  const yPrev = assignedY[day - 1] ?? y + 6.9;
+  const yNext = assignedY[day + 1] ?? y - 6.9;
+  // Bande surtout au-dessus du n° (PDF Y↑) pour ne pas prendre la couleur du jour suivant
+  const yBot = y - Math.min(1.2, (y - yNext) * 0.05);
+  const yTop = y + (yPrev - y) * 0.58;
+  const x0 = Math.max(col.xLeft + 0.8, x - 16);
+  const x1 = Math.min(col.xRight - 2, x + 12);
+  const votes = { examen: 0, cfa: 0, insitu: 0 };
+  let samples = 0;
+  let strongCols = 0;
+  for (let xx = x0; xx <= x1; xx += 0.8) {
+    let localBest = 0;
+    let localN = 0;
+    for (let yy = yBot; yy <= yTop; yy += 0.45) {
+      const cx = Math.round(xx * scale);
+      const cy = Math.round((pageHeight - yy) * scale);
+      if (cx < 0 || cy < 0 || cx >= canvas.width || cy >= canvas.height) continue;
+      const pix = ctx.getImageData(cx, cy, 1, 1).data;
+      samples += 1;
+      localN += 1;
+      const kind = classifyRgb(pix[0], pix[1], pix[2]);
+      if (kind) {
+        votes[kind] += 1;
+        localBest += 1;
+      }
+    }
+    if (localN && localBest / localN >= 0.35) strongCols += 1;
+  }
+  const best = ['examen', 'cfa', 'insitu'].sort((a, b) => votes[b] - votes[a])[0];
+  if (!best || votes[best] < 12) return null;
+  const ratio = votes[best] / samples;
+  if (best === 'cfa') {
+    // Barre rose continue (strongCols) — ratio seul insuffisant (pastille « 7h »)
+    // Début juillet : rose partiel mais sur plusieurs colonnes de pixels
+    if (strongCols < 4 && ratio < 0.22) return null;
+  } else if (best === 'insitu') {
+    if (ratio < 0.24 || strongCols < 3) return null;
+  } else if (ratio < 0.14) {
+    return null;
+  }
+  return { kind: best, score: votes[best] };
+}
+
 /** Fallback sans canvas : marqueur « 7 » à gauche du jour (sans type de couleur). */
 function parseMemMarkerDates(items) {
   const cols = buildMonthColumns(items);
   if (!cols.length) return [];
   const map = new Map();
-  for (const d of items) {
-    if (!/^\d{1,2}$/.test(d.str)) continue;
-    const day = Number(d.str);
-    if (day < 1 || day > 31) continue;
-    const marker = items.find(
-      (i) =>
-        i.page === d.page &&
-        i.str === '7' &&
-        Math.abs(i.y - d.y) < 3.5 &&
-        i.x < d.x &&
-        d.x - i.x < 22
-    );
-    if (!marker) continue;
-    const col = assignColumn(cols, d.x, d.page);
-    if (!col || !isValidIsoDate(col.year, col.month, day)) continue;
-    const iso = `${col.year}-${String(col.month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-    if (!map.has(iso)) map.set(iso, { date: iso, kind: 'cfa' });
+  for (const col of cols) {
+    for (const d of items) {
+      if (d.page !== col.page) continue;
+      if (!/^\d{1,2}$/.test(d.str)) continue;
+      const day = Number(d.str);
+      if (day < 1 || day > 31 || !isValidIsoDate(col.year, col.month, day)) continue;
+      if (d.x < col.xLeft - 2 || d.x >= col.xRight) continue;
+      const letter = items.find(
+        (i) =>
+          i.page === d.page &&
+          /^[LMMJVSD]$/.test(i.str) &&
+          Math.abs(i.y - d.y) < 2.5 &&
+          i.x > d.x &&
+          i.x < d.x + 20
+      );
+      if (!letter) continue;
+      const marker = items.find(
+        (i) =>
+          i.page === d.page &&
+          i.str === '7' &&
+          Math.abs(i.y - d.y) < 3.5 &&
+          i.x < d.x &&
+          d.x - i.x < 22 &&
+          i.x >= col.xLeft - 2
+      );
+      if (!marker) continue;
+      const iso = `${col.year}-${String(col.month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+      if (!map.has(iso)) map.set(iso, { date: iso, kind: 'cfa' });
+    }
   }
   return [...map.values()].sort((a, b) => a.date.localeCompare(b.date));
 }
@@ -153,7 +264,7 @@ async function parseMemColoredDates(buffer) {
   const pdfjsLib = loadPdfJs();
   const data = toUint8Array(buffer);
   const doc = await pdfjsLib.getDocument({ data, stopAtErrors: false }).promise;
-  const scale = 2.5;
+  const scale = 3;
   const allEntries = [];
 
   for (let p = 1; p <= doc.numPages; p += 1) {
@@ -168,40 +279,63 @@ async function parseMemColoredDates(buffer) {
     await page.render({ canvasContext: ctx, viewport }).promise;
     const pageHeight = viewport.height / scale;
 
+    const anchors = buildDayAnchors(items, cols);
+    const assignedY = buildAssignedY(anchors);
     const votesByIso = new Map();
-    for (const d of items) {
-      if (!/^\d{1,2}$/.test(d.str)) continue;
-      const day = Number(d.str);
-      if (day < 1 || day > 31) continue;
-      const col = assignColumn(cols, d.x, d.page);
-      if (!col || !isValidIsoDate(col.year, col.month, day)) continue;
-      const iso = `${col.year}-${String(col.month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
 
-      const votes = { examen: 0, cfa: 0, insitu: 0 };
-      for (let dx = -18; dx <= 10; dx += 3) {
-        for (let dy = -4; dy <= 8; dy += 3) {
-          const cx = Math.round((d.x + dx) * scale);
-          const cy = Math.round((pageHeight - (d.y + dy)) * scale);
-          if (cx < 0 || cy < 0 || cx >= canvas.width || cy >= canvas.height) continue;
-          const pix = ctx.getImageData(cx, cy, 1, 1).data;
-          const kind = classifyRgb(pix[0], pix[1], pix[2]);
-          if (kind) votes[kind] += 1;
-        }
-      }
-      const bestKind = ['examen', 'cfa', 'insitu'].sort(
-        (a, b) => votes[b] - votes[a]
-      )[0];
-      if (!bestKind || votes[bestKind] < 3) continue;
-
+    for (const a of anchors) {
+      const sampled = sampleCellKind(
+        ctx,
+        scale,
+        pageHeight,
+        canvas,
+        a.col,
+        a.day,
+        a.x,
+        a.y,
+        assignedY
+      );
+      if (!sampled) continue;
+      const iso = `${a.col.year}-${String(a.col.month).padStart(2, '0')}-${String(a.day).padStart(2, '0')}`;
       const prev = votesByIso.get(iso);
-      if (!prev || votes[bestKind] > prev.score) {
-        votesByIso.set(iso, { date: iso, kind: bestKind, score: votes[bestKind] });
+      if (!prev || sampled.score > prev.score) {
+        votesByIso.set(iso, { date: iso, kind: sampled.kind, score: sampled.score });
       }
     }
+
+    // Colonnes sans n° de jour (ex. Juillet examen) : parcourir les lignes Y
+    for (const col of cols) {
+      const dim = new Date(col.year, col.month, 0).getDate();
+      let anchoredInCol = 0;
+      for (const a of anchors) {
+        if (a.col === col) anchoredInCol += 1;
+      }
+      if (anchoredInCol >= 10) continue;
+      for (let day = 1; day <= dim; day += 1) {
+        const y = assignedY[day];
+        if (y == null) continue;
+        const iso = `${col.year}-${String(col.month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+        if (votesByIso.has(iso)) continue;
+        const xMid = col.xLeft + (col.xRight - col.xLeft) * 0.45;
+        const sampled = sampleCellKind(
+          ctx,
+          scale,
+          pageHeight,
+          canvas,
+          col,
+          day,
+          xMid,
+          y,
+          assignedY
+        );
+        if (!sampled) continue;
+        votesByIso.set(iso, { date: iso, kind: sampled.kind, score: sampled.score });
+      }
+    }
+
     allEntries.push(...votesByIso.values());
   }
 
-  // Dédupliquer multi-pages
   const map = new Map();
   for (const e of allEntries) {
     const prev = map.get(e.date);
@@ -266,7 +400,7 @@ async function parseApprenticePlanningPdf(buffer) {
       return {
         trainingEntries: markers,
         trainingDates: markers.map((e) => e.date),
-        source: 'pdf-mem',
+        source: 'pdf-mem-markers',
         error: null
       };
     }
