@@ -15,4 +15,4 @@ services:
           name: boulangerie-mongodb
           property: connectionString
       - key: FORCE_RESTART
-        value: "2025-01-07-15-45"
+        value: "2026-07-30-apprentice-plannings"

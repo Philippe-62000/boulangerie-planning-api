@@ -2,8 +2,9 @@
  * Extraction des jours de formation depuis les PDF de calendrier CFA.
  * - Format In Situ Learning / MEM : marqueur « 7 » à gauche du numéro du jour
  * - Autres formats (Altern'Emploi, etc.) : pas d'extraction fiable → tableau vide
+ * pdfjs est chargé à la demande pour ne pas faire planter le démarrage API
+ * si le module est absent du node_modules racine Render.
  */
-const pdfjsLib = require('pdfjs-dist/legacy/build/pdf.js');
 
 const MONTHS = {
   janvier: 1,
@@ -44,7 +45,17 @@ function toUint8Array(buffer) {
   return new Uint8Array(buffer);
 }
 
+function loadPdfJs() {
+  try {
+    // eslint-disable-next-line global-require
+    return require('pdfjs-dist/legacy/build/pdf.js');
+  } catch (err) {
+    throw new Error(`pdfjs-dist indisponible: ${err.message}`);
+  }
+}
+
 async function extractTextItems(buffer) {
+  const pdfjsLib = loadPdfJs();
   const data = toUint8Array(buffer);
   const doc = await pdfjsLib.getDocument({ data, stopAtErrors: false }).promise;
   const items = [];
