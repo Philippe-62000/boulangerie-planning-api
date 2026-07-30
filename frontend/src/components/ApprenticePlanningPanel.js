@@ -22,16 +22,13 @@ const MONTHS_FR = [
   'Décembre'
 ];
 
-const COLORS = [
-  '#c0392b',
-  '#2980b9',
-  '#27ae60',
-  '#8e44ad',
-  '#d35400',
-  '#16a085',
-  '#2c3e50',
-  '#e67e22'
-];
+const KIND_META = {
+  examen: { label: "Période d'examen", color: '#5b6cff' },
+  cfa: { label: 'CFA', color: '#d86dcd' },
+  insitu: { label: 'In Situ Learning', color: '#2e9b59' }
+};
+
+const KIND_ORDER = ['cfa', 'insitu', 'examen'];
 
 function toIsoLocal(d) {
   const y = d.getFullYear();
@@ -64,11 +61,25 @@ function isActiveApprentice(emp) {
   return end >= today;
 }
 
+function entriesToMap(entries, dates) {
+  const map = {};
+  if (Array.isArray(entries) && entries.length) {
+    entries.forEach((e) => {
+      if (e?.date) map[e.date] = e.kind || 'cfa';
+    });
+    return map;
+  }
+  (dates || []).forEach((d) => {
+    map[d] = 'cfa';
+  });
+  return map;
+}
+
 const ApprenticePlanningPanel = ({ apprentices = [] }) => {
   const [showUpload, setShowUpload] = useState(false);
   const [showGlobal, setShowGlobal] = useState(false);
   const [showManual, setShowManual] = useState(false);
-  const [uploadMode, setUploadMode] = useState('pdf'); // pdf | manual
+  const [uploadMode, setUploadMode] = useState('pdf');
   const [employeeId, setEmployeeId] = useState('');
   const [file, setFile] = useState(null);
   const [uploading, setUploading] = useState(false);
@@ -82,13 +93,12 @@ const ApprenticePlanningPanel = ({ apprentices = [] }) => {
     const n = new Date();
     return { year: n.getFullYear(), month: n.getMonth() };
   });
-  const [manualDates, setManualDates] = useState(() => new Set());
+  const [manualMap, setManualMap] = useState({});
   const [manualPlanningId, setManualPlanningId] = useState(null);
   const [savingManual, setSavingManual] = useState(false);
   const [planningByEmployee, setPlanningByEmployee] = useState({});
 
   const siteKey = getSiteKey();
-
   const activeApprentices = useMemo(
     () => (apprentices || []).filter(isActiveApprentice),
     [apprentices]
@@ -121,11 +131,8 @@ const ApprenticePlanningPanel = ({ apprentices = [] }) => {
     setLoadingGlobal(true);
     try {
       const res = await api.get('/apprentice-plannings/global', { params: { siteKey } });
-      if (res.data?.success) {
-        setGlobalRows(res.data.data || []);
-      } else {
-        toast.error(res.data?.error || 'Erreur chargement planning global');
-      }
+      if (res.data?.success) setGlobalRows(res.data.data || []);
+      else toast.error(res.data?.error || 'Erreur chargement planning global');
     } catch (e) {
       toast.error(e.response?.data?.error || e.message);
     } finally {
@@ -134,20 +141,22 @@ const ApprenticePlanningPanel = ({ apprentices = [] }) => {
   };
 
   const openManualEditor = (opts = {}) => {
-    const empId = opts.employeeId || employeeId || '';
-    const dates = new Set(opts.trainingDates || []);
-    setEmployeeId(empId);
+    setEmployeeId(opts.employeeId || employeeId || '');
     setManualPlanningId(opts.planningId || null);
-    setManualDates(dates);
+    setManualMap(entriesToMap(opts.trainingEntries, opts.trainingDates));
     setShowUpload(false);
+    setShowGlobal(false);
     setShowManual(true);
   };
 
-  const toggleManualDay = (iso) => {
-    setManualDates((prev) => {
-      const next = new Set(prev);
-      if (next.has(iso)) next.delete(iso);
-      else next.add(iso);
+  const cycleManualDay = (iso) => {
+    setManualMap((prev) => {
+      const next = { ...prev };
+      const cur = next[iso];
+      if (!cur) next[iso] = 'cfa';
+      else if (cur === 'cfa') next[iso] = 'insitu';
+      else if (cur === 'insitu') next[iso] = 'examen';
+      else delete next[iso];
       return next;
     });
   };
@@ -177,15 +186,14 @@ const ApprenticePlanningPanel = ({ apprentices = [] }) => {
           openManualEditor({
             employeeId,
             planningId: res.data.data?._id,
-            trainingDates: res.data.data?.trainingDates || []
+            trainingEntries: res.data.data?.trainingEntries,
+            trainingDates: res.data.data?.trainingDates
           });
         } else {
           setShowUpload(false);
           setEmployeeId('');
         }
-      } else {
-        toast.error(res.data?.error || 'Erreur');
-      }
+      } else toast.error(res.data?.error || 'Erreur');
     } catch (err) {
       toast.error(err.response?.data?.error || err.message);
     } finally {
@@ -199,9 +207,11 @@ const ApprenticePlanningPanel = ({ apprentices = [] }) => {
       toast.error('Sélectionnez un apprenti');
       return;
     }
-    const dates = [...manualDates].sort();
-    if (dates.length === 0) {
-      toast.error('Cliquez sur les jours de formation dans le calendrier');
+    const trainingEntries = Object.entries(manualMap)
+      .map(([date, kind]) => ({ date, kind }))
+      .sort((a, b) => a.date.localeCompare(b.date));
+    if (!trainingEntries.length) {
+      toast.error('Cliquez sur les jours de formation (rose / vert / bleu)');
       return;
     }
     setSavingManual(true);
@@ -209,25 +219,23 @@ const ApprenticePlanningPanel = ({ apprentices = [] }) => {
       let res;
       if (manualPlanningId) {
         res = await api.put(`/apprentice-plannings/${manualPlanningId}/dates`, {
-          trainingDates: dates
+          trainingEntries
         });
       } else {
         res = await api.post('/apprentice-plannings/manual', {
           employeeId,
           siteKey,
-          trainingDates: dates
+          trainingEntries
         });
       }
       if (res.data?.success) {
         toast.success(res.data.message || 'Jours enregistrés');
         setShowManual(false);
         setEmployeeId('');
-        setManualDates(new Set());
+        setManualMap({});
         setManualPlanningId(null);
         await loadListMeta();
-      } else {
-        toast.error(res.data?.error || 'Erreur');
-      }
+      } else toast.error(res.data?.error || 'Erreur');
     } catch (err) {
       toast.error(err.response?.data?.error || err.message);
     } finally {
@@ -239,10 +247,10 @@ const ApprenticePlanningPanel = ({ apprentices = [] }) => {
     if (!planningId) return;
     try {
       const token = getStoredToken();
-      const base = api.defaults.baseURL;
-      const res = await fetch(`${base}/apprentice-plannings/${planningId}/download`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {}
-      });
+      const res = await fetch(
+        `${api.defaults.baseURL}/apprentice-plannings/${planningId}/download`,
+        { headers: token ? { Authorization: `Bearer ${token}` } : {} }
+      );
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         throw new Error(err.error || `Erreur ${res.status}`);
@@ -261,20 +269,16 @@ const ApprenticePlanningPanel = ({ apprentices = [] }) => {
     }
   };
 
-  const colorByEmployee = useMemo(() => {
-    const map = {};
-    globalRows.forEach((r, i) => {
-      map[String(r.employeeId)] = COLORS[i % COLORS.length];
-    });
-    return map;
-  }, [globalRows]);
-
   const datesByDay = useMemo(() => {
     const map = {};
     globalRows.forEach((r) => {
-      (r.trainingDates || []).forEach((iso) => {
-        if (!map[iso]) map[iso] = [];
-        map[iso].push(r);
+      const entries =
+        Array.isArray(r.trainingEntries) && r.trainingEntries.length
+          ? r.trainingEntries
+          : (r.trainingDates || []).map((date) => ({ date, kind: 'cfa' }));
+      entries.forEach((e) => {
+        if (!map[e.date]) map[e.date] = [];
+        map[e.date].push({ ...r, kind: e.kind || 'cfa' });
       });
     });
     return map;
@@ -284,7 +288,6 @@ const ApprenticePlanningPanel = ({ apprentices = [] }) => {
     () => buildMonthCells(cursor.year, cursor.month),
     [cursor.year, cursor.month]
   );
-
   const manualCells = useMemo(
     () => buildMonthCells(manualCursor.year, manualCursor.month),
     [manualCursor.year, manualCursor.month]
@@ -293,6 +296,17 @@ const ApprenticePlanningPanel = ({ apprentices = [] }) => {
   const closeOnBackdrop = (setter) => (e) => {
     if (e.target === e.currentTarget) setter(false);
   };
+
+  const kindLegend = (
+    <div className="app-plan-kind-legend">
+      {KIND_ORDER.map((k) => (
+        <span key={k} className="app-plan-kind-item">
+          <span className="app-plan-dot" style={{ background: KIND_META[k].color }} />
+          {KIND_META[k].label}
+        </span>
+      ))}
+    </div>
+  );
 
   const uploadModal = showUpload
     ? createPortal(
@@ -312,14 +326,12 @@ const ApprenticePlanningPanel = ({ apprentices = [] }) => {
                 className={uploadMode === 'manual' ? 'active' : ''}
                 onClick={() => {
                   setUploadMode('manual');
-                  setShowUpload(false);
                   openManualEditor({ employeeId });
                 }}
               >
-                Saisie manuelle des jours
+                Saisie manuelle
               </button>
             </div>
-
             {uploadMode === 'pdf' && (
               <form onSubmit={handleUploadPdf}>
                 <label>
@@ -349,8 +361,8 @@ const ApprenticePlanningPanel = ({ apprentices = [] }) => {
                   />
                 </label>
                 <p className="app-plan-help">
-                  Si le PDF ne permet pas de détecter les jours (ex. calendriers Altern&apos;Emploi),
-                  la saisie manuelle s&apos;ouvrira automatiquement après l&apos;import.
+                  Les couleurs du PDF sont conservées : rose = CFA, vert = In Situ Learning, bleu =
+                  période d&apos;examen. Réimportez le PDF pour corriger un ancien décalage de mois.
                 </p>
                 <div className="app-plan-modal-actions">
                   <button
@@ -362,7 +374,7 @@ const ApprenticePlanningPanel = ({ apprentices = [] }) => {
                     Annuler
                   </button>
                   <button type="submit" className="btn btn-primary" disabled={uploading}>
-                    {uploading ? 'Envoi…' : 'Enregistrer le PDF'}
+                    {uploading ? 'Analyse du PDF…' : 'Enregistrer le PDF'}
                   </button>
                 </div>
               </form>
@@ -382,11 +394,7 @@ const ApprenticePlanningPanel = ({ apprentices = [] }) => {
           >
             <div className="app-plan-global-header">
               <h3>Saisie manuelle des jours de formation</h3>
-              <button
-                type="button"
-                className="btn btn-secondary"
-                onClick={() => setShowManual(false)}
-              >
+              <button type="button" className="btn btn-secondary" onClick={() => setShowManual(false)}>
                 Fermer
               </button>
             </div>
@@ -396,12 +404,11 @@ const ApprenticePlanningPanel = ({ apprentices = [] }) => {
                 <select
                   value={employeeId}
                   onChange={(e) => {
-                    setEmployeeId(e.target.value);
-                    setManualPlanningId(
-                      planningByEmployee[e.target.value]?._id || null
-                    );
-                    const existing = planningByEmployee[e.target.value]?.trainingDates || [];
-                    setManualDates(new Set(existing));
+                    const id = e.target.value;
+                    setEmployeeId(id);
+                    const p = planningByEmployee[id];
+                    setManualPlanningId(p?._id || null);
+                    setManualMap(entriesToMap(p?.trainingEntries, p?.trainingDates));
                   }}
                   disabled={savingManual}
                   required
@@ -414,12 +421,12 @@ const ApprenticePlanningPanel = ({ apprentices = [] }) => {
                   ))}
                 </select>
               </label>
-
+              {kindLegend}
               <p className="app-plan-help">
-                Cliquez sur chaque jour de formation pour l&apos;ajouter ou le retirer.{' '}
-                <strong>{manualDates.size}</strong> jour(s) sélectionné(s).
+                Cliquez plusieurs fois sur un jour pour changer la couleur : rose (CFA) → vert (In
+                Situ) → bleu (examen) → retirer. {Object.keys(manualMap).length} jour(s)
+                sélectionné(s).
               </p>
-
               <div className="app-plan-month-nav">
                 <button
                   type="button"
@@ -449,7 +456,6 @@ const ApprenticePlanningPanel = ({ apprentices = [] }) => {
                   →
                 </button>
               </div>
-
               <div className="app-plan-calendar app-plan-calendar-pick">
                 {WEEKDAYS_FR.map((w) => (
                   <div key={w} className="app-plan-cal-head">
@@ -457,24 +463,23 @@ const ApprenticePlanningPanel = ({ apprentices = [] }) => {
                   </div>
                 ))}
                 {manualCells.map((day, idx) => {
-                  if (!day) {
-                    return <div key={`me-${idx}`} className="app-plan-cal-cell empty" />;
-                  }
+                  if (!day) return <div key={`me-${idx}`} className="app-plan-cal-cell empty" />;
                   const iso = toIsoLocal(day);
-                  const selected = manualDates.has(iso);
+                  const kind = manualMap[iso];
                   return (
                     <button
                       key={iso}
                       type="button"
-                      className={`app-plan-cal-cell pick ${selected ? 'selected' : ''}`}
-                      onClick={() => toggleManualDay(iso)}
+                      className={`app-plan-cal-cell pick ${kind ? 'selected' : ''}`}
+                      style={kind ? { background: KIND_META[kind].color, borderColor: KIND_META[kind].color } : undefined}
+                      onClick={() => cycleManualDay(iso)}
+                      title={kind ? KIND_META[kind].label : 'Ajouter'}
                     >
                       <div className="app-plan-day-num">{day.getDate()}</div>
                     </button>
                   );
                 })}
               </div>
-
               <div className="app-plan-modal-actions" style={{ marginTop: '1rem' }}>
                 <button
                   type="button"
@@ -504,32 +509,20 @@ const ApprenticePlanningPanel = ({ apprentices = [] }) => {
           >
             <div className="app-plan-global-header">
               <h3>Planning global apprentis</h3>
-              <button
-                type="button"
-                className="btn btn-secondary"
-                onClick={() => setShowGlobal(false)}
-              >
+              <button type="button" className="btn btn-secondary" onClick={() => setShowGlobal(false)}>
                 Fermer
               </button>
             </div>
-
             {loadingGlobal && globalRows.length === 0 ? (
               <p>Chargement…</p>
             ) : (
               <>
+                {kindLegend}
                 <div className="app-plan-legend">
                   {globalRows.map((r) => (
                     <div key={String(r.employeeId)} className="app-plan-legend-row">
-                      <span
-                        className="app-plan-dot"
-                        style={{ background: colorByEmployee[String(r.employeeId)] }}
-                      />
                       <strong>{r.name}</strong>
-                      <span className="app-plan-muted">
-                        {r.trainingDates?.length || 0} jour(s)
-                        {r.datesSource === 'manual' ? ' · saisie manuelle' : ''}
-                        {r.datesSource === 'pdf-mem' ? ' · PDF' : ''}
-                      </span>
+                      <span className="app-plan-muted">{r.trainingDates?.length || 0} jour(s)</span>
                       {r.hasFile ? (
                         <button
                           type="button"
@@ -550,7 +543,8 @@ const ApprenticePlanningPanel = ({ apprentices = [] }) => {
                           openManualEditor({
                             employeeId: r.employeeId,
                             planningId: r.planningId,
-                            trainingDates: r.trainingDates || []
+                            trainingEntries: r.trainingEntries,
+                            trainingDates: r.trainingDates
                           })
                         }
                       >
@@ -559,13 +553,9 @@ const ApprenticePlanningPanel = ({ apprentices = [] }) => {
                     </div>
                   ))}
                   {globalRows.length === 0 && (
-                    <p>
-                      Aucun planning intégré pour un apprenti en cours. Utilisez « Ajout planning »
-                      puis importez un PDF ou saisissez les jours manuellement.
-                    </p>
+                    <p>Aucun planning intégré. Importez un PDF ou saisissez les jours manuellement.</p>
                   )}
                 </div>
-
                 <div className="app-plan-month-nav">
                   <button
                     type="button"
@@ -595,7 +585,6 @@ const ApprenticePlanningPanel = ({ apprentices = [] }) => {
                     →
                   </button>
                 </div>
-
                 <div className="app-plan-calendar">
                   {WEEKDAYS_FR.map((w) => (
                     <div key={w} className="app-plan-cal-head">
@@ -603,9 +592,7 @@ const ApprenticePlanningPanel = ({ apprentices = [] }) => {
                     </div>
                   ))}
                   {cells.map((day, idx) => {
-                    if (!day) {
-                      return <div key={`e-${idx}`} className="app-plan-cal-cell empty" />;
-                    }
+                    if (!day) return <div key={`e-${idx}`} className="app-plan-cal-cell empty" />;
                     const iso = toIsoLocal(day);
                     const list = datesByDay[iso] || [];
                     return (
@@ -617,10 +604,10 @@ const ApprenticePlanningPanel = ({ apprentices = [] }) => {
                         <div className="app-plan-day-people">
                           {list.map((r) => (
                             <span
-                              key={`${iso}-${r.employeeId}`}
+                              key={`${iso}-${r.employeeId}-${r.kind}`}
                               className="app-plan-pill"
-                              style={{ background: colorByEmployee[String(r.employeeId)] }}
-                              title={r.name}
+                              style={{ background: KIND_META[r.kind]?.color || '#666' }}
+                              title={`${r.name} — ${KIND_META[r.kind]?.label || r.kind}`}
                             >
                               {r.name.split(' ')[0]}
                             </span>
@@ -651,11 +638,7 @@ const ApprenticePlanningPanel = ({ apprentices = [] }) => {
         >
           Ajout planning
         </button>
-        <button
-          type="button"
-          className="btn btn-secondary"
-          onClick={() => openManualEditor({})}
-        >
+        <button type="button" className="btn btn-secondary" onClick={() => openManualEditor({})}>
           Saisie manuelle
         </button>
         <button type="button" className="btn btn-secondary" onClick={openGlobal}>

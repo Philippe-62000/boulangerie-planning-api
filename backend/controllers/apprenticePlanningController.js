@@ -57,23 +57,58 @@ function isContractFinished(emp) {
   return end < startOfToday();
 }
 
+const VALID_KINDS = new Set(['examen', 'cfa', 'insitu']);
+
+function isValidIso(s) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return false;
+  const [y, m, d] = s.split('-').map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  return (
+    dt.getUTCFullYear() === y &&
+    dt.getUTCMonth() === m - 1 &&
+    dt.getUTCDate() === d
+  );
+}
+
 function normalizeTrainingDates(raw) {
   if (!Array.isArray(raw)) return [];
   const out = new Set();
   for (const v of raw) {
     const s = String(v || '').trim().slice(0, 10);
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) continue;
-    const [y, m, d] = s.split('-').map(Number);
-    const dt = new Date(Date.UTC(y, m - 1, d));
-    if (
-      dt.getUTCFullYear() === y &&
-      dt.getUTCMonth() === m - 1 &&
-      dt.getUTCDate() === d
-    ) {
-      out.add(s);
-    }
+    if (isValidIso(s)) out.add(s);
   }
   return [...out].sort();
+}
+
+function normalizeTrainingEntries(raw, fallbackDates = []) {
+  const map = new Map();
+  if (Array.isArray(raw)) {
+    for (const row of raw) {
+      if (typeof row === 'string') {
+        const date = row.trim().slice(0, 10);
+        if (isValidIso(date) && !map.has(date)) map.set(date, { date, kind: 'cfa' });
+        continue;
+      }
+      const date = String(row?.date || '').trim().slice(0, 10);
+      if (!isValidIso(date)) continue;
+      const kind = VALID_KINDS.has(row?.kind) ? row.kind : 'cfa';
+      map.set(date, { date, kind });
+    }
+  }
+  if (map.size === 0 && Array.isArray(fallbackDates)) {
+    for (const d of fallbackDates) {
+      const date = String(d || '').trim().slice(0, 10);
+      if (isValidIso(date)) map.set(date, { date, kind: 'cfa' });
+    }
+  }
+  return [...map.values()].sort((a, b) => a.date.localeCompare(b.date));
+}
+
+function entriesFromPlanning(p) {
+  if (Array.isArray(p.trainingEntries) && p.trainingEntries.length > 0) {
+    return normalizeTrainingEntries(p.trainingEntries);
+  }
+  return normalizeTrainingEntries([], p.trainingDates || []);
 }
 
 /** Vue globale : uniquement apprentis actifs avec un planning déjà intégré */
@@ -93,6 +128,7 @@ const getGlobalView = async (req, res) => {
       })
       .map((p) => {
         const emp = p.employeeId;
+        const trainingEntries = entriesFromPlanning(p);
         return {
           employeeId: emp._id,
           name: emp.name,
@@ -103,7 +139,8 @@ const getGlobalView = async (req, res) => {
           hasFile: Boolean(p.filePath),
           uploadedAt: p.updatedAt || p.createdAt || null,
           datesSource: p.datesSource || 'none',
-          trainingDates: Array.isArray(p.trainingDates) ? p.trainingDates : []
+          trainingEntries,
+          trainingDates: trainingEntries.map((e) => e.date)
         };
       })
       .sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), 'fr'));
@@ -138,7 +175,11 @@ const uploadPlanning = async (req, res) => {
     }
 
     const parsed = await parseApprenticePlanningPdf(req.file.buffer);
-    const trainingDates = parsed.trainingDates || [];
+    const trainingEntries = normalizeTrainingEntries(
+      parsed.trainingEntries || [],
+      parsed.trainingDates || []
+    );
+    const trainingDates = trainingEntries.map((e) => e.date);
     const datesSource = parsed.source || 'none';
     const needsManualDates = trainingDates.length === 0;
 
@@ -164,8 +205,11 @@ const uploadPlanning = async (req, res) => {
     const keepManualDates =
       needsManualDates &&
       existing?.datesSource === 'manual' &&
-      Array.isArray(existing.trainingDates) &&
-      existing.trainingDates.length > 0;
+      ((Array.isArray(existing.trainingEntries) && existing.trainingEntries.length > 0) ||
+        (Array.isArray(existing.trainingDates) && existing.trainingDates.length > 0));
+
+    const keptEntries = keepManualDates ? entriesFromPlanning(existing) : trainingEntries;
+    const keptDates = keptEntries.map((e) => e.date);
 
     const doc = await ApprenticePlanning.findOneAndUpdate(
       { employeeId },
@@ -176,7 +220,8 @@ const uploadPlanning = async (req, res) => {
           originalName: req.file.originalname || fileName,
           filePath: remotePath,
           mimeType: req.file.mimetype || 'application/pdf',
-          trainingDates: keepManualDates ? existing.trainingDates : trainingDates,
+          trainingDates: keptDates,
+          trainingEntries: keptEntries,
           datesSource: keepManualDates ? 'manual' : datesSource,
           label: path.parse(req.file.originalname || '').name || '',
           uploadedByName
@@ -185,13 +230,18 @@ const uploadPlanning = async (req, res) => {
       { upsert: true, new: true }
     );
 
+    const kindCounts = keptEntries.reduce((acc, e) => {
+      acc[e.kind] = (acc[e.kind] || 0) + 1;
+      return acc;
+    }, {});
+
     res.json({
       success: true,
       data: doc,
       needsManualDates: needsManualDates && !keepManualDates,
       message:
         datesSource === 'pdf-mem'
-          ? `Planning enregistré — ${trainingDates.length} jour(s) de formation détectés dans le PDF.`
+          ? `Planning enregistré — ${keptDates.length} jour(s) détectés (CFA: ${kindCounts.cfa || 0}, In Situ: ${kindCounts.insitu || 0}, Examens: ${kindCounts.examen || 0}).`
           : keepManualDates
             ? 'PDF enregistré — les jours saisis manuellement ont été conservés.'
             : 'PDF enregistré, mais aucun jour détecté automatiquement. Saisissez les jours de formation manuellement.'
@@ -207,7 +257,11 @@ const saveManualDates = async (req, res) => {
   try {
     const siteKey = normalizeSiteKey(req.body?.siteKey || req.query?.siteKey);
     const employeeId = req.body?.employeeId;
-    const trainingDates = normalizeTrainingDates(req.body?.trainingDates);
+    const trainingEntries = normalizeTrainingEntries(
+      req.body?.trainingEntries,
+      req.body?.trainingDates
+    );
+    const trainingDates = trainingEntries.map((e) => e.date);
 
     if (!employeeId) {
       return res.status(400).json({ success: false, error: 'Salarié obligatoire' });
@@ -245,6 +299,7 @@ const saveManualDates = async (req, res) => {
         $set: {
           siteKey,
           trainingDates,
+          trainingEntries,
           datesSource: 'manual',
           uploadedByName,
           ...(existing
@@ -274,7 +329,11 @@ const saveManualDates = async (req, res) => {
 
 const updateTrainingDates = async (req, res) => {
   try {
-    const trainingDates = normalizeTrainingDates(req.body?.trainingDates);
+    const trainingEntries = normalizeTrainingEntries(
+      req.body?.trainingEntries,
+      req.body?.trainingDates
+    );
+    const trainingDates = trainingEntries.map((e) => e.date);
     if (trainingDates.length === 0) {
       return res.status(400).json({
         success: false,
@@ -283,7 +342,7 @@ const updateTrainingDates = async (req, res) => {
     }
     const doc = await ApprenticePlanning.findByIdAndUpdate(
       req.params.id,
-      { $set: { trainingDates, datesSource: 'manual' } },
+      { $set: { trainingDates, trainingEntries, datesSource: 'manual' } },
       { new: true }
     );
     if (!doc) {

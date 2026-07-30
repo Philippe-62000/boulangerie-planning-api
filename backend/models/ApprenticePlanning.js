@@ -1,5 +1,17 @@
 const mongoose = require('mongoose');
 
+const trainingEntrySchema = new mongoose.Schema(
+  {
+    date: { type: String, required: true }, // YYYY-MM-DD
+    kind: {
+      type: String,
+      enum: ['examen', 'cfa', 'insitu'],
+      default: 'cfa'
+    }
+  },
+  { _id: false }
+);
+
 const apprenticePlanningSchema = new mongoose.Schema(
   {
     employeeId: {
@@ -19,8 +31,10 @@ const apprenticePlanningSchema = new mongoose.Schema(
     originalName: { type: String, default: '' },
     filePath: { type: String, required: true },
     mimeType: { type: String, default: 'application/pdf' },
-    /** Jours de formation ISO YYYY-MM-DD extraits ou dérivés */
+    /** Jours ISO (compat) */
     trainingDates: [{ type: String }],
+    /** Jours avec type de couleur (examen / cfa / insitu) */
+    trainingEntries: [trainingEntrySchema],
     /** pdf-mem | weekdays | manual | none */
     datesSource: {
       type: String,
