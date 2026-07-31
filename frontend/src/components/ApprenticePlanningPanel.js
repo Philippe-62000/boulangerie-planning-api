@@ -30,6 +30,28 @@ const KIND_META = {
 
 const KIND_ORDER = ['cfa', 'insitu', 'examen'];
 
+const SHOP_POLES = [
+  { id: 'vente', label: 'Vente' },
+  { id: 'preparation', label: 'Prépa' },
+  { id: 'boulanger', label: 'Boulanger' }
+];
+
+function inferShopPole(emp) {
+  if (!emp) return 'vente';
+  const cat = String(emp.employeeCategory || '').toLowerCase();
+  if (cat === 'vente' || cat === 'preparation' || cat === 'boulanger') return cat;
+  const r = String(emp.role || '').toLowerCase();
+  if (r.includes('boulanger')) return 'boulanger';
+  if (r.includes('préparateur') || r.includes('preparateur') || r.includes('chef prod')) {
+    return 'preparation';
+  }
+  return 'vente';
+}
+
+function shopPoleLabel(id) {
+  return SHOP_POLES.find((p) => p.id === id)?.label || 'Vente';
+}
+
 function toIsoLocal(d) {
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, '0');
@@ -81,10 +103,16 @@ const ApprenticePlanningPanel = ({ apprentices = [] }) => {
   const [showManual, setShowManual] = useState(false);
   const [uploadMode, setUploadMode] = useState('pdf');
   const [employeeId, setEmployeeId] = useState('');
+  const [shopPole, setShopPole] = useState('vente');
   const [file, setFile] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [globalRows, setGlobalRows] = useState([]);
   const [loadingGlobal, setLoadingGlobal] = useState(false);
+  const [globalPoles, setGlobalPoles] = useState({
+    vente: true,
+    preparation: true,
+    boulanger: true
+  });
   const [cursor, setCursor] = useState(() => {
     const n = new Date();
     return { year: n.getFullYear(), month: n.getMonth() };
@@ -140,13 +168,39 @@ const ApprenticePlanningPanel = ({ apprentices = [] }) => {
     }
   };
 
+  const selectEmployee = (id, preferredPole) => {
+    setEmployeeId(id);
+    const emp = activeApprentices.find((e) => String(e._id) === String(id));
+    const fromPlanning = planningByEmployee[String(id)]?.shopPole;
+    setShopPole(
+      preferredPole ||
+        (fromPlanning === 'vente' || fromPlanning === 'preparation' || fromPlanning === 'boulanger'
+          ? fromPlanning
+          : inferShopPole(emp))
+    );
+  };
+
   const openManualEditor = (opts = {}) => {
-    setEmployeeId(opts.employeeId || employeeId || '');
+    const id = opts.employeeId || employeeId || '';
+    selectEmployee(id, opts.shopPole);
     setManualPlanningId(opts.planningId || null);
     setManualMap(entriesToMap(opts.trainingEntries, opts.trainingDates));
     setShowUpload(false);
     setShowGlobal(false);
     setShowManual(true);
+  };
+
+  const toggleGlobalPole = (poleId) => {
+    setGlobalPoles((prev) => {
+      const next = { ...prev, [poleId]: !prev[poleId] };
+      // Empêcher de tout désactiver
+      if (!next.vente && !next.preparation && !next.boulanger) return prev;
+      return next;
+    });
+  };
+
+  const setAllGlobalPoles = (on) => {
+    setGlobalPoles({ vente: on, preparation: on, boulanger: on });
   };
 
   const cycleManualDay = (iso) => {
@@ -167,6 +221,10 @@ const ApprenticePlanningPanel = ({ apprentices = [] }) => {
       toast.error('Sélectionnez un apprenti');
       return;
     }
+    if (!shopPole) {
+      toast.error('Choisissez le pôle (vente, prépa ou boulanger)');
+      return;
+    }
     if (!file) {
       toast.error('Choisissez un fichier PDF');
       return;
@@ -177,6 +235,7 @@ const ApprenticePlanningPanel = ({ apprentices = [] }) => {
       fd.append('file', file);
       fd.append('employeeId', employeeId);
       fd.append('siteKey', siteKey);
+      fd.append('shopPole', shopPole);
       const res = await api.post('/apprentice-plannings', fd);
       if (res.data?.success) {
         toast.success(res.data.message || 'Planning enregistré');
@@ -185,6 +244,7 @@ const ApprenticePlanningPanel = ({ apprentices = [] }) => {
         if (res.data.needsManualDates) {
           openManualEditor({
             employeeId,
+            shopPole: res.data.data?.shopPole || shopPole,
             planningId: res.data.data?._id,
             trainingEntries: res.data.data?.trainingEntries,
             trainingDates: res.data.data?.trainingDates
@@ -192,6 +252,7 @@ const ApprenticePlanningPanel = ({ apprentices = [] }) => {
         } else {
           setShowUpload(false);
           setEmployeeId('');
+          setShopPole('vente');
         }
       } else toast.error(res.data?.error || 'Erreur');
     } catch (err) {
@@ -207,6 +268,10 @@ const ApprenticePlanningPanel = ({ apprentices = [] }) => {
       toast.error('Sélectionnez un apprenti');
       return;
     }
+    if (!shopPole) {
+      toast.error('Choisissez le pôle (vente, prépa ou boulanger)');
+      return;
+    }
     const trainingEntries = Object.entries(manualMap)
       .map(([date, kind]) => ({ date, kind }))
       .sort((a, b) => a.date.localeCompare(b.date));
@@ -219,12 +284,14 @@ const ApprenticePlanningPanel = ({ apprentices = [] }) => {
       let res;
       if (manualPlanningId) {
         res = await api.put(`/apprentice-plannings/${manualPlanningId}/dates`, {
-          trainingEntries
+          trainingEntries,
+          shopPole
         });
       } else {
         res = await api.post('/apprentice-plannings/manual', {
           employeeId,
           siteKey,
+          shopPole,
           trainingEntries
         });
       }
@@ -232,6 +299,7 @@ const ApprenticePlanningPanel = ({ apprentices = [] }) => {
         toast.success(res.data.message || 'Jours enregistrés');
         setShowManual(false);
         setEmployeeId('');
+        setShopPole('vente');
         setManualMap({});
         setManualPlanningId(null);
         await loadListMeta();
@@ -269,9 +337,18 @@ const ApprenticePlanningPanel = ({ apprentices = [] }) => {
     }
   };
 
+  const filteredGlobalRows = useMemo(
+    () =>
+      globalRows.filter((r) => {
+        const pole = r.shopPole || 'vente';
+        return globalPoles[pole];
+      }),
+    [globalRows, globalPoles]
+  );
+
   const datesByDay = useMemo(() => {
     const map = {};
-    globalRows.forEach((r) => {
+    filteredGlobalRows.forEach((r) => {
       const entries =
         Array.isArray(r.trainingEntries) && r.trainingEntries.length
           ? r.trainingEntries
@@ -282,7 +359,25 @@ const ApprenticePlanningPanel = ({ apprentices = [] }) => {
       });
     });
     return map;
-  }, [globalRows]);
+  }, [filteredGlobalRows]);
+
+  const shopPoleField = (disabled) => (
+    <label>
+      <span>Pôle</span>
+      <select
+        value={shopPole}
+        onChange={(e) => setShopPole(e.target.value)}
+        disabled={disabled}
+        required
+      >
+        {SHOP_POLES.map((p) => (
+          <option key={p.id} value={p.id}>
+            {p.label}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
 
   const cells = useMemo(
     () => buildMonthCells(cursor.year, cursor.month),
@@ -338,7 +433,7 @@ const ApprenticePlanningPanel = ({ apprentices = [] }) => {
                   <span>Apprenti</span>
                   <select
                     value={employeeId}
-                    onChange={(e) => setEmployeeId(e.target.value)}
+                    onChange={(e) => selectEmployee(e.target.value)}
                     disabled={uploading}
                     required
                   >
@@ -350,6 +445,7 @@ const ApprenticePlanningPanel = ({ apprentices = [] }) => {
                     ))}
                   </select>
                 </label>
+                {shopPoleField(uploading)}
                 <label>
                   <span>Fichier PDF (planning officiel)</span>
                   <input
@@ -405,7 +501,7 @@ const ApprenticePlanningPanel = ({ apprentices = [] }) => {
                   value={employeeId}
                   onChange={(e) => {
                     const id = e.target.value;
-                    setEmployeeId(id);
+                    selectEmployee(id);
                     const p = planningByEmployee[id];
                     setManualPlanningId(p?._id || null);
                     setManualMap(entriesToMap(p?.trainingEntries, p?.trainingDates));
@@ -421,6 +517,7 @@ const ApprenticePlanningPanel = ({ apprentices = [] }) => {
                   ))}
                 </select>
               </label>
+              {shopPoleField}
               {kindLegend}
               <p className="app-plan-help">
                 Cliquez plusieurs fois sur un jour pour changer la couleur : rose (CFA) → vert (In
@@ -517,11 +614,36 @@ const ApprenticePlanningPanel = ({ apprentices = [] }) => {
               <p>Chargement…</p>
             ) : (
               <>
+                <div className="app-plan-pole-filter">
+                  <span className="app-plan-pole-filter-label">Afficher :</span>
+                  <button
+                    type="button"
+                    className={`app-plan-pole-btn ${
+                      globalPoles.vente && globalPoles.preparation && globalPoles.boulanger
+                        ? 'active'
+                        : ''
+                    }`}
+                    onClick={() => setAllGlobalPoles(true)}
+                  >
+                    Les 3
+                  </button>
+                  {SHOP_POLES.map((p) => (
+                    <button
+                      key={p.id}
+                      type="button"
+                      className={`app-plan-pole-btn ${globalPoles[p.id] ? 'active' : ''}`}
+                      onClick={() => toggleGlobalPole(p.id)}
+                    >
+                      {p.label}
+                    </button>
+                  ))}
+                </div>
                 {kindLegend}
                 <div className="app-plan-legend">
-                  {globalRows.map((r) => (
+                  {filteredGlobalRows.map((r) => (
                     <div key={String(r.employeeId)} className="app-plan-legend-row">
                       <strong>{r.name}</strong>
+                      <span className="app-plan-pole-tag">{shopPoleLabel(r.shopPole)}</span>
                       <span className="app-plan-muted">{r.trainingDates?.length || 0} jour(s)</span>
                       {r.hasFile ? (
                         <button
@@ -542,6 +664,7 @@ const ApprenticePlanningPanel = ({ apprentices = [] }) => {
                         onClick={() =>
                           openManualEditor({
                             employeeId: r.employeeId,
+                            shopPole: r.shopPole,
                             planningId: r.planningId,
                             trainingEntries: r.trainingEntries,
                             trainingDates: r.trainingDates
@@ -554,6 +677,9 @@ const ApprenticePlanningPanel = ({ apprentices = [] }) => {
                   ))}
                   {globalRows.length === 0 && (
                     <p>Aucun planning intégré. Importez un PDF ou saisissez les jours manuellement.</p>
+                  )}
+                  {globalRows.length > 0 && filteredGlobalRows.length === 0 && (
+                    <p>Aucun apprenti pour les pôles sélectionnés.</p>
                   )}
                 </div>
                 <div className="app-plan-month-nav">
@@ -607,7 +733,7 @@ const ApprenticePlanningPanel = ({ apprentices = [] }) => {
                               key={`${iso}-${r.employeeId}-${r.kind}`}
                               className="app-plan-pill"
                               style={{ background: KIND_META[r.kind]?.color || '#666' }}
-                              title={`${r.name} — ${KIND_META[r.kind]?.label || r.kind}`}
+                              title={`${r.name} (${shopPoleLabel(r.shopPole)}) — ${KIND_META[r.kind]?.label || r.kind}`}
                             >
                               {r.name.split(' ')[0]}
                             </span>
@@ -650,10 +776,11 @@ const ApprenticePlanningPanel = ({ apprentices = [] }) => {
         <div className="app-plan-status-hint">
           {activeApprentices.map((emp) => {
             const p = planningByEmployee[String(emp._id)];
+            const pole = p?.shopPole || inferShopPole(emp);
             return (
               <span key={emp._id} className={`app-plan-chip ${p ? 'has' : 'missing'}`}>
                 {emp.name}
-                {p ? ' · intégré' : ' · sans planning'}
+                {p ? ` · ${shopPoleLabel(pole)} · intégré` : ' · sans planning'}
               </span>
             );
           })}

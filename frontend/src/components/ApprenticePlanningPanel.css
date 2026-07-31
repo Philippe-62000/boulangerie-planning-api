@@ -49,6 +49,44 @@
   contain: layout paint;
 }
 
+.app-plan-pole-filter {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem;
+  margin-bottom: 0.85rem;
+}
+
+.app-plan-pole-filter-label {
+  font-size: 0.88rem;
+  color: #666;
+  margin-right: 0.25rem;
+}
+
+.app-plan-pole-btn {
+  border: 1px solid #d0c6b8;
+  background: #fff;
+  color: #555;
+  border-radius: 999px;
+  padding: 0.3rem 0.75rem;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.app-plan-pole-btn.active {
+  background: #2c3e50;
+  border-color: #2c3e50;
+  color: #fff;
+}
+
+.app-plan-pole-tag {
+  font-size: 0.75rem;
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+  background: #eef2f7;
+  color: #334155;
+}
+
 .app-plan-kind-legend {
   display: flex;
   flex-wrap: wrap;
