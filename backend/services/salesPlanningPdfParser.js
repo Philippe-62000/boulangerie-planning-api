@@ -31,7 +31,7 @@ async function extractTextFromPdf(buffer) {
     let pdfjsLib;
     try {
       // Dépendance ajoutée côté backend: pdfjs-dist
-      pdfjsLib = require('pdfjs-dist/legacy/build/pdf.js');
+      pdfjsLib = require('pdfjs-dist/legacy/build/pdf.mjs');
     } catch (e) {
       // Fallback indisponible → remonter l'erreur originale (plus explicite pour l'utilisateur)
       throw err;
