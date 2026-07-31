@@ -53,7 +53,7 @@ function toUint8Array(buffer) {
 function loadPdfJs() {
   try {
     // eslint-disable-next-line global-require
-    return require('pdfjs-dist/legacy/build/pdf.js');
+    return require('pdfjs-dist/legacy/build/pdf.mjs');
   } catch (err) {
     throw new Error(`pdfjs-dist indisponible: ${err.message}`);
   }
