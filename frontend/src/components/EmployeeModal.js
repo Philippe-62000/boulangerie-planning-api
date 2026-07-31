@@ -18,8 +18,10 @@ const getTutorId = (value) => {
 const inferCategoryFromRole = (role) => {
   if (!role || typeof role !== 'string') return 'vente';
   const r = role.toLowerCase();
-  if (r === 'boulanger' || r === 'apprenti boulanger') return 'boulanger';
-  if (r === 'préparateur' || r === 'apprenti préparateur' || r === 'chef prod') return 'preparation';
+  if (r.includes('boulanger')) return 'boulanger';
+  if (r.includes('préparateur') || r.includes('preparateur') || r.includes('chef prod')) {
+    return 'preparation';
+  }
   return 'vente';
 };
 
@@ -256,8 +258,13 @@ const EmployeeModal = ({ employee, onSave, onClose, employees = [] }) => {
       return;
     }
 
-    // Pour les apprentis, vérifier qu'ils ont des jours de formation et une date de fin de contrat
+    // Pour les apprentis (vente / prépa / boulanger) : tuteur, jours CFA, fin de contrat
     if (formData.contractType === 'Apprentissage') {
+      const tutorValueCheck = getTutorId(formData.tutor);
+      if (!tutorValueCheck) {
+        alert('Veuillez sélectionner un tuteur pour cet apprenti');
+        return;
+      }
       if (formData.trainingDays.length === 0) {
         alert('Les apprentis doivent avoir au moins un jour de formation');
         return;
@@ -418,6 +425,30 @@ const EmployeeModal = ({ employee, onSave, onClose, employees = [] }) => {
               <small className="form-text" style={{ color: '#666', marginTop: '5px' }}>
                 Nécessaire pour calculer précisément le nombre de jours avant les 18 ans
               </small>
+            </div>
+          )}
+
+          {/* Tuteur — dès le choix Apprentissage (vente / prépa / boulanger) */}
+          {formData.contractType === 'Apprentissage' && (
+            <div className="form-group">
+              <label className="form-label">Tuteur *</label>
+              <select
+                name="tutor"
+                value={formData.tutor}
+                onChange={handleInputChange}
+                className="form-control"
+                required
+              >
+                <option value="">Sélectionner un tuteur</option>
+                {employees
+                  .filter((emp) => emp._id !== employee?._id && emp.isActive !== false)
+                  .map((emp) => (
+                    <option key={emp._id} value={emp._id}>
+                      {emp.name} — {emp.role}
+                    </option>
+                  ))}
+              </select>
+              <small className="form-text">Obligatoire pour tout apprenti (vente, prépa ou boulanger)</small>
             </div>
           )}
 
@@ -607,29 +638,6 @@ const EmployeeModal = ({ employee, onSave, onClose, employees = [] }) => {
               ))}
             </div>
           </div>
-
-          {/* Champ Tuteur pour les apprentis */}
-          {formData.contractType === 'Apprentissage' && (
-            <div className="form-group">
-              <label className="form-label">Tuteur *</label>
-              <select
-                name="tutor"
-                value={formData.tutor}
-                onChange={handleInputChange}
-                className="form-control"
-                required
-              >
-                <option value="">Sélectionner un tuteur</option>
-                {employees
-                  .filter(emp => emp._id !== employee?._id && emp.isActive)
-                  .map(emp => (
-                    <option key={emp._id} value={emp._id}>
-                      {emp.name} - {emp.role}
-                    </option>
-                  ))}
-              </select>
-            </div>
-          )}
 
           {formData.contractType === 'Apprentissage' && (
             <>
