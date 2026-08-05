@@ -91,9 +91,6 @@ function buildStaffMessageTicket(doc) {
   wrapPreservingNewlines(doc.message, TICKET_WIDTH).forEach((l) => lines.push(l));
   lines.push(separator());
   pushWrapped(lines, 'Envoye le', formatParisDateTime(doc.createdAt));
-  if (doc.createdByName) {
-    pushWrapped(lines, 'Par', doc.createdByName);
-  }
 
   return {
     id: String(doc._id),
