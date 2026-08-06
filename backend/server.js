@@ -243,7 +243,17 @@ app.use('/api/online-orders', require('./routes/onlineOrders'));
 app.use('/api/partner-auth', require('./routes/partnerAuth'));
 app.use('/api/partner-orders', require('./routes/partnerOrders'));
 app.use('/api/partner-admin', require('./routes/partnerAdmin'));
-app.use('/api/staff-print-messages', require('./routes/staffPrintMessages'));
+try {
+  const staffPrintMessageController = require('./controllers/staffPrintMessageController');
+  const { authenticateEmployee: authStaffPrint } = require('./middleware/auth');
+  app.use('/api/staff-print-messages', require('./routes/staffPrintMessages'));
+  // Routes explicites (évite 404 Render si le router n'est pas pris en compte)
+  app.post('/api/staff-print-messages', authStaffPrint, staffPrintMessageController.createStaffMessage);
+  app.get('/api/staff-print-messages/audiences', authStaffPrint, staffPrintMessageController.listAudiences);
+  console.log('✅ Routes staff-print-messages montées (/api/staff-print-messages)');
+} catch (err) {
+  console.error('❌ Impossible de monter /api/staff-print-messages:', err.message);
+}
 try {
   app.use('/api/apprentice-plannings', require('./routes/apprenticePlannings'));
   console.log('✅ Routes apprentice-plannings montées (/api/apprentice-plannings/*)');
