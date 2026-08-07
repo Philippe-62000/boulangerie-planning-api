@@ -617,7 +617,9 @@
                 select.innerHTML = '<option value="">Sélectionner un salarié</option>';
                 
                 if (data.success && data.data) {
-                    data.data.forEach(employee => {
+                    data.data
+                        .filter((employee) => employee.isActive !== false)
+                        .forEach(employee => {
                         const option = document.createElement('option');
                         option.value = employee._id;
                         option.textContent = `${employee.name} - ${employee.role}`;
@@ -827,9 +829,11 @@
                         html += `<p style="color: #667eea; margin-bottom: 15px;"><strong>📤 Vue "Dernier upload"</strong> : ${personalDocs.length} document(s) du dernier batch (${formatDate(maxDate)})</p>`;
                     }
                     
-                    // Grouper par salarié
+                    // Grouper par salarié actif uniquement (désactivés exclus)
                     const byEmployee = {};
                     personalDocs.forEach(doc => {
+                        if (!doc.employeeId) return;
+                        if (doc.employeeId.isActive === false) return;
                         const empId = doc.employeeId?._id || doc.employeeId;
                         const empName = doc.employeeId?.name || 'Salarié inconnu';
                         const empRole = doc.employeeId?.role || '';

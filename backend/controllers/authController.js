@@ -30,6 +30,13 @@ const sendPasswordToEmployee = async (req, res) => {
         error: 'Employé non trouvé'
       });
     }
+
+    if (employee.isActive === false) {
+      return res.status(400).json({
+        success: false,
+        error: 'Ce salarié est désactivé'
+      });
+    }
     
     if (!employee.email) {
       return res.status(400).json({
@@ -343,6 +350,14 @@ const getEmployeeProfile = async (req, res) => {
         error: 'Employé non trouvé'
       });
     }
+
+    if (employee.isActive === false) {
+      return res.status(401).json({
+        success: false,
+        error: 'Compte salarié désactivé',
+        deactivated: true
+      });
+    }
     
     res.json({
       success: true,
@@ -405,6 +420,14 @@ const changePassword = async (req, res) => {
       return res.status(404).json({
         success: false,
         message: 'Employé non trouvé'
+      });
+    }
+
+    if (employee.isActive === false) {
+      return res.status(401).json({
+        success: false,
+        message: 'Compte salarié désactivé',
+        deactivated: true
       });
     }
     

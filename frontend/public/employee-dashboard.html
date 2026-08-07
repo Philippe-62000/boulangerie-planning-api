@@ -1276,10 +1276,16 @@
                 });
 
                 if (!response.ok) {
-                    throw new Error('Token invalide');
+                    localStorage.removeItem('employeeToken');
+                    throw new Error('Token invalide ou compte désactivé');
                 }
 
                 const data = await response.json();
+                if (data.deactivated || data.employee?.isActive === false) {
+                    localStorage.removeItem('employeeToken');
+                    redirectToLogin();
+                    return;
+                }
                 console.log('🔍 Données reçues de l\'API employee-profile:', data);
                 currentEmployee = data.employee;
                 console.log('🔍 currentEmployee défini:', currentEmployee);
