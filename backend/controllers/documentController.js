@@ -52,14 +52,21 @@ exports.getAllPersonalDocuments = async (req, res) => {
     console.log('📋 Récupération de tous les documents personnels (admin)');
     
     const documents = await Document.find({ type: 'personal' })
-      .populate('employeeId', 'name role')
+      .populate({
+        path: 'employeeId',
+        select: 'name role isActive',
+        match: { isActive: true }
+      })
       .sort({ uploadDate: -1 });
+
+    // Exclure les docs liés à un salarié désactivé (populate → null)
+    const activeOnly = documents.filter((doc) => doc.employeeId);
     
-    console.log(`✅ ${documents.length} documents personnels récupérés`);
+    console.log(`✅ ${activeOnly.length} documents personnels (salariés actifs) récupérés`);
     
     res.json({
       success: true,
-      data: documents
+      data: activeOnly
     });
   } catch (error) {
     console.error('❌ Erreur lors de la récupération des documents personnels:', error);
@@ -75,12 +82,18 @@ exports.getAllPersonalDocuments = async (req, res) => {
 exports.getEmployeeUploads = async (req, res) => {
   try {
     const documents = await Document.find({ type: 'employee_upload' })
-      .populate('employeeId', 'name role email')
+      .populate({
+        path: 'employeeId',
+        select: 'name role email isActive',
+        match: { isActive: true }
+      })
       .sort({ uploadDate: -1 });
+
+    const activeOnly = documents.filter((doc) => doc.employeeId);
 
     res.json({
       success: true,
-      data: documents
+      data: activeOnly
     });
   } catch (error) {
     console.error('❌ Erreur récupération envois salariés:', error);

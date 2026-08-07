@@ -38,6 +38,19 @@ const authenticateEmployee = async (req, res, next) => {
     // Ajouter les informations de l'utilisateur à req.user pour compatibilité
     // Gérer à la fois les tokens admin (userId) et employee (employeeId)
     const userId = decoded.employeeId || decoded.userId || decoded.id;
+
+    // Salarié désactivé : invalider toute session JWT restante
+    if (decoded.role === 'employee' && userId) {
+      const Employee = require('../models/Employee');
+      const employee = await Employee.findById(userId).select('isActive name email');
+      if (!employee || employee.isActive === false) {
+        return res.status(401).json({
+          success: false,
+          error: 'Compte salarié désactivé',
+          deactivated: true
+        });
+      }
+    }
     
     req.user = {
       id: userId,
