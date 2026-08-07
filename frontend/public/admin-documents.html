@@ -991,22 +991,39 @@
                     body: formData
                 });
 
-                const result = await response.json();
+                let result = {};
+                const raw = await response.text();
+                try {
+                    result = raw ? JSON.parse(raw) : {};
+                } catch (_) {
+                    showAlert(
+                        `Erreur serveur (${response.status}). Réessayez ou vérifiez le type/taille du fichier (PDF, max 10 Mo).`,
+                        'danger'
+                    );
+                    return;
+                }
 
-                if (result.success) {
+                if (response.ok && result.success) {
                     showAlert(successMessage, 'success');
                     // Réinitialiser les formulaires
                     document.getElementById('generalUploadForm').reset();
                     document.getElementById('personalUploadForm').reset();
                     document.getElementById('batchUploadForm').reset();
-                    // Recharger la liste
-                    await loadDocuments();
+                    // Recharger la liste (ne pas faire échouer l'upload si le refresh échoue)
+                    try {
+                        await loadDocuments();
+                    } catch (reloadErr) {
+                        console.warn('Upload OK mais refresh liste:', reloadErr);
+                    }
                 } else {
-                    showAlert(result.error || 'Erreur lors de l\'upload', 'danger');
+                    showAlert(
+                        result.message || result.error || `Erreur lors de l'upload (${response.status})`,
+                        'danger'
+                    );
                 }
             } catch (error) {
                 console.error('Erreur upload:', error);
-                showAlert('Erreur lors de l\'upload du document', 'danger');
+                showAlert('Erreur réseau lors de l\'upload du document', 'danger');
             }
         }
 

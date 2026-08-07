@@ -24,18 +24,36 @@ const upload = multer({
     fileSize: 10 * 1024 * 1024 // 10MB max
   },
   fileFilter: function (req, file, cb) {
-    // Vérifier le type de fichier
-    const allowedTypes = /pdf|doc|docx|xls|xlsx|jpg|jpeg|png|txt/;
-    const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
-    const mimetype = allowedTypes.test(file.mimetype);
-    
-    if (mimetype && extname) {
+    // Accepter surtout sur l'extension : le MIME varie selon le navigateur
+    // (ex. application/octet-stream) et faisait échouer certains uploads.
+    const allowedExt = new Set(['.pdf', '.doc', '.docx', '.xls', '.xlsx', '.jpg', '.jpeg', '.png', '.txt']);
+    const ext = path.extname(file.originalname || '').toLowerCase();
+    if (allowedExt.has(ext)) {
       return cb(null, true);
-    } else {
-      cb(new Error('Type de fichier non autorisé'));
     }
+    cb(new Error(`Type de fichier non autorisé (${ext || 'inconnu'}). Autorisés: PDF, DOC, DOCX, XLS, XLSX, JPG, PNG, TXT`));
   }
 });
+
+function handleMulterUploadError(err, req, res, next) {
+  if (!err) return next();
+  if (err instanceof multer.MulterError) {
+    if (err.code === 'LIMIT_FILE_SIZE') {
+      return res.status(400).json({
+        success: false,
+        message: 'Fichier trop volumineux (maximum 10 Mo)'
+      });
+    }
+    return res.status(400).json({
+      success: false,
+      message: `Erreur upload: ${err.message}`
+    });
+  }
+  return res.status(400).json({
+    success: false,
+    message: err.message || 'Erreur lors de l\'upload du fichier'
+  });
+}
 
 // Middleware pour créer le dossier temp s'il n'existe pas
 const ensureTempDir = (req, res, next) => {
@@ -103,7 +121,14 @@ router.get('/:id/download', documentController.downloadDocument);
 router.get('/personal/:employeeId', documentController.getPersonalDocuments);
 
 // POST /api/documents/upload - Upload un document (admin seulement)
-router.post('/upload', ensureTempDir, upload.single('file'), documentController.uploadDocument);
+router.post(
+  '/upload',
+  ensureTempDir,
+  (req, res, next) => {
+    upload.single('file')(req, res, (err) => handleMulterUploadError(err, req, res, next));
+  },
+  documentController.uploadDocument
+);
 
 // DELETE /api/documents/:documentId - Supprimer un document (admin seulement)
 router.delete('/:documentId', documentController.deleteDocument);
