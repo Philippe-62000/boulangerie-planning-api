@@ -442,6 +442,12 @@ exports.uploadDocument = async (req, res) => {
           message: 'Employé non trouvé'
         });
       }
+      if (employee.isActive === false) {
+        return res.status(400).json({
+          success: false,
+          message: 'Ce salarié est désactivé : impossible de lui ajouter un document'
+        });
+      }
     }
     
     // Validation du type de fichier
