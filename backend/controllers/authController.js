@@ -165,7 +165,7 @@ const employeeLogin = async (req, res) => {
     // Générer un token JWT
     const token = jwt.sign(
       { 
-        employeeId: employee._id,
+        employeeId: employee._id.toString(),
         email: employee.email,
         name: employee.name,
         role: 'employee'

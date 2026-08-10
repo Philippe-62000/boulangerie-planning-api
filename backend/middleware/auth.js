@@ -35,15 +35,27 @@ const authenticateEmployee = async (req, res, next) => {
       });
     }
     
-    // Ajouter les informations de l'utilisateur à req.user pour compatibilité
-    // Gérer à la fois les tokens admin (userId) et employee (employeeId)
-    const userId = decoded.employeeId || decoded.userId || decoded.id;
+    // ID salarié réel (fiche Employee) — pas le userId du compte générique "salarie" React
+    const employeeId =
+      decoded.employeeId != null ? String(decoded.employeeId) : null;
+    const userId =
+      employeeId ||
+      (decoded.userId != null ? String(decoded.userId) : null) ||
+      (decoded.id != null ? String(decoded.id) : null);
 
-    // Salarié désactivé : invalider toute session JWT restante
-    if (decoded.role === 'employee' && userId) {
+    // Uniquement pour les tokens liés à une fiche Employee (salarie-connexion / code vendeuse)
+    // Le token générique React « Salarié » n'a que userId (User) : ne pas le traiter comme Employee
+    if (decoded.role === 'employee' && employeeId) {
       const Employee = require('../models/Employee');
-      const employee = await Employee.findById(userId).select('isActive name email');
-      if (!employee || employee.isActive === false) {
+      const employee = await Employee.findById(employeeId).select('isActive name email');
+      if (!employee) {
+        return res.status(401).json({
+          success: false,
+          error: 'Token invalide (employé introuvable)',
+          invalidToken: true
+        });
+      }
+      if (employee.isActive === false) {
         return res.status(401).json({
           success: false,
           error: 'Compte salarié désactivé',
@@ -57,11 +69,11 @@ const authenticateEmployee = async (req, res, next) => {
       email: decoded.email,
       name: decoded.name,
       role: decoded.role,
-      employeeId: decoded.role === 'admin' ? null : userId
+      employeeId: decoded.role === 'admin' ? null : (employeeId || userId)
     };
     req.saleCode = typeof decoded.saleCode === 'string' ? decoded.saleCode : undefined;
     
-    req.employeeId = decoded.role === 'admin' ? null : userId;
+    req.employeeId = decoded.role === 'admin' ? null : (employeeId || userId);
     req.employeeEmail = decoded.email;
     req.employeeName = decoded.name;
     
