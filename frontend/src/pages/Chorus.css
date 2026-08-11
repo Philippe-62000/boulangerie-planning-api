@@ -199,7 +199,8 @@
   font-weight: normal;
 }
 
-.btn {
+/* Scopé : ces .btn globaux écrasaient .btn-info ailleurs (ex. Employés → bouton MDP blanc) */
+.chorus-page .btn {
   padding: 0.45rem 0.9rem;
   border-radius: 6px;
   border: 1px solid #ccc;
@@ -208,35 +209,35 @@
   font-size: 0.9rem;
 }
 
-.btn-primary {
+.chorus-page .btn-primary {
   background: #0d6efd;
   color: #fff;
   border-color: #0d6efd;
 }
 
-.btn-success {
+.chorus-page .btn-success {
   background: #198754;
   color: #fff;
   border-color: #198754;
 }
 
-.btn-danger {
+.chorus-page .btn-danger {
   background: #dc3545;
   color: #fff;
   border-color: #dc3545;
 }
 
-.btn-sm {
+.chorus-page .btn-sm {
   padding: 0.25rem 0.5rem;
   font-size: 0.8rem;
 }
 
-.btn-xs {
+.chorus-page .btn-xs {
   padding: 0.15rem 0.45rem;
   font-size: 0.75rem;
 }
 
-.btn-outline {
+.chorus-page .btn-outline {
   border: 1px solid #0d6efd;
   color: #0d6efd;
   background: #fff;

@@ -42,6 +42,22 @@
   color: #fff;
 }
 
+/* Modal employé : bouton MDP toujours lisible (évite écrasement par d'autres .btn globaux) */
+.modal-content .btn-send-password,
+.modal-content .btn.btn-info.btn-send-password {
+  background: #17a2b8 !important;
+  background-color: #17a2b8 !important;
+  color: #fff !important;
+  border: none !important;
+}
+
+.modal-content .btn-send-password:hover:not(:disabled),
+.modal-content .btn.btn-info.btn-send-password:hover:not(:disabled) {
+  background: #138496 !important;
+  background-color: #138496 !important;
+  color: #fff !important;
+}
+
 .employees .header-actions .btn-purple {
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: #fff;

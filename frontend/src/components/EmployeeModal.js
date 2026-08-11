@@ -793,7 +793,7 @@ const EmployeeModal = ({ employee, onSave, onClose, employees = [] }) => {
             {employee && (
               <button
                 type="button"
-                className="btn btn-info"
+                className="btn btn-info btn-send-password"
                 onClick={handleSendPassword}
                 title="Envoyer les informations de connexion par email"
               >
