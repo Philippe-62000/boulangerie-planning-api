@@ -25,7 +25,18 @@ const documentSchema = new mongoose.Schema({
   category: {
     type: String,
     required: true,
-    enum: ['notice', 'procedure', 'formation', 'payslip', 'contract', 'regulation', 'other', 'employee_submission'],
+    enum: [
+      'notice',
+      'procedure',
+      'formation',
+      'training', // alias UI admin-documents (« Formation »)
+      'payslip',
+      'contract',
+      'certificate', // Attestation (UI admin-documents)
+      'regulation',
+      'other',
+      'employee_submission'
+    ],
     comment: 'Catégorie du document'
   },
   employeeId: {
@@ -265,8 +276,11 @@ documentSchema.statics.getCategoryLabel = function(category) {
     'notice': '📋 Notice',
     'procedure': '📝 Procédure',
     'formation': '🎓 Formation',
+    'training': '🎓 Formation',
     'payslip': '💰 Fiche de paie',
     'contract': '📄 Contrat',
+    'certificate': '📎 Attestation',
+    'regulation': '⚖️ Réglementation',
     'other': '📁 Autre',
     'employee_submission': '📤 Envoi salarié'
   };
