@@ -722,6 +722,17 @@ exports.uploadDocument = async (req, res) => {
     
   } catch (error) {
     console.error('❌ Erreur lors de l\'upload:', error);
+    if (error.name === 'ValidationError') {
+      const details = Object.values(error.errors || {})
+        .map((e) => e.message)
+        .filter(Boolean)
+        .join(' ; ');
+      return res.status(400).json({
+        success: false,
+        message: details || 'Données invalides (vérifiez la catégorie du document)',
+        error: error.message
+      });
+    }
     res.status(500).json({
       success: false,
       message: 'Erreur lors de l\'upload du document',
