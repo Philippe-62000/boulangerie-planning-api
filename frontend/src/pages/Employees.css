@@ -26,13 +26,73 @@
 
 .header-actions {
   display: flex;
+  flex-wrap: wrap;
   gap: var(--spacing-3);
+  justify-content: flex-end;
+}
+
+/* Styles locaux (évite les boutons « invisibles » si le CSS global est mal découpé) */
+.employees .header-actions .btn-info {
+  background: #17a2b8;
+  color: #fff;
+}
+
+.employees .header-actions .btn-info:hover:not(:disabled) {
+  background: #138496;
+  color: #fff;
+}
+
+/* Modal employé : bouton MDP toujours lisible (évite écrasement par d'autres .btn globaux) */
+.modal-content .btn-send-password,
+.modal-content .btn.btn-info.btn-send-password {
+  background: #17a2b8 !important;
+  background-color: #17a2b8 !important;
+  color: #fff !important;
+  border: none !important;
+}
+
+.modal-content .btn-send-password:hover:not(:disabled),
+.modal-content .btn.btn-info.btn-send-password:hover:not(:disabled) {
+  background: #138496 !important;
+  background-color: #138496 !important;
+  color: #fff !important;
+}
+
+.employees .header-actions .btn-purple {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: #fff;
+}
+
+.employees .header-actions .btn-purple:hover:not(:disabled) {
+  background: linear-gradient(135deg, #5568d3 0%, #63408a 100%);
+  color: #fff;
+}
+
+.employees .header-actions .btn-pink {
+  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+  color: #fff;
+}
+
+.employees .header-actions .btn-pink:hover:not(:disabled) {
+  background: linear-gradient(135deg, #da7de3 0%, #d94859 100%);
+  color: #fff;
+}
+
+.employees .header-actions .btn-warning {
+  background: #f59e0b;
+  color: #212529;
+}
+
+.employees .header-actions .btn-warning:hover:not(:disabled) {
+  background: #d97706;
+  color: #212529;
 }
 
 .btn-icon {
   width: 18px;
   height: 18px;
   margin-right: var(--spacing-2);
+  flex-shrink: 0;
 }
 
 /* Tableau des employés */
