@@ -1,58 +1,46 @@
 const fs = require('fs');
 const path = require('path');
 
-// Essayer d'utiliser pdf-parse si disponible
-let pdfParse;
-try {
-  pdfParse = require('pdf-parse');
-} catch (error) {
-  // Essayer depuis le dossier backend avec différents chemins possibles
-  // Le script .bat peut être lancé depuis n'importe quel répertoire
+function trouverPdfParse() {
+  try {
+    return require('pdf-parse');
+  } catch (_) {
+    /* continue */
+  }
   const scriptDir = __dirname;
   const currentDir = process.cwd();
-  
-  // Liste des chemins possibles pour trouver backend/node_modules/pdf-parse
   const cheminsPossibles = [
-    // Depuis le répertoire du script (si le script est à la racine du projet)
-    path.resolve(scriptDir, 'backend', 'node_modules', 'pdf-parse'),
-    // Depuis le répertoire courant (où le .bat a été lancé)
-    path.resolve(currentDir, 'backend', 'node_modules', 'pdf-parse'),
-    // Depuis le répertoire parent du script (si le script est dans un sous-dossier)
     path.resolve(scriptDir, '..', 'backend', 'node_modules', 'pdf-parse'),
-    // Depuis le répertoire parent du répertoire courant
     path.resolve(currentDir, '..', 'backend', 'node_modules', 'pdf-parse'),
-    // Depuis le répertoire parent du parent (pour être sûr)
+    path.resolve(scriptDir, 'backend', 'node_modules', 'pdf-parse'),
+    path.resolve(currentDir, 'backend', 'node_modules', 'pdf-parse'),
     path.resolve(scriptDir, '..', '..', 'backend', 'node_modules', 'pdf-parse'),
-    path.resolve(currentDir, '..', '..', 'backend', 'node_modules', 'pdf-parse'),
   ];
-  
-  let trouve = false;
   for (const chemin of cheminsPossibles) {
     try {
-      const packageJsonPath = path.join(chemin, 'package.json');
-      if (fs.existsSync(packageJsonPath)) {
-        pdfParse = require(chemin);
-        trouve = true;
-        break;
+      if (fs.existsSync(path.join(chemin, 'package.json'))) {
+        return require(chemin);
       }
-    } catch (e) {
-      // Continuer avec le chemin suivant
+    } catch (_) {
+      /* continue */
     }
   }
-  
-  if (!trouve) {
-    process.exit(1);
-  }
+  return null;
 }
 
-// Rejeter les mots qui ressemblent à une adresse (ex: 24ROUTEDESBRUYERES) et non un nom
+const pdfParse = trouverPdfParse();
+
+function normalizeAccents(str) {
+  return String(str || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toUpperCase();
+}
+
 function estAdresseOuNonNom(mot) {
   if (!mot || mot.length < 2) return true;
-  // Contient des chiffres (24, 12, etc.) -> adresse
   if (/\d/.test(mot)) return true;
-  // Mot trop long et concaténé (ex: ROUTEDESBRUYERES) -> adresse
   if (mot.length > 12 && mot === mot.toUpperCase()) return true;
-  // Mots-clés d'adresse (sans espaces dans le PDF)
   const motsAdresse = ['RUE', 'ROUTE', 'AVENUE', 'PLACE', 'ALLEE', 'CHEMIN', 'IMPASSE', 'BOULEVARD', 'BD', 'SQUARE', 'COURS', 'QUAI', 'PASSAGE'];
   const motUpper = mot.toUpperCase();
   for (const m of motsAdresse) {
@@ -61,7 +49,6 @@ function estAdresseOuNonNom(mot) {
   return false;
 }
 
-// Valider qu'un résultat "NOM Prénom" ne contient pas d'adresse
 function validerNom(nomComplet) {
   if (!nomComplet) return null;
   const parties = nomComplet.split(/\s+/);
@@ -71,62 +58,45 @@ function validerNom(nomComplet) {
   return nomComplet;
 }
 
-// Fonction pour extraire le nom depuis le texte d'une page PDF
 function extraireNom(texte) {
-  if (!texte || texte.trim().length === 0) {
-    return null;
-  }
-  
-  // Nettoyer le texte
+  if (!texte || texte.trim().length === 0) return null;
+
   const lignes = texte.split('\n')
-    .map(l => l.trim())
-    .filter(l => l.length > 0 && !/^\d+$/.test(l)); // Exclure les lignes avec uniquement des chiffres
-  
-  // Chercher un nom dans les premières lignes (généralement en haut de la fiche de paie)
-  // Format typique: "Madame Justine CASTIER" ou "Monsieur Jean DUPONT" ou "Justine CASTIER"
-  
-  // Chercher des patterns de noms dans les 50 premières lignes (augmenté pour plus de chance)
+    .map((l) => l.trim())
+    .filter((l) => l.length > 0 && !/^\d+$/.test(l));
+
   const texteRecherche = lignes.slice(0, 50);
-  
-  // Pattern 1: "Madame Prénom NOM" ou "Monsieur Prénom NOM" (dans une ligne) - PRIORITAIRE
+
   for (const ligne of texteRecherche) {
-    // Pattern strict: "Madame Justine CASTIER" - chercher "Madame" suivi de prénom puis NOM en majuscules
     const match1 = ligne.match(/^(?:Monsieur|Madame|M\.|Mme|Mlle)\s+([A-ZÉÈÊËÀÂÄÔÖÙÛÜÇ][a-zéèêëàâäôöùûüç\s\-']{2,})\s+([A-ZÉÈÊËÀÂÄÔÖÙÛÜÇ][A-ZÉÈÊËÀÂÄÔÖÙÛÜÇ\s\-']{2,})$/i);
     if (match1 && match1[1] && match1[2]) {
       const prenom = match1[1].trim();
       const nom = match1[2].trim();
-      // Vérifier que ce n'est pas "DE SALAIRE" ou autre texte non-nom
       if (nom.length > 2 && nom !== 'SALAIRE' && prenom.length > 2) {
         const res = validerNom(`${nom} ${prenom}`);
         if (res) return res;
       }
     }
-    
-    // Pattern plus flexible: chercher "Madame" puis prénom puis NOM
+
     const match2 = ligne.match(/(?:Monsieur|Madame|M\.|Mme|Mlle)\s+([A-ZÉÈÊËÀÂÄÔÖÙÛÜÇ][a-zéèêëàâäôöùûüç\s\-']{2,})\s+([A-ZÉÈÊËÀÂÄÔÖÙÛÜÇ]{2,})/i);
     if (match2 && match2[1] && match2[2]) {
       const prenom = match2[1].trim();
       const nom = match2[2].trim();
-      // Vérifier que ce n'est pas "DE SALAIRE" ou autre texte non-nom
       if (nom.length > 2 && nom !== 'SALAIRE' && !nom.includes('SALAIRE') && prenom.length > 2 && !prenom.includes('DE')) {
         const res = validerNom(`${nom} ${prenom}`);
         if (res) return res;
       }
     }
   }
-  
-  // Pattern 2: Ligne avec 2-3 mots, format "Prénom NOM" (le dernier en majuscules) - FILTRER "DE SALAIRE"
+
   for (const ligne of texteRecherche) {
-    const mots = ligne.split(/\s+/).filter(m => m.length > 1);
+    const mots = ligne.split(/\s+/).filter((m) => m.length > 1);
     if (mots.length >= 2 && mots.length <= 4) {
       const dernierMot = mots[mots.length - 1];
       const avantDernierMot = mots[mots.length - 2];
-      
-      // Si le dernier mot est en majuscules (NOM) et l'avant-dernier commence par une majuscule (Prénom)
       if (dernierMot === dernierMot.toUpperCase() && dernierMot.length > 2 &&
           avantDernierMot && avantDernierMot[0] === avantDernierMot[0].toUpperCase()) {
-        // Filtrer les mots non-noms
-        if (dernierMot !== 'SALAIRE' && !dernierMot.includes('SALAIRE') && 
+        if (dernierMot !== 'SALAIRE' && !dernierMot.includes('SALAIRE') &&
             avantDernierMot !== 'DE' && !avantDernierMot.includes('DE')) {
           const res = validerNom(`${dernierMot} ${avantDernierMot}`);
           if (res) return res;
@@ -134,139 +104,205 @@ function extraireNom(texte) {
       }
     }
   }
-  
-  // Pattern 3: Chercher "Nom:" ou "Prénom:" avec valeurs (si présent dans le PDF)
-  const texteJoint = texteRecherche.join(' ');
-  let match = texteJoint.match(/(?:Nom[:\s]+)([A-ZÉÈÊËÀÂÄÔÖÙÛÜÇ][A-ZÉÈÊËÀÂÄÔÖÙÛÜÇ\s\-']{2,})(?:\s+Prénom[:\s]+)?([A-ZÉÈÊËÀÂÄÔÖÙÛÜÇ][a-zéèêëàâäôöùûüç\s\-']{2,})?/i);
-  if (match && match[1]) {
-    const nom = match[1].trim();
-    const prenom = match[2] ? match[2].trim() : '';
-    if (nom !== 'SALAIRE' && !nom.includes('SALAIRE')) {
-      if (prenom && prenom.length > 2) {
-        const res = validerNom(`${nom} ${prenom}`);
-        if (res) return res;
-      }
-      const res = validerNom(nom);
-      if (res) return res;
-    }
-  }
-  
-  // Pattern 4: Deux mots consécutifs, l'un en majuscules (NOM), l'autre mixte (Prénom)
-  for (let i = 0; i < texteRecherche.length - 1; i++) {
-    const ligne1 = texteRecherche[i];
-    const ligne2 = texteRecherche[i + 1];
-    const mots1 = ligne1.split(/\s+/).filter(m => m.length > 2);
-    const mots2 = ligne2.split(/\s+/).filter(m => m.length > 2);
-    
-    // Si une ligne est en majuscules (NOM) et la suivante commence par une majuscule (Prénom)
-    if (mots1.length === 1 && mots1[0] === mots1[0].toUpperCase() && mots1[0].length > 2) {
-      if (mots2.length >= 1 && mots2[0][0] === mots2[0][0].toUpperCase()) {
-        const nom = mots1[0];
-        const prenom = mots2[0];
-        if (nom !== 'SALAIRE' && !nom.includes('SALAIRE') && prenom !== 'DE') {
-          const res = validerNom(`${nom} ${prenom}`);
-          if (res) return res;
-        }
-      }
-    }
-  }
-  
-  // Pattern 5: Ligne simple avec format "Prénom NOM" ou "NOM Prénom" - FILTRER "DE SALAIRE"
-  for (const ligne of texteRecherche) {
-    const mots = ligne.split(/\s+/).filter(m => m.length > 2);
-    if (mots.length === 2) {
-      const [mot1, mot2] = mots;
-      // Si mot2 est en majuscules, format "Prénom NOM" -> retourner "NOM Prénom"
-      if (mot2 === mot2.toUpperCase()) {
-        if (mot2 !== 'SALAIRE' && !mot2.includes('SALAIRE') && mot1 !== 'DE') {
-          const res = validerNom(`${mot2} ${mot1}`);
-          if (res) return res;
-        }
-      }
-      // Si mot1 est en majuscules, format "NOM Prénom" -> déjà bon
-      if (mot1 === mot1.toUpperCase()) {
-        if (mot1 !== 'SALAIRE' && !mot1.includes('SALAIRE') && mot2 !== 'DE') {
-          const res = validerNom(`${mot1} ${mot2}`);
-          if (res) return res;
-        }
-      }
-    }
-  }
-  
+
   return null;
 }
 
-// Parser mots_de_passe.bat pour extraire la liste des noms (pwd_NOM=...)
 function chargerNomsDepuisMotsDePasse(cheminFichier) {
   if (!cheminFichier || !fs.existsSync(cheminFichier)) return [];
   const contenu = fs.readFileSync(cheminFichier, 'utf8');
   const noms = [];
-  const regex = /set\s+"pwd_([A-Za-zÀ-ÿ\-]+)=/g;
+  const regex = /set\s+"pwd_([A-Za-zÀ-ÿ\-_]+)=/g;
   let m;
   while ((m = regex.exec(contenu)) !== null) {
     const nom = m[1].trim();
-    if (nom && nom !== 'TEST') noms.push(nom); // Exclure TEST
+    if (nom && nom !== 'TEST') noms.push(nom);
   }
+  // Homonymes NOM_PRENOM puis noms longs d'abord
+  noms.sort((a, b) => {
+    const ac = a.includes('_') ? 1 : 0;
+    const bc = b.includes('_') ? 1 : 0;
+    if (bc !== ac) return bc - ac;
+    return b.length - a.length;
+  });
   return noms;
 }
 
-// Chercher quel nom de la liste apparaît dans le texte du PDF
+// Prénoms connus Longuenesse → NOM (utile quand le PDF colle tout sans espaces)
+const PRENOM_VERS_NOM = {
+  CINDY: 'DUCHATEAU',
+  CLARA: 'LEGRAND',
+  GEOFFREY: 'GOSSE',
+  GEOFFROY: 'GOSSE',
+  JAMIE: 'GREBERT',
+  JUSTINE: 'CASTIER',
+  LUDIVINE: 'DERMENGHEM',
+  MAELYS: 'BOGAERT',
+  MAEVA: 'HENON',
+  MARINA: 'MOLAND',
+  MELODIE: 'MANTEL',
+  NOAH: 'LECHERF',
+  ROMANE: 'FORET',
+  VICTOR: 'MERCIER',
+  // "Phi" / Philippe côté boulangerie
+  PHILIPPE: 'PHI',
+  // Lots comptables (peuvent etre absents de Filmara)
+  // prenoms a completer si besoin
+};
+
 function trouverNomParListe(texte, listeNoms) {
   if (!texte || !listeNoms || listeNoms.length === 0) return null;
-  for (const nom of listeNoms) {
-    const nomEsc = nom.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    // 1. Mot entier classique (ex: "MOLAND" dans "Madame Marina MOLAND")
-    const regex1 = new RegExp('\\b' + nomEsc + '\\b', 'i');
-    if (regex1.test(texte)) return nom;
-    // 2. Format concaténé sans espaces (ex: "MadameMarinaMOLAND")
-    const regex2 = new RegExp('(?:Madame|Monsieur)[A-Za-zÀ-ÿ]*' + nomEsc, 'i');
-    if (regex2.test(texte)) return nom;
+  const texteNorm = normalizeAccents(texte).replace(/[^A-Z0-9]/g, '');
+  const listeSet = new Set(listeNoms.map((n) => normalizeAccents(n)));
+
+  // 1) Homonymes pwd_NOM_PRENOM puis noms de famille (clés déjà triées)
+  for (const key of listeNoms) {
+    const keyNorm = normalizeAccents(key);
+    const parts = keyNorm.split('_').filter(Boolean);
+
+    if (parts.length >= 2) {
+      const lastName = parts[0];
+      const firstName = parts.slice(1).join('');
+      if (
+        lastName.length >= 2 &&
+        firstName.length >= 2 &&
+        texteNorm.includes(lastName) &&
+        texteNorm.includes(firstName)
+      ) {
+        return key;
+      }
+      continue;
+    }
+
+    // Ignorer pwd_NOM s'il existe des pwd_NOM_PRENOM (homonymes)
+    if (listeNoms.some((n) => normalizeAccents(n).startsWith(`${keyNorm}_`))) {
+      continue;
+    }
+
+    if (keyNorm.length < 3) {
+      if (/(?:MADAME|MONSIEUR|MLLE|MATRICULE)[A-Z0-9]*PHI/.test(texteNorm)) return key;
+      if (/(?:^|[^A-Z])PHI(?:$|[^A-Z])/.test(texteNorm)) return key;
+      continue;
+    }
+    if (texteNorm.includes(keyNorm)) return key;
   }
+
+  // 2) Prénom connu → nom (si le nom de famille est illisible / en image)
+  for (const [prenom, nom] of Object.entries(PRENOM_VERS_NOM)) {
+    if (!listeSet.has(normalizeAccents(nom))) continue;
+    if (texteNorm.includes(prenom)) return nom;
+  }
+
   return null;
 }
 
-// Fonction principale
+async function extraireTextePdfParse(dataBuffer, debug) {
+  if (!pdfParse) {
+    if (debug) console.error('DEBUG: pdf-parse introuvable');
+    return '';
+  }
+  try {
+    const pdfData = await pdfParse(dataBuffer);
+    return pdfData.text || '';
+  } catch (error) {
+    if (debug) console.error('DEBUG: Erreur pdf-parse:', error.message);
+    return '';
+  }
+}
+
+async function extraireTextePdfJs(dataBuffer, debug) {
+  const cheminsPdfJs = [
+    path.resolve(__dirname, '..', 'backend', 'node_modules', 'pdfjs-dist', 'legacy', 'build', 'pdf.mjs'),
+    path.resolve(__dirname, '..', 'node_modules', 'pdfjs-dist', 'legacy', 'build', 'pdf.mjs'),
+  ];
+  let pdfjsLib = null;
+  for (const c of cheminsPdfJs) {
+    try {
+      if (fs.existsSync(c)) {
+        pdfjsLib = require(c);
+        break;
+      }
+    } catch (_) {
+      /* continue */
+    }
+  }
+  if (!pdfjsLib) {
+    try {
+      pdfjsLib = require('pdfjs-dist/legacy/build/pdf.mjs');
+    } catch (_) {
+      if (debug) console.error('DEBUG: pdfjs-dist indisponible');
+      return '';
+    }
+  }
+  try {
+    const data = new Uint8Array(dataBuffer);
+    const doc = await pdfjsLib.getDocument({ data, stopAtErrors: false }).promise;
+    let text = '';
+    const maxPages = Math.min(doc.numPages || 1, 3);
+    for (let i = 1; i <= maxPages; i += 1) {
+      const page = await doc.getPage(i);
+      const content = await page.getTextContent();
+      text += `${(content.items || []).map((it) => (it && typeof it.str === 'string' ? it.str : '')).join(' ')}\n`;
+    }
+    return text;
+  } catch (error) {
+    if (debug) console.error('DEBUG: Erreur pdfjs:', error.message);
+    return '';
+  }
+}
+
 async function extraireNomDuPDF(fichierPDF, cheminMotsDePasse, debug) {
   try {
     const dataBuffer = fs.readFileSync(fichierPDF);
-    const pdfData = await pdfParse(dataBuffer);
-    const texte = pdfData.text || '';
-    
-    if (debug) {
-      console.error('DEBUG: Texte extrait: ' + (texte ? texte.length + ' caracteres' : 'VIDE'));
+    let texte = await extraireTextePdfParse(dataBuffer, debug);
+    if (!texte || texte.trim().length < 20) {
+      if (debug) console.error('DEBUG: Texte pdf-parse insuffisant, fallback pdfjs');
+      const texte2 = await extraireTextePdfJs(dataBuffer, debug);
+      if (texte2 && texte2.trim().length > (texte || '').trim().length) texte = texte2;
     }
-    
-    // 1. Si mots_de_passe.bat fourni : UNIQUEMENT chercher les noms connus (pas de fallback)
+
+    if (debug) {
+      console.error(`DEBUG: Texte extrait: ${texte ? `${texte.length} caracteres` : 'VIDE'}`);
+      if (texte) console.error(`DEBUG: Apercu: ${texte.slice(0, 240).replace(/\s+/g, ' ')}`);
+    }
+
     if (cheminMotsDePasse) {
       const listeNoms = chargerNomsDepuisMotsDePasse(cheminMotsDePasse);
-      if (debug) console.error('DEBUG: Noms charges: ' + listeNoms.join(', '));
+      if (debug) console.error(`DEBUG: Noms charges (${listeNoms.length}): ${listeNoms.join(', ')}`);
       if (listeNoms.length > 0) {
         const nomTrouve = trouverNomParListe(texte, listeNoms);
         if (nomTrouve) {
-          if (debug) console.error('DEBUG: Nom trouve: ' + nomTrouve);
+          if (debug) console.error(`DEBUG: Nom trouve: ${nomTrouve}`);
           console.log(nomTrouve);
           return nomTrouve;
         }
-        if (debug && texte.length > 0) console.error('DEBUG: Aucun nom de la liste trouve dans le PDF');
-        return null; // Pas de fallback : éviter faux positifs (ex: "Acquis")
+        if (debug) {
+          const texteNorm = normalizeAccents(texte).replace(/[^A-Z0-9]/g, '');
+          const presents = listeNoms.filter((n) => texteNorm.includes(normalizeAccents(n)));
+          console.error('DEBUG: Aucun nom de la liste trouve dans le PDF');
+          console.error(`DEBUG: Sous-chaines nom detectees: ${presents.join(', ') || '(aucune)'}`);
+          console.error('DEBUG: Ouvrez le PDF et completez mapping-AAAAMM.txt (ex: 4=LECHERF)');
+        }
+        return null;
       }
     }
-    
-    // 2. Sans mots_de_passe : extraction par patterns
+
     const nom = extraireNom(texte);
     if (nom) {
-      console.log(nom);
-      return nom;
+      // Si format "NOM Prenom", ne garder que le NOM (compat renommage)
+      const parties = nom.trim().split(/\s+/);
+      const candidat = parties.find((p) => p === p.toUpperCase() && p.length > 2) || parties[0];
+      console.log(candidat);
+      return candidat;
     }
-    
+
     return null;
   } catch (error) {
-    if (debug) console.error('DEBUG: Erreur pdf-parse:', error.message);
+    if (debug) console.error('DEBUG: Erreur:', error.message);
     return null;
   }
 }
 
-// Script principal
 if (require.main === module) {
   const fichierPDF = process.argv[2];
   let cheminMotsDePasse = process.argv[3];
@@ -274,23 +310,15 @@ if (require.main === module) {
   else if (!path.isAbsolute(cheminMotsDePasse) && !fs.existsSync(cheminMotsDePasse)) {
     cheminMotsDePasse = path.join(__dirname, cheminMotsDePasse);
   }
-  
-  if (!fichierPDF) {
+
+  if (!fichierPDF || !fs.existsSync(fichierPDF)) {
     process.exit(1);
   }
-  
-  if (!fs.existsSync(fichierPDF)) {
-    process.exit(1);
-  }
-  
-  const debug = process.argv[4] === 'debug';
+
+  const debug = process.argv.includes('debug');
   extraireNomDuPDF(fichierPDF, cheminMotsDePasse, debug)
-    .then(() => {
-      process.exit(0);
-    })
-    .catch(() => {
-      process.exit(1);
-    });
+    .then((nom) => process.exit(nom ? 0 : 1))
+    .catch(() => process.exit(1));
 }
 
 module.exports = { extraireNomDuPDF, extraireNom };

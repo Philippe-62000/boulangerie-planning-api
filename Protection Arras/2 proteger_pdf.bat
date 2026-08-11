@@ -20,7 +20,7 @@ echo ========================================
 echo Protection des fichiers PDF
 echo ========================================
 echo.
-echo Homonymes: cles pwd_NOM_PRENOM si plusieurs memes noms de famille
+echo Homonymes: POUILLAUDE Laura / Nicolas → cles distinctes
 echo.
 
 if not exist "Traite" (
@@ -71,7 +71,8 @@ for %%F in (*.pdf) do (
 
     if "!found!"=="0" (
         echo [IGNORE] Aucun mot de passe trouve pour %%F
-        echo          Homonymes: ... NOM Prenom_Normal.pdf + pwd_NOM_PRENOM dans le .bat
+        echo          Attendu pour homonymes: 202607 POUILLAUDE Laura_Normal.pdf
+        echo          avec set "pwd_POUILLAUDE_LAURA=..." dans mots_de_passe.bat
     )
     echo.
 )

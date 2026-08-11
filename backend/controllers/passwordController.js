@@ -3,6 +3,47 @@ const Employee = require('../models/Employee');
 const fs = require('fs');
 const path = require('path');
 
+/** Clé .bat sans accents (ex. Méline → MELINE) */
+function batKeyPart(str) {
+  return String(str || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, '');
+}
+
+/**
+ * Découpe "Prénom NOM" ou "NOM Prénom" → { lastName, firstName } pour mots_de_passe.bat.
+ * Homonymes : clé pwd_NOM_PRENOM (ex. POUILLAUDE_LAURA / POUILLAUDE_NICOLAS).
+ */
+function parseEmployeeNameParts(name) {
+  const parts = String(name || '').trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return { lastName: '', firstName: '' };
+  const firstIsLastName =
+    parts.length >= 2 &&
+    parts[0] === parts[0].toUpperCase() &&
+    /[A-ZÀ-Ÿ]{2,}/.test(parts[0]);
+  if (firstIsLastName) {
+    return {
+      lastName: batKeyPart(parts[0]),
+      firstName: batKeyPart(parts.slice(1).join(' '))
+    };
+  }
+  return {
+    lastName: batKeyPart(parts[parts.length - 1]),
+    firstName: batKeyPart(parts.slice(0, -1).join(' '))
+  };
+}
+
+function buildPayslipBatKey(name, lastNameCounts) {
+  const { lastName, firstName } = parseEmployeeNameParts(name);
+  if (!lastName) return null;
+  if ((lastNameCounts.get(lastName) || 0) > 1 && firstName) {
+    return `${lastName}_${firstName}`;
+  }
+  return lastName;
+}
+
 const updatePassword = async (req, res) => {
   try {
     const { admin, employee } = req.body;
@@ -243,35 +284,40 @@ const importPayslipPasswordsFromBat = async (req, res) => {
     let updatedCount = 0;
     let notFoundNames = [];
     
+    // Compter les homonymes (même nom de famille) pour résoudre pwd_NOM vs pwd_NOM_PRENOM
+    const lastNameCounts = new Map();
+    for (const employee of employees) {
+      const { lastName } = parseEmployeeNameParts(employee.name);
+      if (lastName) lastNameCounts.set(lastName, (lastNameCounts.get(lastName) || 0) + 1);
+    }
+
     // Mettre à jour les mots de passe
     for (const employee of employees) {
-      // Extraire le nom de famille (dernier mot en majuscules)
-      const nameParts = employee.name.trim().split(/\s+/);
-      const lastName = nameParts[nameParts.length - 1].toUpperCase();
-      
-      // Chercher le mot de passe correspondant
-      if (passwordsMap.has(lastName)) {
-        employee.payslipPassword = passwordsMap.get(lastName);
+      const { lastName, firstName } = parseEmployeeNameParts(employee.name);
+      const compoundKey = firstName ? `${lastName}_${firstName}` : null;
+      const preferredKey = buildPayslipBatKey(employee.name, lastNameCounts);
+
+      let password = null;
+      let matchedKey = null;
+      if (preferredKey && passwordsMap.has(preferredKey)) {
+        password = passwordsMap.get(preferredKey);
+        matchedKey = preferredKey;
+      } else if (compoundKey && passwordsMap.has(compoundKey)) {
+        password = passwordsMap.get(compoundKey);
+        matchedKey = compoundKey;
+      } else if (lastName && passwordsMap.has(lastName) && (lastNameCounts.get(lastName) || 0) <= 1) {
+        // Clé courte uniquement s'il n'y a pas d'homonyme (évite d'attribuer le mauvais MDP)
+        password = passwordsMap.get(lastName);
+        matchedKey = lastName;
+      }
+
+      if (password != null) {
+        employee.payslipPassword = password;
         await employee.save();
         updatedCount++;
-        console.log(`✅ Mis à jour: ${employee.name} (${lastName})`);
+        console.log(`✅ Mis à jour: ${employee.name} (${matchedKey})`);
       } else {
-        // Si pas trouvé exactement, chercher par correspondance partielle
-        let found = false;
-        for (const [nom, password] of passwordsMap.entries()) {
-          // Vérifier si le nom de famille contient le nom du fichier ou vice versa
-          if (employee.name.toUpperCase().includes(nom) || nom.includes(lastName)) {
-            employee.payslipPassword = password;
-            await employee.save();
-            updatedCount++;
-            found = true;
-            console.log(`✅ Mis à jour (correspondance): ${employee.name} (${lastName}) = ${nom}`);
-            break;
-          }
-        }
-        if (!found) {
-          notFoundNames.push({ name: employee.name, lastName: lastName });
-        }
+        notFoundNames.push({ name: employee.name, lastName, firstName });
       }
     }
     
@@ -280,9 +326,10 @@ const importPayslipPasswordsFromBat = async (req, res) => {
     for (const [nom] of passwordsMap.entries()) {
       let used = false;
       for (const employee of employees) {
-        const nameParts = employee.name.trim().split(/\s+/);
-        const lastName = nameParts[nameParts.length - 1].toUpperCase();
-        if (lastName === nom || employee.name.toUpperCase().includes(nom) || nom.includes(lastName)) {
+        const preferredKey = buildPayslipBatKey(employee.name, lastNameCounts);
+        const { lastName, firstName } = parseEmployeeNameParts(employee.name);
+        const compoundKey = firstName ? `${lastName}_${firstName}` : null;
+        if (nom === preferredKey || nom === compoundKey || nom === lastName) {
           used = true;
           break;
         }
@@ -328,24 +375,32 @@ const downloadPayslipPasswordsBat = async (req, res) => {
     // Ne pas générer automatiquement les mots de passe manquants
     // Ils doivent être importés depuis le fichier .bat ou créés manuellement
     
+    // Homonymes (ex. Laura + Nicolas Pouillaude) → clé pwd_NOM_PRENOM
+    const lastNameCounts = new Map();
+    for (const employee of employees) {
+      const { lastName } = parseEmployeeNameParts(employee.name);
+      if (lastName) lastNameCounts.set(lastName, (lastNameCounts.get(lastName) || 0) + 1);
+    }
+
     // Construire le contenu du fichier .bat
     let batContent = '@echo off\n';
     batContent += 'REM Définir les mots de passe pour chaque utilisateur\n';
+    batContent += 'REM Homonymes: pwd_NOM_PRENOM (ex. pwd_POUILLAUDE_LAURA)\n';
     
     for (const employee of employees) {
-      // Extraire le nom de famille (dernier mot du nom)
-      // Format attendu dans proteger_pdf.bat: "YYYYMM NOM Prenom_Normal.pdf"
-      // Le script extrait tokens=2, donc le format attendu est "NOM Prenom"
-      // Dans mots_de_passe.bat, on utilise juste "NOM" en majuscules
-      const nameParts = employee.name.trim().split(/\s+/);
-      // Prendre le dernier mot comme nom de famille (cas le plus courant: "Prénom NOM")
-      let lastName = nameParts[nameParts.length - 1];
-      
-      // Si le premier mot est en majuscules, c'est peut-être "NOM Prénom"
-      // Mais on prend toujours le dernier mot pour cohérence avec le format "Prénom NOM"
-      lastName = lastName.toUpperCase();
-      
-      batContent += `set "pwd_${lastName}=${employee.payslipPassword}"\n`;
+      const key = buildPayslipBatKey(employee.name, lastNameCounts);
+      if (!key) continue;
+      const { lastName, firstName } = parseEmployeeNameParts(employee.name);
+      if ((lastNameCounts.get(lastName) || 0) > 1) {
+        batContent += `REM ${employee.name} (homonyme ${lastName})\n`;
+      }
+      const pwd = employee.payslipPassword != null && employee.payslipPassword !== ''
+        ? employee.payslipPassword
+        : 'null';
+      batContent += `set "pwd_${key}=${pwd}"\n`;
+      if ((lastNameCounts.get(lastName) || 0) > 1 && !firstName) {
+        batContent += `REM ATTENTION: pas de prenom pour distinguer ${employee.name}\n`;
+      }
     }
     
     // Définir les headers pour le téléchargement
