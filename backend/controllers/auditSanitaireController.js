@@ -93,6 +93,14 @@ function toPublicAlert(doc) {
   };
 }
 
+function serializeAlerts(docs, isAdmin) {
+  return (docs || []).map((doc) => {
+    const pub = toPublicAlert(doc);
+    if (!isAdmin) pub.driveFolderUrl = '';
+    return pub;
+  });
+}
+
 /**
  * POST /api/audit-sanitaire/from-n8n
  * Appelé par n8n après dépôt des PDF Mérieux sur Google Drive (Arras uniquement).
@@ -196,19 +204,35 @@ async function listPending(req, res) {
       .sort({ receivedAt: -1 })
       .limit(20)
       .lean();
-    const isAdmin = req.user?.role === 'admin';
     return res.json({
       success: true,
-      data: alerts.map((doc) => {
-        const pub = toPublicAlert(doc);
-        if (!isAdmin) {
-          pub.driveFolderUrl = '';
-        }
-        return pub;
-      })
+      data: serializeAlerts(alerts, req.user?.role === 'admin')
     });
   } catch (err) {
     console.error('❌ auditSanitaire listPending:', err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+}
+
+/**
+ * GET /api/audit-sanitaire/history — liste complète Arras (à imprimer + déjà imprimés).
+ */
+async function listHistory(req, res) {
+  try {
+    const site = normalizeSite(req.query.site || 'arras');
+    if (!assertArras(site)) {
+      return res.json({ success: true, data: [] });
+    }
+    const alerts = await AuditSanitaireAlert.find({ site: 'arras' })
+      .sort({ receivedAt: -1 })
+      .limit(200)
+      .lean();
+    return res.json({
+      success: true,
+      data: serializeAlerts(alerts, req.user?.role === 'admin')
+    });
+  } catch (err) {
+    console.error('❌ auditSanitaire listHistory:', err);
     return res.status(500).json({ success: false, error: err.message });
   }
 }
@@ -247,5 +271,6 @@ async function markPrinted(req, res) {
 module.exports = {
   fromN8n,
   listPending,
+  listHistory,
   markPrinted
 };

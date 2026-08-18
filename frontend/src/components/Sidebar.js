@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { getApiUrl } from '../config/apiConfig';
-import { isLonguenesseSite, getSiteKey } from '../config/site';
+import { isLonguenesseSite, isArrasSite, getSiteKey } from '../config/site';
 import './Sidebar.css';
 
 const Sidebar = () => {
@@ -160,7 +160,8 @@ const Sidebar = () => {
         { menuId: 'plateaux-repas', isVisibleToAdmin: true, isVisibleToEmployee: false },
         { menuId: 'chorus', isVisibleToAdmin: true, isVisibleToEmployee: false },
         { menuId: 'compte-client-depots', isVisibleToAdmin: true, isVisibleToEmployee: false },
-        { menuId: 'vehicle', isVisibleToAdmin: true, isVisibleToEmployee: false }
+        { menuId: 'vehicle', isVisibleToAdmin: true, isVisibleToEmployee: false },
+        { menuId: 'merieux', isVisibleToAdmin: true, isVisibleToEmployee: true }
       ];
     } else {
       // Fallback salarié : permissions restrictives (planning, km-expenses, ticket-restaurant masqués par défaut pour Longuenesse)
@@ -193,7 +194,8 @@ const Sidebar = () => {
         { menuId: 'plateaux-repas', isVisibleToAdmin: false, isVisibleToEmployee: false },
         { menuId: 'chorus', isVisibleToAdmin: false, isVisibleToEmployee: false },
         { menuId: 'compte-client-depots', isVisibleToAdmin: false, isVisibleToEmployee: false },
-        { menuId: 'vehicle', isVisibleToAdmin: false, isVisibleToEmployee: false }
+        { menuId: 'vehicle', isVisibleToAdmin: false, isVisibleToEmployee: false },
+        { menuId: 'merieux', isVisibleToAdmin: false, isVisibleToEmployee: true }
       ];
     }
   };
@@ -288,6 +290,7 @@ const Sidebar = () => {
   // Menu items avec permissions (sans les items Social - regroupés séparément)
   const menuItems = [
     { path: '/dashboard', label: 'Tableau de bord', icon: '📊', menuId: 'dashboard' },
+    { path: '/merieux', label: 'Mérieux', icon: '🧪', menuId: 'merieux', arrasOnly: true },
     { path: '/employees', label: 'Gestion des employés', icon: '👥', menuId: 'employees' },
     { path: '/constraints', label: 'Contraintes hebdomadaires', icon: '📋', menuId: 'constraints' },
     { path: '/planning', label: 'Génération du planning', icon: '🎯', menuId: 'planning' },
@@ -315,6 +318,9 @@ const Sidebar = () => {
   // Vérifier si un menu a la permission pour le rôle actuel
   const hasPermission = (menuId) => {
     if (!user) return false;
+
+    // Mérieux : Arras uniquement, admin et salariés (impression des PDF d’audit)
+    if (menuId === 'merieux') return isArrasSite();
 
     // Frais KM Responsable / Véhicule / Stocks : toujours visibles pour l’admin (évite masquage si permission BDD absente ou désactivée par erreur)
     if (
@@ -371,6 +377,7 @@ const Sidebar = () => {
     if (!user) return [];
 
     let items = menuItems.filter((item) => !(item.longuenesseOnly && !isLonguenesse));
+    items = items.filter((item) => !(item.arrasOnly && isLonguenesse));
     items = items.filter((item) => hasPermission(item.menuId));
 
     if (isAdmin()) {

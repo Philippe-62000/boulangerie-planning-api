@@ -1,0 +1,123 @@
+.merieux-page {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 1rem 1.5rem 3rem;
+}
+
+.merieux-page h1 {
+  margin: 0 0 0.5rem;
+  font-size: 1.6rem;
+}
+
+.merieux-intro {
+  color: #555;
+  margin: 0 0 1rem;
+  line-height: 1.45;
+}
+
+.merieux-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.merieux-filters button {
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid #ccc;
+  background: #fff;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.merieux-filters button.active {
+  background: #721c24;
+  border-color: #721c24;
+  color: #fff;
+}
+
+.merieux-empty {
+  color: #666;
+}
+
+.merieux-table-wrap {
+  overflow-x: auto;
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+}
+
+.merieux-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.92rem;
+}
+
+.merieux-table th,
+.merieux-table td {
+  text-align: left;
+  padding: 0.75rem 0.85rem;
+  border-bottom: 1px solid #eee;
+  vertical-align: top;
+}
+
+.merieux-table th {
+  background: #f8f8f8;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.merieux-row-pending {
+  background: #fff8f8;
+}
+
+.merieux-badge {
+  display: inline-block;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.merieux-badge.pending {
+  background: #f8d7da;
+  color: #721c24;
+}
+
+.merieux-badge.printed {
+  background: #d1e7dd;
+  color: #0f5132;
+}
+
+.merieux-print-btn {
+  display: block;
+  margin-top: 0.45rem;
+  padding: 6px 10px;
+  border: none;
+  border-radius: 6px;
+  background: #198754;
+  color: #fff;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.merieux-subject {
+  font-weight: 600;
+  color: #333;
+}
+
+.merieux-folder {
+  display: inline-block;
+  margin-top: 0.35rem;
+  font-size: 0.85rem;
+}
+
+.merieux-files {
+  margin: 0;
+  padding-left: 1.1rem;
+}
+
+.merieux-files li {
+  margin-bottom: 0.25rem;
+}

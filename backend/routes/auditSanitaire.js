@@ -8,6 +8,7 @@ const ctrl = require('../controllers/auditSanitaireController');
 router.post('/from-n8n', requireInternalApiSecret, ctrl.fromN8n);
 
 router.get('/pending', authenticateEmployee, ctrl.listPending);
+router.get('/history', authenticateEmployee, ctrl.listHistory);
 router.post('/:id/printed', authenticateEmployee, ctrl.markPrinted);
 
 module.exports = router;

@@ -54,6 +54,7 @@ import StocksTGT from './pages/StocksTGT';
 import StocksMillAnge from './pages/StocksMillAnge';
 import StocksBoissons from './pages/StocksBoissons';
 import MessageVente from './pages/MessageVente';
+import MerieuxDocuments from './pages/MerieuxDocuments';
 import { getSiteBasename } from './config/site';
 
 const AppContent = () => {
@@ -82,6 +83,11 @@ const AppContent = () => {
             <Route path="/dashboard" element={
               <ProtectedRoute>
                 <Dashboard />
+              </ProtectedRoute>
+            } />
+            <Route path="/merieux" element={
+              <ProtectedRoute>
+                <MerieuxDocuments />
               </ProtectedRoute>
             } />
             <Route path="/employees" element={

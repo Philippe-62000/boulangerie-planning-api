@@ -368,6 +368,15 @@ menuPermissionsSchema.statics.createDefaultPermissions = async function() {
         isVisibleToEmployee: false,
         requiredPermissions: ['manage_parameters'],
         order: 22
+      },
+      {
+        menuId: 'merieux',
+        menuName: 'Mérieux',
+        menuPath: '/merieux',
+        isVisibleToAdmin: true,
+        isVisibleToEmployee: true,
+        requiredPermissions: [],
+        order: 23
       }
     ];
 
