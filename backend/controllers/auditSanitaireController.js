@@ -227,20 +227,20 @@ async function fromN8n(req, res) {
             return { created: false, skipNasDelete: true, doc: existing };
           }
           const merged = mergeFiles(existing.files, archivedIncoming.files);
-          existing.files = merged.files;
-          if (!existing.subject && subject) existing.subject = subject;
-          if (!existing.driveFolderUrl && driveFolderUrl) existing.driveFolderUrl = driveFolderUrl;
-          if (!existing.driveFolderId && driveFolderId) existing.driveFolderId = driveFolderId;
-          try {
-            await existing.save();
-            return { created: false, skipNasDelete: false, doc: existing };
-          } catch (err) {
-            if (isVersionConflict(err) || err.code === 11000) {
-              await sleep(40 * (attempt + 1));
-              continue;
-            }
-            throw err;
+          const $set = { files: merged.files };
+          if (!existing.subject && subject) $set.subject = subject;
+          if (!existing.driveFolderUrl && driveFolderUrl) $set.driveFolderUrl = driveFolderUrl;
+          if (!existing.driveFolderId && driveFolderId) $set.driveFolderId = driveFolderId;
+          const updated = await AuditSanitaireAlert.findByIdAndUpdate(
+            existing._id,
+            { $set },
+            { new: true }
+          );
+          if (!updated) {
+            await sleep(40 * (attempt + 1));
+            continue;
           }
+          return { created: false, skipNasDelete: false, doc: updated };
         }
 
         try {
@@ -285,7 +285,7 @@ async function fromN8n(req, res) {
       data: toPublicAlert(result.doc)
     });
   } catch (err) {
-    if (err && err.code === 11000) {
+    if ((err && err.code === 11000) || isVersionConflict(err)) {
       const or = [];
       const gmail = asString(req.body?.gmailMessageId || req.body?.messageId, 256);
       const folderId = asString(req.body?.driveFolderId || req.body?.folderId, 128);
@@ -297,7 +297,14 @@ async function fromN8n(req, res) {
         ? await AuditSanitaireAlert.findOne({ site: 'arras', $or: or })
         : null;
       if (existing) {
-        return res.json({ success: true, created: false, data: toPublicAlert(existing) });
+        return res.json({
+          success: true,
+          created: false,
+          storedOnNas: false,
+          driveFileIdToDelete: '',
+          deleteFromDrive: [],
+          data: toPublicAlert(existing)
+        });
       }
     }
     console.error('❌ auditSanitaire fromN8n:', err);
@@ -413,8 +420,10 @@ async function downloadFile(req, res) {
         receivedAt: doc.receivedAt
       });
       if (archived.files[0]) {
-        doc.files[index] = archived.files[0];
-        await doc.save();
+        const nextFiles = (Array.isArray(doc.files) ? doc.files : []).map(toStoredFile);
+        nextFiles[index] = toStoredFile(archived.files[0]);
+        await AuditSanitaireAlert.findByIdAndUpdate(doc._id, { $set: { files: nextFiles } });
+        doc.files = nextFiles;
       }
     }
 

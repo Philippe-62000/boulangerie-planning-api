@@ -36,7 +36,7 @@ const auditSanitaireAlertSchema = new mongoose.Schema(
     printedAt: { type: Date, default: null },
     printedByName: { type: String, default: '', trim: true }
   },
-  { timestamps: true }
+  { timestamps: true, versionKey: false }
 );
 
 auditSanitaireAlertSchema.index({ site: 1, status: 1, receivedAt: -1 });
