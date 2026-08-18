@@ -1,32 +1,60 @@
 import api from '../services/api';
 
-export function auditSanitaireDriveHref(file) {
-  if (file?.url) return file.url;
-  if (file?.driveFileId) {
-    return `https://drive.google.com/file/d/${file.driveFileId}/view`;
-  }
-  return '';
+function triggerFileDownload(blob, fileName) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = fileName || 'document.pdf';
+  a.rel = 'noopener';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 60_000);
 }
 
+async function readBlobError(err) {
+  const data = err?.response?.data;
+  if (data instanceof Blob) {
+    try {
+      const text = await data.text();
+      const parsed = JSON.parse(text);
+      return parsed.error || parsed.message || text;
+    } catch {
+      return err.message;
+    }
+  }
+  return err?.response?.data?.error || err?.message || 'Impossible d’ouvrir le document';
+}
+
+/**
+ * Toujours passer par l’API (NAS). Après await, window.open est souvent bloqué
+ * sur le tableau de bord : on force un téléchargement, comme dans le menu Mérieux.
+ */
 export async function openAuditSanitaireFile(alertId, file, index) {
   try {
-    if (file?.nasStored && alertId != null && index != null) {
-      const res = await api.get(`/audit-sanitaire/${alertId}/files/${index}/download`, {
-        responseType: 'blob'
-      });
-      const blob = new Blob([res.data], { type: 'application/pdf' });
-      const url = URL.createObjectURL(blob);
-      window.open(url, '_blank', 'noopener,noreferrer');
+    if (alertId == null || index == null) {
+      alert('Fichier indisponible');
       return;
     }
-    const href = auditSanitaireDriveHref(file);
-    if (href) {
-      window.open(href, '_blank', 'noopener,noreferrer');
+    const res = await api.get(`/audit-sanitaire/${alertId}/files/${index}/download`, {
+      responseType: 'blob'
+    });
+    const type = res.headers['content-type'] || '';
+    if (type.includes('application/json')) {
+      const text = await res.data.text();
+      let msg = 'Fichier indisponible';
+      try {
+        msg = JSON.parse(text).error || msg;
+      } catch {
+        /* ignore */
+      }
+      alert(msg);
       return;
     }
-    alert('Fichier indisponible');
+    const blob = new Blob([res.data], { type: 'application/pdf' });
+    triggerFileDownload(blob, file?.name || 'document.pdf');
   } catch (err) {
     console.warn('Ouverture PDF Mérieux:', err.response?.status || err.message);
-    alert(err.response?.data?.error || 'Impossible d’ouvrir le document');
+    alert(await readBlobError(err));
   }
 }
