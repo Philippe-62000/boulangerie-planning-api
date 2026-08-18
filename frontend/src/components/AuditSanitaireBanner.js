@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import api from '../services/api';
 import { isArrasSite } from '../config/site';
+import { useAuth } from '../contexts/AuthContext';
 
 function fileHref(file) {
   if (file?.url) return file.url;
@@ -21,9 +22,11 @@ function formatReceivedAt(iso) {
  * Bandeau Arras uniquement : documents Mérieux à imprimer (déposés par n8n sur Drive).
  */
 const AuditSanitaireBanner = () => {
+  const { isAdmin } = useAuth();
   const [alerts, setAlerts] = useState([]);
   const [loading, setLoading] = useState(false);
   const [markingId, setMarkingId] = useState(null);
+  const showDriveFolder = isAdmin();
 
   const load = useCallback(async () => {
     if (!isArrasSite()) {
@@ -122,7 +125,7 @@ const AuditSanitaireBanner = () => {
             </ul>
           )}
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginTop: '0.75rem' }}>
-            {alert.driveFolderUrl && (
+            {showDriveFolder && alert.driveFolderUrl && (
               <a
                 href={alert.driveFolderUrl}
                 target="_blank"

@@ -196,7 +196,17 @@ async function listPending(req, res) {
       .sort({ receivedAt: -1 })
       .limit(20)
       .lean();
-    return res.json({ success: true, data: alerts.map(toPublicAlert) });
+    const isAdmin = req.user?.role === 'admin';
+    return res.json({
+      success: true,
+      data: alerts.map((doc) => {
+        const pub = toPublicAlert(doc);
+        if (!isAdmin) {
+          pub.driveFolderUrl = '';
+        }
+        return pub;
+      })
+    });
   } catch (err) {
     console.error('❌ auditSanitaire listPending:', err);
     return res.status(500).json({ success: false, error: err.message });
