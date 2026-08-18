@@ -2,15 +2,8 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import api from '../services/api';
 import { isArrasSite } from '../config/site';
 import { useAuth } from '../contexts/AuthContext';
+import { openAuditSanitaireFile } from '../utils/auditSanitaireFiles';
 import './MerieuxDocuments.css';
-
-function fileHref(file) {
-  if (file?.url) return file.url;
-  if (file?.driveFileId) {
-    return `https://drive.google.com/file/d/${file.driveFileId}/view`;
-  }
-  return '';
-}
 
 function formatDateTime(iso) {
   if (!iso) return '—';
@@ -168,20 +161,17 @@ const MerieuxDocuments = () => {
                     <td>
                       {alert.files?.length > 0 ? (
                         <ul className="merieux-files">
-                          {alert.files.map((file, idx) => {
-                            const href = fileHref(file);
-                            return (
-                              <li key={`${alert.id}-${idx}`}>
-                                {href ? (
-                                  <a href={href} target="_blank" rel="noopener noreferrer">
-                                    {file.name || 'Ouvrir'}
-                                  </a>
-                                ) : (
-                                  <span>{file.name}</span>
-                                )}
-                              </li>
-                            );
-                          })}
+                          {alert.files.map((file, idx) => (
+                            <li key={`${alert.id}-${idx}`}>
+                              <button
+                                type="button"
+                                className="merieux-file-btn"
+                                onClick={() => openAuditSanitaireFile(alert.id, file, file.index ?? idx)}
+                              >
+                                {file.name || 'Ouvrir'}
+                              </button>
+                            </li>
+                          ))}
                         </ul>
                       ) : (
                         '—'

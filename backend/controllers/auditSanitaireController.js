@@ -1,5 +1,7 @@
 const crypto = require('crypto');
 const AuditSanitaireAlert = require('../models/AuditSanitaireAlert');
+const sftpService = require('../services/sftpService');
+const { archiveFilesToNas } = require('../services/auditSanitaireStorage');
 
 const ARRAS_ONLY_ERROR = 'Cette alerte n’est disponible que pour Arras';
 
@@ -31,7 +33,8 @@ function normalizeFiles(files) {
         2000
       );
       const name = asString(f.name || f.fileName || f.title, 300) || 'document.pdf';
-      return { name, url, driveFileId };
+      const nasPath = asString(f.nasPath, 500);
+      return { name, url, driveFileId, nasPath };
     })
     .filter((f) => f.name);
 }
@@ -41,13 +44,35 @@ function fileKey(file) {
 }
 
 function mergeFiles(existingFiles, incomingFiles) {
-  const out = Array.isArray(existingFiles) ? [...existingFiles] : [];
-  const seen = new Set(out.map(fileKey).filter(Boolean));
+  const out = Array.isArray(existingFiles)
+    ? existingFiles.map((f) => ({
+        name: f.name,
+        url: f.url || '',
+        driveFileId: f.driveFileId || '',
+        nasPath: f.nasPath || ''
+      }))
+    : [];
+  const indexByKey = new Map();
+  out.forEach((f, i) => {
+    const key = fileKey(f);
+    if (key) indexByKey.set(key, i);
+  });
   let added = 0;
   for (const file of incomingFiles || []) {
     const key = fileKey(file);
-    if (key && seen.has(key)) continue;
-    if (key) seen.add(key);
+    if (key && indexByKey.has(key)) {
+      const i = indexByKey.get(key);
+      const prev = out[i];
+      const nasPath = file.nasPath || prev.nasPath || '';
+      out[i] = {
+        name: file.name || prev.name,
+        url: nasPath ? '' : file.url || prev.url || '',
+        driveFileId: file.driveFileId || prev.driveFileId || '',
+        nasPath
+      };
+      continue;
+    }
+    if (key) indexByKey.set(key, out.length);
     out.push(file);
     added += 1;
   }
@@ -78,16 +103,29 @@ async function findExistingAlert({ gmailMessageId, dedupeKey }) {
   return AuditSanitaireAlert.findOne({ site: 'arras', dedupeKey });
 }
 
+function toPublicFile(file, index) {
+  const nasStored = Boolean(file?.nasPath);
+  return {
+    name: file?.name || 'document.pdf',
+    nasStored,
+    index,
+    url: nasStored ? '' : asString(file?.url, 2000),
+    driveFileId: nasStored ? '' : asString(file?.driveFileId, 128)
+  };
+}
+
 function toPublicAlert(doc) {
   if (!doc) return null;
+  const files = Array.isArray(doc.files) ? doc.files.map((f, i) => toPublicFile(f, i)) : [];
+  const allOnNas = files.length > 0 && files.every((f) => f.nasStored);
   return {
     id: String(doc._id),
     site: doc.site,
     status: doc.status,
     receivedAt: doc.receivedAt,
     subject: doc.subject || '',
-    driveFolderUrl: doc.driveFolderUrl || '',
-    files: Array.isArray(doc.files) ? doc.files : [],
+    driveFolderUrl: allOnNas ? '' : doc.driveFolderUrl || '',
+    files,
     printedAt: doc.printedAt,
     printedByName: doc.printedByName || ''
   };
@@ -133,19 +171,39 @@ async function fromN8n(req, res) {
     const existing = await findExistingAlert({ gmailMessageId, dedupeKey });
     if (existing) {
       if (existing.status === 'pending') {
-        const merged = mergeFiles(existing.files, files);
+        const archivedIncoming = await archiveFilesToNas(files, {
+          gmailMessageId: existing.gmailMessageId || gmailMessageId,
+          receivedAt: existing.receivedAt || receivedAtSafe
+        });
+        const merged = mergeFiles(existing.files, archivedIncoming.files);
         existing.files = merged.files;
         if (!existing.subject && subject) existing.subject = subject;
         if (!existing.driveFolderUrl && driveFolderUrl) existing.driveFolderUrl = driveFolderUrl;
         if (!existing.driveFolderId && driveFolderId) existing.driveFolderId = driveFolderId;
         await existing.save();
+        return res.json({
+          success: true,
+          created: false,
+          storedOnNas: archivedIncoming.storedDriveIds.length > 0,
+          driveFileIdToDelete: archivedIncoming.storedDriveIds[0] || '',
+          deleteFromDrive: archivedIncoming.storedDriveIds,
+          data: toPublicAlert(existing)
+        });
       }
       return res.json({
         success: true,
         created: false,
+        storedOnNas: false,
+        driveFileIdToDelete: '',
+        deleteFromDrive: [],
         data: toPublicAlert(existing)
       });
     }
+
+    const archived = await archiveFilesToNas(files, {
+      gmailMessageId,
+      receivedAt: receivedAtSafe
+    });
 
     const doc = await AuditSanitaireAlert.create({
       site: 'arras',
@@ -154,20 +212,24 @@ async function fromN8n(req, res) {
       subject,
       driveFolderUrl,
       driveFolderId,
-      files,
+      files: archived.files,
       dedupeKey: dedupeKey || undefined,
       gmailMessageId
     });
 
     console.log('✅ Alerte audit sanitaire Arras créée:', {
       id: String(doc._id),
-      files: files.length,
+      files: archived.files.length,
+      nas: archived.storedDriveIds.length,
       subject
     });
 
     return res.status(201).json({
       success: true,
       created: true,
+      storedOnNas: archived.storedDriveIds.length > 0,
+      driveFileIdToDelete: archived.storedDriveIds[0] || '',
+      deleteFromDrive: archived.storedDriveIds,
       data: toPublicAlert(doc)
     });
   } catch (err) {
@@ -268,9 +330,67 @@ async function markPrinted(req, res) {
   }
 }
 
+function contentDisposition(fileName, inline) {
+  const safe = asString(fileName, 180).replace(/"/g, '') || 'document.pdf';
+  const type = inline ? 'inline' : 'attachment';
+  return `${type}; filename="${safe}"`;
+}
+
+/**
+ * GET /api/audit-sanitaire/:id/files/:index/download
+ */
+async function downloadFile(req, res) {
+  try {
+    const id = String(req.params.id || '').trim();
+    const index = Number.parseInt(req.params.index, 10);
+    if (!id || Number.isNaN(index) || index < 0) {
+      return res.status(400).json({ success: false, error: 'Fichier invalide' });
+    }
+    const doc = await AuditSanitaireAlert.findOne({ _id: id, site: 'arras' });
+    if (!doc) {
+      return res.status(404).json({ success: false, error: 'Alerte introuvable' });
+    }
+    const file = Array.isArray(doc.files) ? doc.files[index] : null;
+    if (!file) {
+      return res.status(404).json({ success: false, error: 'Fichier introuvable' });
+    }
+
+    if (!file.nasPath && (file.driveFileId || file.url)) {
+      const archived = await archiveFilesToNas([file], {
+        gmailMessageId: doc.gmailMessageId,
+        receivedAt: doc.receivedAt
+      });
+      if (archived.files[0]) {
+        doc.files[index] = archived.files[0];
+        await doc.save();
+      }
+    }
+
+    const current = doc.files[index];
+    if (!current?.nasPath) {
+      return res.status(404).json({
+        success: false,
+        error: 'Fichier pas encore copié sur le NAS'
+      });
+    }
+
+    const buffer = await sftpService.downloadFile(current.nasPath);
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', contentDisposition(current.name, true));
+    res.setHeader('Content-Length', buffer.length);
+    return res.send(buffer);
+  } catch (err) {
+    console.error('❌ auditSanitaire downloadFile:', err);
+    if (!res.headersSent) {
+      return res.status(500).json({ success: false, error: err.message });
+    }
+  }
+}
+
 module.exports = {
   fromN8n,
   listPending,
   listHistory,
-  markPrinted
+  markPrinted,
+  downloadFile
 };

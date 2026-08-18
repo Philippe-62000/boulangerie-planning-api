@@ -2,14 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import api from '../services/api';
 import { isArrasSite } from '../config/site';
 import { useAuth } from '../contexts/AuthContext';
-
-function fileHref(file) {
-  if (file?.url) return file.url;
-  if (file?.driveFileId) {
-    return `https://drive.google.com/file/d/${file.driveFileId}/view`;
-  }
-  return '';
-}
+import { openAuditSanitaireFile } from '../utils/auditSanitaireFiles';
 
 function formatReceivedAt(iso) {
   if (!iso) return '';
@@ -85,7 +78,7 @@ const AuditSanitaireBanner = () => {
       </strong>
       <p style={{ margin: '0.35rem 0 0.75rem', lineHeight: 1.45 }}>
         Un mail Mérieux a déposé {alerts.length > 1 ? 'des lots de documents' : 'des documents'}{' '}
-        sur Google Drive. Ouvrez-les, imprimez-les, puis marquez comme fait.
+        à imprimer. Ouvrez-les, imprimez-les, puis marquez comme fait.
       </p>
       {alerts.map((alert) => (
         <div
@@ -108,20 +101,26 @@ const AuditSanitaireBanner = () => {
           )}
           {alert.files?.length > 0 && (
             <ul style={{ margin: '0.5rem 0 0', paddingLeft: '1.2rem' }}>
-              {alert.files.map((file, idx) => {
-                const href = fileHref(file);
-                return (
-                  <li key={`${alert.id}-${idx}`} style={{ marginBottom: 4 }}>
-                    {href ? (
-                      <a href={href} target="_blank" rel="noopener noreferrer">
-                        {file.name || 'Ouvrir le fichier'}
-                      </a>
-                    ) : (
-                      <span>{file.name}</span>
-                    )}
-                  </li>
-                );
-              })}
+              {alert.files.map((file, idx) => (
+                <li key={`${alert.id}-${idx}`} style={{ marginBottom: 4 }}>
+                  <button
+                    type="button"
+                    onClick={() => openAuditSanitaireFile(alert.id, file, file.index ?? idx)}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      padding: 0,
+                      color: '#0d6efd',
+                      textDecoration: 'underline',
+                      cursor: 'pointer',
+                      font: 'inherit',
+                      textAlign: 'left'
+                    }}
+                  >
+                    {file.name || 'Ouvrir le fichier'}
+                  </button>
+                </li>
+              ))}
             </ul>
           )}
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginTop: '0.75rem' }}>

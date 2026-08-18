@@ -4,7 +4,8 @@ const fileSchema = new mongoose.Schema(
   {
     name: { type: String, required: true, trim: true },
     url: { type: String, default: '', trim: true },
-    driveFileId: { type: String, default: '', trim: true }
+    driveFileId: { type: String, default: '', trim: true },
+    nasPath: { type: String, default: '', trim: true }
   },
   { _id: false }
 );

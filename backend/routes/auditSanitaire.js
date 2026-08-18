@@ -9,6 +9,7 @@ router.post('/from-n8n', requireInternalApiSecret, ctrl.fromN8n);
 
 router.get('/pending', authenticateEmployee, ctrl.listPending);
 router.get('/history', authenticateEmployee, ctrl.listHistory);
+router.get('/:id/files/:index/download', authenticateEmployee, ctrl.downloadFile);
 router.post('/:id/printed', authenticateEmployee, ctrl.markPrinted);
 
 module.exports = router;
