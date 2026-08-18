@@ -232,6 +232,8 @@ app.use('/api/database', require('./routes/database'));
 app.use('/api/onboarding-offboarding', require('./routes/onboardingOffboarding'));
 app.use('/api/uniforms', require('./routes/uniforms'));
 app.use('/api/documents', require('./routes/documents'));
+app.use('/api/audit-sanitaire', require('./routes/auditSanitaire'));
+console.log('✅ Routes audit-sanitaire montées (/api/audit-sanitaire/*)');
 app.use('/api/advance-requests', require('./routes/advanceRequests'));
 app.use('/api/primes', require('./routes/primes'));
 app.use('/api/mutuelle', require('./routes/mutuelle'));

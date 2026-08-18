@@ -6,6 +6,7 @@ import { buildFlourStocksStatusClient } from '../utils/flourStockStatus';
 import { formatDailyConsumptionKg, parseKgPerSack } from '../utils/flourUnits';
 import { useAuth } from '../contexts/AuthContext';
 import ApprenticePlanningPanel from '../components/ApprenticePlanningPanel';
+import AuditSanitaireBanner from '../components/AuditSanitaireBanner';
 
 const normalizePersonName = (name) =>
   String(name || '')
@@ -814,6 +815,8 @@ const Dashboard = () => {
           </button>
         )}
       </div>
+
+      <AuditSanitaireBanner />
 
       {planningUploadAlert?.showAlert && (
         <div
