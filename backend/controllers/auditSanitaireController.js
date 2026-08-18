@@ -43,40 +43,85 @@ function fileKey(file) {
   return asString(file.driveFileId || file.url || file.name, 500);
 }
 
+function nameKey(file) {
+  return asString(file.name, 300).toLowerCase();
+}
+
+function toStoredFile(file) {
+  return {
+    name: file?.name || 'document.pdf',
+    url: file?.url || '',
+    driveFileId: file?.driveFileId || '',
+    nasPath: file?.nasPath || ''
+  };
+}
+
 function mergeFiles(existingFiles, incomingFiles) {
-  const out = Array.isArray(existingFiles)
-    ? existingFiles.map((f) => ({
-        name: f.name,
-        url: f.url || '',
-        driveFileId: f.driveFileId || '',
-        nasPath: f.nasPath || ''
-      }))
-    : [];
-  const indexByKey = new Map();
+  const out = Array.isArray(existingFiles) ? existingFiles.map(toStoredFile) : [];
+  const indexByDrive = new Map();
+  const indexByName = new Map();
   out.forEach((f, i) => {
-    const key = fileKey(f);
-    if (key) indexByKey.set(key, i);
+    const dk = asString(f.driveFileId, 128);
+    const nk = nameKey(f);
+    if (dk) indexByDrive.set(dk, i);
+    if (nk) indexByName.set(nk, i);
   });
   let added = 0;
-  for (const file of incomingFiles || []) {
-    const key = fileKey(file);
-    if (key && indexByKey.has(key)) {
-      const i = indexByKey.get(key);
-      const prev = out[i];
+  for (const raw of incomingFiles || []) {
+    const file = toStoredFile(raw);
+    const dk = asString(file.driveFileId, 128);
+    const nk = nameKey(file);
+    const idx =
+      (dk && indexByDrive.has(dk) ? indexByDrive.get(dk) : null) ??
+      (nk && indexByName.has(nk) ? indexByName.get(nk) : null);
+    if (idx != null) {
+      const prev = out[idx];
       const nasPath = file.nasPath || prev.nasPath || '';
-      out[i] = {
+      out[idx] = {
         name: file.name || prev.name,
         url: nasPath ? '' : file.url || prev.url || '',
         driveFileId: file.driveFileId || prev.driveFileId || '',
         nasPath
       };
+      if (dk) indexByDrive.set(dk, idx);
+      if (nk) indexByName.set(nk, idx);
       continue;
     }
-    if (key) indexByKey.set(key, out.length);
+    const nextIndex = out.length;
     out.push(file);
+    if (dk) indexByDrive.set(dk, nextIndex);
+    if (nk) indexByName.set(nk, nextIndex);
     added += 1;
   }
   return { files: out, added };
+}
+
+const alertLocks = new Map();
+
+function withAlertLock(key, fn) {
+  const k = key || '_none';
+  const prev = alertLocks.get(k) || Promise.resolve();
+  const next = prev.then(fn, fn);
+  alertLocks.set(
+    k,
+    next.then(
+      () => undefined,
+      () => undefined
+    )
+  );
+  return next;
+}
+
+function isVersionConflict(err) {
+  const msg = String(err && err.message ? err.message : '');
+  return (
+    (err && err.name === 'VersionError') ||
+    msg.includes('No matching document found for id')
+  );
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function buildDedupeKey({ gmailMessageId, files }) {
@@ -168,69 +213,76 @@ async function fromN8n(req, res) {
     }
 
     const dedupeKey = buildDedupeKey({ gmailMessageId, files });
-    const existing = await findExistingAlert({ gmailMessageId, dedupeKey });
-    if (existing) {
-      if (existing.status === 'pending') {
-        const archivedIncoming = await archiveFilesToNas(files, {
-          gmailMessageId: existing.gmailMessageId || gmailMessageId,
-          receivedAt: existing.receivedAt || receivedAtSafe
-        });
-        const merged = mergeFiles(existing.files, archivedIncoming.files);
-        existing.files = merged.files;
-        if (!existing.subject && subject) existing.subject = subject;
-        if (!existing.driveFolderUrl && driveFolderUrl) existing.driveFolderUrl = driveFolderUrl;
-        if (!existing.driveFolderId && driveFolderId) existing.driveFolderId = driveFolderId;
-        await existing.save();
-        return res.json({
-          success: true,
-          created: false,
-          storedOnNas: archivedIncoming.storedDriveIds.length > 0,
-          driveFileIdToDelete: archivedIncoming.storedDriveIds[0] || '',
-          deleteFromDrive: archivedIncoming.storedDriveIds,
-          data: toPublicAlert(existing)
-        });
-      }
-      return res.json({
-        success: true,
-        created: false,
-        storedOnNas: false,
-        driveFileIdToDelete: '',
-        deleteFromDrive: [],
-        data: toPublicAlert(existing)
-      });
-    }
-
-    const archived = await archiveFilesToNas(files, {
+    const lockKey = gmailMessageId || dedupeKey || fileKey(files[0]);
+    const archivedIncoming = await archiveFilesToNas(files, {
       gmailMessageId,
       receivedAt: receivedAtSafe
     });
 
-    const doc = await AuditSanitaireAlert.create({
-      site: 'arras',
-      status: 'pending',
-      receivedAt: receivedAtSafe,
-      subject,
-      driveFolderUrl,
-      driveFolderId,
-      files: archived.files,
-      dedupeKey: dedupeKey || undefined,
-      gmailMessageId
+    const result = await withAlertLock(lockKey, async () => {
+      for (let attempt = 0; attempt < 12; attempt += 1) {
+        const existing = await findExistingAlert({ gmailMessageId, dedupeKey });
+        if (existing) {
+          if (existing.status !== 'pending') {
+            return { created: false, skipNasDelete: true, doc: existing };
+          }
+          const merged = mergeFiles(existing.files, archivedIncoming.files);
+          existing.files = merged.files;
+          if (!existing.subject && subject) existing.subject = subject;
+          if (!existing.driveFolderUrl && driveFolderUrl) existing.driveFolderUrl = driveFolderUrl;
+          if (!existing.driveFolderId && driveFolderId) existing.driveFolderId = driveFolderId;
+          try {
+            await existing.save();
+            return { created: false, skipNasDelete: false, doc: existing };
+          } catch (err) {
+            if (isVersionConflict(err) || err.code === 11000) {
+              await sleep(40 * (attempt + 1));
+              continue;
+            }
+            throw err;
+          }
+        }
+
+        try {
+          const doc = await AuditSanitaireAlert.create({
+            site: 'arras',
+            status: 'pending',
+            receivedAt: receivedAtSafe,
+            subject,
+            driveFolderUrl,
+            driveFolderId,
+            files: archivedIncoming.files,
+            dedupeKey: dedupeKey || undefined,
+            gmailMessageId
+          });
+          console.log('✅ Alerte audit sanitaire Arras créée:', {
+            id: String(doc._id),
+            files: archivedIncoming.files.length,
+            nas: archivedIncoming.storedDriveIds.length,
+            subject
+          });
+          return { created: true, skipNasDelete: false, doc };
+        } catch (err) {
+          if (err.code === 11000 || isVersionConflict(err)) {
+            await sleep(40 * (attempt + 1));
+            continue;
+          }
+          throw err;
+        }
+      }
+      throw new Error('Impossible d’enregistrer l’alerte (conflit concurrent)');
     });
 
-    console.log('✅ Alerte audit sanitaire Arras créée:', {
-      id: String(doc._id),
-      files: archived.files.length,
-      nas: archived.storedDriveIds.length,
-      subject
-    });
-
-    return res.status(201).json({
+    return res.status(result.created ? 201 : 200).json({
       success: true,
-      created: true,
-      storedOnNas: archived.storedDriveIds.length > 0,
-      driveFileIdToDelete: archived.storedDriveIds[0] || '',
-      deleteFromDrive: archived.storedDriveIds,
-      data: toPublicAlert(doc)
+      created: result.created,
+      storedOnNas:
+        !result.skipNasDelete && archivedIncoming.storedDriveIds.length > 0,
+      driveFileIdToDelete: result.skipNasDelete
+        ? ''
+        : archivedIncoming.storedDriveIds[0] || '',
+      deleteFromDrive: result.skipNasDelete ? [] : archivedIncoming.storedDriveIds,
+      data: toPublicAlert(result.doc)
     });
   } catch (err) {
     if (err && err.code === 11000) {
