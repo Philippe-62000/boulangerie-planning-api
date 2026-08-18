@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import api from '../services/api';
 import { isArrasSite } from '../config/site';
-import { useAuth } from '../contexts/AuthContext';
 import { openAuditSanitaireFile } from '../utils/auditSanitaireFiles';
 
 function formatReceivedAt(iso) {
@@ -15,11 +14,9 @@ function formatReceivedAt(iso) {
  * Bandeau Arras uniquement : documents Mérieux à imprimer (déposés par n8n sur Drive).
  */
 const AuditSanitaireBanner = () => {
-  const { isAdmin } = useAuth();
   const [alerts, setAlerts] = useState([]);
   const [loading, setLoading] = useState(false);
   const [markingId, setMarkingId] = useState(null);
-  const showDriveFolder = isAdmin();
 
   const load = useCallback(async () => {
     if (!isArrasSite()) {
@@ -124,24 +121,6 @@ const AuditSanitaireBanner = () => {
             </ul>
           )}
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginTop: '0.75rem' }}>
-            {showDriveFolder && alert.driveFolderUrl && (
-              <a
-                href={alert.driveFolderUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                style={{
-                  display: 'inline-block',
-                  padding: '8px 12px',
-                  borderRadius: 8,
-                  background: '#0d6efd',
-                  color: '#fff',
-                  fontWeight: 600,
-                  textDecoration: 'none'
-                }}
-              >
-                Ouvrir le dossier Drive
-              </a>
-            )}
             <button
               type="button"
               onClick={() => markPrinted(alert.id)}

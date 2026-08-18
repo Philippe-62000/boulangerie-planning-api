@@ -162,26 +162,21 @@ function toPublicFile(file, index) {
 function toPublicAlert(doc) {
   if (!doc) return null;
   const files = Array.isArray(doc.files) ? doc.files.map((f, i) => toPublicFile(f, i)) : [];
-  const allOnNas = files.length > 0 && files.every((f) => f.nasStored);
   return {
     id: String(doc._id),
     site: doc.site,
     status: doc.status,
     receivedAt: doc.receivedAt,
     subject: doc.subject || '',
-    driveFolderUrl: allOnNas ? '' : doc.driveFolderUrl || '',
+    driveFolderUrl: '',
     files,
     printedAt: doc.printedAt,
     printedByName: doc.printedByName || ''
   };
 }
 
-function serializeAlerts(docs, isAdmin) {
-  return (docs || []).map((doc) => {
-    const pub = toPublicAlert(doc);
-    if (!isAdmin) pub.driveFolderUrl = '';
-    return pub;
-  });
+function serializeAlerts(docs) {
+  return (docs || []).map((doc) => toPublicAlert(doc));
 }
 
 /**
@@ -327,7 +322,7 @@ async function listPending(req, res) {
       .lean();
     return res.json({
       success: true,
-      data: serializeAlerts(alerts, req.user?.role === 'admin')
+      data: serializeAlerts(alerts)
     });
   } catch (err) {
     console.error('❌ auditSanitaire listPending:', err);
@@ -350,7 +345,7 @@ async function listHistory(req, res) {
       .lean();
     return res.json({
       success: true,
-      data: serializeAlerts(alerts, req.user?.role === 'admin')
+      data: serializeAlerts(alerts)
     });
   } catch (err) {
     console.error('❌ auditSanitaire listHistory:', err);
@@ -385,6 +380,39 @@ async function markPrinted(req, res) {
     return res.json({ success: true, data: toPublicAlert(doc) });
   } catch (err) {
     console.error('❌ auditSanitaire markPrinted:', err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+}
+
+/**
+ * DELETE /api/audit-sanitaire/:id — admin Arras uniquement.
+ */
+async function removeAlert(req, res) {
+  try {
+    if (req.user?.role !== 'admin') {
+      return res.status(403).json({ success: false, error: 'Réservé à l’administrateur' });
+    }
+    const id = String(req.params.id || '').trim();
+    if (!id) {
+      return res.status(400).json({ success: false, error: 'Identifiant manquant' });
+    }
+    const doc = await AuditSanitaireAlert.findOne({ _id: id, site: 'arras' });
+    if (!doc) {
+      return res.status(404).json({ success: false, error: 'Alerte introuvable' });
+    }
+    const files = Array.isArray(doc.files) ? doc.files : [];
+    for (const file of files) {
+      if (!file?.nasPath) continue;
+      try {
+        await sftpService.deleteFile(file.nasPath);
+      } catch (err) {
+        console.warn('⚠️ Suppression NAS (audit sanitaire):', file.nasPath, err.message);
+      }
+    }
+    await AuditSanitaireAlert.deleteOne({ _id: doc._id, site: 'arras' });
+    return res.json({ success: true });
+  } catch (err) {
+    console.error('❌ auditSanitaire removeAlert:', err);
     return res.status(500).json({ success: false, error: err.message });
   }
 }
@@ -453,5 +481,6 @@ module.exports = {
   listPending,
   listHistory,
   markPrinted,
+  removeAlert,
   downloadFile
 };

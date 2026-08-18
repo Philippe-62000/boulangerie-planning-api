@@ -11,5 +11,6 @@ router.get('/pending', authenticateEmployee, ctrl.listPending);
 router.get('/history', authenticateEmployee, ctrl.listHistory);
 router.get('/:id/files/:index/download', authenticateEmployee, ctrl.downloadFile);
 router.post('/:id/printed', authenticateEmployee, ctrl.markPrinted);
+router.delete('/:id', authenticateEmployee, ctrl.removeAlert);
 
 module.exports = router;

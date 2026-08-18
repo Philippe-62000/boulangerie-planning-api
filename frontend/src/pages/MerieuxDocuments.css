@@ -132,3 +132,13 @@
   font: inherit;
   text-align: left;
 }
+
+.merieux-delete-btn {
+  padding: 6px 10px;
+  border: none;
+  border-radius: 6px;
+  background: #dc3545;
+  color: #fff;
+  font-weight: 600;
+  cursor: pointer;
+}

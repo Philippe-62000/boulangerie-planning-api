@@ -18,7 +18,8 @@ const MerieuxDocuments = () => {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('all');
   const [markingId, setMarkingId] = useState(null);
-  const showDriveFolder = isAdmin();
+  const [deletingId, setDeletingId] = useState(null);
+  const canDelete = isAdmin();
 
   const load = useCallback(async () => {
     if (!isArrasSite()) {
@@ -61,6 +62,22 @@ const MerieuxDocuments = () => {
       alert(e.response?.data?.error || 'Impossible de marquer comme imprimé');
     } finally {
       setMarkingId(null);
+    }
+  };
+
+  const deleteAlert = async (id) => {
+    if (!id || !canDelete) return;
+    if (!window.confirm('Supprimer cette entrée Mérieux et les PDF associés sur le NAS ?')) {
+      return;
+    }
+    setDeletingId(id);
+    try {
+      await api.delete(`/audit-sanitaire/${id}`);
+      setAlerts((prev) => prev.filter((a) => a.id !== id));
+    } catch (e) {
+      alert(e.response?.data?.error || 'Impossible de supprimer');
+    } finally {
+      setDeletingId(null);
     }
   };
 
@@ -120,6 +137,7 @@ const MerieuxDocuments = () => {
                 <th>Date d’impression</th>
                 <th>Imprimé par</th>
                 <th>Documents</th>
+                {canDelete && <th>Actions</th>}
               </tr>
             </thead>
             <tbody>
@@ -144,16 +162,6 @@ const MerieuxDocuments = () => {
                     </td>
                     <td>
                       <div className="merieux-subject">{alert.subject || 'Documents Mérieux'}</div>
-                      {showDriveFolder && alert.driveFolderUrl && (
-                        <a
-                          href={alert.driveFolderUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="merieux-folder"
-                        >
-                          Dossier Drive
-                        </a>
-                      )}
                     </td>
                     <td>{formatDateTime(alert.receivedAt)}</td>
                     <td>{pending ? '—' : formatDateTime(alert.printedAt)}</td>
@@ -177,6 +185,18 @@ const MerieuxDocuments = () => {
                         '—'
                       )}
                     </td>
+                    {canDelete && (
+                      <td>
+                        <button
+                          type="button"
+                          className="merieux-delete-btn"
+                          disabled={deletingId === alert.id}
+                          onClick={() => deleteAlert(alert.id)}
+                        >
+                          {deletingId === alert.id ? 'Suppression…' : 'Supprimer'}
+                        </button>
+                      </td>
+                    )}
                   </tr>
                 );
               })}
