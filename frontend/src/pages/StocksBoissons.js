@@ -421,13 +421,13 @@ const StocksBoissons = () => {
         body{font-family:Segoe UI,Arial,sans-serif;padding:20px;color:#222;font-size:13px}
         h1{margin:0 0 6px;font-size:18px} .meta{color:#555;margin-bottom:14px;font-size:12px}
         table{border-collapse:collapse;width:100%} th,td{border:1px solid #333;padding:8px 6px;text-align:left}
-        th{background:#eee} .box{width:70px;height:22px} .num{text-align:right;width:64px}
+        th{background:#eee} .box{width:70px;height:22px} .num{text-align:right;width:64px} td:last-child{white-space:nowrap;font-weight:600}
         @media print { body{padding:0} }
       </style></head><body>
       <h1>Relevé de stocks — ${title} — ${siteLabel}</h1>
       <div class="meta">
         Date : _______________ &nbsp;&nbsp; Période ventes : ${periodLabel || '—'} &nbsp;&nbsp; Fichier : ${sourceFileName || '—'}<br/>
-        Noter le stock restant à la main, puis saisir les quantités dans Filmara.
+        Noter le stock restant à la main. Notes = format commande (ex. /12 → 12 bouteilles = 1 colis).
       </div>
       <table>
         <thead>
@@ -450,7 +450,7 @@ const StocksBoissons = () => {
                 <td>${p.name}</td>
                 <td class="num">${p.consumedQty ?? ''}</td>
                 <td><div class="box"></div></td>
-                <td></td>
+                <td>/${p.packSize || 12}</td>
               </tr>`
           )
           .join('')}
