@@ -1,9 +1,7 @@
 /**
- * Extraction des jours de formation depuis les PDF calendrier CFA / In Situ Learning.
- * - Colonnes mois = bord gauche du libellé → mois suivant
- * - Jours ancrés par « n° + lettre » (évite le marqueur « 7 » heures)
- * - Couleurs via rendu PDF (canvas) : bleu=examen, rose=CFA, vert=In Situ Learning
- * - Dernière colonne parfois sans texte : échantillonnage par lignes Y globales
+ * Extraction des jours de formation depuis les PDF calendrier CFA.
+ * - MEM / In Situ Learning : rose=CFA, vert=In Situ, bleu=examen (rendu canvas)
+ * - Altern'Emploi : en-têtes « 01-août », vert=école (CFA), rouge=férié, reste=entreprise
  */
 const MONTHS = {
   janvier: 1,
@@ -44,10 +42,10 @@ function isValidIsoDate(year, month, day) {
 
 function toUint8Array(buffer) {
   if (Buffer.isBuffer(buffer)) {
-    return new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength);
+    return Uint8Array.from(buffer);
   }
-  if (buffer instanceof Uint8Array) return buffer;
-  return new Uint8Array(buffer);
+  if (buffer instanceof Uint8Array) return Uint8Array.from(buffer);
+  return Uint8Array.from(Buffer.from(buffer));
 }
 
 function loadPdfJs() {
@@ -81,6 +79,183 @@ function classifyRgb(r, g, b) {
   // Vert → In Situ Learning
   if (g > 130 && g > r + 25 && g > b + 25) return 'insitu';
   return null;
+}
+
+const MONTH_ABBR = {
+  janv: 1,
+  fevr: 2,
+  mars: 3,
+  avr: 4,
+  mai: 5,
+  juin: 6,
+  juil: 7,
+  aout: 8,
+  sept: 9,
+  oct: 10,
+  nov: 11,
+  dec: 12
+};
+
+function multiplyCtm(a, b) {
+  return [
+    a[0] * b[0] + a[2] * b[1],
+    a[1] * b[0] + a[3] * b[1],
+    a[0] * b[2] + a[2] * b[3],
+    a[1] * b[2] + a[3] * b[3],
+    a[0] * b[4] + a[2] * b[5] + a[4],
+    a[1] * b[4] + a[3] * b[5] + a[5]
+  ];
+}
+
+function applyCtm(m, x, y) {
+  return { x: m[0] * x + m[2] * y + m[4], y: m[1] * x + m[3] * y + m[5] };
+}
+
+function classifyAlternFill(r, g, b) {
+  if (r > 200 && g < 50 && b < 50) return 'ferie';
+  if (g > 140 && g > r + 40 && g > b) return 'cfa';
+  if (b > 140 && b > r + 20 && b >= g - 5) return 'examen';
+  return null;
+}
+
+function looksLikeAlternEmploi(items) {
+  const blob = items.map((i) => i.str).join(' ');
+  if (/altern'?emploi/i.test(blob)) return true;
+  const headers = items.filter((i) =>
+    /^01[-\s]?(janv|fevr|mars|avr|mai|juin|juil|aout|sept|oct|nov|dec)/i.test(norm(i.str))
+  );
+  return headers.length >= 8;
+}
+
+async function extractColoredCells(page, pdfjsLib) {
+  const ops = await page.getOperatorList();
+  const names = {};
+  for (const [k, v] of Object.entries(pdfjsLib.OPS || {})) names[v] = k;
+  let fill = [0, 0, 0];
+  const stack = [];
+  let ctm = [1, 0, 0, 1, 0, 0];
+  const cells = [];
+  for (let i = 0; i < ops.fnArray.length; i += 1) {
+    const fn = names[ops.fnArray[i]] || String(ops.fnArray[i]);
+    const args = ops.argsArray[i];
+    if (fn === 'save') stack.push(ctm.slice());
+    if (fn === 'restore') ctm = stack.pop() || ctm;
+    if (fn === 'transform' && Array.isArray(args) && args.length >= 6) {
+      ctm = multiplyCtm(ctm, args);
+    }
+    if (fn === 'setFillRGBColor' && args) fill = [Number(args[0]), Number(args[1]), Number(args[2])];
+    if (fn !== 'constructPath' || !args) continue;
+    const coords = args[1] || [];
+    const xs = [];
+    const ys = [];
+    for (let j = 0; j + 1 < coords.length; j += 2) {
+      const p = applyCtm(ctm, coords[j], coords[j + 1]);
+      xs.push(p.x);
+      ys.push(p.y);
+    }
+    if (!xs.length) continue;
+    const box = {
+      x0: Math.min(...xs),
+      x1: Math.max(...xs),
+      y0: Math.min(...ys),
+      y1: Math.max(...ys),
+      fill: [...fill]
+    };
+    const w = box.x1 - box.x0;
+    const h = box.y1 - box.y0;
+    if (w < 10 || h < 8 || w > 70) continue;
+    if (fill[0] > 250 && fill[1] > 250 && fill[2] > 250) continue;
+    if (fill[0] < 8 && fill[1] < 8 && fill[2] < 8) continue;
+    cells.push(box);
+  }
+  return cells;
+}
+
+function parseAlternEmploiItems(items, cells) {
+  const blob = items.map((i) => i.str).join(' ');
+  const yearM = blob.match(/(20\d{2})\s*[-–]\s*(20\d{2})/);
+  const startYear = yearM ? Number(yearM[1]) : new Date().getFullYear();
+
+  const headers = items
+    .map((i) => {
+      const m = norm(i.str).match(/^01[-\s]?(janv|fevr|mars|avr|mai|juin|juil|aout|sept|oct|nov|dec)/);
+      return m ? { ...i, month: MONTH_ABBR[m[1]] } : null;
+    })
+    .filter(Boolean)
+    .sort((a, b) => b.y - a.y || a.x - b.x);
+
+  const letterRows = [];
+  for (const L of items.filter((i) => /^[LMMJVSD]$/.test(i.str))) {
+    const row = letterRows.find((r) => Math.abs(r.y - L.y) < 2);
+    if (row) row.items.push(L);
+    else letterRows.push({ y: L.y, items: [L] });
+  }
+
+  const map = new Map();
+  for (const h of headers) {
+    const row = letterRows
+      .filter((r) => r.y < h.y - 2 && r.y > h.y - 40)
+      .sort((a, b) => b.y - a.y)[0];
+    if (!row) continue;
+    const sortedLetters = [...row.items].sort((a, b) => a.x - b.x);
+    const groups = [];
+    for (let i = 0; i < sortedLetters.length; i += 7) {
+      const g = sortedLetters.slice(i, i + 7);
+      if (g.length >= 5) groups.push(g);
+    }
+    if (!groups.length) continue;
+    const group = groups.sort(
+      (a, b) =>
+        Math.abs((a[0].x + a[a.length - 1].x) / 2 - h.x) -
+        Math.abs((b[0].x + b[b.length - 1].x) / 2 - h.x)
+    )[0];
+    const xLeft = group[0].x - 14;
+    const xRight = group[group.length - 1].x + 18;
+    const year = h.month >= 8 ? startYear : startYear + 1;
+    const nums = items.filter(
+      (i) =>
+        /^\d{1,2}$/.test(i.str) &&
+        i.y < row.y - 4 &&
+        i.y > row.y - 140 &&
+        i.x >= xLeft &&
+        i.x < xRight
+    );
+    for (const n of nums) {
+      const day = Number(n.str);
+      if (day < 1 || day > 31 || !isValidIsoDate(year, h.month, day)) continue;
+      const dow = new Date(Date.UTC(year, h.month - 1, day)).getUTCDay();
+      if (dow === 0 || dow === 6) continue;
+      const iso = `${year}-${String(h.month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+      const hit = cells.find(
+        (c) => n.x >= c.x0 - 3 && n.x <= c.x1 + 2 && n.y >= c.y0 - 2 && n.y <= c.y1 + 2
+      );
+      const kind = hit ? classifyAlternFill(hit.fill[0], hit.fill[1], hit.fill[2]) : 'entreprise';
+      if (kind === 'ferie') continue;
+      if (kind !== 'cfa' && kind !== 'examen') continue;
+      const prev = map.get(iso);
+      if (!prev || kind === 'cfa') map.set(iso, { date: iso, kind });
+    }
+  }
+  return [...map.values()].sort((a, b) => a.date.localeCompare(b.date));
+}
+
+async function parseAlternEmploiPdf(buffer) {
+  const pdfjsLib = loadPdfJs();
+  const data = toUint8Array(buffer);
+  const doc = await pdfjsLib.getDocument({ data, stopAtErrors: false }).promise;
+  const all = [];
+  let detected = false;
+  for (let p = 1; p <= doc.numPages; p += 1) {
+    const page = await doc.getPage(p);
+    const items = await extractTextItemsFromPage(page, p);
+    if (!detected && looksLikeAlternEmploi(items)) detected = true;
+    if (!looksLikeAlternEmploi(items) && !detected) continue;
+    const cells = await extractColoredCells(page, pdfjsLib);
+    all.push(...parseAlternEmploiItems(items, cells));
+  }
+  const map = new Map();
+  for (const e of all) map.set(e.date, e);
+  return [...map.values()].sort((a, b) => a.date.localeCompare(b.date));
 }
 
 function median(arr) {
@@ -372,6 +547,20 @@ function expandWeekdaysToDates(trainingDays, schoolYearStart) {
 }
 
 async function parseApprenticePlanningPdf(buffer) {
+  try {
+    const altern = await parseAlternEmploiPdf(buffer);
+    if (altern && altern.length >= 5) {
+      return {
+        trainingEntries: altern,
+        trainingDates: altern.map((e) => e.date),
+        source: 'pdf-alternemploi',
+        error: null
+      };
+    }
+  } catch (err) {
+    console.warn('parseAlternEmploiPdf:', err.message);
+  }
+
   try {
     const colored = await parseMemColoredDates(buffer);
     if (colored && colored.length >= 5) {

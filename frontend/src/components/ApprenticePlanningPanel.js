@@ -457,8 +457,9 @@ const ApprenticePlanningPanel = ({ apprentices = [] }) => {
                   />
                 </label>
                 <p className="app-plan-help">
-                  Les couleurs du PDF sont conservées : rose = CFA, vert = In Situ Learning, bleu =
-                  période d&apos;examen. Réimportez le PDF pour corriger un ancien décalage de mois.
+                  Les couleurs du PDF sont conservées. CFA / In Situ : rose = CFA, vert = In Situ
+                  Learning, bleu = examen. Altern&apos;Emploi : vert = jours à l&apos;école (CFA), rouge =
+                  férié (ignoré), le reste = entreprise.
                 </p>
                 <div className="app-plan-modal-actions">
                   <button
@@ -517,7 +518,7 @@ const ApprenticePlanningPanel = ({ apprentices = [] }) => {
                   ))}
                 </select>
               </label>
-              {shopPoleField}
+              {shopPoleField(savingManual)}
               {kindLegend}
               <p className="app-plan-help">
                 Cliquez plusieurs fois sur un jour pour changer la couleur : rose (CFA) → vert (In
