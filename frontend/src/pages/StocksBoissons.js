@@ -44,6 +44,10 @@ function isEmballage(category) {
   return /emballage/i.test(String(category || ''));
 }
 
+function isIgnoredBeverage(name) {
+  return /kookabarra/i.test(String(name || ''));
+}
+
 const StocksBoissons = () => {
   const siteKey = getSiteKey() === 'lon' ? 'lon' : 'plan';
   const siteLabel = siteKey === 'lon' ? 'Longuenesse' : 'Arras';
@@ -76,7 +80,11 @@ const StocksBoissons = () => {
   const applyDoc = (doc, opts = {}) => {
     if (!doc) return;
     setProducts(
-      sortByOrder((doc.products || []).map((p) => recomputeLine(p, doc.marginPercent ?? DEFAULT_MARGIN)))
+      sortByOrder(
+        (doc.products || [])
+          .filter((p) => !isIgnoredBeverage(p.name))
+          .map((p) => recomputeLine(p, doc.marginPercent ?? DEFAULT_MARGIN))
+      )
     );
     setPeriodLabel(doc.periodLabel || '');
     setSourceFileName(doc.sourceFileName || '');
@@ -175,19 +183,22 @@ const StocksBoissons = () => {
       });
       const data = res.data?.data;
       const nextProducts = sortByOrder(
-        (data?.products || []).map((p) => recomputeLine(p, data?.marginPercent ?? marginPercent))
+        (data?.products || [])
+          .filter((p) => !isIgnoredBeverage(p.name))
+          .map((p) => recomputeLine(p, data?.marginPercent ?? marginPercent))
       );
       setProducts(nextProducts);
       setSourceFileName(data?.sourceFileName || file.name);
       setPeriodLabel(data?.periodHint || '');
-      setComparison(data?.comparison || []);
+      setComparison((data?.comparison || []).filter((a) => !isIgnoredBeverage(a.name)));
       setPreviousMeta(data?.previous || null);
-      setCurrentId(null);
+      setCurrentId(data?.id || null);
       setFilterFamily('all');
+      await loadHistory();
       if ((data?.comparison || []).length) setMainTab('ecarts');
       setMessage({
         type: 'ok',
-        text: `${nextProducts.length} référence(s) mises à jour. Stocks et tailles de colis repris si connus. ${(data?.comparison || []).length} écart(s) détecté(s).`
+        text: `${nextProducts.length} référence(s) enregistrées (visibles aussi après F5 / autre PC). Stocks et colis repris si connus. ${(data?.comparison || []).length} écart(s) détecté(s).`
       });
     } catch (err) {
       setMessage({
@@ -485,8 +496,8 @@ const StocksBoissons = () => {
                   <b>Ventes en cours :</b> {periodLabel || '—'}
                   {sourceFileName ? ` · ${sourceFileName}` : ''}
                   <div className="stocks-hint">
-                    Les garder pour saisir les stocks / colis, ou uploader un nouveau PDF pour mettre à
-                    jour les ventes (stocks et tailles de colis sont repris).
+                    Les ventes sont mémorisées dès l’import PDF (F5 / autre ordinateur). Uploader un
+                    nouveau PDF pour les remplacer ; stocks et tailles de colis sont repris.
                   </div>
                 </div>
               </div>
