@@ -48,6 +48,19 @@ function isIgnoredBeverage(name) {
   return /kookabarra/i.test(String(name || ''));
 }
 
+/** Tab (ou Maj+Tab) : rester dans la colonne Stock, ligne suivante / précédente. */
+function onStockTabKeyDown(e) {
+  if (e.key !== 'Tab') return;
+  const inputs = Array.from(document.querySelectorAll('.bev-page .bev-stock-input'));
+  const idx = inputs.indexOf(e.currentTarget);
+  if (idx < 0) return;
+  const next = inputs[idx + (e.shiftKey ? -1 : 1)];
+  if (!next) return;
+  e.preventDefault();
+  next.focus();
+  if (typeof next.select === 'function') next.select();
+}
+
 const StocksBoissons = () => {
   const siteKey = getSiteKey() === 'lon' ? 'lon' : 'plan';
   const siteLabel = siteKey === 'lon' ? 'Longuenesse' : 'Arras';
@@ -681,6 +694,7 @@ const StocksBoissons = () => {
                         <button
                           type="button"
                           className="bev-order-btn"
+                          tabIndex={-1}
                           disabled={rowIdx === 0 || filterFamily !== 'all'}
                           onClick={() => moveLine(p.name, p.category, -1)}
                           title="Monter"
@@ -690,6 +704,7 @@ const StocksBoissons = () => {
                         <button
                           type="button"
                           className="bev-order-btn"
+                          tabIndex={-1}
                           disabled={rowIdx >= visibleProducts.length - 1 || filterFamily !== 'all'}
                           onClick={() => moveLine(p.name, p.category, 1)}
                           title="Descendre"
@@ -709,6 +724,8 @@ const StocksBoissons = () => {
                           min="0"
                           className="stocks-input bev-stock-input"
                           value={p.stockQty ?? 0}
+                          onFocus={(e) => e.target.select()}
+                          onKeyDown={onStockTabKeyDown}
                           onChange={(e) =>
                             patchProduct(p.name, p.category, {
                               stockQty: Math.max(0, parseInt(e.target.value, 10) || 0)
@@ -719,6 +736,7 @@ const StocksBoissons = () => {
                       <td className="num">
                         <select
                           className="stocks-input bev-pack-select"
+                          tabIndex={-1}
                           value={normalizePackSize(p.packSize)}
                           onChange={(e) =>
                             patchProduct(p.name, p.category, {
