@@ -636,21 +636,35 @@ const StocksBoissons = () => {
           </div>
 
           <div className="bev-table-wrap">
-            <table className="bev-table">
+              <table className="bev-table">
+              <colgroup>
+                <col className="bev-col-order" />
+                <col className="bev-col-fam" />
+                <col className="bev-col-ref" />
+                <col className="bev-col-num" />
+                <col className="bev-col-num" />
+                <col className="bev-col-num" />
+                <col className="bev-col-num" />
+                <col className="bev-col-stock" />
+                <col className="bev-col-pack" />
+                <col className="bev-col-num" />
+                <col className="bev-col-num" />
+                <col className="bev-col-num" />
+              </colgroup>
               <thead>
                 <tr>
                   <th>Ordre</th>
                   <th>Famille</th>
                   <th>Référence</th>
-                  <th>Ventes</th>
-                  <th>Offerts</th>
-                  <th>Conso</th>
-                  <th>Préc.</th>
-                  <th>Stock</th>
-                  <th>/colis</th>
-                  <th>Besoin u.</th>
-                  <th>Colis</th>
-                  <th>U. cmd</th>
+                  <th className="num">Ventes</th>
+                  <th className="num">Offerts</th>
+                  <th className="num">Conso</th>
+                  <th className="num">Préc.</th>
+                  <th className="num">Stock</th>
+                  <th className="num">/colis</th>
+                  <th className="num">Besoin u.</th>
+                  <th className="num">Colis</th>
+                  <th className="num">U. cmd</th>
                 </tr>
               </thead>
               <tbody>
@@ -756,9 +770,9 @@ const StocksBoissons = () => {
                     <th>Alerte</th>
                     <th>Référence</th>
                     <th>Famille</th>
-                    <th>Avant</th>
-                    <th>Maintenant</th>
-                    <th>Écart</th>
+                    <th className="num">Avant</th>
+                    <th className="num">Maintenant</th>
+                    <th className="num">Écart</th>
                     <th>Message</th>
                   </tr>
                 </thead>
