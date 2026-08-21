@@ -55,6 +55,8 @@ import StocksMillAnge from './pages/StocksMillAnge';
 import StocksBoissons from './pages/StocksBoissons';
 import MessageVente from './pages/MessageVente';
 import MerieuxDocuments from './pages/MerieuxDocuments';
+import CommandeMail from './pages/CommandeMail';
+import CommandeMailStandalone from './pages/CommandeMailStandalone';
 import { getSiteBasename } from './config/site';
 
 const AppContent = () => {
@@ -88,6 +90,11 @@ const AppContent = () => {
             <Route path="/merieux" element={
               <ProtectedRoute>
                 <MerieuxDocuments />
+              </ProtectedRoute>
+            } />
+            <Route path="/commande-mail" element={
+              <ProtectedRoute>
+                <CommandeMail />
               </ProtectedRoute>
             } />
             <Route path="/employees" element={
@@ -362,6 +369,8 @@ function App() {
           <Route path="/menu-standalone.html" element={<StandaloneMenu />} />
           <Route path="/camaris-semaine-standalone" element={<CamarisSemaineStandalone />} />
           <Route path="/camaris-semaine-standalone.html" element={<CamarisSemaineStandalone />} />
+          <Route path="/commande-mail-standalone" element={<CommandeMailStandalone />} />
+          <Route path="/commande-mail-standalone.html" element={<CommandeMailStandalone />} />
           <Route path="/*" element={<AppContent />} />
         </Routes>
     </Router>

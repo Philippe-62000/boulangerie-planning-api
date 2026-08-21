@@ -234,6 +234,8 @@ app.use('/api/uniforms', require('./routes/uniforms'));
 app.use('/api/documents', require('./routes/documents'));
 app.use('/api/audit-sanitaire', require('./routes/auditSanitaire'));
 console.log('✅ Routes audit-sanitaire montées (/api/audit-sanitaire/*)');
+app.use('/api/commande-mails', require('./routes/commandeMails'));
+console.log('✅ Routes commande-mails montées (/api/commande-mails/*)');
 app.use('/api/advance-requests', require('./routes/advanceRequests'));
 app.use('/api/primes', require('./routes/primes'));
 app.use('/api/mutuelle', require('./routes/mutuelle'));

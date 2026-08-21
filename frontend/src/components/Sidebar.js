@@ -97,7 +97,8 @@ const Sidebar = () => {
     { path: '/stocks-boissons', label: 'Boisson & Emballages', icon: '🥤', menuId: 'stocks-boissons' },
     { path: '/positive', label: 'Positive (IA)', icon: '📷', menuId: 'positive' },
     { path: '/commande-tgt', label: 'Commande TGT', icon: '🛒', menuId: 'commande-tgt' },
-    { path: '/commande-millange', label: "Commande Mill'Ange", icon: '🛒', menuId: 'commande-millange' }
+    { path: '/commande-millange', label: "Commande Mill'Ange", icon: '🛒', menuId: 'commande-millange' },
+    { path: '/commande-mail', label: 'Commande mail', icon: '✉️', menuId: 'commande-mail', arrasOnly: true }
   ];
   /** Entrées admin supplémentaires uniquement sur Longuenesse (future évolution ; tableau vide = menu identique à Arras). */
   const STOCKS_MENU_ITEMS_LON_EXTRA = [];
@@ -161,7 +162,8 @@ const Sidebar = () => {
         { menuId: 'chorus', isVisibleToAdmin: true, isVisibleToEmployee: false },
         { menuId: 'compte-client-depots', isVisibleToAdmin: true, isVisibleToEmployee: false },
         { menuId: 'vehicle', isVisibleToAdmin: true, isVisibleToEmployee: false },
-        { menuId: 'merieux', isVisibleToAdmin: true, isVisibleToEmployee: true }
+        { menuId: 'merieux', isVisibleToAdmin: true, isVisibleToEmployee: true },
+        { menuId: 'commande-mail', isVisibleToAdmin: true, isVisibleToEmployee: true }
       ];
     } else {
       // Fallback salarié : permissions restrictives (planning, km-expenses, ticket-restaurant masqués par défaut pour Longuenesse)
@@ -195,7 +197,8 @@ const Sidebar = () => {
         { menuId: 'chorus', isVisibleToAdmin: false, isVisibleToEmployee: false },
         { menuId: 'compte-client-depots', isVisibleToAdmin: false, isVisibleToEmployee: false },
         { menuId: 'vehicle', isVisibleToAdmin: false, isVisibleToEmployee: false },
-        { menuId: 'merieux', isVisibleToAdmin: false, isVisibleToEmployee: true }
+        { menuId: 'merieux', isVisibleToAdmin: false, isVisibleToEmployee: true },
+        { menuId: 'commande-mail', isVisibleToAdmin: false, isVisibleToEmployee: true }
       ];
     }
   };
@@ -319,8 +322,8 @@ const Sidebar = () => {
   const hasPermission = (menuId) => {
     if (!user) return false;
 
-    // Mérieux : Arras uniquement, admin et salariés (impression des PDF d’audit)
-    if (menuId === 'merieux') return isArrasSite();
+    // Mérieux / Commande mail : Arras uniquement
+    if (menuId === 'merieux' || menuId === 'commande-mail') return isArrasSite();
 
     // Frais KM Responsable / Véhicule / Stocks : toujours visibles pour l’admin (évite masquage si permission BDD absente ou désactivée par erreur)
     if (
@@ -360,7 +363,7 @@ const Sidebar = () => {
 
   /** Sous-menus admin : afficher tous les liens (sauf Chorus hors Longuenesse). Les pages restent protégées par les routes. */
   const filterSubmenuForAdmin = (items) =>
-    items.filter((item) => !(item.longuenesseOnly && !isLonguenesse));
+    items.filter((item) => !(item.longuenesseOnly && !isLonguenesse) && !(item.arrasOnly && isLonguenesse));
 
   /**
    * Entrées sous « Stocks » selon les permissions menu.

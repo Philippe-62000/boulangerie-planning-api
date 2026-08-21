@@ -1,0 +1,218 @@
+.commande-mail-page {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 1rem 1.5rem 3rem;
+}
+
+.commande-mail-page.standalone {
+  padding: 1.25rem 1rem 2.5rem;
+}
+
+.commande-mail-page h1 {
+  margin: 0 0 0.4rem;
+  font-size: 1.6rem;
+}
+
+.commande-mail-intro {
+  color: #555;
+  margin: 0 0 1rem;
+  line-height: 1.45;
+}
+
+.commande-mail-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.commande-mail-filters button {
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid #ccc;
+  background: #fff;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.commande-mail-filters button.active {
+  background: #1f4e79;
+  border-color: #1f4e79;
+  color: #fff;
+}
+
+.commande-mail-layout {
+  display: grid;
+  grid-template-columns: minmax(280px, 360px) 1fr;
+  gap: 1rem;
+  align-items: start;
+}
+
+@media (max-width: 860px) {
+  .commande-mail-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+.commande-mail-list,
+.commande-mail-detail {
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.commande-mail-list {
+  max-height: 72vh;
+  overflow-y: auto;
+}
+
+.commande-mail-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: none;
+  border-bottom: 1px solid #eee;
+  background: #fff;
+  padding: 0.85rem 1rem;
+  cursor: pointer;
+}
+
+.commande-mail-item:hover {
+  background: #f7fbff;
+}
+
+.commande-mail-item.active {
+  background: #eaf3ff;
+}
+
+.commande-mail-item.unread {
+  background: #fff8f0;
+}
+
+.commande-mail-item.unread .commande-mail-item-subject {
+  font-weight: 800;
+}
+
+.commande-mail-item-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  color: #666;
+  font-size: 0.78rem;
+  margin-bottom: 0.25rem;
+}
+
+.commande-mail-item-subject {
+  font-weight: 650;
+  color: #222;
+}
+
+.commande-mail-item-from {
+  color: #444;
+  font-size: 0.86rem;
+  margin-top: 0.15rem;
+}
+
+.commande-mail-item-snippet {
+  color: #777;
+  font-size: 0.82rem;
+  margin-top: 0.25rem;
+  line-height: 1.35;
+}
+
+.commande-mail-empty {
+  padding: 1.2rem;
+  color: #666;
+}
+
+.commande-mail-detail {
+  min-height: 320px;
+  padding: 1rem 1.15rem 1.3rem;
+}
+
+.commande-mail-detail-header h2 {
+  margin: 0 0 0.35rem;
+  font-size: 1.2rem;
+}
+
+.commande-mail-detail-meta {
+  color: #555;
+  font-size: 0.9rem;
+  line-height: 1.45;
+  margin-bottom: 0.85rem;
+}
+
+.commande-mail-tabs {
+  display: flex;
+  gap: 0.4rem;
+  margin-bottom: 0.75rem;
+}
+
+.commande-mail-tabs button {
+  padding: 6px 10px;
+  border-radius: 7px;
+  border: 1px solid #ccc;
+  background: #fff;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.commande-mail-tabs button.active {
+  background: #1f4e79;
+  border-color: #1f4e79;
+  color: #fff;
+}
+
+.commande-mail-body-text {
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: inherit;
+  font-size: 0.95rem;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.commande-mail-html-frame {
+  width: 100%;
+  min-height: 420px;
+  border: 1px solid #eee;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.commande-mail-attachments {
+  margin: 0.85rem 0 0;
+  padding-left: 1.1rem;
+}
+
+.commande-mail-attachments a {
+  color: #0d6efd;
+}
+
+.commande-mail-detail-actions {
+  margin-top: 1rem;
+}
+
+.commande-mail-delete-btn {
+  padding: 7px 12px;
+  border: none;
+  border-radius: 6px;
+  background: #dc3545;
+  color: #fff;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.commande-mail-standalone-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.commande-mail-standalone-bar a {
+  color: #1f4e79;
+  font-weight: 650;
+}

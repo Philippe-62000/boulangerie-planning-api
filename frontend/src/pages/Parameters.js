@@ -1121,6 +1121,7 @@ const Parameters = () => {
                         {permission.menuId === 'employee-dashboard' && '📁'}
                         {permission.menuId === 'vehicle' && '🚗'}
                         {permission.menuId === 'merieux' && '🧪'}
+                        {permission.menuId === 'commande-mail' && '✉️'}
                         {permission.menuId === 'ambassadeur' && '⭐'}
                         {permission.menuId === 'plateaux-repas' && '🍽️'}
                       </span>

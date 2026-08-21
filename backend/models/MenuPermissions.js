@@ -377,6 +377,15 @@ menuPermissionsSchema.statics.createDefaultPermissions = async function() {
         isVisibleToEmployee: true,
         requiredPermissions: [],
         order: 23
+      },
+      {
+        menuId: 'commande-mail',
+        menuName: 'Commande mail',
+        menuPath: '/commande-mail',
+        isVisibleToAdmin: true,
+        isVisibleToEmployee: true,
+        requiredPermissions: [],
+        order: 23.5
       }
     ];
 
