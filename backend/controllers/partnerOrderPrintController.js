@@ -95,8 +95,11 @@ function buildStaffMessageTicket(doc) {
   return {
     id: String(doc._id),
     kind: 'staffMessage',
-    title: 'MESSAGE',
-    subtitle: `INTERNE - ${SITE_LABELS[site]}`,
+    title: doc.kind === 'commande-mail' ? 'COMMANDE MAIL' : 'MESSAGE',
+    subtitle:
+      doc.kind === 'commande-mail'
+        ? 'ARRAS'
+        : `INTERNE - ${SITE_LABELS[site]}`,
     lines
   };
 }

@@ -1,5 +1,6 @@
 const crypto = require('crypto');
 const CommandeMail = require('../models/CommandeMail');
+const StaffPrintMessage = require('../models/StaffPrintMessage');
 
 const ARRAS_ONLY_ERROR = 'Les commandes mail ne sont disponibles que pour Arras';
 const TEXT_MAX = 80000;
@@ -148,6 +149,41 @@ function toDetail(doc) {
   };
 }
 
+const PRINT_MAX = 4000;
+
+function formatParisDateTime(iso) {
+  const d = iso instanceof Date ? iso : new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  return d.toLocaleString('fr-FR', {
+    timeZone: 'Europe/Paris',
+    dateStyle: 'short',
+    timeStyle: 'short'
+  });
+}
+
+function buildPrintMessage(mail) {
+  const header = [
+    mail.subject ? `Objet : ${mail.subject}` : 'Objet : (sans objet)',
+    mail.from ? `De : ${mail.from}` : '',
+    mail.receivedAt ? `Date : ${formatParisDateTime(mail.receivedAt)}` : ''
+  ].filter(Boolean);
+  const body = asString(mail.text || mail.snippet, TEXT_MAX).trim();
+  const full = `${header.join('\n')}\n\n${body}`.trim();
+  return full.slice(0, PRINT_MAX);
+}
+
+async function queueTicketPrint(mail) {
+  const message = buildPrintMessage(mail);
+  if (!message) return null;
+  return StaffPrintMessage.create({
+    site: 'arras',
+    audience: 'vente',
+    kind: 'commande-mail',
+    message,
+    createdByName: 'Commande mail'
+  });
+}
+
 /**
  * POST /api/commande-mails/from-n8n
  * n8n Arras — header x-internal-secret = INTERNAL_API_SECRET (api-4)
@@ -251,6 +287,12 @@ async function fromN8n(req, res) {
       from: extracted.from
     });
 
+    try {
+      await queueTicketPrint(doc);
+    } catch (printErr) {
+      console.error('⚠️ commandeMail queue print:', printErr.message);
+    }
+
     return res.status(201).json({
       success: true,
       created: true,
@@ -345,6 +387,28 @@ async function markRead(req, res) {
   }
 }
 
+async function printMail(req, res) {
+  try {
+    const id = String(req.params.id || '').trim();
+    if (!id) {
+      return res.status(400).json({ success: false, error: 'Identifiant manquant' });
+    }
+    const doc = await CommandeMail.findOne({ _id: id, site: 'arras' });
+    if (!doc) {
+      return res.status(404).json({ success: false, error: 'Mail introuvable' });
+    }
+    await queueTicketPrint(doc);
+    return res.json({
+      success: true,
+      message:
+        'Envoyé à l’imprimante des commandes. Le ticket sortira sous environ une minute.'
+    });
+  } catch (err) {
+    console.error('❌ commandeMail print:', err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+}
+
 async function removeMail(req, res) {
   try {
     if (req.user?.role !== 'admin') {
@@ -370,5 +434,6 @@ module.exports = {
   listMails,
   getMail,
   markRead,
+  printMail,
   removeMail
 };

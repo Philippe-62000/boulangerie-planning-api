@@ -31,6 +31,7 @@ const CommandeMail = ({ standalone = false }) => {
   const [detailLoading, setDetailLoading] = useState(false);
   const [bodyTab, setBodyTab] = useState('text');
   const [deletingId, setDeletingId] = useState(null);
+  const [printing, setPrinting] = useState(false);
   const canDelete = isAdmin();
 
   const load = useCallback(async () => {
@@ -81,6 +82,22 @@ const CommandeMail = ({ standalone = false }) => {
     }
   };
 
+  const printMail = async (id) => {
+    if (!id) return;
+    setPrinting(true);
+    try {
+      const res = await api.post(`/commande-mails/${id}/print`);
+      alert(
+        res.data?.message ||
+          'Envoyé à l’imprimante des commandes. Le ticket sortira sous environ une minute.'
+      );
+    } catch (e) {
+      alert(e.response?.data?.error || 'Impossible d’envoyer à l’imprimante');
+    } finally {
+      setPrinting(false);
+    }
+  };
+
   const deleteMail = async (id) => {
     if (!id || !canDelete) return;
     if (!window.confirm('Supprimer ce mail de commande ?')) return;
@@ -118,7 +135,8 @@ const CommandeMail = ({ standalone = false }) => {
       )}
       <h1>Commande mail</h1>
       <p className="commande-mail-intro">
-        Mails de commande envoyés par n8n. Consultez le contenu ici, sans ouvrir Gmail.
+        Mails de commande envoyés par n8n. À l’arrivée, le contenu part sur l’imprimante
+        des commandes (comme les messages). Vous pouvez aussi réimprimer depuis cette page.
       </p>
 
       <div className="commande-mail-filters">
@@ -219,8 +237,16 @@ const CommandeMail = ({ standalone = false }) => {
                   </ul>
                 )}
 
-                {canDelete && (
-                  <div className="commande-mail-detail-actions">
+                <div className="commande-mail-detail-actions">
+                  <button
+                    type="button"
+                    className="commande-mail-print-btn"
+                    disabled={printing}
+                    onClick={() => printMail(detail.id)}
+                  >
+                    {printing ? 'Envoi…' : 'Imprimer'}
+                  </button>
+                  {canDelete && (
                     <button
                       type="button"
                       className="commande-mail-delete-btn"
@@ -229,8 +255,8 @@ const CommandeMail = ({ standalone = false }) => {
                     >
                       {deletingId === detail.id ? 'Suppression…' : 'Supprimer'}
                     </button>
-                  </div>
-                )}
+                  )}
+                </div>
               </>
             )}
           </div>

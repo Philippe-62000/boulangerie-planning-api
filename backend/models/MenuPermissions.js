@@ -316,6 +316,15 @@ menuPermissionsSchema.statics.createDefaultPermissions = async function() {
         order: 17.5
       },
       {
+        menuId: 'commande-mail',
+        menuName: 'Commande mail',
+        menuPath: '/commande-mail',
+        isVisibleToAdmin: true,
+        isVisibleToEmployee: true,
+        requiredPermissions: [],
+        order: 17.6
+      },
+      {
         menuId: 'product-exchanges',
         menuName: 'Échanges entre boulangeries',
         menuPath: '/product-exchanges',
@@ -377,15 +386,6 @@ menuPermissionsSchema.statics.createDefaultPermissions = async function() {
         isVisibleToEmployee: true,
         requiredPermissions: [],
         order: 23
-      },
-      {
-        menuId: 'commande-mail',
-        menuName: 'Commande mail',
-        menuPath: '/commande-mail',
-        isVisibleToAdmin: true,
-        isVisibleToEmployee: true,
-        requiredPermissions: [],
-        order: 23.5
       }
     ];
 

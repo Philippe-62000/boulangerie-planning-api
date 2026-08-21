@@ -192,6 +192,25 @@
 
 .commande-mail-detail-actions {
   margin-top: 1rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.commande-mail-print-btn {
+  padding: 7px 12px;
+  border: none;
+  border-radius: 6px;
+  background: #198754;
+  color: #fff;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.commande-mail-print-btn:disabled,
+.commande-mail-delete-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
 }
 
 .commande-mail-delete-btn {

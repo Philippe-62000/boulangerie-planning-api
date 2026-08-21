@@ -10,6 +10,7 @@ router.post('/from-n8n', requireInternalApiSecret, ctrl.fromN8n);
 router.get('/', authenticateEmployee, ctrl.listMails);
 router.get('/:id', authenticateEmployee, ctrl.getMail);
 router.post('/:id/read', authenticateEmployee, ctrl.markRead);
+router.post('/:id/print', authenticateEmployee, ctrl.printMail);
 router.delete('/:id', authenticateEmployee, ctrl.removeMail);
 
 module.exports = router;
