@@ -16,6 +16,42 @@ function asString(value, max = 2000) {
   return String(value == null ? '' : value).trim().slice(0, max);
 }
 
+function isBlankEmail(value) {
+  const s = asString(value, 80);
+  return !s || s === '[object Object]';
+}
+
+/** n8n Gmail envoie from/to comme objet { text, value: [{ name, address }] }. */
+function formatEmailField(value, max = 500) {
+  if (value == null || value === '') return '';
+  if (typeof value === 'string') {
+    return isBlankEmail(value) ? '' : value.trim().slice(0, max);
+  }
+  if (Array.isArray(value)) {
+    return asString(
+      value.map((item) => formatEmailField(item, max)).filter(Boolean).join(', '),
+      max
+    );
+  }
+  if (typeof value === 'object') {
+    if (typeof value.text === 'string' && value.text.trim()) {
+      return asString(value.text, max);
+    }
+    if (typeof value.address === 'string' && value.address.trim()) {
+      const name = asString(value.name, 200);
+      const addr = asString(value.address, 300);
+      return asString(name ? `${name} <${addr}>` : addr, max);
+    }
+    if (Array.isArray(value.value)) {
+      return formatEmailField(value.value, max);
+    }
+    if (typeof value.value === 'string' && value.value.trim()) {
+      return asString(value.value, max);
+    }
+  }
+  return '';
+}
+
 function firstHeader(headers, name) {
   if (!Array.isArray(headers)) return '';
   const wanted = String(name || '').toLowerCase();
@@ -27,11 +63,11 @@ function extractFromPayload(body) {
   const payload = body.payload && typeof body.payload === 'object' ? body.payload : {};
   const headers = payload.headers || body.headers || [];
   return {
-    from: asString(
+    from: formatEmailField(
       body.from || body.From || body.sender || firstHeader(headers, 'From'),
       500
     ),
-    to: asString(body.to || body.To || firstHeader(headers, 'To'), 1000),
+    to: formatEmailField(body.to || body.To || firstHeader(headers, 'To'), 1000),
     subject: asString(
       body.subject || body.Subject || firstHeader(headers, 'Subject'),
       500
@@ -174,8 +210,8 @@ async function fromN8n(req, res) {
       : null;
     if (existing) {
       const $set = {};
-      if (!existing.from && extracted.from) $set.from = extracted.from;
-      if (!existing.to && extracted.to) $set.to = extracted.to;
+      if (extracted.from && isBlankEmail(existing.from)) $set.from = extracted.from;
+      if (extracted.to && isBlankEmail(existing.to)) $set.to = extracted.to;
       if (!existing.subject && extracted.subject) $set.subject = extracted.subject;
       if (!existing.text && text) $set.text = text;
       if (!existing.html && html) $set.html = html;
