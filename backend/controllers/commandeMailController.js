@@ -1,6 +1,7 @@
 const crypto = require('crypto');
 const CommandeMail = require('../models/CommandeMail');
 const StaffPrintMessage = require('../models/StaffPrintMessage');
+const { trimCommandeMailBody } = require('../utils/trimCommandeMailText');
 
 const ARRAS_ONLY_ERROR = 'Les commandes mail ne sont disponibles que pour Arras';
 const TEXT_MAX = 80000;
@@ -165,9 +166,10 @@ function buildPrintMessage(mail) {
   const header = [
     mail.subject ? `Objet : ${mail.subject}` : 'Objet : (sans objet)',
     mail.from ? `De : ${mail.from}` : '',
+    mail.to ? `À : ${mail.to}` : '',
     mail.receivedAt ? `Date : ${formatParisDateTime(mail.receivedAt)}` : ''
   ].filter(Boolean);
-  const body = asString(mail.text || mail.snippet, TEXT_MAX).trim();
+  const body = trimCommandeMailBody(asString(mail.text || mail.snippet, TEXT_MAX));
   const full = `${header.join('\n')}\n\n${body}`.trim();
   return full.slice(0, PRINT_MAX);
 }

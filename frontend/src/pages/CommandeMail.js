@@ -21,6 +21,47 @@ function sanitizeMailHtml(html) {
     .replace(/javascript:/gi, '');
 }
 
+/** Même logique que le ticket : on s’arrête à « La réception. » (signature B&B, logos, réseaux). */
+function trimCommandeMailBody(text) {
+  let t = String(text || '').replace(/\r\n/g, '\n');
+  if (!t.trim()) return '';
+  t = t.replace(/https?:\/\/mibc-[^\s)>\]]+/gi, '');
+  t = t.replace(/https?:\/\/[^\s]*bit\.ly[^\s)>\]]*/gi, '');
+  const reception = t.match(/([\s\S]*?\bLa r[ée]ception\.?)(?:\s*\n|$)/i);
+  if (reception) {
+    t = reception[1];
+  } else {
+    const cuts = [
+      t.search(/\n\[image:/i),
+      t.search(/\n\*Boulet Delphine\*/i),
+      t.search(/\nBoulet Delphine\s*$/m)
+    ].filter((i) => i > 80);
+    if (cuts.length) t = t.slice(0, Math.min(...cuts));
+  }
+  t = t
+    .split('\n')
+    .filter((line) => {
+      const s = line.trim();
+      if (!s) return true;
+      if (/^\[image:/i.test(s)) return false;
+      if (/^https?:\/\//i.test(s)) return false;
+      if (/mailinblack\.com/i.test(s)) return false;
+      return true;
+    })
+    .join('\n');
+  return t.replace(/\n{3,}/g, '\n\n').trim();
+}
+
+function trimMailHtml(html) {
+  const s = String(html || '');
+  const m = s.match(/La r[ée]ception\.?/i);
+  if (!m) return s;
+  const end = s.indexOf(m[0]) + m[0].length;
+  const rest = s.slice(end);
+  const close = rest.match(/^\s*(<\/p>|<\/div>|<br\s*\/?>)/i);
+  return s.slice(0, end + (close ? close[0].length : 0));
+}
+
 const CommandeMail = ({ standalone = false }) => {
   const { isAdmin } = useAuth();
   const [mails, setMails] = useState([]);
@@ -215,11 +256,11 @@ const CommandeMail = ({ standalone = false }) => {
                     className="commande-mail-html-frame"
                     title="Contenu HTML du mail"
                     sandbox=""
-                    srcDoc={sanitizeMailHtml(detail.html)}
+                    srcDoc={sanitizeMailHtml(trimMailHtml(detail.html))}
                   />
                 ) : (
                   <pre className="commande-mail-body-text">
-                    {detail.text || (detail.html ? 'Pas de version texte : ouvrez l’onglet HTML.' : 'Mail sans contenu.')}
+                    {trimCommandeMailBody(detail.text) || (detail.html ? 'Pas de version texte : ouvrez l’onglet HTML.' : 'Mail sans contenu.')}
                   </pre>
                 )}
 
