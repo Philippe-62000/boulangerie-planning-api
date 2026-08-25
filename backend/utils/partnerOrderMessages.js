@@ -1,4 +1,5 @@
-const ALERT_HIDE_STATUSES = new Set(['acknowledged', 'cancelled']);
+/** Fil de discussion fermé : on peut encore le lire, plus envoyer. */
+const ALERT_HIDE_STATUSES = new Set(['cancelled']);
 
 function normalizeMessages(raw) {
   return Array.isArray(raw) ? raw.filter((m) => m && m.text && m.from) : [];

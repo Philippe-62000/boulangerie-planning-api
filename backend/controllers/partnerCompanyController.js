@@ -1573,7 +1573,7 @@ const sendInternalOrderMessage = async (req, res) => {
     if (ALERT_HIDE_STATUSES.has(order.status)) {
       return res.status(400).json({
         success: false,
-        error: 'Impossible d’envoyer un message sur une commande prise en compte ou annulée.'
+        error: 'Impossible d’envoyer un message sur une commande annulée.'
       });
     }
 

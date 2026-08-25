@@ -965,7 +965,6 @@ const CommandeLivraisonEntreprises = () => {
                     <button
                       type="button"
                       onClick={() => openMessageModal(o)}
-                      disabled={o.status === 'acknowledged' || o.status === 'cancelled'}
                       style={{
                         padding: '6px 10px',
                         borderRadius: '8px',
@@ -975,8 +974,8 @@ const CommandeLivraisonEntreprises = () => {
                         fontWeight: 600
                       }}
                       title={
-                        o.status === 'acknowledged' || o.status === 'cancelled'
-                          ? 'Message indisponible pour cette commande'
+                        o.status === 'cancelled'
+                          ? 'Voir les messages (commande annulée)'
                           : 'Demander une précision au client'
                       }
                     >
@@ -1496,28 +1495,36 @@ const CommandeLivraisonEntreprises = () => {
             ) : (
               <p style={{ color: '#888', fontSize: '0.9rem' }}>Aucun message pour l’instant.</p>
             )}
-            <label style={{ display: 'block', marginBottom: 12 }}>
-              <span style={{ fontWeight: 600 }}>Nouveau message</span>
-              <textarea
-                rows={4}
-                value={messageDraft}
-                onChange={(e) => setMessageDraft(e.target.value)}
-                placeholder="Demandez une précision au client…"
-                style={{ display: 'block', width: '100%', marginTop: 6, padding: 10, borderRadius: 8, border: '1px solid #ccc' }}
-              />
-            </label>
+            {messageModalOrder.status === 'cancelled' ? (
+              <p style={{ color: '#92400e', fontSize: '0.9rem' }}>
+                Commande annulée : lecture seule, plus d’envoi.
+              </p>
+            ) : (
+              <label style={{ display: 'block', marginBottom: 12 }}>
+                <span style={{ fontWeight: 600 }}>Nouveau message</span>
+                <textarea
+                  rows={4}
+                  value={messageDraft}
+                  onChange={(e) => setMessageDraft(e.target.value)}
+                  placeholder="Demandez une précision au client…"
+                  style={{ display: 'block', width: '100%', marginTop: 6, padding: 10, borderRadius: 8, border: '1px solid #ccc' }}
+                />
+              </label>
+            )}
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
               <button type="button" onClick={closeMessageModal} style={{ padding: '8px 14px', borderRadius: 8 }}>
                 Fermer
               </button>
-              <button
-                type="button"
-                onClick={sendOrderMessage}
-                disabled={messageSending || !String(messageDraft).trim()}
-                style={{ padding: '8px 14px', borderRadius: 8, background: '#667eea', color: '#fff', fontWeight: 600 }}
-              >
-                {messageSending ? 'Envoi…' : 'Envoyer au client'}
-              </button>
+              {messageModalOrder.status === 'cancelled' ? null : (
+                <button
+                  type="button"
+                  onClick={sendOrderMessage}
+                  disabled={messageSending || !String(messageDraft).trim()}
+                  style={{ padding: '8px 14px', borderRadius: 8, background: '#667eea', color: '#fff', fontWeight: 600 }}
+                >
+                  {messageSending ? 'Envoi…' : 'Envoyer au client'}
+                </button>
+              )}
             </div>
           </div>
         </div>
