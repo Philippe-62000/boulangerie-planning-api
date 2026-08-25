@@ -371,6 +371,9 @@ const CommandesEnLigne = () => {
         <div className="commandes-modal-overlay" onClick={() => setShowLinksModal(false)}>
           <div className="commandes-modal" onClick={(e) => e.stopPropagation()}>
             <h2>Gestion des liens</h2>
+            <p style={{ color: '#64748b', fontSize: '0.9rem', marginTop: 0 }}>
+              Pour l’année 2026/27, collez l’URL du nouveau classeur (ex. TP CV), enregistrez, puis cliquez sur « Sync onglets ».
+            </p>
             <form onSubmit={handleAddLink}>
               <input
                 type="url"
@@ -415,7 +418,7 @@ const CommandesEnLigne = () => {
                       <button type="button" className="btn btn-sm" onClick={() => handleEditLink(l)} title="Modifier le nom ou l'URL">
                         Modifier
                       </button>
-                      <button type="button" className="btn btn-sm" onClick={() => handleSyncTabs(l._id)} title="Synchroniser les onglets (Mars, Avril...)">
+                      <button type="button" className="btn btn-sm" onClick={() => handleSyncTabs(l._id)} title="Synchroniser les onglets (Août 2026, Septembre 2026...)">
                         Sync onglets
                       </button>
                       <button type="button" className="btn-delete" onClick={() => handleDeleteLink(l._id)}>Supprimer</button>
@@ -440,7 +443,7 @@ const CommandesEnLigne = () => {
                 ))}
               </select>
               <select value={summaryYear} onChange={(e) => setSummaryYear(Number(e.target.value))}>
-                {[2024, 2025, 2026].map(y => (
+                {[2024, 2025, 2026, 2027].map(y => (
                   <option key={y} value={y}>{y}</option>
                 ))}
               </select>
