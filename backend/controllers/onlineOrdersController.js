@@ -5,6 +5,35 @@ const googleOAuthController = require('./googleOAuthController');
 
 const MONTH_NAMES = ['Janvier', 'Fevrier', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Aout', 'Septembre', 'Octobre', 'Novembre', 'Decembre'];
 
+function foldAccents(s) {
+  return String(s || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+}
+
+function extractYearFromTitle(title) {
+  const m = String(title || '').match(/(20\d{2})/);
+  return m ? parseInt(m[1], 10) : null;
+}
+
+function isIgnoredSheetTitle(title) {
+  const t = foldAccents(title).trim();
+  return t === 'accueil' || t === 'eleves' || t === 'eleve' || t === 'menu';
+}
+
+function isHeaderLikeLabel(value) {
+  const t = foldAccents(value).replace(/\s+/g, ' ').trim();
+  if (!t) return true;
+  return /^(eleve|nom prenom|nom|sandwich|proposition|sandwich \/ proposition)$/.test(t);
+}
+
+function resolveClassName(a1, fallback) {
+  const s = String(a1 || '').trim();
+  if (!s || isHeaderLikeLabel(s)) return fallback;
+  return s;
+}
+
 /** Message exploitable pour les erreurs googleapis / Gaxios (souvent sans .message utile). */
 function extractGoogleApiErrorMessage(err) {
   if (!err) return 'Erreur inconnue';
@@ -108,25 +137,22 @@ async function getLinks(req, res) {
   }
 }
 
-// Trouver le mois correspondant à un titre d'onglet (avec aliases pour Mars/March, etc.)
+// Trouver le mois correspondant à un titre d'onglet (ex. "Août 2026", "Mars", "March")
 function matchSheetTitleToMonth(title) {
   if (!title || typeof title !== 'string') return null;
-  const titleLower = title.toLowerCase().trim();
+  if (isIgnoredSheetTitle(title)) return null;
+  const titleLower = foldAccents(title).trim();
   if (!titleLower) return null;
-  // Correspondance exacte d'abord
   for (const monthName of MONTH_NAMES) {
-    if (titleLower === monthName.toLowerCase()) return monthName;
+    if (titleLower === foldAccents(monthName)) return monthName;
   }
-  // Cas spécial : "Mars Avril" ou "Mars " = onglet Mars (priorité au premier mois)
-  if (titleLower.startsWith('mars')) {
-    return 'Mars';
-  }
-  // Correspondance via aliases (priorité aux correspondances les plus longues)
   let bestMatch = null;
   let bestLen = 0;
   for (const [monthName, aliases] of Object.entries(MONTH_ALIASES)) {
-    for (const alias of aliases) {
-      if (titleLower === alias || titleLower.includes(alias)) {
+    const names = [foldAccents(monthName), ...aliases.map(foldAccents)];
+    for (const alias of names) {
+      if (!alias) continue;
+      if (titleLower === alias || titleLower.includes(alias) || titleLower.startsWith(`${alias} `)) {
         if (alias.length > bestLen) {
           bestLen = alias.length;
           bestMatch = monthName;
@@ -137,39 +163,53 @@ function matchSheetTitleToMonth(title) {
   return bestMatch;
 }
 
-// Récupérer les monthGids en mappant les onglets nommés par mois (Mars, Avril, etc.)
-async function fetchMonthGidsFromTabs(spreadsheetId, city) {
+function pickBestSheetForMonth(candidates, preferredYear) {
+  if (!candidates.length) return null;
+  if (preferredYear) {
+    const withYear = candidates.filter((c) => extractYearFromTitle(c.title) === preferredYear);
+    if (withYear.length) return withYear[0];
+  }
+  const withAnyYear = candidates.filter((c) => extractYearFromTitle(c.title) != null);
+  if (withAnyYear.length) {
+    withAnyYear.sort((a, b) => (extractYearFromTitle(b.title) || 0) - (extractYearFromTitle(a.title) || 0));
+    return withAnyYear[0];
+  }
+  return candidates[0];
+}
+
+// Récupérer les monthGids en mappant les onglets nommés par mois (Août 2026, Mars, etc.)
+async function fetchMonthGidsFromTabs(spreadsheetId, city, preferredYear = null) {
   const auth = await getAuthenticatedClient(city);
   const sheets = google.sheets({ version: 'v4', auth });
   const response = await sheets.spreadsheets.get({
     spreadsheetId,
-    fields: 'sheets(properties(sheetId,title))' // Réduit la taille de la réponse (recommandé pour Render)
+    fields: 'sheets(properties(sheetId,title))'
   });
   const sheetsList = response?.data?.sheets || response?.sheets || [];
-  const monthGids = {};
+  const byMonth = {};
   for (const s of sheetsList) {
     const props = s?.properties || s;
     const title = String(props?.title || '').trim();
     const sheetId = String(props?.sheetId ?? '').trim();
-    if (!sheetId) continue;
+    if (!sheetId || isIgnoredSheetTitle(title)) continue;
     const matched = matchSheetTitleToMonth(title);
-    if (matched) {
-      monthGids[matched] = sheetId;
-    }
+    if (!matched) continue;
+    if (!byMonth[matched]) byMonth[matched] = [];
+    byMonth[matched].push({ title, sheetId });
   }
-  // Fallback pour TP EC Jeudi : Mars = gid 466543188 si non trouvé
-  if (!monthGids.Mars && spreadsheetId === '12ziNmTVtEaswdW8hjk3XOUyF4vhSf-JkrQZiEqD5Pv4') {
-    const marsSheet = sheetsList.find(s => String(s?.properties?.sheetId ?? s?.sheetId ?? '') === '466543188');
-    if (marsSheet) monthGids.Mars = '466543188';
+  const monthGids = {};
+  for (const [monthName, candidates] of Object.entries(byMonth)) {
+    const picked = pickBestSheetForMonth(candidates, preferredYear);
+    if (picked) monthGids[monthName] = picked.sheetId;
   }
   return monthGids;
 }
 
 /** Met à jour monthGids en base si le mois demandé n’est pas encore mappé (ex. nouvel onglet Avril sans « Sync onglets »). */
-async function ensureMonthGidForMonth(link, monthName, city) {
+async function ensureMonthGidForMonth(link, monthName, city, preferredYear = null) {
   if (link.monthGids?.[monthName]) return link;
   try {
-    const fresh = await fetchMonthGidsFromTabs(link.spreadsheetId, city);
+    const fresh = await fetchMonthGidsFromTabs(link.spreadsheetId, city, preferredYear);
     if (Object.keys(fresh).length > 0) {
       const merged = { ...(link.monthGids || {}), ...fresh };
       link.monthGids = merged;
@@ -238,12 +278,20 @@ async function updateLink(req, res) {
     if (spreadsheetUrl !== undefined && spreadsheetUrl !== null) {
       const spreadsheetId = extractSpreadsheetId(spreadsheetUrl);
       if (spreadsheetId) {
+        const urlChanged = spreadsheetId !== link.spreadsheetId;
         link.spreadsheetId = spreadsheetId;
         link.spreadsheetUrl = spreadsheetUrl.trim();
-        const gidFromUrl = extractGidFromUrl(spreadsheetUrl);
-        if (gidFromUrl && Object.keys(link.monthGids || {}).length === 0) {
-          const monthName = MONTH_NAMES[new Date().getMonth()];
-          link.monthGids = { ...(link.monthGids || {}), [monthName]: gidFromUrl };
+        if (urlChanged) {
+          try {
+            link.monthGids = await fetchMonthGidsFromTabs(spreadsheetId, link.city || ONLINE_ORDERS_CITY_FALLBACK);
+          } catch (_) {
+            link.monthGids = {};
+          }
+          const gidFromUrl = extractGidFromUrl(spreadsheetUrl);
+          if (gidFromUrl && Object.keys(link.monthGids || {}).length === 0) {
+            const monthName = MONTH_NAMES[new Date().getMonth()];
+            link.monthGids = { [monthName]: gidFromUrl };
+          }
         }
       }
     }
@@ -370,35 +418,28 @@ async function getAuthenticatedClient(city) {
   return oauth2Client;
 }
 
-/** Trouve un onglet par nom de mois (Mars, Avril…) — titres avec espaces (« Mars ») gérés. */
-function findSheetByMonthName(sheetsList, monthName) {
+/** Trouve un onglet par nom de mois (Août 2026, Mars…) — ignore Accueil / ÉLÈVES. */
+function findSheetByMonthName(sheetsList, monthName, preferredYear = null) {
   if (!monthName || !MONTH_NAMES.includes(monthName)) return null;
-  const search = monthName.toLowerCase().trim();
-  let targetSheet = sheetsList.find(
-    s => s.properties?.title && s.properties.title.toLowerCase().trim() === search
-  );
-  if (!targetSheet) {
-    targetSheet = sheetsList.find(
-      s => s.properties?.title && s.properties.title.toLowerCase().trim().includes(search)
-    );
-  }
-  if (!targetSheet) {
-    const aliases = MONTH_ALIASES[monthName] || [];
-    for (const alias of aliases) {
-      targetSheet = sheetsList.find(s => {
-        const t = (s.properties?.title || '').toLowerCase().trim();
-        return t === alias || t.includes(alias);
-      });
-      if (targetSheet) break;
+  const candidates = [];
+  for (const s of sheetsList) {
+    const title = String(s.properties?.title || '').trim();
+    if (!title || isIgnoredSheetTitle(title)) continue;
+    if (matchSheetTitleToMonth(title) === monthName) {
+      candidates.push({ title, sheet: s });
     }
   }
-  return targetSheet || null;
+  const picked = pickBestSheetForMonth(
+    candidates.map((c) => ({ title: c.title, sheetId: String(c.sheet.properties?.sheetId ?? ''), sheet: c.sheet })),
+    preferredYear
+  );
+  return picked?.sheet || null;
 }
 
 // Récupérer les données d'un Google Sheet via l'API OAuth (avec cache pour respecter le quota)
 // fallbackMonthName : si le gid en base est périmé, retrouver l’onglet par le mois (ex. Avril)
-async function fetchSheetData(spreadsheetId, rangeOrGid, city, fallbackMonthName = null) {
-  const cacheKey = `${city}:${spreadsheetId}:${String(rangeOrGid || '')}`;
+async function fetchSheetData(spreadsheetId, rangeOrGid, city, fallbackMonthName = null, preferredYear = null) {
+  const cacheKey = `${city}:${spreadsheetId}:${String(rangeOrGid || '')}:${preferredYear || ''}`;
   const cached = getCachedSheetData(cacheKey);
   if (cached) return cached;
 
@@ -414,32 +455,17 @@ async function fetchSheetData(spreadsheetId, rangeOrGid, city, fallbackMonthName
       return sid != null && String(sid) === String(rangeOrGid);
     });
   } else if (typeof rangeOrGid === 'string') {
-    const search = rangeOrGid.toLowerCase().trim();
-    // Correspondance exacte
+    const search = foldAccents(rangeOrGid).trim();
     targetSheet = sheetsList.find(s =>
-      s.properties.title && s.properties.title.toLowerCase().trim() === search
+      s.properties.title && foldAccents(s.properties.title).trim() === search
     );
     if (!targetSheet) {
-      // Correspondance partielle (ex: "Mars" trouve "Mars 2026")
-      targetSheet = sheetsList.find(s =>
-        s.properties.title && s.properties.title.toLowerCase().includes(search)
-      );
-    }
-    if (!targetSheet && MONTH_NAMES.includes(rangeOrGid)) {
-      // Recherche via aliases (ex: "Mars" -> onglet "March")
-      const aliases = MONTH_ALIASES[rangeOrGid] || [];
-      for (const alias of aliases) {
-        targetSheet = sheetsList.find(s => {
-          const t = (s.properties?.title || '').toLowerCase();
-          return t === alias || t.includes(alias);
-        });
-        if (targetSheet) break;
-      }
+      targetSheet = findSheetByMonthName(sheetsList, MONTH_NAMES.includes(rangeOrGid) ? rangeOrGid : matchSheetTitleToMonth(rangeOrGid), preferredYear);
     }
   }
-  // Gid numérique en base ne correspond plus à un onglet (copie / onglet recréé) : résoudre par nom du mois
-  if (!targetSheet && typeof rangeOrGid === 'string' && /^\d+$/.test(rangeOrGid) && fallbackMonthName) {
-    const fb = findSheetByMonthName(sheetsList, fallbackMonthName);
+  // Gid numérique en base ne correspond plus à un onglet (copie / onglet recréé / année suivante)
+  if (!targetSheet && fallbackMonthName) {
+    const fb = findSheetByMonthName(sheetsList, fallbackMonthName, preferredYear);
     if (fb) {
       targetSheet = fb;
       const sid = fb.properties?.sheetId;
@@ -529,9 +555,9 @@ function parseOrdersFromSheet(values, defaultClassName) {
   const orders = [];
   if (!values || values.length < 2) return orders;
   const row0 = values[0] || [];
-  const className = (row0[0] || defaultClassName).toString().trim();
+  const className = resolveClassName(row0[0], defaultClassName);
 
-  // Détecter le format "dates en colonnes" : colonnes B, C, D... de la ligne 1 contiennent des dates
+  // Format 2026/27 : ligne 1 = dates, ligne 2 = « Sandwich / proposition », ligne 3+ = élèves
   const dateColumns = [];
   for (let j = 1; j < row0.length; j++) {
     const cell = row0[j];
@@ -542,13 +568,18 @@ function parseOrdersFromSheet(values, defaultClassName) {
   const isDatesAsColumns = dateColumns.length >= 1 && !looksLikeDate(row0[0]);
 
   if (isDatesAsColumns) {
-    for (let i = 1; i < values.length; i++) {
+    let dataStart = 1;
+    const row1Joined = (values[1] || []).join(' ');
+    if (/sandwich/i.test(row1Joined) || /proposition/i.test(row1Joined)) {
+      dataStart = 2;
+    }
+    for (let i = dataStart; i < values.length; i++) {
       const row = values[i] || [];
       const name = (row[0] ?? '').toString().trim();
-      if (!name) continue;
+      if (!name || isHeaderLikeLabel(name)) continue;
       for (const { col, dateStr } of dateColumns) {
         const order = (row[col] ?? '').toString().trim();
-        if (order) {
+        if (order && !isHeaderLikeLabel(order)) {
           orders.push({ day: dateStr, name, order, className, rawDate: dateStr });
         }
       }
@@ -692,17 +723,17 @@ async function getOrdersForDay(req, res) {
       if (i > 0) await delay(800); // Espacement pour respecter le quota API (60 req/min)
       let link = links[i];
       try {
-        link = await ensureMonthGidForMonth(link, monthName, city);
+        link = await ensureMonthGidForMonth(link, monthName, city, targetYear);
         let sheetRef = link.monthGids?.[monthName] || monthName;
         if (monthName === 'Mars' && TP_EC_JEUDI_MARS_GID[link.spreadsheetId]) {
           sheetRef = TP_EC_JEUDI_MARS_GID[link.spreadsheetId];
         }
-        const { values, fixedSheetId } = await fetchSheetData(link.spreadsheetId, sheetRef, city, monthName);
+        const { values, fixedSheetId } = await fetchSheetData(link.spreadsheetId, sheetRef, city, monthName, targetYear);
         if (fixedSheetId != null) {
           await OnlineOrderLink.findByIdAndUpdate(link._id, { $set: { [`monthGids.${monthName}`]: fixedSheetId } });
           link.monthGids = { ...(link.monthGids || {}), [monthName]: fixedSheetId };
         }
-        const className = values[0]?.[0] || link.className;
+        const className = resolveClassName(values[0]?.[0], link.className);
         const orders = parseOrdersFromSheet(values, className);
         const dayOrders = filterOrdersForDay(orders, targetDay, targetMonth, targetYear);
         allOrders.push(...dayOrders.map(o => ({ ...o, className: className || link.className })));
@@ -750,17 +781,17 @@ async function getMonthlySummary(req, res) {
       if (i > 0) await delay(800); // Espacement pour respecter le quota API (60 req/min)
       let link = links[i];
       try {
-        link = await ensureMonthGidForMonth(link, monthName, city);
+        link = await ensureMonthGidForMonth(link, monthName, city, targetYear);
         let sheetRef = link.monthGids?.[monthName] || monthName;
         if (monthName === 'Mars' && TP_EC_JEUDI_MARS_GID[link.spreadsheetId]) {
           sheetRef = TP_EC_JEUDI_MARS_GID[link.spreadsheetId];
         }
-        const { values, fixedSheetId } = await fetchSheetData(link.spreadsheetId, sheetRef, city, monthName);
+        const { values, fixedSheetId } = await fetchSheetData(link.spreadsheetId, sheetRef, city, monthName, targetYear);
         if (fixedSheetId != null) {
           await OnlineOrderLink.findByIdAndUpdate(link._id, { $set: { [`monthGids.${monthName}`]: fixedSheetId } });
           link.monthGids = { ...(link.monthGids || {}), [monthName]: fixedSheetId };
         }
-        const className = values[0]?.[0] || link.className;
+        const className = resolveClassName(values[0]?.[0], link.className);
         const orders = parseOrdersFromSheet(values, className);
         const count = orders.filter(o => o.day || o.name || o.order).length;
         byClass[className || link.className] = count;
