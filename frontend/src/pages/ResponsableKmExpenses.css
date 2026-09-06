@@ -415,6 +415,22 @@
   background: #f8f9fa;
 }
 
+.responsable-km .bank-km-input {
+  width: 4.5rem;
+  padding: 0.25rem 0.35rem;
+}
+
+.responsable-km .bank-comment-input {
+  width: 100%;
+  min-width: 10rem;
+  padding: 0.25rem 0.35rem;
+}
+
+.responsable-km tr.bank-card-refused td {
+  opacity: 0.55;
+  text-decoration: line-through;
+}
+
 .responsable-km .voyage-deducted {
   margin-top: 0.5rem;
   font-weight: 600;

@@ -27,6 +27,8 @@ const ResponsableKmExpenses = () => {
   const [importingBank, setImportingBank] = useState(false);
   const [showBankImportModal, setShowBankImportModal] = useState(false);
   const [bankImportData, setBankImportData] = useState(null);
+  const [bankCardDrafts, setBankCardDrafts] = useState([]);
+  const [refusedBankCards, setRefusedBankCards] = useState(new Set());
   const [confirmingBankImport, setConfirmingBankImport] = useState(false);
 
   // Modal Paramètres péage
@@ -282,6 +284,12 @@ const ResponsableKmExpenses = () => {
       const res = await api.post('/responsable-km/import-bank-pdf', formData);
       const data = res.data?.data;
       setBankImportData(data);
+      setBankCardDrafts((data?.cards || []).map((c) => ({
+        ...c,
+        km: c.km == null ? '' : c.km,
+        comment: c.comment || ''
+      })));
+      setRefusedBankCards(new Set());
       setShowBankImportModal(true);
     } catch (error) {
       toast.error(error.response?.data?.error || 'Erreur import relevé banque');
@@ -291,9 +299,11 @@ const ResponsableKmExpenses = () => {
     }
   };
 
+  const acceptedBankCards = bankCardDrafts.filter((c, idx) => !refusedBankCards.has(idx) && Number(c.km) > 0);
+
   const applyBankImport = async () => {
-    if (!bankImportData?.matched?.length) {
-      toast.error('Aucun déplacement reconnu à appliquer');
+    if (!bankImportData?.matched?.length && !acceptedBankCards.length) {
+      toast.error('Aucun déplacement à appliquer (renseignez les km ou décochez le rejet)');
       return;
     }
     setConfirmingBankImport(true);
@@ -302,11 +312,18 @@ const ResponsableKmExpenses = () => {
         site,
         month,
         year,
-        matches: bankImportData.matched
+        matches: bankImportData.matched || [],
+        cards: acceptedBankCards.map((c) => ({
+          day: c.day,
+          km: Number(c.km),
+          comment: c.comment
+        }))
       });
       toast.success(res.data?.data?.message || 'Import banque appliqué');
       setShowBankImportModal(false);
       setBankImportData(null);
+      setBankCardDrafts([]);
+      setRefusedBankCards(new Set());
       fetchData();
     } catch (error) {
       toast.error(error.response?.data?.error || 'Erreur lors de l\'application');
@@ -663,11 +680,80 @@ const ResponsableKmExpenses = () => {
                 </table>
               </div>
             ) : (
-              <p className="modal-hint">Aucun déplacement reconnu pour ce mois (Centralis Joffre/Gbru ou Promocash Béthune).</p>
+              <p className="modal-hint">Aucun versement / Promocash reconnu pour ce mois.</p>
+            )}
+            {bankCardDrafts.length > 0 && (
+              <div className="import-unmatched" style={{ marginTop: '1rem' }}>
+                <h4>Paiements carte (Divers)</h4>
+                <p className="modal-hint">
+                  Boulanger / Intermarché Arques : 8 km proposés. Autres destinations : saisissez les km.
+                  Cochez « Rejeter » pour ignorer une ligne.
+                </p>
+                <table className="unmatched-table">
+                  <thead>
+                    <tr>
+                      <th>Jour</th>
+                      <th>Libellé relevé</th>
+                      <th>Km</th>
+                      <th>Commentaire divers</th>
+                      <th>Rejeter</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {bankCardDrafts.map((row, idx) => (
+                      <tr key={`card-${row.day}-${idx}`} className={refusedBankCards.has(idx) ? 'bank-card-refused' : ''}>
+                        <td>{String(row.day).padStart(2, '0')}</td>
+                        <td>{row.location}</td>
+                        <td>
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.1"
+                            className="bank-km-input"
+                            disabled={refusedBankCards.has(idx)}
+                            value={row.km}
+                            onChange={(e) => {
+                              const value = e.target.value;
+                              setBankCardDrafts((prev) => prev.map((c, i) => (i === idx ? { ...c, km: value } : c)));
+                            }}
+                          />
+                        </td>
+                        <td>
+                          <input
+                            type="text"
+                            className="bank-comment-input"
+                            disabled={refusedBankCards.has(idx)}
+                            value={row.comment}
+                            onChange={(e) => {
+                              const value = e.target.value;
+                              setBankCardDrafts((prev) => prev.map((c, i) => (i === idx ? { ...c, comment: value } : c)));
+                            }}
+                          />
+                        </td>
+                        <td>
+                          <input
+                            type="checkbox"
+                            checked={refusedBankCards.has(idx)}
+                            onChange={() => {
+                              setRefusedBankCards((prev) => {
+                                const next = new Set(prev);
+                                if (next.has(idx)) next.delete(idx);
+                                else next.add(idx);
+                                return next;
+                              });
+                            }}
+                          />
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             )}
             {bankImportData.unmatched?.length > 0 && (
               <div className="import-unmatched" style={{ marginTop: '1rem' }}>
                 <h4>Non associés</h4>
+                <p className="modal-hint">Ajoutez la ligne dans les paramètres (comme Bethune Joffre) puis réimportez.</p>
                 <ul>
                   {bankImportData.unmatched.map((u, idx) => (
                     <li key={idx}>Jour {u.day} — {u.location} ({u.reason})</li>
@@ -680,7 +766,7 @@ const ResponsableKmExpenses = () => {
               <button
                 className="btn btn-success"
                 onClick={applyBankImport}
-                disabled={confirmingBankImport || !(bankImportData.matched || []).length}
+                disabled={confirmingBankImport || (!(bankImportData.matched || []).length && !acceptedBankCards.length)}
               >
                 {confirmingBankImport ? 'Application...' : 'Appliquer les croix'}
               </button>
