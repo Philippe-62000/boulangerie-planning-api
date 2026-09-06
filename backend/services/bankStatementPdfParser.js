@@ -53,6 +53,7 @@ function isIgnoredCentralis(location) {
 
 /**
  * Règles métier : Gbru → même ligne que Joffre ; Promocash → boulangerie via Promocash.
+ * Foch avant le Saint-Omer générique pour éviter CA / Laverie Saint Omer.
  */
 const LOCATION_RULES = [
   {
@@ -68,7 +69,7 @@ const LOCATION_RULES = [
   {
     test: (n) => /\bpromocash\b/.test(n),
     hints: ['promocash'],
-    label: 'Boulangerie A via Promocash'
+    label: 'Boulangerie via Promocash'
   },
   {
     test: (n) => /\bberck\b/.test(n),
@@ -76,9 +77,28 @@ const LOCATION_RULES = [
     label: 'Berck'
   },
   {
-    test: (n) => /\bsaint[\s-]*omer|\bst[\s-]*omer|\bfoc\b/.test(n),
-    hints: ['saint omer', 'st omer'],
+    test: (n) => /\bfoc(h)?\b/.test(n) || /saint[\s-]*omer[\s-]*foch/.test(n),
+    hints: ['saint omer foch', 'st omer foch', 'foch'],
+    label: 'Saint Omer Foch'
+  },
+  {
+    test: (n) => /\bsaint[\s-]*omer|\bst[\s-]*omer/.test(n),
+    hints: ['saint omer foch', 'saint omer', 'st omer'],
     label: 'Saint Omer'
+  }
+];
+
+/** Paiements carte entreprise : destinations connues (km + libellé commentaire). */
+const CARD_DESTINATIONS = [
+  {
+    test: (n) => /\bboulanger\b/.test(n),
+    km: 8,
+    commentName: 'boulanger'
+  },
+  {
+    test: (n) => /\bintermarche\b/.test(n),
+    km: 8,
+    commentName: 'intermarche'
   }
 ];
 
@@ -127,6 +147,51 @@ function extractCentralisLocation(block) {
     .trim();
 }
 
+function extractVersementLocation(block) {
+  const m = block.match(/Versement\s+(.+)$/i);
+  if (!m) return '';
+  return m[1]
+    .replace(/\d{2}\/\d{2}\/\d{2}\s*\d{1,2}[hH]\d{2}/gi, ' ')
+    .replace(/\d{2}\/\d{2}\/\d{2}/gi, ' ')
+    .replace(/\d{1,2}[hH]\d{2}/gi, ' ')
+    .replace(/\s+\d[\d\s.,]*$/g, '')
+    .replace(/[^\p{L}\s'-]/gu, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function extractCardMerchant(block) {
+  const m = block.match(/Carte\s+X\d+\s+(.+)$/i);
+  if (!m) return '';
+  return m[1]
+    .replace(/\d{2}\/\d{2}(?:\/\d{2})?.*/g, ' ')
+    .replace(/[^\p{L}\s'-]/gu, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function extractCardPurchaseDate(block, fallback, docYear) {
+  const matches = [...String(block || '').matchAll(/(\d{2})\/(\d{2})(?:\/(\d{2}))?/g)];
+  if (!matches.length) return fallback;
+  const last = matches[matches.length - 1];
+  const parsed = parseDayMonth(last[1], last[2]);
+  if (!parsed) return fallback;
+  const year = last[3] ? fullYearFromTwoDigits(last[3]) : (fallback?.year || docYear);
+  return { day: parsed.day, month: parsed.month, year, source: 'card' };
+}
+
+function commentForCard(merchant, day, month, known) {
+  const dd = String(day).padStart(2, '0');
+  const mm = String(month).padStart(2, '0');
+  const name = known?.commentName || normalize(merchant).split(' ')[0] || 'carte';
+  return `${name} le ${dd}/${mm}`;
+}
+
+function resolveCardDestination(merchant) {
+  const n = normalize(merchant);
+  return CARD_DESTINATIONS.find((rule) => rule.test(n)) || null;
+}
+
 /**
  * @param {Buffer} buffer
  * @param {number} month
@@ -169,6 +234,40 @@ async function parseBankStatementPdf(buffer, month, year) {
         location: location || 'Centralis',
         raw: block.slice(0, 180)
       });
+      continue;
+    }
+
+    if (/Versement\s+/i.test(block) && !/Rejet/i.test(block)) {
+      const location = extractVersementLocation(block);
+      if (!location || isIgnoredCentralis(location)) continue;
+      events.push({
+        kind: 'versement',
+        day: dated.day,
+        month: dated.month,
+        year: dated.year,
+        location,
+        raw: block.slice(0, 180)
+      });
+      continue;
+    }
+
+    if (/Carte\s+X\d+/i.test(block) && !/Remise\s+Carte/i.test(block)) {
+      const merchant = extractCardMerchant(block);
+      if (!merchant) continue;
+      const cardDated = extractCardPurchaseDate(block, dated, docYear);
+      const known = resolveCardDestination(merchant);
+      events.push({
+        kind: 'card',
+        day: cardDated.day,
+        month: cardDated.month,
+        year: cardDated.year,
+        location: merchant,
+        merchant,
+        km: known ? known.km : null,
+        comment: commentForCard(merchant, cardDated.day, cardDated.month, known),
+        suggested: Boolean(known),
+        raw: block.slice(0, 180)
+      });
     }
   }
 
@@ -189,10 +288,13 @@ function matchTripType(tripTypes, hints) {
     t,
     n: normalize(`${t.displayName || ''} ${t.name || ''}`)
   }));
-  for (const hint of hints) {
+  const sortedHints = [...(hints || [])].sort((a, b) => normalize(b).length - normalize(a).length);
+  for (const hint of sortedHints) {
     const h = normalize(hint);
     if (!h) continue;
-    const found = normalizedTypes.find(({ n }) => n.includes(h) || h.includes(n));
+    const exact = normalizedTypes.find(({ n }) => n === h || n.split(' ').join(' ') === h);
+    if (exact) return exact.t;
+    const found = normalizedTypes.find(({ n }) => n.includes(h));
     if (found) return found.t;
   }
   return null;
@@ -204,8 +306,23 @@ function matchTripType(tripTypes, hints) {
 function mapEventsToTripTypes(events, tripTypes) {
   const matched = [];
   const unmatched = [];
+  const cards = [];
 
   for (const ev of events) {
+    if (ev.kind === 'card') {
+      cards.push({
+        day: ev.day,
+        month: ev.month,
+        year: ev.year,
+        location: ev.location,
+        merchant: ev.merchant,
+        km: ev.km,
+        comment: ev.comment,
+        suggested: Boolean(ev.suggested),
+        raw: ev.raw
+      });
+      continue;
+    }
     const rule = ev.kind === 'promocash'
       ? LOCATION_RULES.find((r) => r.label.includes('Promocash'))
       : resolveLocationRule(ev.location);
@@ -230,7 +347,7 @@ function mapEventsToTripTypes(events, tripTypes) {
     });
   }
 
-  return { matched, unmatched };
+  return { matched, unmatched, cards };
 }
 
 module.exports = {

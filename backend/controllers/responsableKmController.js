@@ -5,7 +5,28 @@ const ResponsableDisplacementLog = require('../models/ResponsableDisplacementLog
 const DiversPreset = require('../models/DiversPreset');
 const Parameter = require('../models/Parameters');
 const { parseBipGoPdf } = require('../services/bipGoPdfParser');
-const { parseBankStatementPdf, mapEventsToTripTypes } = require('../services/bankStatementPdfParser');
+const { parseBankStatementPdf, mapEventsToTripTypes, normalize } = require('../services/bankStatementPdfParser');
+
+async function ensureTripTypeForBankImport(site, { name, displayName, km, hints }) {
+  const types = await ResponsableTripType.find({ site });
+  const found = types.find((t) => {
+    const n = normalize(`${t.displayName || ''} ${t.name || ''}`);
+    return (hints || [displayName, name]).some((h) => n.includes(normalize(h)));
+  });
+  if (found) return found;
+  const divers = types.find((t) => t.name === 'divers');
+  const order = divers ? Number(divers.order) - 0.02 : types.length;
+  return ResponsableTripType.create({
+    site,
+    name,
+    displayName,
+    km,
+    order,
+    isKmPerDay: false,
+    isBoulangerie: false,
+    isToll: false
+  });
+}
 const sftpService = require('../services/sftpService');
 
 const roundEuro = (n) => Math.round((Number(n) || 0) * 100) / 100;
@@ -406,18 +427,28 @@ exports.importBankPdf = async (req, res) => {
     const m = parseInt(month, 10);
     const y = parseInt(year, 10);
 
-    const types = await ResponsableTripType.find({ site }).sort({ order: 1 });
     const parsed = await parseBankStatementPdf(req.file.buffer, m, y);
-    const { matched, unmatched } = mapEventsToTripTypes(parsed.inMonth, types);
+    const locationText = parsed.inMonth.map((e) => `${e.location || ''} ${e.kind || ''}`).join(' ');
+    if (/foch/i.test(locationText)) {
+      await ensureTripTypeForBankImport(site, {
+        name: 'saint-omer-foch',
+        displayName: 'Saint Omer Foch',
+        km: 8,
+        hints: ['saint omer foch', 'foch']
+      });
+    }
+    const types = await ResponsableTripType.find({ site }).sort({ order: 1 });
+    const { matched, unmatched, cards } = mapEventsToTripTypes(parsed.inMonth, types);
 
     res.json({
       success: true,
       data: {
         matched,
         unmatched,
+        cards,
         otherMonth: parsed.otherMonth,
         documentYear: parsed.documentYear,
-        message: `${matched.length} déplacement(s) reconnu(s) pour ${m}/${y}. ${unmatched.length} non associé(s).`
+        message: `${matched.length} déplacement(s) reconnu(s) pour ${m}/${y}. ${unmatched.length} non associé(s). ${(cards || []).length} paiement(s) carte.`
       }
     });
   } catch (error) {
@@ -429,12 +460,15 @@ exports.importBankPdf = async (req, res) => {
 /** Applique les croix du relevé banque sur le mois en cours (sans écraser les autres cases). */
 exports.confirmImportBankPdf = async (req, res) => {
   try {
-    let { site, month, year, matches } = req.body;
+    let { site, month, year, matches, cards } = req.body;
     if (typeof matches === 'string') matches = JSON.parse(matches || '[]');
+    if (typeof cards === 'string') cards = JSON.parse(cards || '[]');
     if (!site || !month || !year) {
       return res.status(400).json({ error: 'Site, mois et année requis' });
     }
-    if (!Array.isArray(matches) || matches.length === 0) {
+    if (!Array.isArray(matches)) matches = [];
+    if (!Array.isArray(cards)) cards = [];
+    if (matches.length === 0 && cards.length === 0) {
       return res.status(400).json({ error: 'Aucun déplacement à appliquer' });
     }
     const m = parseInt(month, 10);
@@ -458,15 +492,54 @@ exports.confirmImportBankPdf = async (req, res) => {
       added += 1;
     }
 
+    const diversType = await ResponsableTripType.findOne({ site, name: 'divers' });
+    let cardsAdded = 0;
+    const commentLines = [];
+    if (diversType) {
+      const diversId = diversType._id.toString();
+      for (const card of cards) {
+        const day = parseInt(card.day, 10);
+        const km = roundEuro(card.km);
+        if (!day || day < 1 || day > 31 || !(km > 0)) continue;
+        const existing = expense.entries.find(
+          (e) => e.tripTypeId.toString() === diversId && e.day === day
+        );
+        if (existing) {
+          existing.count = roundEuro((existing.count || 0) + km);
+        } else {
+          expense.entries.push({ tripTypeId: diversType._id, day, count: km });
+        }
+        cardsAdded += 1;
+        const line = String(card.comment || '').trim();
+        if (line) commentLines.push(line);
+      }
+    }
+
+    if (commentLines.length) {
+      const existingComments = String(expense.diversComments || '').split('\n').map((l) => l.trim()).filter(Boolean);
+      const existingNorm = new Set(existingComments.map((l) => l.toLowerCase()));
+      for (const line of commentLines) {
+        if (!existingNorm.has(line.toLowerCase())) {
+          existingComments.push(line);
+          existingNorm.add(line.toLowerCase());
+        }
+      }
+      expense.diversComments = existingComments.join('\n');
+    }
+
     await expense.save();
+    const parts = [];
+    if (added > 0) parts.push(`${added} croix`);
+    if (cardsAdded > 0) parts.push(`${cardsAdded} divers`);
     res.json({
       success: true,
       data: {
         added,
-        total: matches.length,
-        message: added > 0
-          ? `${added} croix ajoutée(s) dans le tableau`
-          : 'Aucune nouvelle croix (déjà présentes)'
+        cardsAdded,
+        total: matches.length + cards.length,
+        message: parts.length
+          ? `${parts.join(' et ')} ajouté(s) dans le tableau`
+          : 'Aucune nouvelle ligne (déjà présentes ou km vides)'
       }
     });
   } catch (error) {
