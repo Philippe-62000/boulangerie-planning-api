@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { getApiUrl } from '../config/apiConfig';
-import { isLonguenesseSite, getSiteKey } from '../config/site';
+import { isLonguenesseSite, isArrasSite, getSiteKey } from '../config/site';
 import './Sidebar.css';
 
 const Sidebar = () => {
@@ -74,7 +74,8 @@ const Sidebar = () => {
     { path: '/ambassadeur', label: 'Ambassadeur', icon: '⭐', menuId: 'ambassadeur' },
     { path: '/plateaux-repas', label: 'Plateaux repas', icon: '🍽️', menuId: 'plateaux-repas' },
     { path: '/commandes-en-ligne', label: 'Commandes en ligne', icon: '🛒', menuId: 'commandes-en-ligne' },
-    { path: '/commande-livraison', label: 'Commande livraison', icon: '🚚', menuId: 'commande-livraison' }
+    { path: '/commande-livraison', label: 'Commande livraison', icon: '🚚', menuId: 'commande-livraison' },
+    { path: '/commande-mail', label: 'Commande mail', icon: '✉️', menuId: 'commande-mail', arrasOnly: true }
   ];
 
   const PAIES_MENU_ITEMS = [
@@ -160,7 +161,9 @@ const Sidebar = () => {
         { menuId: 'plateaux-repas', isVisibleToAdmin: true, isVisibleToEmployee: false },
         { menuId: 'chorus', isVisibleToAdmin: true, isVisibleToEmployee: false },
         { menuId: 'compte-client-depots', isVisibleToAdmin: true, isVisibleToEmployee: false },
-        { menuId: 'vehicle', isVisibleToAdmin: true, isVisibleToEmployee: false }
+        { menuId: 'vehicle', isVisibleToAdmin: true, isVisibleToEmployee: false },
+        { menuId: 'merieux', isVisibleToAdmin: true, isVisibleToEmployee: true },
+        { menuId: 'commande-mail', isVisibleToAdmin: true, isVisibleToEmployee: true }
       ];
     } else {
       // Fallback salarié : permissions restrictives (planning, km-expenses, ticket-restaurant masqués par défaut pour Longuenesse)
@@ -193,7 +196,9 @@ const Sidebar = () => {
         { menuId: 'plateaux-repas', isVisibleToAdmin: false, isVisibleToEmployee: false },
         { menuId: 'chorus', isVisibleToAdmin: false, isVisibleToEmployee: false },
         { menuId: 'compte-client-depots', isVisibleToAdmin: false, isVisibleToEmployee: false },
-        { menuId: 'vehicle', isVisibleToAdmin: false, isVisibleToEmployee: false }
+        { menuId: 'vehicle', isVisibleToAdmin: false, isVisibleToEmployee: false },
+        { menuId: 'merieux', isVisibleToAdmin: false, isVisibleToEmployee: true },
+        { menuId: 'commande-mail', isVisibleToAdmin: false, isVisibleToEmployee: true }
       ];
     }
   };
@@ -288,6 +293,7 @@ const Sidebar = () => {
   // Menu items avec permissions (sans les items Social - regroupés séparément)
   const menuItems = [
     { path: '/dashboard', label: 'Tableau de bord', icon: '📊', menuId: 'dashboard' },
+    { path: '/merieux', label: 'Mérieux', icon: '🧪', menuId: 'merieux', arrasOnly: true },
     { path: '/employees', label: 'Gestion des employés', icon: '👥', menuId: 'employees' },
     { path: '/constraints', label: 'Contraintes hebdomadaires', icon: '📋', menuId: 'constraints' },
     { path: '/planning', label: 'Génération du planning', icon: '🎯', menuId: 'planning' },
@@ -304,6 +310,7 @@ const Sidebar = () => {
     { path: '/ambassadeur', label: 'Ambassadeur', icon: '⭐', menuId: 'ambassadeur' },
     { path: '/commandes-en-ligne', label: 'Commandes en ligne', icon: '🛒', menuId: 'commandes-en-ligne' },
     { path: '/commande-livraison', label: 'Commande livraison', icon: '🚚', menuId: 'commande-livraison' },
+    { path: '/commande-mail', label: 'Commande mail', icon: '✉️', menuId: 'commande-mail', arrasOnly: true },
     { path: '/product-exchanges', label: 'Échanges entre boulangeries', icon: '🔄', menuId: 'product-exchanges' },
     { path: '/frais-km-responsable', label: 'Frais KM Responsable', icon: '🚗', menuId: 'frais-km-responsable' },
     { path: '/plateaux-repas', label: 'Plateaux repas', icon: '🍽️', menuId: 'plateaux-repas' },
@@ -315,6 +322,9 @@ const Sidebar = () => {
   // Vérifier si un menu a la permission pour le rôle actuel
   const hasPermission = (menuId) => {
     if (!user) return false;
+
+    // Mérieux / Commande mail : Arras uniquement
+    if (menuId === 'merieux' || menuId === 'commande-mail') return isArrasSite();
 
     // Frais KM Responsable / Véhicule / Stocks : toujours visibles pour l’admin (évite masquage si permission BDD absente ou désactivée par erreur)
     if (
@@ -354,7 +364,7 @@ const Sidebar = () => {
 
   /** Sous-menus admin : afficher tous les liens (sauf Chorus hors Longuenesse). Les pages restent protégées par les routes. */
   const filterSubmenuForAdmin = (items) =>
-    items.filter((item) => !(item.longuenesseOnly && !isLonguenesse));
+    items.filter((item) => !(item.longuenesseOnly && !isLonguenesse) && !(item.arrasOnly && isLonguenesse));
 
   /**
    * Entrées sous « Stocks » selon les permissions menu.
@@ -371,6 +381,7 @@ const Sidebar = () => {
     if (!user) return [];
 
     let items = menuItems.filter((item) => !(item.longuenesseOnly && !isLonguenesse));
+    items = items.filter((item) => !(item.arrasOnly && isLonguenesse));
     items = items.filter((item) => hasPermission(item.menuId));
 
     if (isAdmin()) {

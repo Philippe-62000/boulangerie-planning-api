@@ -22,6 +22,11 @@ const staffPrintMessageSchema = new mongoose.Schema(
       enum: AUDIENCES,
       required: true
     },
+    kind: {
+      type: String,
+      enum: ['message', 'commande-mail'],
+      default: 'message'
+    },
     message: {
       type: String,
       required: true,

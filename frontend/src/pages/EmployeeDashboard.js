@@ -3,6 +3,7 @@ import { useAuth } from '../contexts/AuthContext';
 import api from '../services/api';
 import { toast } from 'react-toastify';
 import DocumentsSection from '../components/DocumentsSection';
+import AuditSanitaireBanner from '../components/AuditSanitaireBanner';
 import './EmployeeDashboard.css';
 
 const WEEK_DAYS = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
@@ -276,6 +277,8 @@ const EmployeeDashboard = () => {
         <h1>📁 Mes Documents</h1>
         <p>Bienvenue {user?.name || 'Employé'}, consultez vos documents personnels et généraux</p>
       </div>
+
+      <AuditSanitaireBanner />
 
       <div className="dashboard-tabs">
         <button 

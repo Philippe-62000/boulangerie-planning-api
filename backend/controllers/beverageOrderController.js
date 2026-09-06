@@ -2,7 +2,7 @@ const multer = require('multer');
 const pdfParse = require('pdf-parse');
 const BeverageOrderProposal = require('../models/BeverageOrderProposal');
 const BeveragePackConfig = require('../models/BeveragePackConfig');
-const { parseCrisalidInvendusText } = require('../utils/parseCrisalidInvendusPdf');
+const { parseCrisalidInvendusText, isIgnoredBeverageName } = require('../utils/parseCrisalidInvendusPdf');
 const {
   enrichOrderFields,
   compareSalesPeriods,
@@ -24,6 +24,10 @@ function normalizeSiteKey(raw) {
   const s = String(raw || '').toLowerCase();
   if (s === 'lon' || s === 'longuenesse') return 'lon';
   return 'plan';
+}
+
+function withoutIgnoredProducts(products) {
+  return (products || []).filter((p) => p?.name && !isIgnoredBeverageName(p.name));
 }
 
 function extractPeriodHint(text) {
@@ -143,6 +147,7 @@ const getCurrent = async (req, res) => {
       doc = await BeverageOrderProposal.findOne({ siteKey }).sort({ createdAt: -1 }).lean();
     }
     if (doc?.products?.length) {
+      doc.products = withoutIgnoredProducts(doc.products);
       const prefs = await loadProductPrefs(siteKey);
       doc.products = sortProductsByOrder(
         doc.products.map((p) => {
@@ -158,6 +163,7 @@ const getCurrent = async (req, res) => {
         })
       );
     }
+    res.set('Cache-Control', 'no-store');
     res.json({ success: true, data: doc || null });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
@@ -286,19 +292,41 @@ const parsePdf = async (req, res) => {
     }
 
     const products = mergeWithPrevious(
-      rawProducts,
-      previousDoc?.products || [],
+      withoutIgnoredProducts(rawProducts),
+      withoutIgnoredProducts(previousDoc?.products || []),
       prefsMap,
       marginPercent
     );
 
-    const comparison = compareSalesPeriods(previousDoc?.products || [], products);
+    const comparison = compareSalesPeriods(
+      withoutIgnoredProducts(previousDoc?.products || []),
+      products
+    );
 
+    const periodHint = extractPeriodHint(parsed.text || '');
+    const sourceFileName = req.file.originalname || '';
+
+    await upsertProductPrefs(siteKey, products);
+    await BeverageOrderProposal.updateMany({ siteKey, isCurrent: true }, { $set: { isCurrent: false } });
+    const saved = await BeverageOrderProposal.create({
+      siteKey,
+      periodLabel: periodHint,
+      sourceFileName,
+      marginPercent,
+      note: 'Commande le jeudi pour livraison le mardi',
+      previousPeriodLabel: previousDoc?.periodLabel || '',
+      previousSourceFileName: previousDoc?.sourceFileName || '',
+      products,
+      isCurrent: true
+    });
+
+    res.set('Cache-Control', 'no-store');
     res.json({
       success: true,
       data: {
-        sourceFileName: req.file.originalname || '',
-        periodHint: extractPeriodHint(parsed.text || ''),
+        id: String(saved._id),
+        sourceFileName,
+        periodHint,
         marginPercent,
         categories: categories.map((c) => ({
           name: c.name,
@@ -368,7 +396,7 @@ const saveProposal = async (req, res) => {
     }
 
     const products = sortProductsByOrder(
-      productsIn
+      withoutIgnoredProducts(productsIn)
         .map((p, idx) =>
           enrichOrderFields(
             {
@@ -434,6 +462,7 @@ const getProposal = async (req, res) => {
       siteKey
     }).lean();
     if (!doc) return res.status(404).json({ success: false, error: 'Proposition introuvable' });
+    if (doc.products?.length) doc.products = withoutIgnoredProducts(doc.products);
     res.json({ success: true, data: doc });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });

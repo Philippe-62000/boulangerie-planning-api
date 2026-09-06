@@ -23,6 +23,11 @@ const ResponsableKmExpenses = () => {
   const [saving, setSaving] = useState(false);
   const [importing, setImporting] = useState(false);
   const fileInputRef = useRef(null);
+  const bankFileInputRef = useRef(null);
+  const [importingBank, setImportingBank] = useState(false);
+  const [showBankImportModal, setShowBankImportModal] = useState(false);
+  const [bankImportData, setBankImportData] = useState(null);
+  const [confirmingBankImport, setConfirmingBankImport] = useState(false);
 
   // Modal Paramètres péage
   const [showParamsModal, setShowParamsModal] = useState(false);
@@ -261,6 +266,55 @@ const ResponsableKmExpenses = () => {
     }
   };
 
+  const handleImportBankPdf = async (e) => {
+    const file = e?.target?.files?.[0];
+    if (!file || !file.name.toLowerCase().endsWith('.pdf')) {
+      toast.error('Veuillez sélectionner un fichier PDF');
+      return;
+    }
+    setImportingBank(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('site', site);
+      formData.append('month', month);
+      formData.append('year', year);
+      const res = await api.post('/responsable-km/import-bank-pdf', formData);
+      const data = res.data?.data;
+      setBankImportData(data);
+      setShowBankImportModal(true);
+    } catch (error) {
+      toast.error(error.response?.data?.error || 'Erreur import relevé banque');
+    } finally {
+      setImportingBank(false);
+      if (bankFileInputRef.current) bankFileInputRef.current.value = '';
+    }
+  };
+
+  const applyBankImport = async () => {
+    if (!bankImportData?.matched?.length) {
+      toast.error('Aucun déplacement reconnu à appliquer');
+      return;
+    }
+    setConfirmingBankImport(true);
+    try {
+      const res = await api.post('/responsable-km/confirm-import-bank-pdf', {
+        site,
+        month,
+        year,
+        matches: bankImportData.matched
+      });
+      toast.success(res.data?.data?.message || 'Import banque appliqué');
+      setShowBankImportModal(false);
+      setBankImportData(null);
+      fetchData();
+    } catch (error) {
+      toast.error(error.response?.data?.error || 'Erreur lors de l\'application');
+    } finally {
+      setConfirmingBankImport(false);
+    }
+  };
+
   const handleImportPdf = async (e) => {
     const file = e?.target?.files?.[0];
     if (!file || !file.name.endsWith('.pdf')) {
@@ -374,10 +428,11 @@ const ResponsableKmExpenses = () => {
         const count = Object.values(days).reduce((s, v) => s + (v || 0), 0);
         km = count * (t.km || 0);
       }
-      byType[key] = { count: isKmPerDay ? '-' : Object.values(days).reduce((s, v) => s + (v || 0), 0), km };
+      byType[key] = { count: isKmPerDay ? '-' : Object.values(days).reduce((s, v) => s + (v || 0), 0), km: roundEuro(km) };
       totalKm += km;
     });
-    const totalEuros = totalKm * tauxKm;
+    totalKm = roundEuro(totalKm);
+    const totalEuros = roundEuro(totalKm * tauxKm);
     return { totalKm, totalEuros, byType };
   };
 
@@ -446,6 +501,21 @@ const ResponsableKmExpenses = () => {
             disabled={importing}
           >
             {importing ? '⏳ Import...' : '📄 Import PDF Bip&Go'}
+          </button>
+          <input
+            ref={bankFileInputRef}
+            type="file"
+            accept=".pdf"
+            onChange={handleImportBankPdf}
+            style={{ display: 'none' }}
+          />
+          <button
+            type="button"
+            className="btn btn-outline"
+            onClick={() => bankFileInputRef.current?.click()}
+            disabled={importingBank}
+          >
+            {importingBank ? '⏳ Import...' : '🏦 Import PDF banque'}
           </button>
           {tollPdfPath ? (
             <button type="button" className="btn btn-outline" onClick={downloadTollPdf} title="Télécharger la facture PDF importée">
@@ -557,6 +627,62 @@ const ResponsableKmExpenses = () => {
               <button className="btn btn-outline" onClick={() => setShowParamsModal(false)}>Annuler</button>
               <button className="btn btn-success" onClick={savePeageParams} disabled={savingParams}>
                 {savingParams ? 'Sauvegarde...' : 'Enregistrer'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showBankImportModal && bankImportData && (
+        <div className="modal-overlay" onClick={() => setShowBankImportModal(false)}>
+          <div className="modal-content modal-import" onClick={e => e.stopPropagation()}>
+            <h3>🏦 Import relevé banque</h3>
+            {bankImportData.message && (
+              <p className="import-format-recap">{bankImportData.message}</p>
+            )}
+            {bankImportData.matched?.length > 0 ? (
+              <div className="import-unmatched">
+                <h4>Croix à ajouter</h4>
+                <table className="unmatched-table">
+                  <thead>
+                    <tr>
+                      <th>Jour</th>
+                      <th>Ligne</th>
+                      <th>Libellé relevé</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {bankImportData.matched.map((row, idx) => (
+                      <tr key={`${row.tripTypeId}-${row.day}-${idx}`}>
+                        <td>{row.day}</td>
+                        <td>{row.tripDisplayName || row.ruleLabel}</td>
+                        <td>{row.location}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <p className="modal-hint">Aucun déplacement reconnu pour ce mois (Centralis Joffre/Gbru ou Promocash Béthune).</p>
+            )}
+            {bankImportData.unmatched?.length > 0 && (
+              <div className="import-unmatched" style={{ marginTop: '1rem' }}>
+                <h4>Non associés</h4>
+                <ul>
+                  {bankImportData.unmatched.map((u, idx) => (
+                    <li key={idx}>Jour {u.day} — {u.location} ({u.reason})</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            <div className="modal-actions">
+              <button className="btn btn-outline" onClick={() => setShowBankImportModal(false)}>Annuler</button>
+              <button
+                className="btn btn-success"
+                onClick={applyBankImport}
+                disabled={confirmingBankImport || !(bankImportData.matched || []).length}
+              >
+                {confirmingBankImport ? 'Application...' : 'Appliquer les croix'}
               </button>
             </div>
           </div>
@@ -782,7 +908,7 @@ const ResponsableKmExpenses = () => {
                       </td>
                     );
                   })}
-                  <td className="total-cell">{km} km</td>
+                  <td className="total-cell">{roundEuro(km).toFixed(2)} km</td>
                 </tr>
               );
             })}
@@ -806,8 +932,8 @@ const ResponsableKmExpenses = () => {
 
       <div className="summary card">
         <h3>Récapitulatif</h3>
-        <p><strong>Total KM :</strong> {totalKm} km</p>
-        <p><strong>Montant KM :</strong> {totalEuros.toFixed(2)} € (à {tauxKm} €/km)</p>
+        <p><strong>Total KM :</strong> {roundEuro(totalKm).toFixed(2)} km</p>
+        <p><strong>Montant KM :</strong> {roundEuro(totalEuros).toFixed(2)} € (à {roundEuro(tauxKm).toFixed(2)} €/km)</p>
         <p><strong>Péage TTC :</strong> {roundEuro(tollAmountTTC).toFixed(2)} €</p>
         <p><strong>Total à déclarer :</strong> {roundEuro(totalEuros + tollAmountTTC).toFixed(2)} €</p>
       </div>

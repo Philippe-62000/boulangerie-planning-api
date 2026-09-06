@@ -72,11 +72,11 @@ const authenticateEmployee = async (req, res, next) => {
       employeeId: decoded.role === 'admin' ? null : (employeeId || userId)
     };
     req.saleCode = typeof decoded.saleCode === 'string' ? decoded.saleCode : undefined;
-    
+
     req.employeeId = decoded.role === 'admin' ? null : (employeeId || userId);
     req.employeeEmail = decoded.email;
     req.employeeName = decoded.name;
-    
+
     next();
   } catch (error) {
     console.error('❌ Erreur authentification:', error);

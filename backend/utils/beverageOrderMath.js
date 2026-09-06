@@ -2,6 +2,8 @@
  * Calculs commande boissons / emballages (unités + colis).
  */
 
+const { isIgnoredBeverageName } = require('./parseCrisalidInvendusPdf');
+
 function computeUnitsNeeded(consumedQty, stockQty, marginPercent) {
   const consumed = Math.max(0, Number(consumedQty) || 0);
   const stock = Math.max(0, Number(stockQty) || 0);
@@ -65,12 +67,12 @@ function compareSalesPeriods(previousProducts, currentProducts, options = {}) {
   const keyOf = (p) => String(p.name || '').trim().toUpperCase();
   const prevMap = new Map();
   for (const p of previousProducts || []) {
-    if (!p?.name) continue;
+    if (!p?.name || isIgnoredBeverageName(p.name)) continue;
     prevMap.set(keyOf(p), p);
   }
   const currMap = new Map();
   for (const p of currentProducts || []) {
-    if (!p?.name) continue;
+    if (!p?.name || isIgnoredBeverageName(p.name)) continue;
     currMap.set(keyOf(p), p);
   }
 

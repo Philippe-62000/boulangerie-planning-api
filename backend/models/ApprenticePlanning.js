@@ -41,6 +41,13 @@ const apprenticePlanningSchema = new mongoose.Schema(
       enum: ['pdf-mem', 'weekdays', 'manual', 'none'],
       default: 'none'
     },
+    /** Pôle magasin pour filtrer le planning global */
+    shopPole: {
+      type: String,
+      enum: ['vente', 'preparation', 'boulanger'],
+      default: 'vente',
+      index: true
+    },
     label: { type: String, default: '' },
     uploadedByName: { type: String, default: '' }
   },

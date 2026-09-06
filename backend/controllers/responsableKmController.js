@@ -5,6 +5,7 @@ const ResponsableDisplacementLog = require('../models/ResponsableDisplacementLog
 const DiversPreset = require('../models/DiversPreset');
 const Parameter = require('../models/Parameters');
 const { parseBipGoPdf } = require('../services/bipGoPdfParser');
+const { parseBankStatementPdf, mapEventsToTripTypes } = require('../services/bankStatementPdfParser');
 const sftpService = require('../services/sftpService');
 
 const roundEuro = (n) => Math.round((Number(n) || 0) * 100) / 100;
@@ -389,6 +390,88 @@ exports.importPdf = async (req, res) => {
   } catch (error) {
     console.error('Erreur importPdf:', error);
     res.status(500).json({ error: error.message });
+  }
+};
+
+/** Parse un relevé banque et propose les croix à poser dans le tableau. */
+exports.importBankPdf = async (req, res) => {
+  try {
+    if (!req.file || !req.file.buffer) {
+      return res.status(400).json({ error: 'Fichier PDF requis' });
+    }
+    const { site, month, year } = req.body;
+    if (!site || !month || !year) {
+      return res.status(400).json({ error: 'Site, mois et année requis' });
+    }
+    const m = parseInt(month, 10);
+    const y = parseInt(year, 10);
+
+    const types = await ResponsableTripType.find({ site }).sort({ order: 1 });
+    const parsed = await parseBankStatementPdf(req.file.buffer, m, y);
+    const { matched, unmatched } = mapEventsToTripTypes(parsed.inMonth, types);
+
+    res.json({
+      success: true,
+      data: {
+        matched,
+        unmatched,
+        otherMonth: parsed.otherMonth,
+        documentYear: parsed.documentYear,
+        message: `${matched.length} déplacement(s) reconnu(s) pour ${m}/${y}. ${unmatched.length} non associé(s).`
+      }
+    });
+  } catch (error) {
+    console.error('Erreur importBankPdf:', error);
+    res.status(500).json({ error: error.message || 'Erreur import relevé banque' });
+  }
+};
+
+/** Applique les croix du relevé banque sur le mois en cours (sans écraser les autres cases). */
+exports.confirmImportBankPdf = async (req, res) => {
+  try {
+    let { site, month, year, matches } = req.body;
+    if (typeof matches === 'string') matches = JSON.parse(matches || '[]');
+    if (!site || !month || !year) {
+      return res.status(400).json({ error: 'Site, mois et année requis' });
+    }
+    if (!Array.isArray(matches) || matches.length === 0) {
+      return res.status(400).json({ error: 'Aucun déplacement à appliquer' });
+    }
+    const m = parseInt(month, 10);
+    const y = parseInt(year, 10);
+
+    let expense = await ResponsableKmExpense.findOne({ site, month: m, year: y });
+    if (!expense) {
+      expense = new ResponsableKmExpense({ site, month: m, year: y, entries: [] });
+    }
+
+    let added = 0;
+    for (const item of matches) {
+      const tripTypeId = item.tripTypeId;
+      const day = parseInt(item.day, 10);
+      if (!tripTypeId || !day || day < 1 || day > 31) continue;
+      const exists = expense.entries.some(
+        (e) => e.tripTypeId.toString() === String(tripTypeId) && e.day === day && (e.count || 0) > 0
+      );
+      if (exists) continue;
+      expense.entries.push({ tripTypeId, day, count: 1 });
+      added += 1;
+    }
+
+    await expense.save();
+    res.json({
+      success: true,
+      data: {
+        added,
+        total: matches.length,
+        message: added > 0
+          ? `${added} croix ajoutée(s) dans le tableau`
+          : 'Aucune nouvelle croix (déjà présentes)'
+      }
+    });
+  } catch (error) {
+    console.error('Erreur confirmImportBankPdf:', error);
+    res.status(500).json({ error: error.message || 'Erreur application relevé banque' });
   }
 };
 

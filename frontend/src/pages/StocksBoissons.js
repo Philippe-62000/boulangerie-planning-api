@@ -44,6 +44,23 @@ function isEmballage(category) {
   return /emballage/i.test(String(category || ''));
 }
 
+function isIgnoredBeverage(name) {
+  return /kookabarra/i.test(String(name || ''));
+}
+
+/** Tab (ou Maj+Tab) : rester dans la colonne Stock, ligne suivante / précédente. */
+function onStockTabKeyDown(e) {
+  if (e.key !== 'Tab') return;
+  const inputs = Array.from(document.querySelectorAll('.bev-page .bev-stock-input'));
+  const idx = inputs.indexOf(e.currentTarget);
+  if (idx < 0) return;
+  const next = inputs[idx + (e.shiftKey ? -1 : 1)];
+  if (!next) return;
+  e.preventDefault();
+  next.focus();
+  if (typeof next.select === 'function') next.select();
+}
+
 const StocksBoissons = () => {
   const siteKey = getSiteKey() === 'lon' ? 'lon' : 'plan';
   const siteLabel = siteKey === 'lon' ? 'Longuenesse' : 'Arras';
@@ -76,7 +93,11 @@ const StocksBoissons = () => {
   const applyDoc = (doc, opts = {}) => {
     if (!doc) return;
     setProducts(
-      sortByOrder((doc.products || []).map((p) => recomputeLine(p, doc.marginPercent ?? DEFAULT_MARGIN)))
+      sortByOrder(
+        (doc.products || [])
+          .filter((p) => !isIgnoredBeverage(p.name))
+          .map((p) => recomputeLine(p, doc.marginPercent ?? DEFAULT_MARGIN))
+      )
     );
     setPeriodLabel(doc.periodLabel || '');
     setSourceFileName(doc.sourceFileName || '');
@@ -175,19 +196,22 @@ const StocksBoissons = () => {
       });
       const data = res.data?.data;
       const nextProducts = sortByOrder(
-        (data?.products || []).map((p) => recomputeLine(p, data?.marginPercent ?? marginPercent))
+        (data?.products || [])
+          .filter((p) => !isIgnoredBeverage(p.name))
+          .map((p) => recomputeLine(p, data?.marginPercent ?? marginPercent))
       );
       setProducts(nextProducts);
       setSourceFileName(data?.sourceFileName || file.name);
       setPeriodLabel(data?.periodHint || '');
-      setComparison(data?.comparison || []);
+      setComparison((data?.comparison || []).filter((a) => !isIgnoredBeverage(a.name)));
       setPreviousMeta(data?.previous || null);
-      setCurrentId(null);
+      setCurrentId(data?.id || null);
       setFilterFamily('all');
+      await loadHistory();
       if ((data?.comparison || []).length) setMainTab('ecarts');
       setMessage({
         type: 'ok',
-        text: `${nextProducts.length} référence(s) mises à jour. Stocks et tailles de colis repris si connus. ${(data?.comparison || []).length} écart(s) détecté(s).`
+        text: `${nextProducts.length} référence(s) enregistrées (visibles aussi après F5 / autre PC). Stocks et colis repris si connus. ${(data?.comparison || []).length} écart(s) détecté(s).`
       });
     } catch (err) {
       setMessage({
@@ -410,13 +434,13 @@ const StocksBoissons = () => {
         body{font-family:Segoe UI,Arial,sans-serif;padding:20px;color:#222;font-size:13px}
         h1{margin:0 0 6px;font-size:18px} .meta{color:#555;margin-bottom:14px;font-size:12px}
         table{border-collapse:collapse;width:100%} th,td{border:1px solid #333;padding:8px 6px;text-align:left}
-        th{background:#eee} .box{width:70px;height:22px} .num{text-align:right;width:64px}
+        th{background:#eee} .box{width:70px;height:22px} .num{text-align:right;width:64px} td:last-child{white-space:nowrap;font-weight:600}
         @media print { body{padding:0} }
       </style></head><body>
       <h1>Relevé de stocks — ${title} — ${siteLabel}</h1>
       <div class="meta">
         Date : _______________ &nbsp;&nbsp; Période ventes : ${periodLabel || '—'} &nbsp;&nbsp; Fichier : ${sourceFileName || '—'}<br/>
-        Noter le stock restant à la main, puis saisir les quantités dans Filmara.
+        Noter le stock restant à la main. Notes = format commande (ex. /12 → 12 bouteilles = 1 colis).
       </div>
       <table>
         <thead>
@@ -439,7 +463,7 @@ const StocksBoissons = () => {
                 <td>${p.name}</td>
                 <td class="num">${p.consumedQty ?? ''}</td>
                 <td><div class="box"></div></td>
-                <td></td>
+                <td>/${p.packSize || 12}</td>
               </tr>`
           )
           .join('')}
@@ -485,8 +509,8 @@ const StocksBoissons = () => {
                   <b>Ventes en cours :</b> {periodLabel || '—'}
                   {sourceFileName ? ` · ${sourceFileName}` : ''}
                   <div className="stocks-hint">
-                    Les garder pour saisir les stocks / colis, ou uploader un nouveau PDF pour mettre à
-                    jour les ventes (stocks et tailles de colis sont repris).
+                    Les ventes sont mémorisées dès l’import PDF (F5 / autre ordinateur). Uploader un
+                    nouveau PDF pour les remplacer ; stocks et tailles de colis sont repris.
                   </div>
                 </div>
               </div>
@@ -625,21 +649,35 @@ const StocksBoissons = () => {
           </div>
 
           <div className="bev-table-wrap">
-            <table className="bev-table">
+              <table className="bev-table">
+              <colgroup>
+                <col className="bev-col-order" />
+                <col className="bev-col-fam" />
+                <col className="bev-col-ref" />
+                <col className="bev-col-num" />
+                <col className="bev-col-num" />
+                <col className="bev-col-num" />
+                <col className="bev-col-num" />
+                <col className="bev-col-stock" />
+                <col className="bev-col-pack" />
+                <col className="bev-col-num" />
+                <col className="bev-col-num" />
+                <col className="bev-col-num" />
+              </colgroup>
               <thead>
                 <tr>
                   <th>Ordre</th>
                   <th>Famille</th>
                   <th>Référence</th>
-                  <th>Ventes</th>
-                  <th>Offerts</th>
-                  <th>Conso</th>
-                  <th>Préc.</th>
-                  <th>Stock</th>
-                  <th>/colis</th>
-                  <th>Besoin u.</th>
-                  <th>Colis</th>
-                  <th>U. cmd</th>
+                  <th className="num">Ventes</th>
+                  <th className="num">Offerts</th>
+                  <th className="num">Conso</th>
+                  <th className="num">Préc.</th>
+                  <th className="num">Stock</th>
+                  <th className="num">/colis</th>
+                  <th className="num">Besoin u.</th>
+                  <th className="num">Colis</th>
+                  <th className="num">U. cmd</th>
                 </tr>
               </thead>
               <tbody>
@@ -656,6 +694,7 @@ const StocksBoissons = () => {
                         <button
                           type="button"
                           className="bev-order-btn"
+                          tabIndex={-1}
                           disabled={rowIdx === 0 || filterFamily !== 'all'}
                           onClick={() => moveLine(p.name, p.category, -1)}
                           title="Monter"
@@ -665,6 +704,7 @@ const StocksBoissons = () => {
                         <button
                           type="button"
                           className="bev-order-btn"
+                          tabIndex={-1}
                           disabled={rowIdx >= visibleProducts.length - 1 || filterFamily !== 'all'}
                           onClick={() => moveLine(p.name, p.category, 1)}
                           title="Descendre"
@@ -684,6 +724,8 @@ const StocksBoissons = () => {
                           min="0"
                           className="stocks-input bev-stock-input"
                           value={p.stockQty ?? 0}
+                          onFocus={(e) => e.target.select()}
+                          onKeyDown={onStockTabKeyDown}
                           onChange={(e) =>
                             patchProduct(p.name, p.category, {
                               stockQty: Math.max(0, parseInt(e.target.value, 10) || 0)
@@ -694,6 +736,7 @@ const StocksBoissons = () => {
                       <td className="num">
                         <select
                           className="stocks-input bev-pack-select"
+                          tabIndex={-1}
                           value={normalizePackSize(p.packSize)}
                           onChange={(e) =>
                             patchProduct(p.name, p.category, {
@@ -745,9 +788,9 @@ const StocksBoissons = () => {
                     <th>Alerte</th>
                     <th>Référence</th>
                     <th>Famille</th>
-                    <th>Avant</th>
-                    <th>Maintenant</th>
-                    <th>Écart</th>
+                    <th className="num">Avant</th>
+                    <th className="num">Maintenant</th>
+                    <th className="num">Écart</th>
                     <th>Message</th>
                   </tr>
                 </thead>

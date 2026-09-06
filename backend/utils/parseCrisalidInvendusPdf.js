@@ -6,6 +6,11 @@
 const TARGET_CATEGORY_RE =
   /^(BOISSONS\s*33CL|BOISSONS\s*50CL|EAUX|BOISSONS\s*PREMIUM|EAUX\s*AROMATIS|EMBALLAGES)/i;
 
+/** Kookabarra n’est pas commandé chez ce fournisseur (Crisalid / Coca). */
+function isIgnoredBeverageName(name) {
+  return /kookabarra/i.test(String(name || ''));
+}
+
 function normalizeCategoryName(raw) {
   const n = String(raw || '')
     .toUpperCase()
@@ -89,20 +94,16 @@ function parseCrisalidInvendusText(text) {
     h.blockEnd = next ? next.index : normalized.length;
   }
 
-  const seen = new Set();
-  const categories = [];
+  const byKey = new Map();
 
   for (const h of headers) {
     if (!TARGET_CATEGORY_RE.test(h.name)) continue;
     const label = normalizeCategoryName(h.name);
     const key = `${h.code}|${label}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
 
     const block = normalized.slice(h.end, h.blockEnd);
     const lines = block.split(/\n/).map((l) => l.trim()).filter(Boolean);
     const products = [];
-    const productNames = new Set();
 
     for (const line of lines) {
       if (/^TOTAL/i.test(line)) break;
@@ -112,19 +113,33 @@ function parseCrisalidInvendusText(text) {
 
       const product = parseProductLine(line);
       if (!product) continue;
-      if (productNames.has(product.name)) continue;
-      productNames.add(product.name);
+      if (isIgnoredBeverageName(product.name)) continue;
       products.push(product);
     }
 
-    if (products.length > 0) {
-      categories.push({
+    if (!products.length) continue;
+
+    if (!byKey.has(key)) {
+      byKey.set(key, {
         code: h.code,
         name: label,
-        products
+        products: [],
+        productNames: new Set()
       });
     }
+    const cat = byKey.get(key);
+    for (const product of products) {
+      if (cat.productNames.has(product.name)) continue;
+      cat.productNames.add(product.name);
+      cat.products.push(product);
+    }
   }
+
+  const categories = [...byKey.values()].map(({ code, name, products }) => ({
+    code,
+    name,
+    products
+  }));
 
   return { categories };
 }
@@ -133,5 +148,6 @@ module.exports = {
   parseCrisalidInvendusText,
   splitQtyAmount,
   parseProductLine,
-  normalizeCategoryName
+  normalizeCategoryName,
+  isIgnoredBeverageName
 };

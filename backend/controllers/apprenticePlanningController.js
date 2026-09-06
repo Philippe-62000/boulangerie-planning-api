@@ -32,10 +32,19 @@ const listPlannings = async (req, res) => {
   try {
     const siteKey = normalizeSiteKey(req.query.siteKey || req.query.site);
     const rows = await ApprenticePlanning.find({ siteKey })
-      .populate('employeeId', 'name contractType trainingDays contractEndDate')
+      .populate(
+        'employeeId',
+        'name contractType trainingDays contractEndDate role employeeCategory isActive'
+      )
       .sort({ updatedAt: -1 })
       .lean();
-    res.json({ success: true, data: rows });
+    const data = rows.map((p) => ({
+      ...p,
+      shopPole: VALID_SHOP_POLES.has(p.shopPole)
+        ? p.shopPole
+        : inferShopPoleFromEmployee(p.employeeId)
+    }));
+    res.json({ success: true, data });
   } catch (err) {
     console.error('❌ listPlannings:', err);
     res.status(500).json({ success: false, error: err.message });
@@ -58,6 +67,31 @@ function isContractFinished(emp) {
 }
 
 const VALID_KINDS = new Set(['examen', 'cfa', 'insitu']);
+const VALID_SHOP_POLES = new Set(['vente', 'preparation', 'boulanger']);
+
+function inferShopPoleFromEmployee(employee) {
+  if (!employee) return 'vente';
+  const cat = String(employee.employeeCategory || '').toLowerCase();
+  if (VALID_SHOP_POLES.has(cat)) return cat;
+  const r = String(employee.role || '').toLowerCase();
+  if (r.includes('boulanger')) return 'boulanger';
+  if (r.includes('préparateur') || r.includes('preparateur') || r.includes('chef prod')) {
+    return 'preparation';
+  }
+  return 'vente';
+}
+
+function normalizeShopPole(raw, employee) {
+  const s = String(raw || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim();
+  if (s === 'prepa' || s === 'preparation' || s === 'preparateur') return 'preparation';
+  if (s === 'boulanger') return 'boulanger';
+  if (s === 'vente' || s === 'vendeuse') return 'vente';
+  return inferShopPoleFromEmployee(employee);
+}
 
 function isValidIso(s) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return false;
@@ -116,7 +150,10 @@ const getGlobalView = async (req, res) => {
   try {
     const siteKey = normalizeSiteKey(req.query.siteKey || req.query.site);
     const plannings = await ApprenticePlanning.find({ siteKey })
-      .populate('employeeId', 'name trainingDays contractEndDate contractType isActive')
+      .populate(
+        'employeeId',
+        'name trainingDays contractEndDate contractType isActive role employeeCategory'
+      )
       .lean();
 
     const data = plannings
@@ -129,9 +166,13 @@ const getGlobalView = async (req, res) => {
       .map((p) => {
         const emp = p.employeeId;
         const trainingEntries = entriesFromPlanning(p);
+        const shopPole = VALID_SHOP_POLES.has(p.shopPole)
+          ? p.shopPole
+          : inferShopPoleFromEmployee(emp);
         return {
           employeeId: emp._id,
           name: emp.name,
+          shopPole,
           trainingDays: emp.trainingDays || [],
           contractEndDate: emp.contractEndDate || null,
           planningId: p._id,
@@ -173,6 +214,8 @@ const uploadPlanning = async (req, res) => {
         error: 'Ce salarié n’est pas en contrat d’apprentissage'
       });
     }
+
+    const shopPole = normalizeShopPole(req.body?.shopPole, employee);
 
     const parsed = await parseApprenticePlanningPdf(req.file.buffer);
     const trainingEntries = normalizeTrainingEntries(
@@ -223,6 +266,7 @@ const uploadPlanning = async (req, res) => {
           trainingDates: keptDates,
           trainingEntries: keptEntries,
           datesSource: keepManualDates ? 'manual' : datesSource,
+          shopPole,
           label: path.parse(req.file.originalname || '').name || '',
           uploadedByName
         }
@@ -290,6 +334,7 @@ const saveManualDates = async (req, res) => {
       });
     }
 
+    const shopPole = normalizeShopPole(req.body?.shopPole, employee);
     const uploadedByName = req.employeeName || req.user?.name || '';
     const existing = await ApprenticePlanning.findOne({ employeeId });
 
@@ -301,6 +346,7 @@ const saveManualDates = async (req, res) => {
           trainingDates,
           trainingEntries,
           datesSource: 'manual',
+          shopPole,
           uploadedByName,
           ...(existing
             ? {}
@@ -340,9 +386,22 @@ const updateTrainingDates = async (req, res) => {
         error: 'Sélectionnez au moins un jour de formation'
       });
     }
+    const existing = await ApprenticePlanning.findById(req.params.id)
+      .populate('employeeId', 'role employeeCategory')
+      .lean();
+    if (!existing) {
+      return res.status(404).json({ success: false, error: 'Planning introuvable' });
+    }
+    const shopPole =
+      req.body?.shopPole !== undefined
+        ? normalizeShopPole(req.body.shopPole, existing.employeeId)
+        : VALID_SHOP_POLES.has(existing.shopPole)
+          ? existing.shopPole
+          : inferShopPoleFromEmployee(existing.employeeId);
+
     const doc = await ApprenticePlanning.findByIdAndUpdate(
       req.params.id,
-      { $set: { trainingDates, trainingEntries, datesSource: 'manual' } },
+      { $set: { trainingDates, trainingEntries, datesSource: 'manual', shopPole } },
       { new: true }
     );
     if (!doc) {

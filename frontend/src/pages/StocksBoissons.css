@@ -73,16 +73,40 @@
 
 .bev-table {
   width: 100%;
+  min-width: 980px;
   border-collapse: collapse;
+  table-layout: fixed;
   font-size: 0.9rem;
+}
+
+.bev-table col.bev-col-order {
+  width: 76px;
+}
+
+.bev-table col.bev-col-fam {
+  width: 14%;
+}
+
+.bev-table col.bev-col-ref {
+  width: 22%;
+}
+
+.bev-table col.bev-col-num {
+  width: 7%;
+}
+
+.bev-table col.bev-col-stock,
+.bev-table col.bev-col-pack {
+  width: 76px;
 }
 
 .bev-table th,
 .bev-table td {
   border-bottom: 1px solid #e8e8e8;
-  padding: 7px 5px;
+  padding: 7px 6px;
   text-align: left;
   vertical-align: middle;
+  overflow-wrap: anywhere;
 }
 
 .bev-table th {
@@ -94,6 +118,7 @@
 .bev-table .num {
   text-align: right;
   white-space: nowrap;
+  font-variant-numeric: tabular-nums;
 }
 
 .bev-table .muted {
@@ -105,13 +130,19 @@
   color: #1a4d8c;
 }
 
+.bev-table .stocks-input.bev-stock-input,
+.bev-table .stocks-input.bev-pack-select {
+  width: 64px;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
 .bev-stock-input {
-  width: 72px;
   text-align: right;
 }
 
 .bev-pack-select {
-  width: 64px;
+  text-align: center;
 }
 
 .bev-order-cell {

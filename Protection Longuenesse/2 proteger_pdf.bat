@@ -3,13 +3,15 @@ chcp 65001 >nul
 setlocal enabledelayedexpansion
 
 REM Chemin vers PDFtk
-set "PDFTK=C:\Program Files (x86)\PDFtk\bin\pdftk.exe"
+set "PDFTK=C:\Program Files (x86)\PDFtk Server\bin\pdftk.exe"
 
-REM Charger les mots de passe depuis le fichier externe
-if exist "mots_de_passe.bat" (
-    call "mots_de_passe.bat"
-) else (
+if not exist "mots_de_passe.bat" (
     echo ERREUR: Le fichier mots_de_passe.bat est introuvable.
+    pause
+    exit /b 1
+)
+if not exist "%~dp0trouver-mot-de-passe.js" (
+    echo ERREUR: trouver-mot-de-passe.js introuvable.
     pause
     exit /b 1
 )
@@ -18,8 +20,9 @@ echo ========================================
 echo Protection des fichiers PDF
 echo ========================================
 echo.
+echo Homonymes: cles pwd_NOM_PRENOM si plusieurs memes noms de famille
+echo.
 
-REM Créer le dossier Traite s'il n'existe pas
 if not exist "Traite" (
     mkdir "Traite"
     echo Dossier "Traite" cree.
@@ -42,38 +45,21 @@ echo.
 for %%F in (*.pdf) do (
     set "filename=%%~nF"
     set "found=0"
-    
-    REM Extraire le nom depuis le fichier (ex: 202602 BERGEMAN_Normal -> BERGEMAN)
-    set "nom="
-    for /f "tokens=2 delims= " %%N in ("!filename!") do set "nom=%%N"
-    if defined nom (
-        set "nom=!nom:_Normal=!"
-        set "nom=!nom:_bis=!"
-        set "nom=!nom:_=!"
-    )
-    if defined nom (
-        REM Chercher le mot de passe dans le fichier mots_de_passe.bat
+
+    REM Apres la date AAAAMM : "POUILLAUDE Laura_Normal" ou "BERGEMAN_Normal"
+    set "reste="
+    for /f "tokens=1,* delims= " %%A in ("!filename!") do set "reste=%%B"
+
+    if defined reste (
         set "pwd="
-        set "pwd_trouve=0"
-        for /f "tokens=*" %%p in ('findstr /C:"pwd_!nom!" mots_de_passe.bat 2^>nul') do (
-            set "ligne_pwd=%%p"
-            REM Extraire le mot de passe (format: set "pwd_NOM=mdp")
-            for /f "tokens=2 delims==" %%m in ("!ligne_pwd!") do (
-                set "mdp_ligne=%%m"
-                set "pwd=!mdp_ligne:"=!"
-                set "pwd_trouve=1"
-            )
+        for /f "usebackq delims=" %%P in (`node "%~dp0trouver-mot-de-passe.js" "!reste!" "%~dp0mots_de_passe.bat" 2^>nul`) do (
+            set "pwd=%%P"
         )
-        
-        REM Si un mot de passe a été trouvé
-        if "!pwd_trouve!"=="1" (
-            REM Remplacer _Normal par _Protege dans le nom
+
+        if defined pwd (
             set "newname=!filename:_Normal=_Protege!.pdf"
-            
-            echo Protection de %%F avec le mot de passe pour !nom!...
-            
+            echo Protection de %%F ...
             "%PDFTK%" "%%F" output "Traite\!newname!" user_pw "!pwd!" encrypt_128bit
-            
             if exist "Traite\!newname!" (
                 echo [OK] %%F protege - Enregistre sous Traite\!newname!
             ) else (
@@ -82,9 +68,10 @@ for %%F in (*.pdf) do (
             set "found=1"
         )
     )
-    
+
     if "!found!"=="0" (
         echo [IGNORE] Aucun mot de passe trouve pour %%F
+        echo          Homonymes: ... NOM Prenom_Normal.pdf + pwd_NOM_PRENOM dans le .bat
     )
     echo.
 )

@@ -345,8 +345,8 @@
   border-top: 1px solid #e9ecef;
 }
 
-/* Boutons */
-.btn {
+/* Boutons — scopés pour ne pas casser les autres pages (Employés, etc.) */
+.sick-leave-admin .btn {
   padding: 8px 12px;
   border: none;
   border-radius: 6px;
@@ -361,36 +361,36 @@
   height: 36px;
 }
 
-.btn:hover {
+.sick-leave-admin .btn:hover {
   transform: translateY(-1px);
 }
 
-.btn-info {
+.sick-leave-admin .btn-info {
   background: #17a2b8;
   color: white;
 }
 
-.btn-download {
+.sick-leave-admin .btn-download {
   background: #6c757d;
   color: white;
 }
 
-.btn-success {
+.sick-leave-admin .btn-success {
   background: #28a745;
   color: white;
 }
 
-.btn-danger {
+.sick-leave-admin .btn-danger {
   background: #dc3545;
   color: white;
 }
 
-.btn-primary {
+.sick-leave-admin .btn-primary {
   background: #007bff;
   color: white;
 }
 
-.btn-secondary {
+.sick-leave-admin .btn-secondary {
   background: #6c757d;
   color: white;
 }

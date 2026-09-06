@@ -58,6 +58,7 @@ const createStaffMessage = async (req, res) => {
     const doc = await StaffPrintMessage.create({
       site,
       audience,
+      kind: req.body?.kind === 'commande-mail' ? 'commande-mail' : 'message',
       message,
       createdByName,
       createdById: user.id || user.employeeId || null

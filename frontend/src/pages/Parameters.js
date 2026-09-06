@@ -1119,6 +1119,9 @@ const Parameters = () => {
                         {permission.menuId === 'commandes-en-ligne' && '🛒'}
                         {permission.menuId === 'product-exchanges' && '🔄'}
                         {permission.menuId === 'employee-dashboard' && '📁'}
+                        {permission.menuId === 'vehicle' && '🚗'}
+                        {permission.menuId === 'merieux' && '🧪'}
+                        {permission.menuId === 'commande-mail' && '✉️'}
                         {permission.menuId === 'ambassadeur' && '⭐'}
                         {permission.menuId === 'plateaux-repas' && '🍽️'}
                       </span>
