@@ -213,6 +213,8 @@ app.use('/api/camaris', require('./routes/camaris'));
 app.use('/api/site', require('./routes/site'));
 app.use('/api/employees', require('./routes/employees'));
 app.use('/api/planning', require('./routes/planning'));
+app.use('/api/staff-planning', require('./routes/staffPlanning'));
+console.log('✅ Routes staff-planning montées (/api/staff-planning/*)');
 app.use('/api/constraints', require('./routes/constraints'));
 app.use('/api/absences', require('./routes/absences'));
 app.use('/api/sales-stats', require('./routes/salesStats'));

@@ -64,6 +64,7 @@ const Sidebar = () => {
 
   // Sous-menus admin (comme Social) — regroupent des entrées retirées du menu plat pour l’admin uniquement
   const PLANNING_MENU_ITEMS = [
+    { path: '/staff-planning', label: 'Planning', icon: '📅', menuId: 'staff-planning' },
     { path: '/planning', label: 'Génération du planning', icon: '🎯', menuId: 'planning' },
     { path: '/constraints', label: 'Contraintes hebdomadaires', icon: '📋', menuId: 'constraints' }
   ];
@@ -131,6 +132,7 @@ const Sidebar = () => {
         { menuId: 'employees', isVisibleToAdmin: true, isVisibleToEmployee: false },
         { menuId: 'constraints', isVisibleToAdmin: true, isVisibleToEmployee: false },
         { menuId: 'planning', isVisibleToAdmin: true, isVisibleToEmployee: true },
+        { menuId: 'staff-planning', isVisibleToAdmin: true, isVisibleToEmployee: true },
         { menuId: 'sales-stats', isVisibleToAdmin: true, isVisibleToEmployee: true },
         { menuId: 'message-vente', isVisibleToAdmin: true, isVisibleToEmployee: true },
         { menuId: 'absences', isVisibleToAdmin: true, isVisibleToEmployee: true },
@@ -171,6 +173,7 @@ const Sidebar = () => {
       return [
         { menuId: 'dashboard', isVisibleToAdmin: false, isVisibleToEmployee: true },
         { menuId: 'planning', isVisibleToAdmin: false, isVisibleToEmployee: false },
+        { menuId: 'staff-planning', isVisibleToAdmin: false, isVisibleToEmployee: true },
         { menuId: 'sales-stats', isVisibleToAdmin: false, isVisibleToEmployee: true },
         { menuId: 'message-vente', isVisibleToAdmin: false, isVisibleToEmployee: true },
         { menuId: 'absences', isVisibleToAdmin: false, isVisibleToEmployee: true },
@@ -297,6 +300,7 @@ const Sidebar = () => {
     { path: '/employees', label: 'Gestion des employés', icon: '👥', menuId: 'employees' },
     { path: '/constraints', label: 'Contraintes hebdomadaires', icon: '📋', menuId: 'constraints' },
     { path: '/planning', label: 'Génération du planning', icon: '🎯', menuId: 'planning' },
+    { path: '/staff-planning', label: 'Planning', icon: '📅', menuId: 'staff-planning' },
     { path: '/sales-stats', label: 'Stats Vente', icon: '💰', menuId: 'sales-stats' },
     { path: '/message-vente', label: 'Message', icon: '✉️', menuId: 'message-vente' },
     { path: '/absences', label: 'État des absences', icon: '📈', menuId: 'absences' },

@@ -73,6 +73,15 @@ menuPermissionsSchema.statics.createDefaultPermissions = async function() {
         order: 1
       },
       {
+        menuId: 'staff-planning',
+        menuName: 'Planning salariés',
+        menuPath: '/staff-planning',
+        isVisibleToAdmin: true,
+        isVisibleToEmployee: true,
+        requiredPermissions: ['view_planning'],
+        order: 1.2
+      },
+      {
         menuId: 'employees',
         menuName: 'Gestion des salariés',
         menuPath: '/employees',
