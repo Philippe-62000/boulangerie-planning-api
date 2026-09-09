@@ -8,6 +8,7 @@ import ProtectedRoute from './components/ProtectedRoute';
 import Login from './pages/Login';
 import EmployeeManagement from './pages/Employees';
 import PlanningGenerator from './pages/Planning';
+import StaffPlanning from './pages/StaffPlanning';
 import ConstraintsManager from './pages/Constraints';
 import Dashboard from './pages/Dashboard';
 import SalesStats from './pages/SalesStats';
@@ -110,6 +111,13 @@ const AppContent = () => {
             <Route path="/planning" element={
               <ProtectedRoute requiredPermission="view_planning">
                 <PlanningGenerator />
+              </ProtectedRoute>
+            } />
+            <Route path="/staff-planning" element={
+              <ProtectedRoute>
+                <MenuPermissionGate menuId="staff-planning">
+                  <StaffPlanning />
+                </MenuPermissionGate>
               </ProtectedRoute>
             } />
             <Route path="/sales-stats" element={

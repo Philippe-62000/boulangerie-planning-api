@@ -5,6 +5,7 @@ import './Parameters.css';
 import './Parameters-email-styles.css';
 import './Parameters-tabs-styles.css';
 import CamarisManagersSettings from '../components/CamarisManagersSettings';
+import PlanningParametersTab from '../components/PlanningParametersTab';
 
 const isLonguenesseSite = () =>
   typeof window !== 'undefined' && window.location.pathname.startsWith('/lon');
@@ -807,6 +808,12 @@ const Parameters = () => {
         >
           🏪 Informations du Site
         </button>
+        <button
+          className={`tab-button ${activeTab === 'planning' ? 'active' : ''}`}
+          onClick={() => handleTabChange('planning')}
+        >
+          Planning
+        </button>
         <button 
           className={`tab-button ${activeTab === 'passwords' ? 'active' : ''}`}
           onClick={() => handleTabChange('passwords')}
@@ -925,6 +932,8 @@ const Parameters = () => {
         </div>
           </div>
         )}
+
+        {activeTab === 'planning' && <PlanningParametersTab />}
 
         {/* Onglet: Gestion des Mots de Passe */}
         {activeTab === 'passwords' && (
