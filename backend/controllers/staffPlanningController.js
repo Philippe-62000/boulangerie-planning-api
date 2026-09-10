@@ -20,7 +20,33 @@ function settingsPlain(doc) {
     ot25ToHour: json.ot25ToHour,
     ot50FromHour: json.ot50FromHour,
     defaultCfaCode: json.defaultCfaCode || 'CFA8',
-    words: json.words || []
+    words: (json.words || []).filter((word) => (
+      word && String(word.code).toUpperCase() !== 'FERIE' && word.category !== 'ferie'
+    ))
+  };
+}
+
+function toPlain(doc) {
+  if (doc == null) return doc;
+  if (typeof doc.toObject === 'function') return doc.toObject();
+  if (doc._doc) return { ...doc._doc };
+  return { ...doc };
+}
+
+function holidayDatesOf(week) {
+  return Array.isArray(week?.holidayDates) ? week.holidayDates.filter(Boolean) : [];
+}
+
+function summarizeRow(row, settings, holidayDates) {
+  const plain = toPlain(row) || {};
+  const days = (plain.days || []).map((day) => hours.plainDay(day));
+  const summarized = hours.summarizeDays(days, plain.contractedHours, settings, holidayDates);
+  return {
+    employeeId: plain.employeeId,
+    employeeName: plain.employeeName,
+    contractedHours: plain.contractedHours,
+    employeeCategory: plain.employeeCategory || 'vente',
+    ...summarized
   };
 }
 
@@ -43,14 +69,14 @@ function applyCodeToDay(day, code, settings) {
   return hours.computeDay({ kind: 'code', code }, { day: day.day, date: day.date }, settings);
 }
 
-function buildEmptyRow(employee, dates, settings) {
+function buildEmptyRow(employee, dates, settings, holidayDates) {
   let days = dates.map((meta) => hours.emptyDay(meta.day, meta.date));
   if (!settings.sundayOpen) {
     days = days.map((day) => (
       day.day === 'Dimanche' ? applyCodeToDay(day, 'REPOS', settings) : day
     ));
   }
-  const summarized = hours.summarizeDays(days, employee.weeklyHours, settings);
+  const summarized = hours.summarizeDays(days, employee.weeklyHours, settings, holidayDates);
   return {
     employeeId: employee._id,
     employeeName: employee.name,
@@ -83,12 +109,14 @@ async function cfaDatesByEmployee(dates) {
   return map;
 }
 
-function applyCfaAndSunday(row, dates, settings, cfaMap, { overwriteCodes = false, trainingDays = [] } = {}) {
+function applyCfaAndSunday(row, dates, settings, cfaMap, { overwriteCodes = false, trainingDays = [], holidayDates = [] } = {}) {
+  const plain = toPlain(row) || {};
   const cfaCode = hours.findWord(settings, settings.defaultCfaCode || 'CFA8')
     ? (settings.defaultCfaCode || 'CFA8')
     : 'CFA';
-  const cfaDates = cfaMap.get(String(row.employeeId));
-  const days = row.days.map((day) => {
+  const cfaDates = cfaMap.get(String(plain.employeeId || row.employeeId));
+  const days = (plain.days || []).map((raw) => {
+    const day = hours.plainDay(raw);
     const isSundayClosed = !settings.sundayOpen && day.day === 'Dimanche';
     const isCfa = (cfaDates && cfaDates.has(day.date))
       || (Array.isArray(trainingDays) && trainingDays.includes(day.day) && !(cfaDates && cfaDates.size));
@@ -100,14 +128,29 @@ function applyCfaAndSunday(row, dates, settings, cfaMap, { overwriteCodes = fals
     }
     return day;
   });
+  const summarized = hours.summarizeDays(days, plain.contractedHours, settings, holidayDates);
   return {
-    ...row,
-    ...hours.summarizeDays(days, row.contractedHours, settings)
+    employeeId: plain.employeeId,
+    employeeName: plain.employeeName,
+    contractedHours: plain.contractedHours,
+    employeeCategory: plain.employeeCategory || 'vente',
+    ...summarized
   };
 }
 
 async function syncWeekRows(weekDoc, settings) {
   const dates = hours.weekDates(weekDoc.weekNumber, weekDoc.year);
+  const holidayDates = new Set(holidayDatesOf(weekDoc));
+  (weekDoc.rows || []).forEach((row) => {
+    const plain = toPlain(row);
+    (plain.days || []).forEach((raw) => {
+      const day = hours.plainDay(raw);
+      if (String(day.code || '').toUpperCase() === 'FERIE') {
+        if (day.date) holidayDates.add(day.date);
+      }
+    });
+  });
+  const holidayList = Array.from(holidayDates);
   const employees = await Employee.find({ isActive: true }).sort({ name: 1 }).lean();
   const cfaMap = await cfaDatesByEmployee(dates);
   const byId = new Map((weekDoc.rows || []).map((row) => [String(row.employeeId), row]));
@@ -115,31 +158,37 @@ async function syncWeekRows(weekDoc, settings) {
   const rows = employees.map((employee) => {
     const existing = byId.get(String(employee._id));
     if (existing) {
-      const refreshed = {
-        ...existing,
+      const plain = toPlain(existing);
+      const dated = {
+        employeeId: employee._id,
         employeeName: employee.name,
         contractedHours: employee.weeklyHours,
-        employeeCategory: employee.employeeCategory || existing.employeeCategory || 'vente'
-      };
-      const dated = {
-        ...refreshed,
+        employeeCategory: employee.employeeCategory || plain.employeeCategory || 'vente',
         days: dates.map((meta) => {
-          const found = (refreshed.days || []).find((day) => day.day === meta.day);
-          return found ? { ...found, date: meta.date } : hours.emptyDay(meta.day, meta.date);
+          const found = (plain.days || []).find((day) => hours.plainDay(day).day === meta.day);
+          if (!found) return hours.emptyDay(meta.day, meta.date);
+          const day = { ...hours.plainDay(found), date: meta.date };
+          if (String(day.code || '').toUpperCase() === 'FERIE') {
+            return hours.emptyDay(meta.day, meta.date);
+          }
+          return day;
         })
       };
       return applyCfaAndSunday(dated, dates, settings, cfaMap, {
         overwriteCodes: false,
-        trainingDays: employee.trainingDays || []
+        trainingDays: employee.trainingDays || [],
+        holidayDates: holidayList
       });
     }
-    return applyCfaAndSunday(buildEmptyRow(employee, dates, settings), dates, settings, cfaMap, {
-      trainingDays: employee.trainingDays || []
+    return applyCfaAndSunday(buildEmptyRow(employee, dates, settings, holidayList), dates, settings, cfaMap, {
+      trainingDays: employee.trainingDays || [],
+      holidayDates: holidayList
     });
   });
 
   weekDoc.rows = rows;
   weekDoc.sundayOpen = settings.sundayOpen;
+  weekDoc.holidayDates = holidayList;
   return weekDoc;
 }
 
@@ -182,7 +231,10 @@ function buildPlanningEmail({ employeeName, weekNumber, year, dates, week, isUpd
       const day = (row.days || []).find((item) => item.day === dayName);
       const label = day ? formatDayLabel(day) : '';
       const paid = day && day.paidHours ? `<br/><small>${hours.formatHours(day.paidHours)}</small>` : '';
-      return `<td style="border:1px solid #ddd;padding:6px;text-align:center;font-size:13px;">${label || '—'}${paid}</td>`;
+      const holiday = day?.isHoliday && day.paidHours
+        ? '<br/><small>Férié (majoré)</small>'
+        : (day?.isHoliday ? '<br/><small>Férié</small>' : '');
+      return `<td style="border:1px solid #ddd;padding:6px;text-align:center;font-size:13px;">${label || '—'}${paid}${holiday}</td>`;
     }).join('');
     return `<tr>
       <td style="border:1px solid #ddd;padding:6px;font-weight:600;">${row.employeeName}</td>
@@ -202,7 +254,11 @@ function buildPlanningEmail({ employeeName, weekNumber, year, dates, week, isUpd
         <thead>
           <tr>
             <th style="border:1px solid #ddd;padding:6px;background:#f4f4f4;">Salarié</th>
-            ${hours.DAYS.map((day) => `<th style="border:1px solid #ddd;padding:6px;background:#f4f4f4;">${day.slice(0, 3)}</th>`).join('')}
+            ${hours.DAYS.map((dayName, index) => {
+              const date = dates[index]?.date;
+              const holiday = (week.holidayDates || []).includes(date);
+              return `<th style="border:1px solid #ddd;padding:6px;background:${holiday ? '#f3e8ff' : '#f4f4f4'};">${dayName.slice(0, 3)}${holiday ? '<br/><small>Férié</small>' : ''}</th>`;
+            }).join('')}
             <th style="border:1px solid #ddd;padding:6px;background:#f4f4f4;">Semaine</th>
           </tr>
         </thead>
@@ -240,7 +296,11 @@ const updateSettings = async (req, res) => {
     });
     if (Array.isArray(body.words)) {
       doc.words = body.words
-        .filter((word) => word && word.code)
+        .filter((word) => (
+          word && word.code
+          && String(word.code).toUpperCase() !== 'FERIE'
+          && word.category !== 'ferie'
+        ))
         .map((word) => ({
           code: String(word.code).trim().toUpperCase(),
           hours: Number(word.hours) || 0,
@@ -273,11 +333,13 @@ const getWeek = async (req, res) => {
         year,
         status: 'draft',
         sundayOpen: settings.sundayOpen,
+        holidayDates: [],
         rows: []
       });
     }
     await syncWeekRows(week, settings);
     week.markModified('rows');
+    week.markModified('holidayDates');
     await week.save();
     res.json({
       success: true,
@@ -297,7 +359,7 @@ const updateCell = async (req, res) => {
     if (!requireAdmin(req, res)) return;
     const weekNumber = parseInt(req.params.week, 10);
     const year = parseInt(req.params.year, 10);
-    const { employeeId, day, cell } = req.body || {};
+    const { employeeId, day, cell, applyToWeek } = req.body || {};
     if (!employeeId || !day) {
       return res.status(400).json({ success: false, error: 'Salarié et jour requis' });
     }
@@ -306,22 +368,34 @@ const updateCell = async (req, res) => {
     if (!week) {
       return res.status(404).json({ success: false, error: 'Planning introuvable' });
     }
-    const row = week.rows.find((item) => String(item.employeeId) === String(employeeId));
-    if (!row) {
+    const rowIndex = week.rows.findIndex((item) => String(item.employeeId) === String(employeeId));
+    if (rowIndex < 0) {
       return res.status(404).json({ success: false, error: 'Salarié absent de cette semaine' });
     }
+    const holidayDates = holidayDatesOf(week);
     const dates = hours.weekDates(weekNumber, year);
     const dayMeta = dates.find((item) => item.day === day);
     if (!dayMeta) {
       return res.status(400).json({ success: false, error: 'Jour invalide' });
     }
-    const computed = hours.computeDay(cell || { kind: 'empty' }, dayMeta, settings);
-    row.days = hours.DAYS.map((name) => {
-      if (name === day) return computed;
-      return row.days.find((item) => item.day === name) || hours.emptyDay(name, dates.find((d) => d.day === name).date);
+    const plain = toPlain(week.rows[rowIndex]);
+    const currentDays = dates.map((meta) => {
+      const found = (plain.days || []).find((item) => hours.plainDay(item).day === meta.day);
+      return found ? { ...hours.plainDay(found), date: meta.date } : hours.emptyDay(meta.day, meta.date);
     });
-    const summarized = hours.summarizeDays(row.days, row.contractedHours, settings);
-    Object.assign(row, summarized);
+    const days = currentDays.map((item) => {
+      if (applyToWeek || item.day === day) {
+        return hours.computeDay(cell || { kind: 'empty' }, { day: item.day, date: item.date }, settings);
+      }
+      return item;
+    });
+    const nextRow = summarizeRow({
+      ...plain,
+      days
+    }, settings, holidayDates);
+    week.rows = (week.toObject().rows || []).map((item, index) => (
+      index === rowIndex ? nextRow : item
+    ));
     if (week.status !== 'draft') week.status = 'draft';
     week.markModified('rows');
     await week.save();
@@ -442,6 +516,7 @@ const duplicateWeek = async (req, res) => {
         year: target.year,
         status: 'draft',
         sundayOpen: settings.sundayOpen,
+        holidayDates: [],
         rows: []
       });
     }
@@ -449,8 +524,10 @@ const duplicateWeek = async (req, res) => {
     dest.rows = source.rows.map((row) => {
       const copiedDays = dates.map((meta) => {
         const origin = (row.days || []).find((day) => day.day === meta.day) || hours.emptyDay(meta.day, meta.date);
-        const clone = JSON.parse(JSON.stringify(origin));
+        const clone = hours.plainDay(origin);
         clone.date = meta.date;
+        clone.isHoliday = false;
+        clone.holidayHours = 0;
         clone.alerts = [];
         return clone;
       });
@@ -460,10 +537,11 @@ const duplicateWeek = async (req, res) => {
         contractedHours: row.contractedHours,
         employeeCategory: row.employeeCategory,
         days: copiedDays
-      }, dates, settings, cfaMap, { overwriteCodes: true });
+      }, dates, settings, cfaMap, { overwriteCodes: true, holidayDates: [] });
     });
     dest.status = 'draft';
     dest.sundayOpen = settings.sundayOpen;
+    dest.holidayDates = [];
     dest.validatedAt = undefined;
     dest.lastSentAt = undefined;
     dest.sendCount = 0;
@@ -482,6 +560,42 @@ const duplicateWeek = async (req, res) => {
   } catch (error) {
     console.error('staff-planning duplicate', error);
     res.status(500).json({ success: false, error: 'Impossible de dupliquer la semaine' });
+  }
+};
+
+const toggleHoliday = async (req, res) => {
+  try {
+    if (!requireAdmin(req, res)) return;
+    const weekNumber = parseInt(req.params.week, 10);
+    const year = parseInt(req.params.year, 10);
+    const { date, holiday } = req.body || {};
+    if (!date) {
+      return res.status(400).json({ success: false, error: 'Date requise' });
+    }
+    const settings = settingsPlain(await StaffPlanningSettings.getSingleton());
+    const week = await StaffWeekPlanning.findOne({ weekNumber, year });
+    if (!week) {
+      return res.status(404).json({ success: false, error: 'Planning introuvable' });
+    }
+    const current = new Set(holidayDatesOf(week));
+    if (holiday) current.add(date);
+    else current.delete(date);
+    week.holidayDates = Array.from(current);
+    await syncWeekRows(week, settings);
+    if (week.status !== 'draft') week.status = 'draft';
+    week.markModified('rows');
+    week.markModified('holidayDates');
+    await week.save();
+    res.json({
+      success: true,
+      week,
+      dates: hours.weekDates(weekNumber, year),
+      settings,
+      alerts: collectAlerts(week)
+    });
+  } catch (error) {
+    console.error('staff-planning holiday', error);
+    res.status(500).json({ success: false, error: 'Impossible de modifier le jour férié' });
   }
 };
 
@@ -554,5 +668,6 @@ module.exports = {
   validateWeek,
   sendWeek,
   duplicateWeek,
+  toggleHoliday,
   getMonthCounters
 };
