@@ -39,6 +39,14 @@ staffPlanningSettingsSchema.statics.getSingleton = async function getSingleton()
   if (!Array.isArray(doc.words) || doc.words.length === 0) {
     doc.words = defaultWords();
     await doc.save();
+  } else {
+    const filtered = doc.words.filter((word) => (
+      String(word.code).toUpperCase() !== 'FERIE' && word.category !== 'ferie'
+    ));
+    if (filtered.length !== doc.words.length) {
+      doc.words = filtered;
+      await doc.save();
+    }
   }
   return doc;
 };

@@ -9,7 +9,6 @@ const CATEGORIES = [
   { value: 'cp', label: 'Congés payés' },
   { value: 'maladie', label: 'Maladie' },
   { value: 'absence', label: 'Absence' },
-  { value: 'ferie', label: 'Jour férié' },
   { value: 'autre', label: 'Autre' }
 ];
 
@@ -215,7 +214,8 @@ const PlanningParametersTab = () => {
         <h4 style={{ marginTop: '1.5rem' }}>Mots-codes</h4>
         <p style={{ color: '#555' }}>
           Un mot peut compter dans le total de la semaine (ex. CFA8 = 8h). MAL ne compte pas dans le total
-          et alimente le compteur maladie du mois.
+          et alimente le compteur maladie du mois. Les jours fériés ne sont pas des mots-codes : on les coche
+          à côté du jour dans la grille (les heures travaillées ce jour-là sont majorées).
         </p>
         <div className="table-container">
           <table className="sp-words-table">
@@ -230,7 +230,9 @@ const PlanningParametersTab = () => {
               </tr>
             </thead>
             <tbody>
-              {(settings.words || []).map((word, index) => (
+              {(settings.words || []).map((word, index) => {
+                if (String(word.code).toUpperCase() === 'FERIE' || word.category === 'ferie') return null;
+                return (
                 <tr key={`${word.code}-${index}`}>
                   <td>
                     <input
@@ -280,7 +282,8 @@ const PlanningParametersTab = () => {
                     </button>
                   </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         </div>

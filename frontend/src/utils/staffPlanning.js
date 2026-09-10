@@ -28,6 +28,25 @@ export function formatHours(value) {
   return `${whole}h${String(Math.abs(mins)).padStart(2, '0')}`;
 }
 
+export function formatShortDate(iso) {
+  if (!iso) return '';
+  const parts = String(iso).split('-');
+  if (parts.length < 3) return '';
+  return `${Number(parts[2])}/${Number(parts[1])}`;
+}
+
+export function rowPaidHours(row) {
+  const fromDays = (row?.days || []).reduce((sum, day) => sum + (Number(day.paidHours) || 0), 0);
+  if (fromDays > 0) return Math.round(fromDays * 100) / 100;
+  return Number(row?.weeklyPaidHours) || 0;
+}
+
+export function planningWords(settings) {
+  return (settings?.words || []).filter((word) => (
+    word && String(word.code).toUpperCase() !== 'FERIE' && word.category !== 'ferie'
+  ));
+}
+
 export function formatDayRange(dates = []) {
   if (!dates.length) return '';
   const first = dates[0]?.date;
@@ -53,17 +72,20 @@ export function cellLabel(day) {
 }
 
 export function cellClass(day) {
-  if (!day || day.kind === 'empty') return 'sp-cell-empty';
-  if (day.alerts?.length) return `sp-cell-${day.kind} sp-cell-alert`;
+  const holiday = day?.isHoliday ? ' sp-cell-holiday-day' : '';
+  if (!day || !day.kind || day.kind === 'empty') return `sp-cell-empty${holiday}`;
   if (day.kind === 'code') {
     const code = String(day.code || '').toUpperCase();
-    if (code === 'REPOS') return 'sp-cell-code sp-cell-repos';
-    if (code.startsWith('CFA')) return 'sp-cell-code sp-cell-cfa';
-    if (code === 'MAL') return 'sp-cell-code sp-cell-mal';
-    if (code === 'CP') return 'sp-cell-code sp-cell-cp';
-    if (code === 'ABS') return 'sp-cell-code sp-cell-abs';
-    if (code === 'FERIE') return 'sp-cell-code sp-cell-ferie';
-    return 'sp-cell-code';
+    let base = 'sp-cell-code';
+    if (code === 'REPOS') base = 'sp-cell-code sp-cell-repos';
+    else if (code.startsWith('CFA')) base = 'sp-cell-code sp-cell-cfa';
+    else if (code === 'MAL') base = 'sp-cell-code sp-cell-mal';
+    else if (code === 'CP') base = 'sp-cell-code sp-cell-cp';
+    else if (code === 'ABS') base = 'sp-cell-code sp-cell-abs';
+    if (day.alerts?.length) return `${base} sp-cell-alert${holiday}`;
+    return `${base}${holiday}`;
   }
-  return `sp-cell-${day.kind}`;
+  const kind = `sp-cell-${day.kind}`;
+  if (day.alerts?.length) return `${kind} sp-cell-alert${holiday}`;
+  return `${kind}${holiday}`;
 }

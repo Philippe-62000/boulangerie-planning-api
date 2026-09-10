@@ -33,6 +33,7 @@ const daySchema = new mongoose.Schema({
   absenceHours: { type: Number, default: 0 },
   holidayHours: { type: Number, default: 0 },
   deductedBreakMinutes: { type: Number, default: 0 },
+  isHoliday: { type: Boolean, default: false },
   alerts: { type: [alertSchema], default: [] }
 }, { _id: false });
 
@@ -63,6 +64,7 @@ const staffWeekPlanningSchema = new mongoose.Schema({
     default: 'draft'
   },
   sundayOpen: { type: Boolean, default: false },
+  holidayDates: { type: [String], default: [] },
   validatedAt: { type: Date },
   validatedBy: { type: String, default: '' },
   lastSentAt: { type: Date },

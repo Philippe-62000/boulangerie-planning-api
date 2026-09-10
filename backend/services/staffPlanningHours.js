@@ -184,6 +184,7 @@ function emptyDay(day, date) {
     absenceHours: 0,
     holidayHours: 0,
     deductedBreakMinutes: 0,
+    isHoliday: false,
     alerts: []
   };
 }
@@ -220,7 +221,7 @@ function computeDay(input, dayMeta, settings) {
       sickHours: word.countsAsSick ? hours : 0,
       cpHours: category === 'cp' ? hours : 0,
       absenceHours: category === 'absence' ? hours : 0,
-      holidayHours: category === 'ferie' ? hours : 0
+      holidayHours: 0
     };
   }
 
@@ -279,12 +280,22 @@ function restHoursBetween(prevDay, nextDay) {
   return ((24 * 60) - prev.end + nextStart) / 60;
 }
 
+function plainDay(day) {
+  if (!day) return day;
+  if (typeof day.toObject === 'function') return day.toObject();
+  if (day._doc) return { ...day._doc };
+  return { ...day };
+}
+
 function applyRestAlerts(days, settings) {
   const minRest = settings.minRestHours ?? 11;
-  const next = days.map((day) => ({
-    ...day,
-    alerts: (day.alerts || []).filter((alert) => alert.type !== 'min_rest')
-  }));
+  const next = days.map((day) => {
+    const plain = plainDay(day);
+    return {
+      ...plain,
+      alerts: (plain.alerts || []).filter((alert) => alert.type !== 'min_rest')
+    };
+  });
 
   for (let i = 1; i < next.length; i += 1) {
     const rest = restHoursBetween(next[i - 1], next[i]);
@@ -323,8 +334,22 @@ function overtimeFromPaid(paidHours, settings) {
   };
 }
 
-function summarizeDays(days, contractedHours, settings) {
-  const withRest = applyRestAlerts(days, settings);
+function withHolidayHours(days, holidayDates = []) {
+  const set = new Set(holidayDates || []);
+  return (days || []).map((raw) => {
+    const day = plainDay(raw);
+    const isHoliday = set.has(day.date);
+    const paid = Number(day.paidHours) || 0;
+    return {
+      ...day,
+      isHoliday,
+      holidayHours: isHoliday && paid > 0 ? paid : 0
+    };
+  });
+}
+
+function summarizeDays(days, contractedHours, settings, holidayDates = []) {
+  const withRest = applyRestAlerts(withHolidayHours(days, holidayDates), settings);
   const weeklyPaidHours = Math.round(withRest.reduce((sum, day) => sum + (day.paidHours || 0), 0) * 100) / 100;
   const weeklyNightHours = Math.round(withRest.reduce((sum, day) => sum + (day.nightHours || 0), 0) * 100) / 100;
   const weeklySickDays = withRest.reduce((sum, day) => sum + (day.sickDays || 0), 0);
@@ -358,8 +383,7 @@ function defaultWords() {
     { code: 'CFA8', hours: 8, category: 'formation', countsInTotal: true, countsAsSick: false },
     { code: 'CP', hours: 7, category: 'cp', countsInTotal: false, countsAsSick: false },
     { code: 'MAL', hours: 0, category: 'maladie', countsInTotal: false, countsAsSick: true },
-    { code: 'ABS', hours: 0, category: 'absence', countsInTotal: false, countsAsSick: false },
-    { code: 'FERIE', hours: 7, category: 'ferie', countsInTotal: false, countsAsSick: false }
+    { code: 'ABS', hours: 0, category: 'absence', countsInTotal: false, countsAsSick: false }
   ];
 }
 
@@ -392,8 +416,10 @@ module.exports = {
   normalizeShifts,
   computeDay,
   emptyDay,
+  plainDay,
   findWord,
   applyRestAlerts,
+  withHolidayHours,
   summarizeDays,
   overtimeFromPaid,
   defaultSettings,
