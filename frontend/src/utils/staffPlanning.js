@@ -89,3 +89,30 @@ export function cellClass(day) {
   if (day.alerts?.length) return `${kind} sp-cell-alert${holiday}`;
   return `${kind}${holiday}`;
 }
+
+export function isRestDay(day) {
+  return day && day.kind === 'code' && String(day.code || '').toUpperCase() === 'REPOS';
+}
+
+export function isOffDay(day) {
+  const code = String(day?.code || '').toUpperCase();
+  return day?.kind === 'code' && (code === 'REPOS' || code === 'CP' || code === 'MAL' || code === 'ABS');
+}
+
+export function computePlanningHints(prevDays = [], currentDays = []) {
+  const prevRestWeekdays = new Set((prevDays || []).filter(isRestDay).map((day) => day.day));
+  const seventhDates = new Set();
+  const currentDates = new Set((currentDays || []).map((day) => day.date).filter(Boolean));
+  let streak = 0;
+  [...(prevDays || []), ...(currentDays || [])].forEach((day) => {
+    if (isOffDay(day)) {
+      streak = 0;
+      return;
+    }
+    streak += 1;
+    if (streak >= 7 && day?.date && currentDates.has(day.date)) {
+      seventhDates.add(day.date);
+    }
+  });
+  return { prevRestWeekdays, seventhDates };
+}
