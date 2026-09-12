@@ -413,6 +413,15 @@
   background: #f8fafc;
 }
 
+.sp-total.sp-total-match {
+  background: #bbf7d0;
+}
+
+.sp-total.sp-total-match strong,
+.sp-total.sp-total-match small {
+  color: #14532d;
+}
+
 .sp-row-mine .sp-name {
   background: #dbeafe;
 }
@@ -459,9 +468,34 @@
 }
 
 .sp-time-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0.4rem;
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.sp-time-pair {
+  display: flex;
+  align-items: center;
+  gap: 0.2rem;
+}
+
+.sp-time-part {
+  width: 3.1rem;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  padding-left: 0.25rem;
+  padding-right: 0.25rem;
+}
+
+.sp-time-sep,
+.sp-time-arrow {
+  color: #64748b;
+  font-weight: 700;
+}
+
+.sp-time-arrow {
+  flex: 0 0 auto;
 }
 
 .sp-modal-actions {
@@ -478,11 +512,16 @@
 
 .sp-params-grid label,
 .sp-shift-fields label,
+.sp-shift-block,
 .sp-modal label {
   display: flex;
   flex-direction: column;
   gap: 0.3rem;
   font-size: 0.9rem;
+}
+
+.sp-shift-caption {
+  font-weight: 600;
 }
 
 .sp-params-grid small {
