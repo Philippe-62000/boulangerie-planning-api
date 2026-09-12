@@ -449,6 +449,57 @@ const updateSettings = async (req, res) => {
   }
 };
 
+const getPublishedWeek = async (req, res) => {
+  try {
+    const now = hours.getISOWeekInfo(new Date());
+    const requestedWeek = parseInt(req.query.week, 10);
+    const requestedYear = parseInt(req.query.year, 10);
+    const hasRequest = Number.isFinite(requestedWeek) && Number.isFinite(requestedYear) && requestedWeek && requestedYear;
+    const target = hasRequest
+      ? { weekNumber: requestedWeek, year: requestedYear }
+      : now;
+
+    let week = await StaffWeekPlanning.findOne({
+      weekNumber: target.weekNumber,
+      year: target.year,
+      status: { $in: ['validated', 'sent'] }
+    }).lean();
+
+    if (!week && !hasRequest) {
+      week = await StaffWeekPlanning.findOne({
+        status: { $in: ['validated', 'sent'] }
+      }).sort({ year: -1, weekNumber: -1, updatedAt: -1 }).lean();
+    }
+
+    if (!week) {
+      return res.json({
+        success: true,
+        published: false,
+        week: null,
+        dates: hours.weekDates(target.weekNumber, target.year),
+        weekNumber: target.weekNumber,
+        year: target.year
+      });
+    }
+
+    const dates = hours.weekDates(week.weekNumber, week.year);
+    const settings = settingsPlain(await StaffPlanningSettings.getSingleton());
+    res.json({
+      success: true,
+      published: true,
+      week,
+      dates,
+      weekNumber: week.weekNumber,
+      year: week.year,
+      settings,
+      holidayLabels: frenchHolidays.holidayLabelsForIsoDates(dates.map((item) => item.date))
+    });
+  } catch (error) {
+    console.error('staff-planning published GET', error);
+    res.status(500).json({ success: false, error: 'Impossible de charger le planning validé' });
+  }
+};
+
 const getWeek = async (req, res) => {
   try {
     const weekNumber = parseInt(req.params.week, 10);
@@ -537,6 +588,9 @@ const updateCell = async (req, res) => {
       const matchesDay = item.day === day;
       if (!applyToWeek && !matchesDay) return item;
       if (applyToWeek && !matchesDay && isProtectedCfa(item, cfaDates)) return item;
+      if (applyToWeek && !matchesDay && settings.sundayOpen === false && item.day === 'Dimanche') {
+        return item;
+      }
       return hours.computeDay(cell || { kind: 'empty' }, { day: item.day, date: item.date }, settings);
     });
     const nextRow = summarizeRow({
@@ -905,6 +959,7 @@ const getMonthCounters = async (req, res) => {
 module.exports = {
   getSettings,
   updateSettings,
+  getPublishedWeek,
   getWeek,
   updateCell,
   validateWeek,

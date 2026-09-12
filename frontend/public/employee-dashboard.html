@@ -3,12 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
     <title>Dashboard Salarié - Planning Boulangerie</title>
     <script>
         (function () {
             var pref = localStorage.getItem('employeeDashboardLayout') || 'auto';
-            var phone = pref === 'phone' || (pref !== 'pc' && window.matchMedia('(max-width: 900px)').matches);
+            var phone = pref === 'phone' || (pref !== 'pc' && window.matchMedia('(max-width: 1100px)').matches);
             if (phone) document.documentElement.classList.add('phone-layout');
+            if (pref === 'pc') document.documentElement.classList.add('force-pc');
+            if (pref === 'phone') document.documentElement.classList.add('force-phone');
         })();
     </script>
     <style>
@@ -807,9 +810,9 @@
         }
 
         .phone-layout .main-tabs {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
             background: transparent;
             box-shadow: none;
             overflow: visible;
@@ -819,15 +822,17 @@
 
         .phone-layout .main-tabs .tab {
             flex: none;
-            flex-direction: column;
-            min-height: 76px;
-            padding: 16px 10px;
-            border-radius: 14px;
+            width: 100%;
+            flex-direction: row;
+            justify-content: flex-start;
+            min-height: 56px;
+            padding: 14px 16px;
+            border-radius: 12px;
             background: #fff;
             color: #1f2937;
-            font-size: 14px;
+            font-size: 16px;
             line-height: 1.25;
-            text-align: center;
+            text-align: left;
             box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12);
         }
 
@@ -889,7 +894,8 @@
             font-size: 20px;
         }
 
-        .phone-layout #mainContent .connexion-btn {
+        .phone-layout #mainContent .connexion-btn,
+        #mainContent .connexion-btn {
             display: none;
         }
 
@@ -946,66 +952,181 @@
             padding: 20px 16px;
         }
 
-        @media (max-width: 768px) {
-            .form-row,
-            .sick-leave-dates-row {
+        .form-container-wide {
+            max-width: 1100px;
+        }
+
+        .emp-plan-nav {
+            display: flex;
+            gap: 8px;
+            justify-content: center;
+            margin-bottom: 16px;
+        }
+
+        .emp-plan-table-wrap {
+            overflow-x: auto;
+            background: #fff;
+            border-radius: 8px;
+        }
+
+        .emp-plan-table {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 720px;
+            font-size: 13px;
+        }
+
+        .emp-plan-table th,
+        .emp-plan-table td {
+            border: 1px solid #e5e7eb;
+            padding: 6px 4px;
+            text-align: center;
+            white-space: pre-line;
+        }
+
+        .emp-plan-table th {
+            background: #f8fafc;
+        }
+
+        .emp-plan-table tr.mine th,
+        .emp-plan-table tr.mine td {
+            background: #dbeafe;
+        }
+
+        .emp-plan-empty {
+            text-align: center;
+            padding: 24px;
+            color: #64748b;
+        }
+
+        @media (max-width: 1100px) {
+            html:not(.force-pc) #introHeader {
+                display: none !important;
+            }
+
+            html:not(.force-pc) #mainContent .connexion-btn,
+            html:not(.force-pc) #mainContent .layout-toggle {
+                display: none !important;
+            }
+
+            html:not(.force-pc) .phone-menu-hint {
+                display: block;
+            }
+
+            html:not(.force-pc) .main-tabs {
+                display: flex;
+                flex-direction: column;
+                gap: 10px;
+                background: transparent;
+                box-shadow: none;
+                overflow: visible;
+                border-radius: 0;
+            }
+
+            html:not(.force-pc) .main-tabs .tab {
+                flex: none;
+                width: 100%;
+                min-height: 56px;
+                justify-content: flex-start;
+                padding: 14px 16px;
+                border-radius: 12px;
+                background: #fff;
+                color: #1f2937;
+                font-size: 16px;
+                box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12);
+            }
+
+            html:not(.force-pc) .main-tabs .tab.active {
+                background: #007bff;
+                color: #fff;
+            }
+
+            html:not(.force-pc):not(.mobile-section-open) .tab-content {
+                display: none !important;
+            }
+
+            html:not(.force-pc).mobile-section-open .main-tabs,
+            html:not(.force-pc).mobile-section-open .phone-menu-hint {
+                display: none !important;
+            }
+
+            html:not(.force-pc).mobile-section-open .phone-bar {
+                display: flex !important;
+                margin-bottom: 12px;
+            }
+
+            html:not(.force-pc) .phone-bar {
+                display: none;
+            }
+
+            html:not(.force-pc) .phone-back {
+                display: inline-flex;
+                background: #fff;
+                color: #1d4ed8;
+                border: none;
+                border-radius: 8px;
+                padding: 12px 16px;
+                font-size: 16px;
+                font-weight: 700;
+                cursor: pointer;
+                box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+            }
+
+            html:not(.force-pc) .header-content {
+                flex-direction: column;
+                gap: 10px;
+                align-items: stretch;
+            }
+
+            html:not(.force-pc) .container {
+                margin: 12px auto;
+                padding: 0 12px;
+            }
+
+            html:not(.force-pc) .tab-panel {
+                padding: 16px 12px;
+            }
+
+            html:not(.force-pc) .document-subtabs {
+                display: flex;
+                flex-direction: column;
+                gap: 8px;
+                background: transparent;
+                box-shadow: none;
+            }
+
+            html:not(.force-pc) .form-row,
+            html:not(.force-pc) .sick-leave-dates-row {
                 grid-template-columns: 1fr;
             }
 
-            .header-content {
-                flex-direction: column;
-                gap: 15px;
-            }
-
-            .container {
-                margin: 20px auto;
-            }
-
-            .tab-panel {
-                padding: 20px;
-            }
-
-            .documents-grid {
+            html:not(.force-pc) .documents-grid {
                 grid-template-columns: 1fr;
                 gap: 1rem;
             }
 
-            .document-header {
+            html:not(.force-pc) .document-header {
                 flex-direction: column;
                 gap: 0.75rem;
             }
 
-            .document-icon {
-                width: 40px;
-                height: 40px;
-                font-size: 1.5rem;
+            html:not(.force-pc) .btn,
+            html:not(.force-pc) .form-group .btn {
+                width: 100%;
+                margin-left: 0 !important;
+                margin-right: 0 !important;
+                margin-bottom: 8px;
             }
 
-            .document-title h3 {
-                font-size: 1rem;
-            }
-
-            .detail-item {
-                flex-direction: column;
-                align-items: flex-start;
-                gap: 0.25rem;
-            }
-
-            .download-btn {
-                padding: 0.75rem 1rem;
-                font-size: 0.85rem;
+            html:not(.force-pc) input,
+            html:not(.force-pc) select,
+            html:not(.force-pc) textarea {
+                font-size: 16px;
             }
         }
     </style>
 </head>
 <body>
-    <div class="header" id="introHeader">
-        <div class="header-content">
-            <div class="logo">Dashboard Salarié</div>
-            <div class="header-subtitle">Planning Boulangerie - Services en ligne</div>
-        </div>
-    </div>
-
     <div class="loading" id="initialLoading">
         <div class="spinner"></div>
         <p>Chargement...</p>
@@ -1031,12 +1152,15 @@
         <div class="phone-bar">
             <button type="button" class="phone-back" onclick="showPhoneMenu()">← Menus</button>
         </div>
-        <p class="phone-menu-hint">Tous les services — touchez une case</p>
+        <p class="phone-menu-hint">Choisissez un service</p>
         <div class="tabs main-tabs">
+            <button class="tab active" onclick="switchTab('planning')">
+                📅 Planning
+            </button>
             <button class="tab" onclick="switchTab('sick-leave')">
                 🏥 Arrêt Maladie
             </button>
-            <button class="tab active" onclick="switchTab('vacation')">
+            <button class="tab" onclick="switchTab('vacation')">
                 🏖️ Demande de Congés
             </button>
             <button class="tab" onclick="switchTab('documents')">
@@ -1054,8 +1178,21 @@
         </div>
 
         <div class="tab-content">
-            <!-- Onglet Demande de Congés (PREMIER) -->
-            <div class="tab-panel active" id="vacation-panel">
+            <div class="tab-panel active" id="planning-panel">
+                <div class="form-container form-container-wide">
+                    <h2 class="form-title">📅 Planning</h2>
+                    <p class="form-subtitle" id="planningRange">Planning de la semaine validé par le magasin</p>
+                    <div class="emp-plan-nav">
+                        <button type="button" class="btn btn-secondary" onclick="shiftPublishedWeek(-1)">◀ Semaine précédente</button>
+                        <button type="button" class="btn btn-secondary" onclick="shiftPublishedWeek(1)">Semaine suivante ▶</button>
+                    </div>
+                    <div id="planningAlert"></div>
+                    <div id="planningTableWrap" class="emp-plan-empty">Chargement du planning…</div>
+                </div>
+            </div>
+
+            <!-- Onglet Demande de Congés -->
+            <div class="tab-panel" id="vacation-panel">
                 <div class="form-container">
                     <h2 class="form-title">🏖️ Demande de Congés</h2>
                     <p class="form-subtitle">Remplissez le formulaire ci-dessous pour faire votre demande</p>
@@ -1457,7 +1594,10 @@
             ? 'https://boulangerie-planning-api-3.onrender.com/api'
             : 'https://boulangerie-planning-api-4-pbfy.onrender.com/api';
         const BASE_PATH = (window.location.pathname || '').startsWith('/lon') ? '/lon' : '/plan';
+        const PLAN_DAYS = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
         let currentEmployee = null;
+        let planWeekNumber = null;
+        let planYear = null;
 
         // Vérifier l'authentification au chargement
         document.addEventListener('DOMContentLoaded', async () => {
@@ -1517,9 +1657,13 @@
                 // Masquer le loading et afficher le contenu
                 document.getElementById('initialLoading').style.display = 'none';
                 document.getElementById('mainContent').style.display = 'block';
-                const introHeader = document.getElementById('introHeader');
-                if (introHeader) introHeader.style.display = 'none';
                 applyDashboardLayout();
+                loadPublishedPlanning();
+                if (isPhoneLayout()) {
+                    showPhoneMenu();
+                } else {
+                    switchTab('planning');
+                }
 
                 // Vérifier si la demande d'acompte est activée
                 await checkAdvanceRequestAvailability();
@@ -1596,12 +1740,23 @@
             redirectToLogin();
         }
 
+        function isPhoneLayout() {
+            return !document.documentElement.classList.contains('force-pc')
+                && (document.documentElement.classList.contains('force-phone')
+                    || document.documentElement.classList.contains('phone-layout')
+                    || window.matchMedia('(max-width: 1100px)').matches);
+        }
+
         function applyDashboardLayout() {
             const pref = localStorage.getItem('employeeDashboardLayout') || 'auto';
-            const autoPhone = window.matchMedia('(max-width: 900px)').matches;
+            const autoPhone = window.matchMedia('(max-width: 1100px)').matches;
             const phone = pref === 'phone' || (pref !== 'pc' && autoPhone);
             document.documentElement.classList.toggle('phone-layout', phone);
             document.body.classList.toggle('phone-layout', phone);
+            document.documentElement.classList.toggle('force-pc', pref === 'pc');
+            document.body.classList.toggle('force-pc', pref === 'pc');
+            document.documentElement.classList.toggle('force-phone', pref === 'phone');
+            document.body.classList.toggle('force-phone', pref === 'phone');
             if (!phone) {
                 document.documentElement.classList.remove('mobile-section-open');
                 document.body.classList.remove('mobile-section-open');
@@ -1623,6 +1778,149 @@
             document.documentElement.classList.remove('mobile-section-open');
             document.body.classList.remove('mobile-section-open');
             window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function getISOWeekInfo(dateInput) {
+            const source = dateInput instanceof Date ? dateInput : new Date();
+            const date = new Date(Date.UTC(source.getFullYear(), source.getMonth(), source.getDate()));
+            const dayNum = date.getUTCDay() || 7;
+            date.setUTCDate(date.getUTCDate() + 4 - dayNum);
+            const isoYear = date.getUTCFullYear();
+            const yearStart = new Date(Date.UTC(isoYear, 0, 1));
+            const weekNumber = Math.ceil((((date - yearStart) / 86400000) + 1) / 7);
+            return { weekNumber, year: isoYear };
+        }
+
+        function addIsoWeeks(weekNumber, year, delta) {
+            const jan4 = new Date(Date.UTC(year, 0, 4));
+            const dayNum = jan4.getUTCDay() || 7;
+            const monday = new Date(jan4);
+            monday.setUTCDate(jan4.getUTCDate() - (dayNum - 1) + (weekNumber - 1 + delta) * 7);
+            return getISOWeekInfo(new Date(monday.getUTCFullYear(), monday.getUTCMonth(), monday.getUTCDate()));
+        }
+
+        function formatPlanHours(value) {
+            if (value == null || Number.isNaN(Number(value))) return '0h';
+            const rounded = Math.round(Number(value) * 100) / 100;
+            const whole = Math.trunc(rounded);
+            const mins = Math.round((rounded - whole) * 60);
+            if (mins === 0) return `${whole}h`;
+            return `${whole}h${String(Math.abs(mins)).padStart(2, '0')}`;
+        }
+
+        function formatPlanShortDate(iso) {
+            if (!iso) return '';
+            const parts = String(iso).split('-');
+            if (parts.length < 3) return '';
+            return `${Number(parts[2])}/${Number(parts[1])}`;
+        }
+
+        function formatPlanDayRange(dates) {
+            if (!dates || !dates.length) return '';
+            const first = dates[0] && dates[0].date;
+            const last = dates[dates.length - 1] && dates[dates.length - 1].date;
+            if (!first || !last) return '';
+            const fmt = (iso) => {
+                const [y, m, d] = iso.split('-');
+                return `${d}/${m}/${y}`;
+            };
+            return `${fmt(first)} au ${fmt(last)}`;
+        }
+
+        function planCellLabel(day) {
+            if (!day || day.kind === 'empty') return '—';
+            if (day.kind === 'code') return day.code || '—';
+            if (day.kind === 'hours') return formatPlanHours(day.volumeHours);
+            if (day.kind === 'shifts') {
+                return (day.shifts || []).map((shift) => {
+                    const start = String(shift.startTime || '').replace(':', 'h');
+                    const end = String(shift.endTime || '').replace(':', 'h');
+                    return `${start}–${end}`;
+                }).join('\n');
+            }
+            return '—';
+        }
+
+        function escapeHtml(value) {
+            return String(value == null ? '' : value)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;');
+        }
+
+        function renderPublishedPlanning(data) {
+            const wrap = document.getElementById('planningTableWrap');
+            const rangeEl = document.getElementById('planningRange');
+            if (!wrap) return;
+            const weekNumber = data.weekNumber || (data.week && data.week.weekNumber) || planWeekNumber;
+            const range = formatPlanDayRange(data.dates || []);
+            if (rangeEl) {
+                rangeEl.textContent = weekNumber
+                    ? `Semaine ${weekNumber}${range ? ' — ' + range : ''}`
+                    : 'Planning de la semaine validé par le magasin';
+            }
+            if (!data.published || !data.week) {
+                wrap.className = 'emp-plan-empty';
+                wrap.textContent = 'Ce planning n’est pas encore validé par le magasin.';
+                return;
+            }
+            const myId = String((currentEmployee && (currentEmployee.id || currentEmployee._id)) || '');
+            const holidays = new Set((data.week.holidayDates || []).filter(Boolean));
+            const head = PLAN_DAYS.map((day, index) => {
+                const iso = data.dates && data.dates[index] && data.dates[index].date;
+                const holiday = iso && holidays.has(iso);
+                return `<th>${day} ${formatPlanShortDate(iso) || ''}${holiday ? '<br><small>Férié</small>' : ''}</th>`;
+            }).join('');
+            const rows = (data.week.rows || []).map((row) => {
+                const mine = String(row.employeeId) === myId;
+                const cells = PLAN_DAYS.map((dayName) => {
+                    const day = (row.days || []).find((item) => item.day === dayName);
+                    const label = escapeHtml(planCellLabel(day)).replace(/\n/g, '<br>');
+                    return `<td>${label}</td>`;
+                }).join('');
+                return `<tr class="${mine ? 'mine' : ''}"><th>${escapeHtml(row.employeeName || '')}</th>${cells}</tr>`;
+            }).join('');
+            wrap.className = 'emp-plan-table-wrap';
+            wrap.innerHTML = `<table class="emp-plan-table"><thead><tr><th>Salarié</th>${head}</tr></thead><tbody>${rows}</tbody></table>`;
+        }
+
+        async function loadPublishedPlanning() {
+            const wrap = document.getElementById('planningTableWrap');
+            const token = localStorage.getItem('employeeToken');
+            if (!wrap || !token) return;
+            wrap.className = 'emp-plan-empty';
+            wrap.textContent = 'Chargement du planning…';
+            try {
+                const params = new URLSearchParams();
+                if (planWeekNumber && planYear) {
+                    params.set('week', String(planWeekNumber));
+                    params.set('year', String(planYear));
+                }
+                const qs = params.toString();
+                const response = await fetch(`${API_URL}/staff-planning/published${qs ? `?${qs}` : ''}`, {
+                    headers: { Authorization: `Bearer ${token}` }
+                });
+                const data = await response.json();
+                if (!response.ok) {
+                    throw new Error(data.error || 'Impossible de charger le planning');
+                }
+                planWeekNumber = data.weekNumber || (data.week && data.week.weekNumber) || planWeekNumber;
+                planYear = data.year || (data.week && data.week.year) || planYear;
+                renderPublishedPlanning(data);
+            } catch (error) {
+                console.error(error);
+                wrap.className = 'emp-plan-empty';
+                wrap.textContent = 'Le planning n’est pas encore disponible. Il s’affichera ici dès qu’il sera validé.';
+            }
+        }
+
+        function shiftPublishedWeek(delta) {
+            const now = getISOWeekInfo(new Date());
+            const next = addIsoWeeks(planWeekNumber || now.weekNumber, planYear || now.year, delta);
+            planWeekNumber = next.weekNumber;
+            planYear = next.year;
+            loadPublishedPlanning();
         }
 
         window.addEventListener('resize', applyDashboardLayout);
@@ -1655,10 +1953,14 @@
                 panel.classList.add('active');
             }
 
-            if (document.documentElement.classList.contains('phone-layout')) {
+            if (isPhoneLayout()) {
                 document.documentElement.classList.add('mobile-section-open');
                 document.body.classList.add('mobile-section-open');
                 window.scrollTo({ top: 0, behavior: 'smooth' });
+            }
+
+            if (tabName === 'planning') {
+                loadPublishedPlanning();
             }
 
             if (tabName === 'documents') {

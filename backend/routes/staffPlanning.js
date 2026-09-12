@@ -8,6 +8,7 @@ router.use(authenticateEmployee);
 
 router.get('/settings', controller.getSettings);
 router.put('/settings', controller.updateSettings);
+router.get('/published', controller.getPublishedWeek);
 router.get('/month-counters', controller.getMonthCounters);
 router.get('/stats/:employeeId', controller.getEmployeeStats);
 router.get('/week/:year/:week', controller.getWeek);

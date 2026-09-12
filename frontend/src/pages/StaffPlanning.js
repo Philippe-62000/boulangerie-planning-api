@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'react-toastify';
 import api from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
@@ -12,10 +12,84 @@ import {
   formatHours,
   formatShortDate,
   getISOWeekInfo,
+  hoursMatchContract,
   planningWords,
-  rowPaidHours
+  rowPaidHours,
+  buildShopPrintHtml
 } from '../utils/staffPlanning';
 import './StaffPlanning.css';
+
+function splitHm(value) {
+  if (value == null || value === '') return { h: '', m: '' };
+  const [h = '', m = ''] = String(value).split(':');
+  return { h, m };
+}
+
+function clampTimePart(value, max) {
+  const n = Number(String(value).replace(/\D/g, ''));
+  if (!Number.isFinite(n)) return '00';
+  return String(Math.max(0, Math.min(max, n))).padStart(2, '0');
+}
+
+function normalizeTime(value, fallback = '') {
+  const { h, m } = splitHm(value);
+  if (h === '' && m === '') return fallback;
+  return `${clampTimePart(h === '' ? '0' : h, 23)}:${clampTimePart(m === '' ? '0' : m, 59)}`;
+}
+
+function TimePair({ value, onChange, hourRef, emptyOk = false, skipTab = false, hourLabel, minuteLabel }) {
+  const { h, m } = splitHm(value);
+  const tabIndex = skipTab ? -1 : undefined;
+
+  const commit = (nextH, nextM, pad) => {
+    if (pad) {
+      if (emptyOk && nextH === '' && nextM === '') {
+        onChange('');
+        return;
+      }
+      onChange(`${clampTimePart(nextH === '' ? '0' : nextH, 23)}:${clampTimePart(nextM === '' ? '0' : nextM, 59)}`);
+      return;
+    }
+    const hh = String(nextH).replace(/\D/g, '').slice(0, 2);
+    const mm = String(nextM).replace(/\D/g, '').slice(0, 2);
+    if (emptyOk && hh === '' && mm === '') {
+      onChange('');
+      return;
+    }
+    onChange(`${hh}:${mm}`);
+  };
+
+  return (
+    <div className="sp-time-pair">
+      <input
+        ref={hourRef}
+        className="form-control sp-time-part"
+        inputMode="numeric"
+        autoComplete="off"
+        maxLength={2}
+        tabIndex={tabIndex}
+        value={h}
+        aria-label={hourLabel}
+        onFocus={(e) => e.target.select()}
+        onChange={(e) => commit(e.target.value, m, false)}
+        onBlur={() => commit(h, m, true)}
+      />
+      <span className="sp-time-sep">h</span>
+      <input
+        className="form-control sp-time-part"
+        inputMode="numeric"
+        autoComplete="off"
+        maxLength={2}
+        tabIndex={tabIndex}
+        value={m}
+        aria-label={minuteLabel}
+        onFocus={(e) => e.target.select()}
+        onChange={(e) => commit(h, e.target.value, false)}
+        onBlur={() => commit(h, m, true)}
+      />
+    </div>
+  );
+}
 
 const emptyEditor = {
   start1: '08:00',
@@ -44,6 +118,7 @@ const StaffPlanning = () => {
   const [teamModal, setTeamModal] = useState(false);
   const [teamSelected, setTeamSelected] = useState([]);
   const [statsModal, setStatsModal] = useState(null);
+  const startHourRef = useRef(null);
 
   const canEdit = isAdmin();
   const myEmployeeId = user?.employeeId || user?.id;
@@ -112,6 +187,17 @@ const StaffPlanning = () => {
       window.removeEventListener('keydown', onKey);
     };
   }, [menu]);
+
+  useEffect(() => {
+    if (!editor) return undefined;
+    const id = window.setTimeout(() => {
+      const el = startHourRef.current;
+      if (!el) return;
+      el.focus({ preventScroll: true });
+      el.select();
+    }, 30);
+    return () => window.clearTimeout(id);
+  }, [editor?.employeeId, editor?.day, editor?.date]);
 
   const monthLabel = useMemo(() => {
     const monday = dates[0]?.date;
@@ -192,9 +278,13 @@ const StaffPlanning = () => {
 
   const submitEditor = () => {
     if (!editor) return;
-    const shifts = [{ startTime: editor.start1, endTime: editor.end1 }];
-    if (editor.start2 && editor.end2) {
-      shifts.push({ startTime: editor.start2, endTime: editor.end2 });
+    const start1 = normalizeTime(editor.start1, emptyEditor.start1);
+    const end1 = normalizeTime(editor.end1, emptyEditor.end1);
+    const start2 = normalizeTime(editor.start2, '');
+    const end2 = normalizeTime(editor.end2, '');
+    const shifts = [{ startTime: start1, endTime: end1 }];
+    if (start2 && end2) {
+      shifts.push({ startTime: start2, endTime: end2 });
     }
     saveCell({
       employeeId: editor.employeeId,
@@ -370,7 +460,24 @@ const StaffPlanning = () => {
   };
 
   const printPlanning = () => {
-    window.print();
+    const html = buildShopPrintHtml({
+      weekNumber,
+      dates,
+      rows: week?.rows || [],
+      holidayDates: week?.holidayDates || []
+    });
+    const popup = window.open('', '_blank', 'noopener,noreferrer');
+    if (!popup) {
+      toast.error('Autorisez les fenêtres pop-up pour imprimer le planning magasin.');
+      return;
+    }
+    popup.document.open();
+    popup.document.write(html);
+    popup.document.close();
+    popup.focus();
+    setTimeout(() => {
+      popup.print();
+    }, 250);
   };
 
   const statusLabel = week?.status === 'sent'
@@ -436,13 +543,15 @@ const StaffPlanning = () => {
         {canEdit && (
           <>
             <button type="button" className="btn btn-secondary" onClick={duplicate}>Dupliquer vers la semaine suivante</button>
-            <button type="button" className="btn btn-secondary" onClick={validate}>Valider</button>
             <button type="button" className="btn btn-primary" onClick={send}>
               {(week?.sendCount || 0) > 0 ? 'Renvoyer le planning modifié' : 'Envoyer aux salariés'}
             </button>
           </>
         )}
         <button type="button" className="btn btn-secondary" onClick={printPlanning}>Imprimer (affichage magasin)</button>
+        {canEdit && (
+          <button type="button" className="btn btn-secondary" onClick={validate}>Valider le planning</button>
+        )}
       </div>
 
       <div className="sp-legend no-print">
@@ -548,7 +657,7 @@ const StaffPlanning = () => {
                         </td>
                       );
                     })}
-                    <td className="sp-total">
+                    <td className={`sp-total${hoursMatchContract(row) ? ' sp-total-match' : ''}`}>
                       <strong>{formatHours(rowPaidHours(row))}</strong>
                       <small>/ {formatHours(row.contractedHours)}</small>
                       {row.weeklyOt25 > 0 && <small>HS 25% {formatHours(row.weeklyOt25)}</small>}
@@ -702,25 +811,62 @@ const StaffPlanning = () => {
 
       {editor && (
         <div className="sp-modal-backdrop" onClick={() => !saving && setEditor(null)}>
-          <div className="sp-modal" onClick={(e) => e.stopPropagation()}>
+          <form
+            className="sp-modal"
+            onClick={(e) => e.stopPropagation()}
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (!saving) submitEditor();
+            }}
+          >
             <h3>{editor.employeeName} — {editor.day} {formatShortDate(editor.date)}</h3>
             <div className="sp-shift-fields">
-              <label>Créneau 1
+              <div className="sp-shift-block">
+                <span className="sp-shift-caption">Créneau 1</span>
                 <div className="sp-time-row">
-                  <input type="time" className="form-control" value={editor.start1} onChange={(e) => setEditor((p) => ({ ...p, start1: e.target.value }))} />
-                  <input type="time" className="form-control" value={editor.end1} onChange={(e) => setEditor((p) => ({ ...p, end1: e.target.value }))} />
+                  <TimePair
+                    hourRef={startHourRef}
+                    value={editor.start1}
+                    hourLabel="Heure de début"
+                    minuteLabel="Minutes de début"
+                    onChange={(start1) => setEditor((p) => ({ ...p, start1 }))}
+                  />
+                  <span className="sp-time-arrow" aria-hidden="true">→</span>
+                  <TimePair
+                    value={editor.end1}
+                    hourLabel="Heure de fin"
+                    minuteLabel="Minutes de fin"
+                    onChange={(end1) => setEditor((p) => ({ ...p, end1 }))}
+                  />
                 </div>
-              </label>
-              <label>Créneau 2 (optionnel, coupure)
+              </div>
+              <div className="sp-shift-block">
+                <span className="sp-shift-caption">Créneau 2 (optionnel, coupure)</span>
                 <div className="sp-time-row">
-                  <input type="time" className="form-control" value={editor.start2} onChange={(e) => setEditor((p) => ({ ...p, start2: e.target.value }))} />
-                  <input type="time" className="form-control" value={editor.end2} onChange={(e) => setEditor((p) => ({ ...p, end2: e.target.value }))} />
+                  <TimePair
+                    emptyOk
+                    skipTab
+                    value={editor.start2}
+                    hourLabel="Heure de début coupure"
+                    minuteLabel="Minutes de début coupure"
+                    onChange={(start2) => setEditor((p) => ({ ...p, start2 }))}
+                  />
+                  <span className="sp-time-arrow" aria-hidden="true">→</span>
+                  <TimePair
+                    emptyOk
+                    skipTab
+                    value={editor.end2}
+                    hourLabel="Heure de fin coupure"
+                    minuteLabel="Minutes de fin coupure"
+                    onChange={(end2) => setEditor((p) => ({ ...p, end2 }))}
+                  />
                 </div>
-              </label>
+              </div>
             </div>
             <label className="sp-apply-week">
               <input
                 type="checkbox"
+                tabIndex={-1}
                 checked={!!editor.applyToWeek}
                 onChange={(e) => setEditor((p) => ({ ...p, applyToWeek: e.target.checked }))}
               />
@@ -728,8 +874,9 @@ const StaffPlanning = () => {
             </label>
             <p className="sp-modal-help">
               Si aucun mot-code n’est choisi, l’horaire du jour est recopié sur la semaine. Les jours CFA ne sont pas écrasés.
+              Tab : heure → minutes → heure de fin. Entrée : enregistrer.
             </p>
-            <button type="button" className="btn btn-primary" onClick={submitEditor} disabled={saving}>
+            <button type="submit" className="btn btn-primary" disabled={saving}>
               {saving ? '…' : 'Enregistrer les horaires'}
             </button>
             <div className="sp-word-block">
@@ -753,7 +900,7 @@ const StaffPlanning = () => {
               <button type="button" className="btn btn-secondary" onClick={clearCell} disabled={saving}>Effacer</button>
               <button type="button" className="btn btn-secondary" onClick={() => setEditor(null)} disabled={saving}>Annuler</button>
             </div>
-          </div>
+          </form>
         </div>
       )}
     </div>

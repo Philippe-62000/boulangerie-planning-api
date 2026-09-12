@@ -41,6 +41,13 @@ export function rowPaidHours(row) {
   return Number(row?.weeklyPaidHours) || 0;
 }
 
+export function hoursMatchContract(row) {
+  const paid = Number(rowPaidHours(row));
+  const contracted = Number(row.contractedHours);
+  if (!Number.isFinite(paid) || !Number.isFinite(contracted) || contracted <= 0) return false;
+  return Math.abs(paid - contracted) < 0.05;
+}
+
 export function planningWords(settings) {
   return (settings?.words || []).filter((word) => (
     word && String(word.code).toUpperCase() !== 'FERIE' && word.category !== 'ferie'
@@ -115,4 +122,47 @@ export function computePlanningHints(prevDays = [], currentDays = []) {
     }
   });
   return { prevRestWeekdays, seventhDates };
+}
+
+export function buildShopPrintHtml({ weekNumber, dates = [], rows = [], holidayDates = [] }) {
+  const holidays = new Set(holidayDates || []);
+  const range = formatDayRange(dates);
+  const head = DAYS.map((day, index) => {
+    const iso = dates[index]?.date;
+    const holiday = iso && holidays.has(iso);
+    return `<th>${day} ${formatShortDate(iso) || ''}${holiday ? '<br><small>Férié</small>' : ''}</th>`;
+  }).join('');
+  const body = (rows || []).map((row) => {
+    const cells = DAYS.map((dayName) => {
+      const day = (row.days || []).find((item) => item.day === dayName);
+      const label = (cellLabel(day) || '—').replace(/\n/g, '<br>');
+      const code = String(day?.code || '').toUpperCase();
+      const isCode = day?.kind === 'code' || !day || day.kind === 'empty';
+      const pause = isCode || code === 'REPOS' ? '' : '<div class="pause">Pause : de ______ à ______</div>';
+      const hoursText = day?.paidHours > 0 ? `<div class="hrs">${formatHours(day.paidHours)}</div>` : '';
+      return `<td>${label}${hoursText}${pause}</td>`;
+    }).join('');
+    return `<tr><th>${row.employeeName || ''}</th>${cells}<td>${formatHours(rowPaidHours(row))}</td></tr>`;
+  }).join('');
+  return `<!DOCTYPE html>
+<html lang="fr"><head><meta charset="UTF-8"><title>Planning semaine ${weekNumber}</title>
+<style>
+  @page { size: A4 landscape; margin: 8mm; }
+  body { font-family: Arial, sans-serif; color: #111; margin: 0; }
+  h1 { font-size: 16px; margin: 0 0 4px; }
+  p { font-size: 11px; margin: 0 0 8px; }
+  table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 10px; }
+  th, td { border: 1px solid #333; padding: 4px 3px; text-align: center; vertical-align: top; }
+  th { background: #f0f0f0; }
+  td { height: 52px; }
+  .pause { margin-top: 8px; border-top: 1px dashed #666; padding-top: 3px; font-size: 9px; white-space: nowrap; }
+  .hrs { font-size: 9px; color: #333; }
+</style></head><body>
+<h1>Planning semaine ${weekNumber} — ${range}</h1>
+<p>Chaque salarié inscrit, chaque jour travaillé, l’horaire de pause réellement pris (de … à …). Les jours fériés sont indiqués dans l’en-tête : les heures travaillées ce jour-là sont majorées.</p>
+<table>
+<thead><tr><th>Salarié</th>${head}<th>Semaine</th></tr></thead>
+<tbody>${body}</tbody>
+</table>
+</body></html>`;
 }
