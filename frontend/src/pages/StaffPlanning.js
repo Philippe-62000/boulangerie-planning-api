@@ -7,6 +7,7 @@ import {
   addIsoWeeks,
   cellClass,
   cellLabel,
+  computePlanningHints,
   formatDayRange,
   formatHours,
   formatShortDate,
@@ -31,31 +32,47 @@ const StaffPlanning = () => {
   const [year, setYear] = useState(current.year);
   const [week, setWeek] = useState(null);
   const [dates, setDates] = useState([]);
+  const [previousRows, setPreviousRows] = useState([]);
+  const [holidayLabels, setHolidayLabels] = useState({});
   const [settings, setSettings] = useState(null);
   const [alerts, setAlerts] = useState([]);
   const [counters, setCounters] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [editor, setEditor] = useState(null);
+  const [menu, setMenu] = useState(null);
+  const [teamModal, setTeamModal] = useState(false);
+  const [teamSelected, setTeamSelected] = useState([]);
+  const [statsModal, setStatsModal] = useState(null);
 
   const canEdit = isAdmin();
   const myEmployeeId = user?.employeeId || user?.id;
+  const prevWeek = useMemo(() => addIsoWeeks(weekNumber, year, -1), [weekNumber, year]);
+  const nextWeek = useMemo(() => addIsoWeeks(weekNumber, year, 1), [weekNumber, year]);
 
-  const loadWeek = useCallback(async (nextWeek, nextYear) => {
+  const applyWeekPayload = useCallback((payload) => {
+    if (payload.week) setWeek(payload.week);
+    if (payload.dates) setDates(payload.dates);
+    if (payload.settings) setSettings(payload.settings);
+    if (payload.alerts) setAlerts(payload.alerts);
+    if (payload.previousWeek?.rows) setPreviousRows(payload.previousWeek.rows);
+    if (payload.holidayLabels) setHolidayLabels(payload.holidayLabels);
+  }, []);
+
+  const loadWeek = useCallback(async (nextWeekNumber, nextYear) => {
     setLoading(true);
     try {
-      const response = await api.get(`/staff-planning/week/${nextYear}/${nextWeek}`);
-      setWeek(response.data.week);
-      setDates(response.data.dates || []);
-      setSettings(response.data.settings);
-      setAlerts(response.data.alerts || []);
+      const response = await api.get(`/staff-planning/week/${nextYear}/${nextWeekNumber}`);
+      applyWeekPayload(response.data);
+      if (!response.data.previousWeek) setPreviousRows([]);
+      if (!response.data.holidayLabels) setHolidayLabels({});
     } catch (error) {
       console.error(error);
       toast.error(error.response?.data?.error || 'Impossible de charger le planning');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [applyWeekPayload]);
 
   useEffect(() => {
     loadWeek(weekNumber, year);
@@ -79,12 +96,39 @@ const StaffPlanning = () => {
     loadCounters();
   }, [loadCounters, week]);
 
+  useEffect(() => {
+    if (!menu) return undefined;
+    const close = () => setMenu(null);
+    const onKey = (event) => {
+      if (event.key === 'Escape') close();
+    };
+    const timer = window.setTimeout(() => {
+      window.addEventListener('click', close);
+    }, 0);
+    window.addEventListener('keydown', onKey);
+    return () => {
+      window.clearTimeout(timer);
+      window.removeEventListener('click', close);
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [menu]);
+
   const monthLabel = useMemo(() => {
     const monday = dates[0]?.date;
     if (!monday) return '';
     const [y, m] = monday.split('-');
     return new Date(Number(y), Number(m) - 1, 1).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
   }, [dates]);
+
+  const hintsByEmployee = useMemo(() => {
+    const prevById = new Map((previousRows || []).map((row) => [String(row.employeeId), row]));
+    const map = new Map();
+    (week?.rows || []).forEach((row) => {
+      const prev = prevById.get(String(row.employeeId));
+      map.set(String(row.employeeId), computePlanningHints(prev?.days || [], row.days || []));
+    });
+    return map;
+  }, [week, previousRows]);
 
   const goWeek = (delta) => {
     const next = addIsoWeeks(weekNumber, year, delta);
@@ -94,6 +138,7 @@ const StaffPlanning = () => {
 
   const openEditor = (row, dayName) => {
     if (!canEdit) return;
+    setMenu(null);
     const day = (row.days || []).find((item) => item.day === dayName);
     const shifts = day?.shifts || [];
     setEditor({
@@ -115,14 +160,14 @@ const StaffPlanning = () => {
     [week]
   );
   const words = useMemo(() => planningWords(settings), [settings]);
+  const employeeOptions = week?.rows || [];
 
   const toggleHoliday = async (date, holiday) => {
     if (!canEdit || !date) return;
     setSaving(true);
     try {
       const response = await api.put(`/staff-planning/week/${year}/${weekNumber}/holiday`, { date, holiday });
-      setWeek(response.data.week);
-      setAlerts(response.data.alerts || []);
+      applyWeekPayload(response.data);
     } catch (error) {
       console.error(error);
       toast.error(error.response?.data?.error || 'Impossible de marquer le férié');
@@ -135,8 +180,7 @@ const StaffPlanning = () => {
     setSaving(true);
     try {
       const response = await api.put(`/staff-planning/week/${year}/${weekNumber}/cell`, payload);
-      setWeek(response.data.week);
-      setAlerts(response.data.alerts || []);
+      applyWeekPayload(response.data);
       setEditor(null);
     } catch (error) {
       console.error(error);
@@ -155,7 +199,8 @@ const StaffPlanning = () => {
     saveCell({
       employeeId: editor.employeeId,
       day: editor.day,
-      cell: { kind: 'shifts', shifts }
+      cell: { kind: 'shifts', shifts },
+      applyToWeek: !!editor.applyToWeek
     });
   };
 
@@ -192,8 +237,7 @@ const StaffPlanning = () => {
     if (!confirmAlerts('Valider')) return;
     try {
       const response = await api.post(`/staff-planning/week/${year}/${weekNumber}/validate`);
-      setWeek(response.data.week);
-      setAlerts(response.data.alerts || []);
+      applyWeekPayload(response.data);
       toast.success('Planning validé');
     } catch (error) {
       toast.error(error.response?.data?.error || 'Validation impossible');
@@ -210,8 +254,7 @@ const StaffPlanning = () => {
     }
     try {
       const response = await api.post(`/staff-planning/week/${year}/${weekNumber}/send`);
-      setWeek(response.data.week);
-      setAlerts(response.data.alerts || []);
+      applyWeekPayload(response.data);
       const failed = (response.data.results || []).filter((item) => !item.ok);
       if (failed.length) {
         toast.warn(`Envoyé à ${response.data.sent}/${response.data.total}. ${failed.length} sans e-mail ou en échec.`);
@@ -225,7 +268,7 @@ const StaffPlanning = () => {
 
   const duplicate = async () => {
     const target = addIsoWeeks(weekNumber, year, 1);
-    if (!window.confirm(`Dupliquer la semaine ${weekNumber} vers la semaine ${target.weekNumber} ? Les jours CFA et le dimanche fermé seront réappliqués.`)) {
+    if (!window.confirm(`Dupliquer la semaine ${weekNumber} vers la semaine ${target.weekNumber} ? Les jours CFA ne sont ni copiés ni écrasés.`)) {
       return;
     }
     try {
@@ -235,13 +278,95 @@ const StaffPlanning = () => {
       });
       setWeekNumber(target.weekNumber);
       setYear(target.year);
-      setWeek(response.data.week);
-      setDates(response.data.dates || []);
-      setAlerts(response.data.alerts || []);
+      applyWeekPayload(response.data);
       toast.success(`Semaine ${target.weekNumber} créée`);
     } catch (error) {
       toast.error(error.response?.data?.error || 'Duplication impossible');
     }
+  };
+
+  const copyRows = async (direction, employeeIds) => {
+    if (!canEdit) return;
+    if (!employeeIds?.length) {
+      toast.error('Sélectionnez au moins un salarié');
+      return;
+    }
+    const label = direction === 'to-next'
+      ? `Copier vers la semaine ${nextWeek.weekNumber} (sans CFA) ?`
+      : `Importer la semaine ${prevWeek.weekNumber} vers la semaine ${weekNumber} (sans CFA) ?`;
+    if (!window.confirm(label)) return;
+    setSaving(true);
+    try {
+      const response = await api.post(`/staff-planning/week/${year}/${weekNumber}/copy`, {
+        direction,
+        employeeIds
+      });
+      applyWeekPayload(response.data);
+      setMenu(null);
+      setTeamModal(false);
+      const skipped = response.data.skippedCfa ? ` ${response.data.skippedCfa} jour(s) CFA conservés.` : '';
+      toast.success(direction === 'to-next'
+        ? `Semaine ${response.data.targetWeek} mise à jour.${skipped}`
+        : `Planning importé depuis la semaine ${prevWeek.weekNumber}.${skipped}`);
+    } catch (error) {
+      toast.error(error.response?.data?.error || 'Copie impossible');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const openEmployeeMenu = (event, row) => {
+    event.preventDefault();
+    event.stopPropagation();
+    setMenu({
+      type: 'employee',
+      employeeId: row.employeeId,
+      employeeName: row.employeeName,
+      x: Math.min(event.clientX, window.innerWidth - 280),
+      y: Math.min(event.clientY, window.innerHeight - 220)
+    });
+  };
+
+  const openTeamModal = (event) => {
+    if (!canEdit) return;
+    event.preventDefault();
+    setMenu(null);
+    setTeamSelected(employeeOptions.map((row) => String(row.employeeId)));
+    setTeamModal(true);
+  };
+
+  const openStats = async (employeeId, employeeName) => {
+    setMenu(null);
+    setStatsModal({ employeeId, employeeName, loading: true, stats: null, error: null });
+    try {
+      const response = await api.get(`/staff-planning/stats/${employeeId}`, { params: { year } });
+      setStatsModal({
+        employeeId,
+        employeeName: response.data.employeeName || employeeName,
+        loading: false,
+        stats: response.data.stats,
+        year: response.data.year,
+        error: null
+      });
+    } catch (error) {
+      setStatsModal({
+        employeeId,
+        employeeName,
+        loading: false,
+        stats: null,
+        year,
+        error: error.response?.data?.error || 'Statistiques indisponibles'
+      });
+    }
+  };
+
+  const toggleTeamEmployee = (employeeId) => {
+    const id = String(employeeId);
+    setTeamSelected((currentSelection) => (
+      currentSelection.includes(id)
+        ? currentSelection.filter((item) => item !== id)
+        : [...currentSelection, id]
+    ));
   };
 
   const printPlanning = () => {
@@ -320,6 +445,12 @@ const StaffPlanning = () => {
         <button type="button" className="btn btn-secondary" onClick={printPlanning}>Imprimer (affichage magasin)</button>
       </div>
 
+      <div className="sp-legend no-print">
+        <span className="sp-legend-item sp-legend-prev">Repos de la semaine {prevWeek.weekNumber}</span>
+        <span className="sp-legend-item sp-legend-six">7e jour consécutif sans repos (max. 6 jours de travail)</span>
+        <span className="sp-legend-note">Couleurs d’aide : non imprimées</span>
+      </div>
+
       <div className="sp-print-header">
         <h1>Planning semaine {weekNumber} — {formatDayRange(dates)}</h1>
         <p>Chaque salarié inscrit, chaque jour travaillé, l’horaire de pause réellement pris (de … à …). Les jours fériés sont indiqués dans l’en-tête : les heures travaillées ce jour-là sont majorées.</p>
@@ -332,10 +463,18 @@ const StaffPlanning = () => {
           <table className="sp-grid">
             <thead>
               <tr>
-                <th>Salarié</th>
+                <th
+                  className={canEdit ? 'sp-th-employee sp-th-employee-menu' : 'sp-th-employee'}
+                  onClick={openTeamModal}
+                  title={canEdit ? 'Importer ou copier le planning de l’équipe' : undefined}
+                >
+                  Salarié
+                  {canEdit && <small className="sp-th-hint">équipe</small>}
+                </th>
                 {DAYS.map((day, index) => {
                   const iso = dates[index]?.date;
                   const isHoliday = iso ? holidaySet.has(iso) : false;
+                  const holidayName = iso ? holidayLabels[iso] : '';
                   return (
                     <th key={day} className={isHoliday ? 'sp-th-holiday' : undefined}>
                       <div className="sp-day-head">
@@ -348,10 +487,10 @@ const StaffPlanning = () => {
                               disabled={saving}
                               onChange={(e) => toggleHoliday(iso, e.target.checked)}
                             />
-                            Férié
+                            Férié{holidayName ? ` — ${holidayName}` : ''}
                           </label>
                         ) : (
-                          isHoliday && <span className="sp-ferie-tag">Férié</span>
+                          isHoliday && <span className="sp-ferie-tag">Férié{holidayName ? ` — ${holidayName}` : ''}</span>
                         )}
                       </div>
                     </th>
@@ -364,9 +503,15 @@ const StaffPlanning = () => {
               {(week?.rows || []).map((row) => {
                 const mine = String(row.employeeId) === String(myEmployeeId);
                 const month = counters.find((item) => String(item.employeeId) === String(row.employeeId));
+                const hints = hintsByEmployee.get(String(row.employeeId));
                 return (
                   <tr key={row.employeeId} className={mine ? 'sp-row-mine' : undefined}>
-                    <td className="sp-name">
+                    <td
+                      className="sp-name sp-name-menu"
+                      onClick={(event) => openEmployeeMenu(event, row)}
+                      onContextMenu={(event) => openEmployeeMenu(event, row)}
+                      title="Menu du salarié"
+                    >
                       <strong>{row.employeeName}</strong>
                       <small>{row.contractedHours}h</small>
                     </td>
@@ -374,11 +519,19 @@ const StaffPlanning = () => {
                       const day = (row.days || []).find((item) => item.day === dayName);
                       const label = cellLabel(day);
                       const holiday = !!(day?.isHoliday || (day?.date && holidaySet.has(day.date)));
+                      const prevRest = hints?.prevRestWeekdays?.has(dayName);
+                      const sixthLimit = day?.date && hints?.seventhDates?.has(day.date);
+                      const hintClass = `${prevRest ? ' sp-cell-prev-rest' : ''}${sixthLimit ? ' sp-cell-six-day' : ''}`;
+                      const hintTitle = [
+                        prevRest ? `Repos en semaine ${prevWeek.weekNumber}` : '',
+                        sixthLimit ? '7e jour consécutif sans repos' : ''
+                      ].filter(Boolean).join(' · ');
                       return (
                         <td
                           key={dayName}
-                          className={`sp-cell ${cellClass({ ...day, isHoliday: holiday })} ${canEdit ? 'sp-cell-edit' : ''}`}
+                          className={`sp-cell ${cellClass({ ...day, isHoliday: holiday })}${hintClass} ${canEdit ? 'sp-cell-edit' : ''}`}
                           onClick={() => openEditor(row, dayName)}
+                          title={hintTitle || undefined}
                         >
                           <div className="sp-cell-label">{label || '—'}</div>
                           {day?.paidHours > 0 && (
@@ -425,6 +578,128 @@ const StaffPlanning = () => {
         </div>
       )}
 
+      {menu && (
+        <div
+          className="sp-ctx no-print"
+          style={{ left: menu.x, top: menu.y }}
+          onClick={(event) => event.stopPropagation()}
+        >
+          <p className="sp-ctx-title">{menu.employeeName}</p>
+          {canEdit && (
+            <>
+              <button type="button" onClick={() => copyRows('from-prev', [String(menu.employeeId)])}>
+                Importer la semaine {prevWeek.weekNumber} → {weekNumber}
+              </button>
+              <button type="button" onClick={() => copyRows('to-next', [String(menu.employeeId)])}>
+                Copier vers la semaine {nextWeek.weekNumber}
+              </button>
+            </>
+          )}
+          <button type="button" onClick={() => openStats(menu.employeeId, menu.employeeName)}>
+            Statistiques
+          </button>
+        </div>
+      )}
+
+      {teamModal && (
+        <div className="sp-modal-backdrop no-print" onClick={() => !saving && setTeamModal(false)}>
+          <div className="sp-modal sp-modal-wide" onClick={(e) => e.stopPropagation()}>
+            <h3>Planning de l’équipe</h3>
+            <p className="sp-modal-help">
+              Les jours CFA ne sont ni importés, ni exportés, ni écrasés.
+            </p>
+            <div className="sp-team-actions">
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => setTeamSelected(employeeOptions.map((row) => String(row.employeeId)))}
+              >
+                Tous
+              </button>
+              <button type="button" className="btn btn-secondary" onClick={() => setTeamSelected([])}>
+                Aucun
+              </button>
+            </div>
+            <div className="sp-team-list">
+              {employeeOptions.map((row) => {
+                const id = String(row.employeeId);
+                return (
+                  <label key={id}>
+                    <input
+                      type="checkbox"
+                      checked={teamSelected.includes(id)}
+                      onChange={() => toggleTeamEmployee(id)}
+                    />
+                    {row.employeeName}
+                  </label>
+                );
+              })}
+            </div>
+            <div className="sp-modal-actions sp-modal-actions-split">
+              <button
+                type="button"
+                className="btn btn-primary"
+                disabled={saving}
+                onClick={() => copyRows('from-prev', teamSelected)}
+              >
+                Importer S{prevWeek.weekNumber} → S{weekNumber}
+              </button>
+              <button
+                type="button"
+                className="btn btn-primary"
+                disabled={saving}
+                onClick={() => copyRows('to-next', teamSelected)}
+              >
+                Copier S{weekNumber} → S{nextWeek.weekNumber}
+              </button>
+              <button type="button" className="btn btn-secondary" onClick={() => setTeamModal(false)} disabled={saving}>
+                Fermer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {statsModal && (
+        <div className="sp-modal-backdrop no-print" onClick={() => setStatsModal(null)}>
+          <div className="sp-modal" onClick={(e) => e.stopPropagation()}>
+            <h3>Statistiques — {statsModal.employeeName}</h3>
+            <p className="sp-modal-help">Année {statsModal.year || year}</p>
+            {statsModal.loading && <p>Chargement…</p>}
+            {statsModal.error && <p className="sp-stats-error">{statsModal.error}</p>}
+            {statsModal.stats && (
+              <table className="sp-stats-table">
+                <tbody>
+                  <tr>
+                    <th>Dimanche</th>
+                    <td>{statsModal.stats.sunday.rest} repos / {statsModal.stats.sunday.worked} travaillé(s)</td>
+                  </tr>
+                  <tr>
+                    <th>Samedi</th>
+                    <td>{statsModal.stats.saturday.rest} repos / {statsModal.stats.saturday.worked} travaillé(s)</td>
+                  </tr>
+                  <tr>
+                    <th>Jours fériés</th>
+                    <td>{statsModal.stats.holiday.rest} repos / {statsModal.stats.holiday.worked} travaillé(s)</td>
+                  </tr>
+                  <tr>
+                    <th>Maladie</th>
+                    <td>{statsModal.stats.sickDays} jour(s)</td>
+                  </tr>
+                  <tr>
+                    <th>Absences</th>
+                    <td>{statsModal.stats.absences} jour(s)</td>
+                  </tr>
+                </tbody>
+              </table>
+            )}
+            <div className="sp-modal-actions">
+              <button type="button" className="btn btn-secondary" onClick={() => setStatsModal(null)}>Fermer</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {editor && (
         <div className="sp-modal-backdrop" onClick={() => !saving && setEditor(null)}>
           <div className="sp-modal" onClick={(e) => e.stopPropagation()}>
@@ -443,6 +718,17 @@ const StaffPlanning = () => {
                 </div>
               </label>
             </div>
+            <label className="sp-apply-week">
+              <input
+                type="checkbox"
+                checked={!!editor.applyToWeek}
+                onChange={(e) => setEditor((p) => ({ ...p, applyToWeek: e.target.checked }))}
+              />
+              Appliquer pour toute la semaine
+            </label>
+            <p className="sp-modal-help">
+              Si aucun mot-code n’est choisi, l’horaire du jour est recopié sur la semaine. Les jours CFA ne sont pas écrasés.
+            </p>
             <button type="button" className="btn btn-primary" onClick={submitEditor} disabled={saving}>
               {saving ? '…' : 'Enregistrer les horaires'}
             </button>
@@ -462,14 +748,6 @@ const StaffPlanning = () => {
                   </button>
                 ))}
               </div>
-              <label className="sp-apply-week">
-                <input
-                  type="checkbox"
-                  checked={!!editor.applyToWeek}
-                  onChange={(e) => setEditor((p) => ({ ...p, applyToWeek: e.target.checked }))}
-                />
-                Appliquer pour toute la semaine
-              </label>
             </div>
             <div className="sp-modal-actions">
               <button type="button" className="btn btn-secondary" onClick={clearCell} disabled={saving}>Effacer</button>

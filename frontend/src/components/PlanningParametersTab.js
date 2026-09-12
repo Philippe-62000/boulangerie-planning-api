@@ -214,8 +214,9 @@ const PlanningParametersTab = () => {
         <h4 style={{ marginTop: '1.5rem' }}>Mots-codes</h4>
         <p style={{ color: '#555' }}>
           Un mot peut compter dans le total de la semaine (ex. CFA8 = 8h). MAL ne compte pas dans le total
-          et alimente le compteur maladie du mois. Les jours fériés ne sont pas des mots-codes : on les coche
-          à côté du jour dans la grille (les heures travaillées ce jour-là sont majorées).
+          et alimente le compteur maladie du mois. Les jours fériés officiels français sont cochés
+          automatiquement à chaque nouvelle année (Pâques, 1er mai, 14 juillet, etc.). On peut toujours
+          décocher un jour dans la grille : les heures travaillées un jour férié sont majorées.
         </p>
         <div className="table-container">
           <table className="sp-words-table">

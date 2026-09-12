@@ -65,6 +65,7 @@ const staffWeekPlanningSchema = new mongoose.Schema({
   },
   sundayOpen: { type: Boolean, default: false },
   holidayDates: { type: [String], default: [] },
+  ignoredHolidayDates: { type: [String], default: [] },
   validatedAt: { type: Date },
   validatedBy: { type: String, default: '' },
   lastSentAt: { type: Date },

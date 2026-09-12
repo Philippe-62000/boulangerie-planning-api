@@ -189,10 +189,27 @@ function emptyDay(day, date) {
   };
 }
 
+function normalizedCode(code) {
+  return String(code || '').trim().toUpperCase();
+}
+
+function isCfaCode(code) {
+  return normalizedCode(code).startsWith('CFA');
+}
+
+function isRestCode(code) {
+  return normalizedCode(code) === 'REPOS';
+}
+
+function isOffCode(code) {
+  const value = normalizedCode(code);
+  return value === 'REPOS' || value === 'CP' || value === 'MAL' || value === 'ABS';
+}
+
 function findWord(settings, code) {
   if (!code) return null;
-  const needle = String(code).trim().toUpperCase();
-  return (settings.words || []).find((word) => String(word.code).trim().toUpperCase() === needle) || null;
+  const needle = normalizedCode(code);
+  return (settings.words || []).find((word) => normalizedCode(word.code) === needle) || null;
 }
 
 function computeDay(input, dayMeta, settings) {
@@ -417,6 +434,10 @@ module.exports = {
   computeDay,
   emptyDay,
   plainDay,
+  normalizedCode,
+  isCfaCode,
+  isRestCode,
+  isOffCode,
   findWord,
   applyRestAlerts,
   withHolidayHours,
