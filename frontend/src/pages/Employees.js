@@ -98,6 +98,25 @@ const Employees = () => {
     setShowModal(true);
   };
 
+  const toggleShowInStaffPlanning = async (employee) => {
+    const next = employee.showInStaffPlanning === false;
+    try {
+      await api.put(`/employees/${employee._id}`, { showInStaffPlanning: next });
+      setEmployees((current) =>
+        current.map((item) => (
+          String(item._id) === String(employee._id)
+            ? { ...item, showInStaffPlanning: next }
+            : item
+        ))
+      );
+      toast.success(next
+        ? `${employee.name} apparaît de nouveau dans le planning`
+        : `${employee.name} n’apparaît plus dans le planning`);
+    } catch (error) {
+      toast.error(error.response?.data?.error || 'Impossible de modifier l’affichage planning');
+    }
+  };
+
   const handleSendPassword = async (employee) => {
     try {
       if (!employee.email) {
@@ -438,6 +457,7 @@ const Employees = () => {
                 <th>Contrat</th>
                 <th>Âge</th>
                 <th>Volume hebdo</th>
+                <th>Planning</th>
                 <th>Compétences</th>
                 <th>Jours formation</th>
                 <th>Arrêt maladie</th>
@@ -482,6 +502,13 @@ const Employees = () => {
                     )}
                   </td>
                   <td>{employee.weeklyHours}h</td>
+                  <td
+                    className={`planning-visibility-cell ${employee.showInStaffPlanning === false ? 'hidden' : 'visible'}`}
+                    onClick={() => toggleShowInStaffPlanning(employee)}
+                    title="Cliquer pour afficher ou masquer ce salarié dans le planning"
+                  >
+                    {employee.showInStaffPlanning === false ? 'Ne s’affiche pas' : 'Visible'}
+                  </td>
                   <td>
                     {employee.skills && employee.skills.length > 0
                       ? employee.skills.join(', ')

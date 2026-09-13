@@ -768,33 +768,35 @@
             white-space: nowrap;
         }
 
+        .phone-menu-btn {
+            display: none;
+            background: #1d4ed8;
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            padding: 8px 12px;
+            font-size: 14px;
+            font-weight: 700;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+
         .phone-bar,
         .phone-menu-hint {
             display: none;
         }
 
-        .phone-layout .phone-bar {
-            display: none;
-            align-items: center;
-            gap: 10px;
-            margin-bottom: 14px;
+        .phone-layout .phone-bar,
+        .phone-layout.mobile-section-open .phone-bar {
+            display: none !important;
         }
 
-        .phone-layout.mobile-section-open .phone-bar {
-            display: flex;
+        .phone-layout.mobile-section-open .phone-menu-btn {
+            display: inline-flex;
         }
 
         .phone-layout .phone-back {
-            display: inline-flex;
-            background: #fff;
-            color: #1d4ed8;
-            border: none;
-            border-radius: 8px;
-            padding: 10px 14px;
-            font-size: 15px;
-            font-weight: 700;
-            cursor: pointer;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+            display: none;
         }
 
         .phone-layout .phone-menu-hint {
@@ -888,11 +890,12 @@
         }
 
         .phone-layout .header {
-            padding: 12px 0;
+            padding: 10px 0;
         }
 
         .phone-layout .logo {
-            font-size: 20px;
+            font-size: 16px;
+            margin: 0;
         }
 
         .phone-layout #mainContent .connexion-btn,
@@ -901,14 +904,16 @@
         }
 
         .phone-layout .header-content {
-            flex-direction: column;
-            gap: 12px;
-            align-items: stretch;
+            flex-direction: row;
+            gap: 8px;
+            align-items: center;
+            justify-content: space-between;
         }
 
         .phone-layout .user-info {
-            flex-wrap: wrap;
-            justify-content: flex-start;
+            flex-wrap: nowrap;
+            justify-content: flex-end;
+            gap: 6px;
         }
 
         .phone-layout .container {
@@ -1015,6 +1020,58 @@
             color: #166534;
         }
 
+        .emp-recup-summary {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin: 0 0 16px;
+        }
+
+        .emp-recup-card {
+            flex: 1;
+            min-width: 140px;
+            background: #f8fafc;
+            border-radius: 10px;
+            padding: 12px 14px;
+        }
+
+        .emp-recup-card span {
+            display: block;
+            font-size: 12px;
+            color: #64748b;
+        }
+
+        .emp-recup-card strong {
+            font-size: 22px;
+        }
+
+        .emp-recup-card strong.positive { color: #166534; }
+        .emp-recup-card strong.negative { color: #9a3412; }
+
+        .emp-recup-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: #fff;
+        }
+
+        .emp-recup-table th,
+        .emp-recup-table td {
+            border: 1px solid #e5e7eb;
+            padding: 10px 8px;
+            text-align: left;
+        }
+
+        .emp-recup-history {
+            margin-top: 16px;
+            background: #fff;
+            border-radius: 10px;
+            padding: 12px;
+        }
+
+        .emp-recup-history h3 {
+            margin-bottom: 8px;
+        }
+
         @media (max-width: 1100px) {
             html:not(.force-pc) #introHeader {
                 display: none !important;
@@ -1061,37 +1118,29 @@
                 display: none !important;
             }
 
+            html:not(.force-pc).mobile-section-open .phone-menu-btn {
+                display: inline-flex !important;
+            }
+
             html:not(.force-pc).mobile-section-open .main-tabs,
             html:not(.force-pc).mobile-section-open .phone-menu-hint {
                 display: none !important;
             }
 
-            html:not(.force-pc).mobile-section-open .phone-bar {
-                display: flex !important;
-                margin-bottom: 12px;
-            }
-
+            html:not(.force-pc).mobile-section-open .phone-bar,
             html:not(.force-pc) .phone-bar {
-                display: none;
+                display: none !important;
             }
 
             html:not(.force-pc) .phone-back {
-                display: inline-flex;
-                background: #fff;
-                color: #1d4ed8;
-                border: none;
-                border-radius: 8px;
-                padding: 12px 16px;
-                font-size: 16px;
-                font-weight: 700;
-                cursor: pointer;
-                box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+                display: none;
             }
 
             html:not(.force-pc) .header-content {
-                flex-direction: column;
-                gap: 10px;
-                align-items: stretch;
+                flex-direction: row;
+                gap: 8px;
+                align-items: center;
+                justify-content: space-between;
             }
 
             html:not(.force-pc) .container {
@@ -1156,6 +1205,7 @@
                 <div class="logo">Dashboard Salarié</div>
                 <div class="user-info">
                     <span class="employee-name" id="employeeName">Salarié</span>
+                    <button type="button" class="phone-menu-btn" onclick="showPhoneMenu()">← Menus</button>
                     <button type="button" class="layout-toggle" id="layoutToggleBtn" onclick="toggleDashboardLayout()">📱 Vue téléphone</button>
                     <a href="#" class="connexion-btn" onclick="goToLogin(); return false;">🔐 Connexion</a>
                     <a href="#" class="logout-btn" onclick="logout()">
@@ -1172,6 +1222,9 @@
         <div class="tabs main-tabs">
             <button class="tab active" onclick="switchTab('planning')">
                 📅 Planning
+            </button>
+            <button class="tab" onclick="switchTab('recup')">
+                ⏱️ Compteur Heures
             </button>
             <button class="tab" onclick="switchTab('sick-leave')">
                 🏥 Arrêt Maladie
@@ -1209,6 +1262,22 @@
                     <div id="planningAckBox"></div>
                     <div id="planningAlert"></div>
                     <div id="planningTableWrap" class="emp-plan-empty">Chargement du planning…</div>
+                </div>
+            </div>
+
+            <div class="tab-panel" id="recup-panel">
+                <div class="form-container form-container-wide">
+                    <h2 class="form-title">⏱️ Compteur heures</h2>
+                    <p class="form-subtitle">Vos heures de récup : + à récupérer, − déjà prises</p>
+                    <div class="emp-plan-nav">
+                        <button type="button" class="btn btn-secondary" onclick="shiftEmpRecupWeek(-1)">◀ Semaine précédente</button>
+                        <input type="date" id="empRecupWeek" onchange="loadEmpRecup()">
+                        <button type="button" class="btn btn-secondary" onclick="shiftEmpRecupWeek(1)">Semaine suivante ▶</button>
+                    </div>
+                    <div id="empRecupSummary" class="emp-recup-summary"></div>
+                    <div id="empRecupAlert"></div>
+                    <div id="empRecupTableWrap">Chargement du compteur…</div>
+                    <div id="empRecupHistory"></div>
                 </div>
             </div>
 
@@ -1850,6 +1919,145 @@
             return `${fmt(first)} au ${fmt(last)}`;
         }
 
+        function getMondayDate(date) {
+            const ref = new Date(date);
+            const day = ref.getDay() || 7;
+            if (day !== 1) ref.setDate(ref.getDate() - (day - 1));
+            ref.setHours(0, 0, 0, 0);
+            return ref;
+        }
+
+        function formatDateInput(date) {
+            const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
+            return local.toISOString().split('T')[0];
+        }
+
+        function formatRecupHours(value) {
+            const numberValue = Number.parseFloat(value) || 0;
+            const rounded = Math.round(numberValue * 100) / 100;
+            const sign = rounded > 0 ? '+' : '';
+            return `${sign}${rounded.toFixed(2)} h`;
+        }
+
+        function formatWeekRangeLabel(weekStartValue) {
+            if (!weekStartValue) return '';
+            const start = new Date(weekStartValue);
+            if (Number.isNaN(start.getTime())) return '';
+            const end = new Date(start);
+            end.setDate(start.getDate() + 6);
+            const fmt = new Intl.DateTimeFormat('fr-FR', { day: '2-digit', month: 'short' });
+            return `${fmt.format(start)} → ${fmt.format(end)}`;
+        }
+
+        function initEmpRecupWeek() {
+            const input = document.getElementById('empRecupWeek');
+            if (input && !input.value) {
+                input.value = formatDateInput(getMondayDate(new Date()));
+            }
+        }
+
+        function shiftEmpRecupWeek(offset) {
+            initEmpRecupWeek();
+            const input = document.getElementById('empRecupWeek');
+            const current = getMondayDate(input.value ? new Date(input.value) : new Date());
+            current.setDate(current.getDate() + offset * 7);
+            input.value = formatDateInput(getMondayDate(current));
+            loadEmpRecup();
+        }
+
+        async function loadEmpRecup() {
+            const token = localStorage.getItem('employeeToken');
+            const wrap = document.getElementById('empRecupTableWrap');
+            const summary = document.getElementById('empRecupSummary');
+            const alertBox = document.getElementById('empRecupAlert');
+            const historyBox = document.getElementById('empRecupHistory');
+            if (!wrap) return;
+            initEmpRecupWeek();
+            const weekStart = document.getElementById('empRecupWeek').value;
+            wrap.textContent = 'Chargement du compteur…';
+            if (alertBox) alertBox.innerHTML = '';
+            try {
+                const response = await fetch(`${API_URL}/recup-hours?weekStart=${encodeURIComponent(weekStart)}`, {
+                    headers: { Authorization: `Bearer ${token}` }
+                });
+                const data = await response.json();
+                if (!response.ok || !data.success) {
+                    throw new Error((data && data.error) || 'Compteur indisponible');
+                }
+                const employees = (data.data && data.data.employees) || [];
+                const myId = currentEmployee && (currentEmployee.id || currentEmployee._id);
+                const mine = employees.find((item) => String(item.employeeId) === String(myId))
+                    || (employees.length === 1 ? employees[0] : null);
+                if (!mine) {
+                    wrap.innerHTML = '<p class="emp-plan-empty">Aucun compteur pour votre compte.</p>';
+                    if (summary) summary.innerHTML = '';
+                    if (historyBox) historyBox.innerHTML = '';
+                    return;
+                }
+                const weekClass = mine.weekHours > 0 ? 'positive' : mine.weekHours < 0 ? 'negative' : '';
+                const totalClass = mine.totalHours > 0 ? 'positive' : mine.totalHours < 0 ? 'negative' : '';
+                if (summary) {
+                    summary.innerHTML = `
+                        <div class="emp-recup-card"><span>Cette semaine</span><strong class="${weekClass}">${formatRecupHours(mine.weekHours)}</strong></div>
+                        <div class="emp-recup-card"><span>Cumul</span><strong class="${totalClass}">${formatRecupHours(mine.totalHours)}</strong></div>
+                    `;
+                }
+                wrap.innerHTML = `
+                    <table class="emp-recup-table">
+                        <thead><tr><th>Salarié</th><th>Total cumulé</th><th>Heures semaine</th><th>Justificatif</th></tr></thead>
+                        <tbody>
+                            <tr>
+                                <td>${escapeHtml(mine.employeeName || '')}<div style="color:#64748b;font-size:12px;">${escapeHtml(mine.role || '')}</div></td>
+                                <td><strong class="${totalClass}">${formatRecupHours(mine.totalHours)}</strong></td>
+                                <td><strong class="${weekClass}">${formatRecupHours(mine.weekHours)}</strong><div style="color:#64748b;font-size:12px;">${mine.weekHours > 0 ? 'À récupérer' : mine.weekHours < 0 ? 'Récupéré' : 'Équilibre'}</div></td>
+                                <td>${escapeHtml(mine.comment || '—')}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    <p class="form-subtitle" style="margin-top:12px;">Semaine du ${escapeHtml(formatWeekRangeLabel(data.data.weekStart))}</p>
+                `;
+                loadEmpRecupHistory(mine.employeeId, mine.totalHours);
+            } catch (error) {
+                wrap.innerHTML = '';
+                if (summary) summary.innerHTML = '';
+                if (alertBox) alertBox.innerHTML = `<p class="emp-plan-empty">${escapeHtml(error.message || 'Impossible de charger le compteur')}</p>`;
+            }
+        }
+
+        async function loadEmpRecupHistory(employeeId, aggregateTotal) {
+            const token = localStorage.getItem('employeeToken');
+            const historyBox = document.getElementById('empRecupHistory');
+            if (!historyBox || !employeeId) return;
+            try {
+                const response = await fetch(`${API_URL}/recup-hours/${employeeId}/history`, {
+                    headers: { Authorization: `Bearer ${token}` }
+                });
+                const data = await response.json();
+                if (!response.ok || !data.success) return;
+                const entries = (data.data && data.data.entries) || [];
+                if (!entries.length) {
+                    historyBox.innerHTML = '<div class="emp-recup-history"><h3>Détail</h3><p>Aucune ligne pour le moment.</p></div>';
+                    return;
+                }
+                const rows = entries.map((entry) => {
+                    const cls = entry.hours > 0 ? 'positive' : entry.hours < 0 ? 'negative' : '';
+                    return `<tr><td>${escapeHtml(formatWeekRangeLabel(entry.weekStart))}</td><td><strong class="${cls}">${formatRecupHours(entry.hours)}</strong></td><td>${escapeHtml(entry.comment || '—')}</td></tr>`;
+                }).join('');
+                historyBox.innerHTML = `
+                    <div class="emp-recup-history">
+                        <h3>Détail des heures</h3>
+                        <p>Cumul : <strong>${formatRecupHours(data.data.totalHours != null ? data.data.totalHours : aggregateTotal)}</strong></p>
+                        <table class="emp-recup-table">
+                            <thead><tr><th>Semaine</th><th>Heures</th><th>Justificatif</th></tr></thead>
+                            <tbody>${rows}</tbody>
+                        </table>
+                    </div>
+                `;
+            } catch (error) {
+                historyBox.innerHTML = '';
+            }
+        }
+
         function planCellLabel(day) {
             if (!day || day.kind === 'empty') return '—';
             if (day.kind === 'code') return day.code || '—';
@@ -2030,6 +2238,10 @@
 
             if (tabName === 'planning') {
                 loadPublishedPlanning();
+            }
+
+            if (tabName === 'recup') {
+                loadEmpRecup();
             }
 
             if (tabName === 'documents') {

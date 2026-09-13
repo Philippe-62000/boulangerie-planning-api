@@ -66,7 +66,6 @@ const Sidebar = () => {
 
   // Sous-menus admin (comme Social) — regroupent des entrées retirées du menu plat pour l’admin uniquement
   const PLANNING_MENU_ITEMS = [
-    { path: '/staff-planning', label: 'Planning salariés', icon: '📅', menuId: 'staff-planning' },
     { path: '/planning', label: 'Génération du planning', icon: '🎯', menuId: 'planning' },
     { path: '/constraints', label: 'Contraintes hebdomadaires', icon: '📋', menuId: 'constraints' }
   ];
@@ -298,11 +297,11 @@ const Sidebar = () => {
   // Menu items avec permissions (sans les items Social - regroupés séparément)
   const menuItems = [
     { path: '/dashboard', label: 'Tableau de bord', icon: '📊', menuId: 'dashboard' },
+    { path: '/staff-planning', label: 'Planning salariés', icon: '📅', menuId: 'staff-planning' },
     { path: '/merieux', label: 'Mérieux', icon: '🧪', menuId: 'merieux', arrasOnly: true },
     { path: '/employees', label: 'Gestion des employés', icon: '👥', menuId: 'employees' },
     { path: '/constraints', label: 'Contraintes hebdomadaires', icon: '📋', menuId: 'constraints' },
     { path: '/planning', label: 'Génération du planning', icon: '🎯', menuId: 'planning' },
-    { path: '/staff-planning', label: 'Planning salariés', icon: '📅', menuId: 'staff-planning' },
     { path: '/sales-stats', label: 'Stats Vente', icon: '💰', menuId: 'sales-stats' },
     { path: '/message-vente', label: 'Message', icon: '✉️', menuId: 'message-vente' },
     { path: '/absences', label: 'État des absences', icon: '📈', menuId: 'absences' },
@@ -340,7 +339,8 @@ const Sidebar = () => {
         menuId === 'compte-client-depots' ||
         menuId === 'stocks' ||
         menuId === 'stocks-boissons' ||
-        menuId === 'message-vente')
+        menuId === 'message-vente' ||
+        menuId === 'staff-planning')
     )
       return true;
 

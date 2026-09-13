@@ -117,6 +117,24 @@
   box-shadow: var(--shadow-sm);
 }
 
+.planning-visibility-cell {
+  cursor: pointer;
+  user-select: none;
+  font-weight: 700;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.planning-visibility-cell.visible {
+  color: #157347;
+  background: #d1e7dd;
+}
+
+.planning-visibility-cell.hidden {
+  color: #842029;
+  background: #f8d7da;
+}
+
 /* Statuts et badges */
 .status-badge {
   display: inline-flex;

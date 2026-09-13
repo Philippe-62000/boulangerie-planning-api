@@ -41,8 +41,34 @@ export function rowPaidHours(row) {
   return Number(row?.weeklyPaidHours) || 0;
 }
 
-export function hoursMatchContract(row) {
-  const paid = Number(rowPaidHours(row));
+export function rowRecupHours(row) {
+  return Number(row?.recupHours) || 0;
+}
+
+export function rowAccountantHours(row) {
+  return Math.round((rowPaidHours(row) - rowRecupHours(row)) * 100) / 100;
+}
+
+export function overtimeFromPaid(paidHours, settings) {
+  const from25 = settings?.ot25FromHour ?? 36;
+  const to25 = settings?.ot25ToHour ?? 43;
+  const paid = Number(paidHours) || 0;
+  let ot25 = 0;
+  let ot50 = 0;
+  if (paid > to25) {
+    ot50 = paid - to25;
+    ot25 = to25 - (from25 - 1);
+  } else if (paid >= from25) {
+    ot25 = paid - (from25 - 1);
+  }
+  return {
+    ot25: Math.round(ot25 * 100) / 100,
+    ot50: Math.round(ot50 * 100) / 100
+  };
+}
+
+export function hoursMatchContract(row, useAccountant = false) {
+  const paid = Number(useAccountant ? rowAccountantHours(row) : rowPaidHours(row));
   const contracted = Number(row.contractedHours);
   if (!Number.isFinite(paid) || !Number.isFinite(contracted) || contracted <= 0) return false;
   return Math.abs(paid - contracted) < 0.05;
@@ -142,7 +168,8 @@ export function buildShopPrintHtml({ weekNumber, dates = [], rows = [], holidayD
       const hoursText = day?.paidHours > 0 ? `<div class="hrs">${formatHours(day.paidHours)}</div>` : '';
       return `<td>${label}${hoursText}${pause}</td>`;
     }).join('');
-    return `<tr><th>${row.employeeName || ''}</th>${cells}<td>${formatHours(rowPaidHours(row))}</td></tr>`;
+    const weekHours = rowAccountantHours(row);
+    return `<tr><th>${row.employeeName || ''}</th>${cells}<td>${formatHours(weekHours)}</td></tr>`;
   }).join('');
   return `<!DOCTYPE html>
 <html lang="fr"><head><meta charset="UTF-8"><title>${title} semaine ${weekNumber}</title>
@@ -159,7 +186,6 @@ export function buildShopPrintHtml({ weekNumber, dates = [], rows = [], holidayD
   .hrs { font-size: 9px; color: #333; }
 </style></head><body>
 <h1>${title} semaine ${weekNumber} — ${range}</h1>
-<p>Chaque salarié inscrit, chaque jour travaillé, l’horaire de pause réellement pris (de … à …). Les jours fériés sont indiqués dans l’en-tête : les heures travaillées ce jour-là sont majorées.</p>
 <table>
 <thead><tr><th>Salarié</th>${head}<th>Semaine</th></tr></thead>
 <tbody>${body}</tbody>
@@ -240,7 +266,7 @@ export function buildMonthRecapHtml({ monthLabel, year, month, employees = [] })
     }).join('');
     return `<section class="page">
       <h1>${employee.employeeName || ''}</h1>
-      <p>${monthLabel} · Contrat ${formatHours(employee.contractedHours)} · Payé ${formatHours(employee.paidHours)} · Nuit ${formatHours(employee.nightHours)} · HS 25% ${formatHours(employee.ot25)} · HS 50% ${formatHours(employee.ot50)} · Maladie ${employee.sickDays || 0} j</p>
+      <p class="recap-meta">${monthLabel} · Contrat ${formatHours(employee.contractedHours)} · Payé ${formatHours(employee.paidHours)} · Nuit ${formatHours(employee.nightHours)} · HS 25% ${formatHours(employee.ot25)} · HS 50% ${formatHours(employee.ot50)} · Maladie ${employee.sickDays || 0} j</p>
       <table>
         <thead><tr><th>Jour</th><th>Horaire</th><th>Heures</th></tr></thead>
         <tbody>${rows || '<tr><td colspan="3">Aucune heure ce mois</td></tr>'}</tbody>
@@ -254,7 +280,8 @@ export function buildMonthRecapHtml({ monthLabel, year, month, employees = [] })
   body { font-family: Arial, sans-serif; color: #111; margin: 0; }
   .page { page-break-after: always; }
   .page:last-child { page-break-after: auto; }
-  h1 { font-size: 18px; margin: 0 0 6px; }
+  h1 { font-size: 18px; margin: 0 0 8px; }
+  .recap-meta { font-size: 16px; font-weight: 700; line-height: 1.35; margin: 0 0 12px; }
   p { font-size: 12px; margin: 0 0 10px; }
   table { width: 100%; border-collapse: collapse; font-size: 12px; }
   th, td { border: 1px solid #333; padding: 5px 6px; }

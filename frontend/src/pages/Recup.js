@@ -247,9 +247,10 @@ const Recup = () => {
     <div className="recup-page fade-in">
       <div className="recup-header">
         <div className="recup-header-title">
-          <h2>⏱️ Heures de récup</h2>
+          <h2>{isAdminUser ? '⏱️ Heures de récup' : '⏱️ Compteur heures'}</h2>
           <p>
             Semaine {weekNumber} · {formatWeekLabel(currentWeekStart)}
+            {!isAdminUser ? ' · votre compteur personnel' : ''}
           </p>
         </div>
         <div className="recup-week-selector">
@@ -292,7 +293,7 @@ const Recup = () => {
 
       {!isAdminUser && (
         <div className="recup-info card">
-          <p>Consultation des heures de récup. Contactez votre responsable pour toute modification.</p>
+          <p>Voici votre compteur d’heures de récup. Un + sont des heures à récupérer, un − des heures déjà prises.</p>
         </div>
       )}
 
@@ -397,8 +398,12 @@ const Recup = () => {
 
       {!loading && employees.length === 0 && (
         <div className="recup-empty card">
-          <h3>👥 Aucun salarié</h3>
-          <p>Ajoutez des salariés pour commencer à suivre les heures de récup.</p>
+          <h3>👥 {isAdminUser ? 'Aucun salarié' : 'Compteur indisponible'}</h3>
+          <p>
+            {isAdminUser
+              ? 'Ajoutez des salariés pour commencer à suivre les heures de récup.'
+              : 'Votre compteur d’heures s’affichera ici dès qu’il sera initialisé par le magasin.'}
+          </p>
         </div>
       )}
 

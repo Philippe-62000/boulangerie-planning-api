@@ -52,6 +52,9 @@ const rowSchema = new mongoose.Schema({
   weeklyHolidayHours: { type: Number, default: 0 },
   weeklyOt25: { type: Number, default: 0 },
   weeklyOt50: { type: Number, default: 0 },
+  recupHours: { type: Number, default: 0 },
+  recupComment: { type: String, default: '' },
+  weeklyAccountantHours: { type: Number, default: 0 },
   alertCount: { type: Number, default: 0 }
 }, { _id: false });
 
