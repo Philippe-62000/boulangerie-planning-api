@@ -13,8 +13,11 @@ import {
   formatShortDate,
   getISOWeekInfo,
   hoursMatchContract,
+  overtimeFromPaid,
   planningWords,
+  rowAccountantHours,
   rowPaidHours,
+  rowRecupHours,
   buildShopPrintHtml,
   buildMonthRecapHtml,
   groupRowsByCategory,
@@ -126,6 +129,7 @@ const StaffPlanning = () => {
   const [layer, setLayer] = useState('forecast');
   const [lock, setLock] = useState({ today: todayIsoParis(), weekFinished: false, finishedDates: [] });
   const [dragId, setDragId] = useState(null);
+  const [recupModal, setRecupModal] = useState(null);
   const startHourRef = useRef(null);
 
   const canEdit = isAdmin();
@@ -414,13 +418,58 @@ const StaffPlanning = () => {
   };
 
   const createActual = async () => {
+    if (actualExists) {
+      setLayer('actual');
+      return;
+    }
+    if (!window.confirm('Créer le planning réel à partir du planning prévu ? Vous pourrez y reporter maladies, absences, retards et heures de récup.')) {
+      return;
+    }
     try {
       const response = await api.post(`/staff-planning/week/${year}/${weekNumber}/actual`);
       applyWeekPayload(response.data);
       setLayer('actual');
-      toast.success('Planning réel créé — vous pouvez y reporter maladies, absences et retards');
+      toast.success('Planning réel créé — vous pouvez y reporter maladies, absences, retards et heures de récup');
     } catch (error) {
-      toast.error(error.response?.data?.error || 'Création du planning réel impossible');
+      const message = error.response?.data?.error || 'Création du planning réel impossible';
+      toast.error(message);
+    }
+  };
+
+  const openRecupModal = (row) => {
+    if (layer !== 'actual' || !canEdit || actualLocked) return;
+    const worked = rowPaidHours(row);
+    setRecupModal({
+      employeeId: row.employeeId,
+      employeeName: row.employeeName,
+      contractedHours: row.contractedHours,
+      worked,
+      hours: String(rowRecupHours(row) || 0),
+      comment: row.recupComment || ''
+    });
+  };
+
+  const saveRecupModal = async () => {
+    if (!recupModal) return;
+    const hoursValue = Number.parseFloat(String(recupModal.hours).replace(',', '.'));
+    if (!Number.isFinite(hoursValue)) {
+      toast.error('Indiquez un nombre d’heures (+ pour ajouter au compteur, − pour en retirer)');
+      return;
+    }
+    setSaving(true);
+    try {
+      const response = await api.put(`/staff-planning/week/${year}/${weekNumber}/recup`, {
+        employeeId: recupModal.employeeId,
+        hours: hoursValue,
+        comment: recupModal.comment || ''
+      });
+      applyWeekPayload(response.data);
+      setRecupModal(null);
+      toast.success('Heures de récup enregistrées');
+    } catch (error) {
+      toast.error(error.response?.data?.error || 'Enregistrement des heures de récup impossible');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -655,7 +704,16 @@ const StaffPlanning = () => {
           <span className="sp-status sp-status-alert">{alerts.length} alerte(s) — confirmation à l’envoi</span>
         )}
         <button type="button" className={`btn ${layer === 'forecast' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setLayer('forecast')}>Planning prévu</button>
-        <button type="button" className={`btn ${layer === 'actual' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setLayer('actual')}>Planning réel</button>
+        <button
+          type="button"
+          className={`btn ${layer === 'actual' ? 'btn-primary' : 'btn-secondary'}`}
+          onClick={() => {
+            setLayer('actual');
+            if (!loading && !actualExists && canEdit) createActual();
+          }}
+        >
+          Planning réel
+        </button>
         {canEdit && layer === 'forecast' && (
           <>
             <button type="button" className="btn btn-secondary" onClick={duplicate}>Dupliquer vers la semaine suivante</button>
@@ -698,7 +756,6 @@ const StaffPlanning = () => {
 
       <div className="sp-print-header">
         <h1>Planning semaine {weekNumber} — {formatDayRange(dates)}</h1>
-        <p>Chaque salarié inscrit, chaque jour travaillé, l’horaire de pause réellement pris (de … à …). Les jours fériés sont indiqués dans l’en-tête : les heures travaillées ce jour-là sont majorées.</p>
       </div>
 
       {loading ? (
@@ -815,9 +872,18 @@ const StaffPlanning = () => {
                             </td>
                           );
                         })}
-                        <td className={`sp-total${hoursMatchContract(row) ? ' sp-total-match' : ''}`}>
-                          <strong>{formatHours(rowPaidHours(row))}</strong>
+                        <td
+                          className={`sp-total${hoursMatchContract(row, layer === 'actual') ? ' sp-total-match' : ''}${layer === 'actual' && canEdit && !actualLocked ? ' sp-total-recup' : ''}`}
+                          onClick={() => openRecupModal(row)}
+                          title={layer === 'actual' && canEdit && !actualLocked ? 'Cliquer pour affecter des heures de récup' : undefined}
+                        >
+                          <strong>{formatHours(layer === 'actual' ? rowAccountantHours(row) : rowPaidHours(row))}</strong>
                           <small>/ {formatHours(row.contractedHours)}</small>
+                          {layer === 'actual' && rowRecupHours(row) !== 0 && (
+                            <small className={rowRecupHours(row) > 0 ? 'sp-recup-pos' : 'sp-recup-neg'}>
+                              Récup {rowRecupHours(row) > 0 ? '+' : ''}{formatHours(rowRecupHours(row))}
+                            </small>
+                          )}
                           {row.weeklyOt25 > 0 && <small>HS 25% {formatHours(row.weeklyOt25)}</small>}
                           {row.weeklyOt50 > 0 && <small>HS 50% {formatHours(row.weeklyOt50)}</small>}
                           {row.weeklyHolidayHours > 0 && <small>Férié {formatHours(row.weeklyHolidayHours)}</small>}
@@ -968,6 +1034,57 @@ const StaffPlanning = () => {
           </div>
         </div>
       )}
+
+      {recupModal && (() => {
+        const recup = Number.parseFloat(String(recupModal.hours).replace(',', '.'));
+        const recupValue = Number.isFinite(recup) ? recup : 0;
+        const accountant = Math.round((Number(recupModal.worked) - recupValue) * 100) / 100;
+        const ot = overtimeFromPaid(accountant, settings);
+        return (
+          <div className="sp-modal-backdrop no-print" onClick={() => !saving && setRecupModal(null)}>
+            <div className="sp-modal" onClick={(e) => e.stopPropagation()}>
+              <h3>Heures de récup — {recupModal.employeeName}</h3>
+              <p className="sp-modal-help">
+                Semaine {weekNumber} · travaillé {formatHours(recupModal.worked)} / contrat {formatHours(recupModal.contractedHours)}.
+                Un + ajoute au compteur et diminue les heures vues par le comptable. Un − retire du compteur.
+              </p>
+              <label className="sp-recup-field">
+                Heures de récup cette semaine
+                <input
+                  className="form-control"
+                  type="number"
+                  step="0.25"
+                  value={recupModal.hours}
+                  onChange={(e) => setRecupModal((current) => ({ ...current, hours: e.target.value }))}
+                />
+              </label>
+              <label className="sp-recup-field">
+                Justificatif
+                <textarea
+                  className="form-control"
+                  rows={2}
+                  value={recupModal.comment}
+                  onChange={(e) => setRecupModal((current) => ({ ...current, comment: e.target.value }))}
+                  placeholder="Heures faites en plus, ou récup prise"
+                />
+              </label>
+              <div className="sp-recup-preview">
+                <p>Comptable : <strong>{formatHours(accountant)}</strong></p>
+                <p>HS 25% : <strong>{formatHours(ot.ot25)}</strong>{ot.ot50 > 0 ? ` · HS 50% ${formatHours(ot.ot50)}` : ''}</p>
+                <p>Compteur salarié : <strong>{recupValue > 0 ? '+' : ''}{formatHours(recupValue)}</strong></p>
+              </div>
+              <div className="sp-modal-actions">
+                <button type="button" className="btn btn-primary" onClick={saveRecupModal} disabled={saving}>
+                  Enregistrer
+                </button>
+                <button type="button" className="btn btn-secondary" onClick={() => setRecupModal(null)} disabled={saving}>
+                  Annuler
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {editor && (
         <div className="sp-modal-backdrop" onClick={() => !saving && setEditor(null)}>

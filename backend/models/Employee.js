@@ -276,6 +276,11 @@ const employeeSchema = new mongoose.Schema({
     type: Boolean,
     default: true
   },
+  /** false = salarié de test / hors magasin : reste dans la liste mais n’apparaît pas au planning */
+  showInStaffPlanning: {
+    type: Boolean,
+    default: true
+  },
   createdAt: {
     type: Date,
     default: Date.now

@@ -407,10 +407,41 @@
   display: none;
 }
 
-.sp-total {
-  min-width: 92px;
-  text-align: center;
+.sp-total.sp-total-recup {
+  cursor: pointer;
+}
+
+.sp-total.sp-total-recup:hover {
+  outline: 2px solid #2563eb;
+  outline-offset: -2px;
+}
+
+.sp-recup-pos {
+  color: #166534;
+}
+
+.sp-recup-neg {
+  color: #9a3412;
+}
+
+.sp-recup-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin: 0.75rem 0;
+  font-weight: 600;
+}
+
+.sp-recup-preview {
   background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 0.75rem 0.9rem;
+  margin: 0.5rem 0 1rem;
+}
+
+.sp-recup-preview p {
+  margin: 0.2rem 0;
 }
 
 .sp-total.sp-total-match {

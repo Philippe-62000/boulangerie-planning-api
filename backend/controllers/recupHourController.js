@@ -28,9 +28,18 @@ const parseWeekStart = (value) => {
 exports.getRecupHours = async (req, res) => {
   try {
     const weekStart = parseWeekStart(req.query.weekStart);
+    const isAdmin = req.user?.role === 'admin';
+    const employeeFilter = { isActive: true };
+    if (!isAdmin) {
+      const ownId = req.user?.employeeId || req.user?.id;
+      if (!ownId || !mongoose.Types.ObjectId.isValid(ownId)) {
+        return res.status(403).json({ success: false, error: 'Compte salarié introuvable' });
+      }
+      employeeFilter._id = ownId;
+    }
 
     const [employees, weekEntries, totals] = await Promise.all([
-      Employee.find({ isActive: true }).sort({ name: 1 }),
+      Employee.find(employeeFilter).sort({ name: 1 }),
       RecupHour.find({ weekStart }),
       RecupHour.aggregate([
         {
@@ -82,6 +91,12 @@ exports.getRecupHours = async (req, res) => {
 
 exports.saveRecupHours = async (req, res) => {
   try {
+    if (req.user?.role !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        error: 'Seule l\'administration peut modifier les heures de récup'
+      });
+    }
     const { weekStart: weekStartInput, entries } = req.body;
 
     if (!entries || !Array.isArray(entries)) {
@@ -142,6 +157,16 @@ exports.getRecupHistory = async (req, res) => {
         success: false,
         error: 'Identifiant salarié invalide'
       });
+    }
+
+    if (req.user?.role !== 'admin') {
+      const ownId = String(req.user?.employeeId || req.user?.id || '');
+      if (ownId !== String(employeeId)) {
+        return res.status(403).json({
+          success: false,
+          error: 'Vous ne pouvez consulter que votre compteur'
+        });
+      }
     }
 
     const employee = await Employee.findById(employeeId).select('name role');
