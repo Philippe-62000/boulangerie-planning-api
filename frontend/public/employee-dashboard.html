@@ -1020,6 +1020,59 @@
             color: #166534;
         }
 
+        .emp-plan-ack.signed {
+            background: #dbeafe;
+            color: #1e3a8a;
+        }
+
+        .emp-sign-box {
+            margin-top: 16px;
+            background: #fff;
+            border-radius: 12px;
+            padding: 14px;
+            box-shadow: 0 4px 14px rgba(0,0,0,0.08);
+        }
+
+        .emp-sign-box h3 {
+            margin-bottom: 8px;
+        }
+
+        .emp-sign-canvas-wrap {
+            border: 2px dashed #94a3b8;
+            border-radius: 10px;
+            background: #fff;
+            touch-action: none;
+        }
+
+        #empSignCanvas {
+            width: 100%;
+            height: 160px;
+            display: block;
+            touch-action: none;
+        }
+
+        .emp-sign-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 10px;
+            flex-wrap: wrap;
+        }
+
+        .emp-sign-preview {
+            max-width: 100%;
+            height: 80px;
+            background: #fff;
+            border: 1px solid #cbd5e1;
+            border-radius: 8px;
+        }
+
+        .emp-plan-meta {
+            text-align: center;
+            margin: 10px 0 0;
+            color: #334155;
+            font-weight: 600;
+        }
+
         .emp-recup-summary {
             display: flex;
             gap: 12px;
@@ -1249,19 +1302,20 @@
         <div class="tab-content">
             <div class="tab-panel active" id="planning-panel">
                 <div class="form-container form-container-wide">
-                    <h2 class="form-title">📅 Planning</h2>
+                    <h2 class="form-title" id="planningTitle">📅 Planning</h2>
                     <p class="form-subtitle" id="planningRange">Planning de la semaine validé par le magasin</p>
                     <div class="emp-plan-nav">
                         <button type="button" class="btn btn-secondary" onclick="shiftPublishedWeek(-1)">◀ Semaine précédente</button>
                         <button type="button" class="btn btn-secondary" onclick="shiftPublishedWeek(1)">Semaine suivante ▶</button>
                     </div>
-                    <div class="emp-plan-nav">
+                    <div class="emp-plan-nav" id="planTeamNav">
                         <button type="button" class="btn btn-primary" id="planMineBtn" onclick="setPlanShowAll(false)">Mon emploi du temps</button>
                         <button type="button" class="btn btn-secondary" id="planAllBtn" onclick="setPlanShowAll(true)">Planning de tout le magasin</button>
                     </div>
                     <div id="planningAckBox"></div>
                     <div id="planningAlert"></div>
                     <div id="planningTableWrap" class="emp-plan-empty">Chargement du planning…</div>
+                    <div id="planningSignBox"></div>
                 </div>
             </div>
 
@@ -2084,9 +2138,15 @@
             lastPublishedData = data;
             const wrap = document.getElementById('planningTableWrap');
             const rangeEl = document.getElementById('planningRange');
+            const titleEl = document.getElementById('planningTitle');
             const ackBox = document.getElementById('planningAckBox');
+            const signBox = document.getElementById('planningSignBox');
             const mineBtn = document.getElementById('planMineBtn');
             const allBtn = document.getElementById('planAllBtn');
+            const teamNav = document.getElementById('planTeamNav');
+            const actualReady = !!(data.actualValidated || (data.week && data.week.actualStatus === 'validated'));
+            if (titleEl) titleEl.textContent = actualReady ? '📅 Planning réel' : '📅 Planning';
+            if (teamNav) teamNav.style.display = actualReady ? 'none' : '';
             if (mineBtn && allBtn) {
                 mineBtn.className = planShowAll ? 'btn btn-secondary' : 'btn btn-primary';
                 allBtn.className = planShowAll ? 'btn btn-primary' : 'btn btn-secondary';
@@ -2096,13 +2156,16 @@
             const range = formatPlanDayRange(data.dates || []);
             if (rangeEl) {
                 rangeEl.textContent = weekNumber
-                    ? `Semaine ${weekNumber}${range ? ' — ' + range : ''}`
+                    ? (actualReady
+                        ? `Planning réel — semaine ${weekNumber}${range ? ' — ' + range : ''}`
+                        : `Semaine ${weekNumber}${range ? ' — ' + range : ''}`)
                     : 'Planning de la semaine validé par le magasin';
             }
             if (!data.published || !data.week) {
                 wrap.className = 'emp-plan-empty';
                 wrap.textContent = 'Ce planning n’est pas encore validé par le magasin.';
                 if (ackBox) ackBox.innerHTML = '';
+                if (signBox) signBox.innerHTML = '';
                 return;
             }
             const myId = String((currentEmployee && (currentEmployee.id || currentEmployee._id)) || '');
@@ -2112,28 +2175,168 @@
                 const holiday = iso && holidays.has(iso);
                 return `<th>${day} ${formatPlanShortDate(iso) || ''}${holiday ? '<br><small>Férié</small>' : ''}</th>`;
             }).join('');
-            const sourceRows = (data.week.rows || []).filter((row) => planShowAll || String(row.employeeId) === myId);
+            const sourceAll = actualReady ? (data.week.actualRows || []) : (data.week.rows || []);
+            const myRow = sourceAll.find((row) => String(row.employeeId) === myId);
+            const sourceRows = actualReady
+                ? (myRow ? [myRow] : [])
+                : sourceAll.filter((row) => planShowAll || String(row.employeeId) === myId);
             const rows = sourceRows.map((row) => {
                 const mine = String(row.employeeId) === myId;
                 const cells = PLAN_DAYS.map((dayName) => {
                     const day = (row.days || []).find((item) => item.day === dayName);
                     const label = escapeHtml(planCellLabel(day)).replace(/\n/g, '<br>');
-                    return `<td>${label}</td>`;
+                    const hours = day && day.paidHours > 0 ? `<div style="font-size:12px;color:#334155;">${escapeHtml(formatPlanHours(day.paidHours))}</div>` : '';
+                    return `<td>${label}${hours}</td>`;
                 }).join('');
-                return `<tr class="${mine ? 'mine' : ''}"><th>${escapeHtml(row.employeeName || '')}</th>${cells}</tr>`;
+                const recup = Number(row.recupHours) || 0;
+                const worked = (row.days || []).reduce((sum, day) => sum + (Number(day.paidHours) || 0), 0) || Number(row.weeklyPaidHours) || 0;
+                const accountant = Math.round((worked - recup) * 100) / 100;
+                const weekCell = actualReady
+                    ? `<td><strong>${escapeHtml(formatPlanHours(accountant))}</strong><div style="font-size:12px;">/ ${escapeHtml(formatPlanHours(row.contractedHours))}</div>${recup ? `<div style="font-size:12px;color:${recup > 0 ? '#166534' : '#9a3412'};">Récup ${recup > 0 ? '+' : ''}${escapeHtml(formatPlanHours(recup))}</div>` : ''}</td>`
+                    : '';
+                return `<tr class="${mine ? 'mine' : ''}"><th>${escapeHtml(row.employeeName || '')}</th>${cells}${weekCell}</tr>`;
             }).join('');
             wrap.className = 'emp-plan-table-wrap';
             wrap.innerHTML = sourceRows.length
-                ? `<table class="emp-plan-table"><thead><tr><th>Salarié</th>${head}</tr></thead><tbody>${rows}</tbody></table>`
-                : `<div class="emp-plan-empty">Votre ligne n’apparaît pas encore sur ce planning.</div>`;
+                ? `<table class="emp-plan-table"><thead><tr><th>Salarié</th>${head}${actualReady ? '<th>Semaine</th>' : ''}</tr></thead><tbody>${rows}</tbody></table>`
+                : `<div class="emp-plan-empty">${actualReady ? 'Votre planning réel n’est pas encore disponible pour cette semaine.' : 'Votre ligne n’apparaît pas encore sur ce planning.'}</div>`;
             const ack = data.myAcknowledgement || (data.acknowledgements || []).find((item) => String(item.employeeId) === myId);
             if (ackBox) {
-                if (ack && ack.acknowledgedAt) {
+                if (actualReady) {
+                    ackBox.innerHTML = '';
+                } else if (ack && ack.acknowledgedAt) {
                     const when = new Date(ack.acknowledgedAt);
                     ackBox.innerHTML = `<div class="emp-plan-ack done">Prise de connaissance enregistrée le ${when.toLocaleDateString('fr-FR')} à ${when.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}.</div>`;
                 } else {
                     ackBox.innerHTML = `<button type="button" class="btn btn-primary" onclick="acknowledgePlanning()">J’ai pris connaissance du planning</button>`;
                 }
+            }
+            renderActualSignBox(data, actualReady, myRow);
+        }
+
+        function formatRecupLine(row) {
+            const recup = Number(row && row.recupHours) || 0;
+            if (!recup) return '';
+            return `<p class="emp-plan-meta">Heures de récup cette semaine : <strong>${recup > 0 ? '+' : ''}${escapeHtml(formatPlanHours(recup))}</strong></p>`;
+        }
+
+        function renderActualSignBox(data, actualReady, myRow) {
+            const signBox = document.getElementById('planningSignBox');
+            if (!signBox) return;
+            if (!actualReady || !myRow) {
+                signBox.innerHTML = '';
+                return;
+            }
+            const signed = data.myActualSignature;
+            signBox.innerHTML = formatRecupLine(myRow) + (signed && signed.signedAt
+                ? `<div class="emp-sign-box">
+                    <div class="emp-plan-ack signed">Planning réel signé le ${new Date(signed.signedAt).toLocaleDateString('fr-FR')} à ${new Date(signed.signedAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}.</div>
+                    ${signed.signatureDataUrl ? `<img class="emp-sign-preview" alt="Votre signature" src="${signed.signatureDataUrl}">` : ''}
+                   </div>`
+                : `<div class="emp-sign-box">
+                    <h3>Signer le planning réel</h3>
+                    <p>Vérifiez vos horaires${Number(myRow.recupHours) ? ' et vos heures de récup' : ''}, puis signez avec le doigt.</p>
+                    <div class="emp-sign-canvas-wrap"><canvas id="empSignCanvas" width="360" height="160"></canvas></div>
+                    <div class="emp-sign-actions">
+                        <button type="button" class="btn btn-secondary" onclick="clearEmpSignature()">Effacer</button>
+                        <button type="button" class="btn btn-primary" onclick="submitEmpSignature()">Valider ma signature</button>
+                    </div>
+                   </div>`);
+            if (!signed) {
+                window.setTimeout(bindEmpSignPad, 30);
+            }
+        }
+
+        let empSignDrawn = false;
+        let empSignDrawing = false;
+
+        function bindEmpSignPad() {
+            const canvas = document.getElementById('empSignCanvas');
+            if (!canvas) return;
+            empSignDrawn = false;
+            const ctx = canvas.getContext('2d');
+            const ratio = window.devicePixelRatio || 1;
+            const cssWidth = canvas.clientWidth || 360;
+            const cssHeight = 160;
+            canvas.width = Math.floor(cssWidth * ratio);
+            canvas.height = Math.floor(cssHeight * ratio);
+            ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+            ctx.strokeStyle = '#111827';
+            ctx.lineWidth = 2.4;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            const pos = (event) => {
+                const rect = canvas.getBoundingClientRect();
+                const point = (event.touches && event.touches[0]) || event;
+                return { x: point.clientX - rect.left, y: point.clientY - rect.top };
+            };
+            const start = (event) => {
+                event.preventDefault();
+                empSignDrawing = true;
+                if (canvas.setPointerCapture && event.pointerId != null) {
+                    try { canvas.setPointerCapture(event.pointerId); } catch (err) { /* ignore */ }
+                }
+                const p = pos(event);
+                ctx.beginPath();
+                ctx.moveTo(p.x, p.y);
+            };
+            const move = (event) => {
+                if (!empSignDrawing) return;
+                event.preventDefault();
+                const p = pos(event);
+                ctx.lineTo(p.x, p.y);
+                ctx.stroke();
+                empSignDrawn = true;
+            };
+            const end = (event) => {
+                if (!empSignDrawing) return;
+                event.preventDefault();
+                empSignDrawing = false;
+            };
+            canvas.onpointerdown = start;
+            canvas.onpointermove = move;
+            canvas.onpointerup = end;
+            canvas.onpointercancel = end;
+            canvas.onpointerleave = end;
+        }
+
+        function clearEmpSignature() {
+            const canvas = document.getElementById('empSignCanvas');
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
+            ctx.setTransform(1, 0, 0, 1, 0, 0);
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            empSignDrawn = false;
+            bindEmpSignPad();
+        }
+
+        async function submitEmpSignature() {
+            const canvas = document.getElementById('empSignCanvas');
+            const token = localStorage.getItem('employeeToken');
+            if (!canvas || !token || !planWeekNumber || !planYear) return;
+            if (!empSignDrawn) {
+                alert('Signez d’abord dans le cadre, puis validez.');
+                return;
+            }
+            const signature = canvas.toDataURL('image/png');
+            try {
+                const response = await fetch(`${API_URL}/staff-planning/week/${planYear}/${planWeekNumber}/actual/sign`, {
+                    method: 'POST',
+                    headers: {
+                        Authorization: `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ signature })
+                });
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.error || 'Signature impossible');
+                if (lastPublishedData) {
+                    lastPublishedData.myActualSignature = data.signature;
+                    renderPublishedPlanning(lastPublishedData);
+                }
+                loadPublishedPlanning();
+            } catch (error) {
+                alert(error.message || 'Impossible d’enregistrer la signature');
             }
         }
 

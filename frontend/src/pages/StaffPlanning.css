@@ -492,8 +492,63 @@
   background: #f1f5f9;
 }
 
-.sp-row-mine .sp-name {
+.sp-name-ack,
+.sp-name-ack.sp-name-menu:hover {
+  background: #86efac !important;
+}
+
+.sp-name-signed,
+.sp-name-signed.sp-name-menu:hover {
+  background: #60a5fa !important;
+}
+
+.sp-legend-ack::before {
+  background: #86efac;
+}
+
+.sp-legend-signed::before {
+  background: #60a5fa;
+}
+
+.btn-urgent {
+  background: #b91c1c;
+  color: #fff;
+  border: none;
+}
+
+.btn-urgent:hover {
+  background: #991b1b;
+  color: #fff;
+}
+
+.sp-status-signed {
   background: #dbeafe;
+  color: #1e3a8a;
+}
+
+.sp-sign-list ul {
+  list-style: none;
+  padding-left: 0;
+}
+
+.sp-sign-list li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.6rem;
+}
+
+.sp-sign-list small {
+  display: block;
+  color: #475569;
+}
+
+.sp-sign-thumb {
+  height: 48px;
+  background: #fff;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
 }
 
 .sp-alerts {
@@ -695,6 +750,20 @@
 
   .sp-row-mine .sp-name {
     background: #eee;
+  }
+
+  .sp-name-ack,
+  .sp-name-ack.sp-name-menu:hover {
+    background: #86efac !important;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+
+  .sp-name-signed,
+  .sp-name-signed.sp-name-menu:hover {
+    background: #60a5fa !important;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
   }
 
   .sp-cell-prev-rest::before,

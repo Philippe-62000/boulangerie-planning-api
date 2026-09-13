@@ -21,6 +21,7 @@ router.post('/week/:year/:week/actual', controller.createActualWeek);
 router.post('/week/:year/:week/actual/validate', controller.validateActualWeek);
 router.put('/week/:year/:week/recup', controller.updateRecupHours);
 router.post('/week/:year/:week/acknowledge', controller.acknowledgeWeek);
+router.post('/week/:year/:week/actual/sign', controller.signActualWeek);
 router.post('/week/:year/:week/send', controller.sendWeek);
 router.post('/week/:year/:week/duplicate', controller.duplicateWeek);
 router.post('/week/:year/:week/copy', controller.copyWeekRows);

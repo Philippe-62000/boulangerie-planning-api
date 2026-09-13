@@ -91,6 +91,16 @@ const staffWeekPlanningSchema = new mongoose.Schema({
       acknowledgedAt: { type: Date, default: Date.now }
     }],
     default: []
+  },
+  actualSignatures: {
+    type: [{
+      employeeId: { type: mongoose.Schema.Types.ObjectId, ref: 'Employee' },
+      employeeName: { type: String, default: '' },
+      signedAt: { type: Date, default: Date.now },
+      signatureDataUrl: { type: String, default: '' },
+      snapshot: { type: mongoose.Schema.Types.Mixed, default: {} }
+    }],
+    default: []
   }
 }, { timestamps: true });
 

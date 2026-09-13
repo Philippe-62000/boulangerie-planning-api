@@ -376,22 +376,32 @@ const StaffPlanning = () => {
     }
   };
 
-  const send = async () => {
-    if (!confirmAlerts('Envoyer')) return;
-    const update = (week?.sendCount || 0) > 0;
-    if (!window.confirm(update
-      ? 'Renvoyer le planning modifié à tous les salariés qui ont un e-mail ?'
-      : 'Envoyer ce planning à tous les salariés qui ont un e-mail ?')) {
-      return;
-    }
+  const send = async (options = {}) => {
+    const urgent = !!options.urgent;
+    const sendLayer = options.layer || layer;
+    if (sendLayer === 'forecast' && !urgent && !confirmAlerts('Envoyer')) return;
+    const update = sendLayer === 'forecast' && (week?.sendCount || 0) > 0;
+    const confirmLabel = sendLayer === 'actual'
+      ? 'Envoyer un e-mail URGENT à chaque salarié pour qu’il signe son planning réel ?'
+      : (urgent
+        ? 'Le planning a été modifié : envoyer un e-mail URGENT à tous les salariés ? Les prises de connaissance (cases vertes) seront réinitialisées.'
+        : (update
+          ? 'Renvoyer le planning modifié à tous les salariés qui ont un e-mail ?'
+          : 'Envoyer ce planning à tous les salariés qui ont un e-mail ?'));
+    if (!window.confirm(confirmLabel)) return;
     try {
-      const response = await api.post(`/staff-planning/week/${year}/${weekNumber}/send`);
+      const response = await api.post(`/staff-planning/week/${year}/${weekNumber}/send`, {
+        urgent: urgent || sendLayer === 'actual',
+        layer: sendLayer
+      });
       applyWeekPayload(response.data);
       const failed = (response.data.results || []).filter((item) => !item.ok);
       if (failed.length) {
         toast.warn(`Envoyé à ${response.data.sent}/${response.data.total}. ${failed.length} sans e-mail ou en échec.`);
       } else {
-        toast.success(`Planning envoyé à ${response.data.sent} salarié(s)`);
+        toast.success(sendLayer === 'actual'
+          ? `E-mail envoyé à ${response.data.sent} salarié(s) pour signature`
+          : `Planning envoyé à ${response.data.sent} salarié(s)`);
       }
     } catch (error) {
       toast.error(error.response?.data?.error || 'Envoi impossible');
@@ -474,13 +484,16 @@ const StaffPlanning = () => {
   };
 
   const validateActual = async () => {
-    if (!window.confirm('Valider le planning réel ? Il servira au récapitulatif mensuel du comptable et ne sera plus modifiable.')) {
+    if (!window.confirm('Valider le planning réel ? Il ne sera plus modifiable. Un e-mail URGENT partira pour que chaque salarié le signe sur son téléphone.')) {
       return;
     }
     try {
       const response = await api.post(`/staff-planning/week/${year}/${weekNumber}/actual/validate`);
       applyWeekPayload(response.data);
-      toast.success('Planning réel validé');
+      const mailed = Number(response.data.mailed) || 0;
+      toast.success(mailed
+        ? `Planning réel validé — e-mail envoyé à ${mailed} salarié(s)`
+        : 'Planning réel validé');
     } catch (error) {
       toast.error(error.response?.data?.error || 'Validation du planning réel impossible');
     }
@@ -717,11 +730,21 @@ const StaffPlanning = () => {
         {canEdit && layer === 'forecast' && (
           <>
             <button type="button" className="btn btn-secondary" onClick={duplicate}>Dupliquer vers la semaine suivante</button>
-            <button type="button" className="btn btn-primary" onClick={send} disabled={weekFinished}>
-              {(week?.sendCount || 0) > 0 ? 'Renvoyer le planning modifié' : 'Envoyer aux salariés'}
+            <button type="button" className="btn btn-primary" onClick={() => send()} disabled={weekFinished && (week?.sendCount || 0) === 0}>
+              {(week?.sendCount || 0) > 0 ? 'Renvoyer le planning' : 'Envoyer aux salariés'}
             </button>
+            {(week?.sendCount || 0) > 0 && (
+              <button type="button" className="btn btn-urgent" onClick={() => send({ urgent: true, layer: 'forecast' })}>
+                Planning modifié
+              </button>
+            )}
             <button type="button" className="btn btn-secondary" onClick={validate} disabled={weekFinished}>Valider le planning</button>
           </>
+        )}
+        {canEdit && layer === 'actual' && actualExists && actualLocked && (
+          <button type="button" className="btn btn-urgent" onClick={() => send({ urgent: true, layer: 'actual' })}>
+            Planning modifié
+          </button>
         )}
         {canEdit && !actualExists && (
           <button type="button" className="btn btn-secondary" onClick={createActual}>Créer le planning réel</button>
@@ -734,12 +757,16 @@ const StaffPlanning = () => {
         {(week?.acknowledgements || []).length > 0 && (
           <span className="sp-status">{(week.acknowledgements || []).length} prise(s) de connaissance</span>
         )}
+        {(week?.actualSignatures || []).length > 0 && (
+          <span className="sp-status sp-status-signed">{(week.actualSignatures || []).length} signature(s) réel</span>
+        )}
       </div>
 
       <div className="sp-legend no-print">
         <span className="sp-legend-item sp-legend-prev">Repos de la semaine {prevWeek.weekNumber}</span>
         <span className="sp-legend-item sp-legend-six">7e jour consécutif sans repos (max. 6 jours de travail)</span>
-        <span className="sp-legend-note">Couleurs d’aide : non imprimées</span>
+        <span className="sp-legend-item sp-legend-ack">Prise de connaissance (prévu)</span>
+        <span className="sp-legend-item sp-legend-signed">Planning réel signé</span>
       </div>
       {(week?.acknowledgements || []).length > 0 && (
         <div className="sp-alerts no-print">
@@ -748,6 +775,33 @@ const StaffPlanning = () => {
             {(week.acknowledgements || []).map((item) => (
               <li key={String(item.employeeId)}>
                 {item.employeeName} — {item.acknowledgedAt ? new Date(item.acknowledgedAt).toLocaleString('fr-FR') : ''}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+      {(week?.actualSignatures || []).length > 0 && (
+        <div className="sp-alerts no-print sp-sign-list">
+          <h3>Signatures du planning réel</h3>
+          <ul>
+            {(week.actualSignatures || []).map((item) => (
+              <li key={String(item.employeeId)}>
+                <div>
+                  <strong>{item.employeeName}</strong>
+                  {' — '}
+                  {item.signedAt ? new Date(item.signedAt).toLocaleString('fr-FR') : ''}
+                </div>
+                {item.snapshot ? (
+                  <small>
+                    Semaine signée : {formatHours(item.snapshot.weeklyAccountantHours || item.snapshot.weeklyPaidHours)} / {formatHours(item.snapshot.contractedHours)}
+                    {Number(item.snapshot.recupHours)
+                      ? ` · récup ${Number(item.snapshot.recupHours) > 0 ? '+' : ''}${formatHours(item.snapshot.recupHours)}`
+                      : ''}
+                  </small>
+                ) : null}
+                {item.signatureDataUrl ? (
+                  <img src={item.signatureDataUrl} alt={`Signature ${item.employeeName}`} className="sp-sign-thumb" />
+                ) : null}
               </li>
             ))}
           </ul>
@@ -813,6 +867,14 @@ const StaffPlanning = () => {
                     const mine = String(row.employeeId) === String(myEmployeeId);
                     const month = counters.find((item) => String(item.employeeId) === String(row.employeeId));
                     const hints = hintsByEmployee.get(String(row.employeeId));
+                    const ack = (week?.acknowledgements || []).find((item) => String(item.employeeId) === String(row.employeeId));
+                    const signed = (week?.actualSignatures || []).find((item) => String(item.employeeId) === String(row.employeeId));
+                    const nameStatus = signed ? 'sp-name-signed' : (ack ? 'sp-name-ack' : '');
+                    const nameTitle = signed
+                      ? `Planning réel signé le ${new Date(signed.signedAt).toLocaleString('fr-FR')}`
+                      : (ack
+                        ? `Prise de connaissance le ${new Date(ack.acknowledgedAt).toLocaleString('fr-FR')}`
+                        : 'Menu du salarié — glisser pour ranger');
                     return (
                       <tr
                         key={row.employeeId}
@@ -823,10 +885,10 @@ const StaffPlanning = () => {
                         onDrop={() => onDropRow(row.employeeId, group.id)}
                       >
                         <td
-                          className="sp-name sp-name-menu"
+                          className={`sp-name sp-name-menu ${nameStatus}`}
                           onClick={(event) => openEmployeeMenu(event, row)}
                           onContextMenu={(event) => openEmployeeMenu(event, row)}
-                          title="Menu du salarié — glisser pour ranger"
+                          title={nameTitle}
                         >
                           {canEdit && (
                             <span className="sp-move">

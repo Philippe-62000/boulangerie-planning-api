@@ -459,12 +459,75 @@ function formatDayLabel(day) {
   return '';
 }
 
-function buildPlanningEmail({ employeeName, weekNumber, year, dates, week, isUpdate }) {
-  const title = isUpdate
-    ? `Planning modifié — semaine ${weekNumber}`
-    : `Planning semaine ${weekNumber}`;
+function dashboardUrl() {
+  return `https://www.filmara.fr/${getSiteKey() === 'lon' ? 'lon' : 'plan'}/employee-dashboard.html`;
+}
+
+function signatureSnapshot(row) {
+  const plain = toPlain(row) || {};
+  return {
+    employeeName: plain.employeeName,
+    contractedHours: plain.contractedHours,
+    recupHours: Number(plain.recupHours) || 0,
+    recupComment: plain.recupComment || '',
+    weeklyAccountantHours: Number(plain.weeklyAccountantHours) || 0,
+    weeklyPaidHours: Number(plain.weeklyPaidHours) || 0,
+    days: (plain.days || []).map((day) => ({
+      day: day.day,
+      date: day.date,
+      kind: day.kind,
+      code: day.code || '',
+      paidHours: day.paidHours || 0,
+      label: formatDayLabel(day)
+    }))
+  };
+}
+
+function isValidSignatureDataUrl(value) {
+  if (typeof value !== 'string') return false;
+  if (!value.startsWith('data:image/png') && !value.startsWith('data:image/jpeg')) return false;
+  return value.length >= 1200 && value.length <= 450000;
+}
+
+function signatureForEmployee(item) {
+  if (!item) return null;
+  return {
+    employeeId: item.employeeId,
+    employeeName: item.employeeName,
+    signedAt: item.signedAt,
+    signatureDataUrl: item.signatureDataUrl || '',
+    snapshot: item.snapshot || {}
+  };
+}
+
+function withOwnRow(visibleRows, allRows, employeeId) {
+  if (!employeeId) return visibleRows;
+  const mineId = String(employeeId);
+  if ((visibleRows || []).some((row) => String(row.employeeId) === mineId)) return visibleRows;
+  const mine = (allRows || []).find((row) => String(row.employeeId) === mineId);
+  return mine ? [...visibleRows, mine] : visibleRows;
+}
+
+function buildPlanningEmail({
+  employeeName,
+  weekNumber,
+  year,
+  dates,
+  week,
+  isUpdate,
+  urgent = false,
+  layer = 'forecast',
+  personalRow = null
+}) {
+  const isActual = layer === 'actual';
+  const title = isActual
+    ? `Planning réel à signer — semaine ${weekNumber}`
+    : (isUpdate || urgent
+      ? `Planning modifié — semaine ${weekNumber}`
+      : `Planning semaine ${weekNumber}`);
   const range = dates.length ? `${dates[0].date} → ${dates[dates.length - 1].date}` : '';
-  const teamRows = (week.rows || []).map((row) => {
+  const sourceRows = isActual && personalRow ? [personalRow] : (week.rows || []);
+  const teamRows = sourceRows.map((row) => {
     const cells = hours.DAYS.map((dayName) => {
       const day = (row.days || []).find((item) => item.day === dayName);
       const label = day ? formatDayLabel(day) : '';
@@ -474,20 +537,33 @@ function buildPlanningEmail({ employeeName, weekNumber, year, dates, week, isUpd
         : (day?.isHoliday ? '<br/><small>Férié</small>' : '');
       return `<td style="border:1px solid #ddd;padding:6px;text-align:center;font-size:13px;">${label || '—'}${paid}${holiday}</td>`;
     }).join('');
+    const recup = Number(row.recupHours) || 0;
+    const weekLabel = isActual
+      ? `${hours.formatHours(row.weeklyAccountantHours || row.weeklyPaidHours)} / ${hours.formatHours(row.contractedHours)}${recup ? `<br/><small>Récup ${recup > 0 ? '+' : ''}${hours.formatHours(recup)}</small>` : ''}`
+      : `${hours.formatHours(row.weeklyPaidHours)} / ${hours.formatHours(row.contractedHours)}`;
     return `<tr>
       <td style="border:1px solid #ddd;padding:6px;font-weight:600;">${row.employeeName}</td>
       ${cells}
-      <td style="border:1px solid #ddd;padding:6px;text-align:center;">${hours.formatHours(row.weeklyPaidHours)} / ${hours.formatHours(row.contractedHours)}</td>
+      <td style="border:1px solid #ddd;padding:6px;text-align:center;">${weekLabel}</td>
     </tr>`;
   }).join('');
+  const link = dashboardUrl();
+  const urgentBanner = urgent
+    ? '<p style="background:#b91c1c;color:#fff;padding:10px 12px;border-radius:6px;font-weight:700;">URGENT — merci de consulter dès maintenant votre planning.</p>'
+    : '';
+  const intro = isActual
+    ? 'Votre planning réel de la semaine est disponible. Merci de le vérifier, puis de le signer sur votre téléphone.'
+    : (isUpdate || urgent
+      ? 'Le planning de l’équipe a été modifié. Merci de le consulter dès que possible.'
+      : 'Voici le planning de l’équipe pour la semaine.');
 
   const html = `
     <div style="font-family:Arial,sans-serif;color:#222;">
-      <h2>${title}</h2>
+      ${urgentBanner}
+      <h2>${urgent && !isActual ? 'URGENT — ' : ''}${title}</h2>
       <p>Bonjour ${employeeName},</p>
-      <p>${isUpdate ? 'Le planning de l’équipe a été modifié.' : 'Voici le planning de l’équipe pour la semaine.'}
-      Semaine ${weekNumber} (${range}).</p>
-      <p>Vous pouvez aussi le consulter sur votre espace Filmara.</p>
+      <p>${intro} Semaine ${weekNumber} (${range}).</p>
+      <p><a href="${link}">Ouvrir mon dashboard Filmara</a></p>
       <table style="border-collapse:collapse;width:100%;margin-top:12px;">
         <thead>
           <tr>
@@ -505,8 +581,9 @@ function buildPlanningEmail({ employeeName, weekNumber, year, dates, week, isUpd
       <p style="margin-top:16px;font-size:12px;color:#666;">Filmara — planning du personnel</p>
     </div>
   `;
-  const text = `${title} — semaine ${weekNumber} (${range})`;
-  return { subject: `${title} ${year}`, html, text };
+  const subject = `${urgent ? 'URGENT — ' : ''}${title} ${year}`;
+  const text = `${subject} — ${range} — ${link}`;
+  return { subject, html, text };
 }
 
 const getSettings = async (req, res) => {
@@ -598,19 +675,44 @@ const getPublishedWeek = async (req, res) => {
     const settings = settingsPlain(await StaffPlanningSettings.getSingleton());
     const hidden = await Employee.find({ showInStaffPlanning: false }).select('_id').lean();
     const hiddenIds = new Set(hidden.map((item) => String(item._id)));
-    const visibleRows = (week.rows || []).filter((row) => !hiddenIds.has(String(row.employeeId)));
-    const visibleActual = (week.actualRows || []).filter((row) => !hiddenIds.has(String(row.employeeId)));
     const employeeId = req.user?.employeeId || req.user?.id;
+    const visibleRows = withOwnRow(
+      (week.rows || []).filter((row) => !hiddenIds.has(String(row.employeeId))),
+      week.rows,
+      employeeId
+    );
+    const visibleActual = withOwnRow(
+      (week.actualRows || []).filter((row) => !hiddenIds.has(String(row.employeeId))),
+      week.actualRows,
+      employeeId
+    );
+    const myAcknowledgement = (week.acknowledgements || []).find((item) => String(item.employeeId) === String(employeeId)) || null;
+    const myActualSignature = signatureForEmployee(
+      (week.actualSignatures || []).find((item) => String(item.employeeId) === String(employeeId))
+    );
     res.json({
       success: true,
       published: true,
-      week: { ...week, rows: visibleRows, actualRows: visibleActual },
+      week: {
+        ...week,
+        rows: visibleRows,
+        actualRows: visibleActual,
+        actualSignatures: (week.actualSignatures || [])
+          .filter((item) => String(item.employeeId) === String(employeeId))
+          .map((item) => ({
+            employeeId: item.employeeId,
+            employeeName: item.employeeName,
+            signedAt: item.signedAt
+          }))
+      },
       dates,
       weekNumber: week.weekNumber,
       year: week.year,
       settings,
       acknowledgements: week.acknowledgements || [],
-      myAcknowledgement: (week.acknowledgements || []).find((item) => String(item.employeeId) === String(employeeId)) || null,
+      myAcknowledgement,
+      myActualSignature,
+      actualValidated: week.actualStatus === 'validated',
       holidayLabels: frenchHolidays.holidayLabelsForIsoDates(dates.map((item) => item.date))
     });
   } catch (error) {
@@ -796,16 +898,22 @@ const sendWeek = async (req, res) => {
     const year = parseInt(req.params.year, 10);
     const week = await StaffWeekPlanning.findOne({ weekNumber, year });
     if (!week) return res.status(404).json({ success: false, error: 'Planning introuvable' });
-    const alerts = collectAlerts(week);
+    const urgent = !!req.body?.urgent;
+    const layer = req.body?.layer === 'actual' ? 'actual' : 'forecast';
+    if (layer === 'actual' && week.actualStatus !== 'validated') {
+      return res.status(400).json({ success: false, error: 'Validez d\'abord le planning réel avant d\'écrire aux salariés' });
+    }
+    const alerts = collectAlerts(layer === 'actual' ? { rows: week.actualRows } : week);
     const dates = hours.weekDates(weekNumber, year);
+    const sourceRows = layer === 'actual' ? (week.actualRows || []) : (week.rows || []);
     const employees = await Employee.find({
-      _id: { $in: week.rows.map((row) => row.employeeId) }
+      _id: { $in: sourceRows.map((row) => row.employeeId) }
     }).select('name email').lean();
     const byId = new Map(employees.map((employee) => [String(employee._id), employee]));
-    const isUpdate = (week.sendCount || 0) > 0;
+    const isUpdate = layer === 'forecast' && (week.sendCount || 0) > 0;
     const results = [];
 
-    for (const row of week.rows) {
+    for (const row of sourceRows) {
       const employee = byId.get(String(row.employeeId));
       if (!employee?.email) {
         results.push({ employeeName: row.employeeName, ok: false, error: 'Pas d\'email' });
@@ -817,7 +925,10 @@ const sendWeek = async (req, res) => {
         year,
         dates,
         week,
-        isUpdate
+        isUpdate,
+        urgent: urgent || layer === 'actual',
+        layer,
+        personalRow: layer === 'actual' ? row : null
       });
       const sent = await emailService.sendEmail(employee.email, mail.subject, mail.html, mail.text);
       results.push({
@@ -829,13 +940,19 @@ const sendWeek = async (req, res) => {
     }
 
     const okCount = results.filter((item) => item.ok).length;
-    week.status = 'sent';
-    week.lastSentAt = new Date();
-    week.lastSentBy = req.user?.name || req.user?.email || 'admin';
-    week.sendCount = (week.sendCount || 0) + 1;
-    week.lastSendSummary = `${okCount}/${results.length} envoyés`;
-    week.validatedAt = week.validatedAt || new Date();
-    week.markModified('rows');
+    if (layer === 'forecast') {
+      week.status = 'sent';
+      week.lastSentAt = new Date();
+      week.lastSentBy = req.user?.name || req.user?.email || 'admin';
+      week.sendCount = (week.sendCount || 0) + 1;
+      week.lastSendSummary = `${okCount}/${results.length} envoyés`;
+      week.validatedAt = week.validatedAt || new Date();
+      week.markModified('rows');
+      if (urgent) {
+        week.acknowledgements = [];
+        week.markModified('acknowledgements');
+      }
+    }
     await week.save();
 
     res.json({
@@ -844,7 +961,9 @@ const sendWeek = async (req, res) => {
       alerts,
       results,
       sent: okCount,
-      total: results.length
+      total: results.length,
+      urgent,
+      layer
     });
   } catch (error) {
     console.error('staff-planning send', error);
@@ -1148,6 +1267,57 @@ const acknowledgeWeek = async (req, res) => {
   }
 };
 
+const signActualWeek = async (req, res) => {
+  try {
+    const weekNumber = parseInt(req.params.week, 10);
+    const year = parseInt(req.params.year, 10);
+    const employeeId = req.user?.employeeId || req.user?.id;
+    if (!employeeId) {
+      return res.status(403).json({ success: false, error: 'Salarié non identifié' });
+    }
+    const signature = req.body?.signature;
+    if (!isValidSignatureDataUrl(signature)) {
+      return res.status(400).json({ success: false, error: 'Signature manquante ou illisible. Signez dans le cadre, puis validez.' });
+    }
+    const week = await StaffWeekPlanning.findOne({ weekNumber, year });
+    if (!week) return res.status(404).json({ success: false, error: 'Planning introuvable' });
+    if (week.actualStatus !== 'validated') {
+      return res.status(400).json({ success: false, error: 'Le planning réel n\'est pas encore validé par le magasin' });
+    }
+    const row = (week.actualRows || []).find((item) => String(item.employeeId) === String(employeeId));
+    if (!row) {
+      return res.status(404).json({ success: false, error: 'Vous n\'êtes pas sur le planning réel de cette semaine' });
+    }
+    const existing = (week.actualSignatures || []).find((item) => String(item.employeeId) === String(employeeId));
+    if (existing) {
+      return res.json({
+        success: true,
+        already: true,
+        signature: signatureForEmployee(existing)
+      });
+    }
+    const employee = await Employee.findById(employeeId).select('name').lean();
+    const record = {
+      employeeId,
+      employeeName: employee?.name || row.employeeName || req.user?.name || '',
+      signedAt: new Date(),
+      signatureDataUrl: signature,
+      snapshot: signatureSnapshot(row)
+    };
+    week.actualSignatures = [...(week.actualSignatures || []), record];
+    week.markModified('actualSignatures');
+    await week.save();
+    res.json({
+      success: true,
+      already: false,
+      signature: signatureForEmployee(record)
+    });
+  } catch (error) {
+    console.error('staff-planning sign actual', error);
+    res.status(500).json({ success: false, error: 'Impossible d\'enregistrer la signature' });
+  }
+};
+
 const createActualWeek = async (req, res) => {
   try {
     if (!requireAdmin(req, res)) return;
@@ -1196,11 +1366,36 @@ const validateActualWeek = async (req, res) => {
     week.actualValidatedBy = req.user?.name || req.user?.email || 'admin';
     week.markModified('actualRows');
     await week.save();
+    const dates = hours.weekDates(weekNumber, year);
+    const employees = await Employee.find({
+      _id: { $in: (week.actualRows || []).map((row) => row.employeeId) }
+    }).select('name email').lean();
+    const byId = new Map(employees.map((employee) => [String(employee._id), employee]));
+    const mailResults = [];
+    for (const row of week.actualRows || []) {
+      const employee = byId.get(String(row.employeeId));
+      if (!employee?.email) continue;
+      const mail = buildPlanningEmail({
+        employeeName: employee.name,
+        weekNumber,
+        year,
+        dates,
+        week,
+        isUpdate: false,
+        urgent: true,
+        layer: 'actual',
+        personalRow: row
+      });
+      const sent = await emailService.sendEmail(employee.email, mail.subject, mail.html, mail.text);
+      mailResults.push({ employeeName: employee.name, ok: !!sent?.success });
+    }
     res.json({
       success: true,
       week,
-      lock: lockInfo(hours.weekDates(weekNumber, year)),
-      alerts: collectAlerts({ rows: week.actualRows })
+      lock: lockInfo(dates),
+      alerts: collectAlerts({ rows: week.actualRows }),
+      mailed: mailResults.filter((item) => item.ok).length,
+      mailTotal: mailResults.length
     });
   } catch (error) {
     console.error('staff-planning validate actual', error);
@@ -1389,6 +1584,7 @@ module.exports = {
   getMonthCounters,
   getEmployeeStats,
   acknowledgeWeek,
+  signActualWeek,
   createActualWeek,
   validateActualWeek,
   updateRecupHours,
