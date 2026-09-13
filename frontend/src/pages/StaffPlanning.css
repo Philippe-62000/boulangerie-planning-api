@@ -422,6 +422,45 @@
   color: #14532d;
 }
 
+.sp-group-row td {
+  background: #1e3a8a;
+  color: #fff;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  padding: 0.45rem 0.6rem;
+}
+
+.sp-cell-locked {
+  opacity: 0.72;
+  cursor: default;
+}
+
+.sp-name {
+  position: relative;
+}
+
+.sp-move {
+  display: inline-flex;
+  flex-direction: column;
+  margin-right: 0.35rem;
+  vertical-align: middle;
+}
+
+.sp-move-btn {
+  border: 0;
+  background: transparent;
+  color: #64748b;
+  cursor: pointer;
+  line-height: 1;
+  padding: 0;
+  font-size: 0.7rem;
+}
+
+.sp-status-none,
+.sp-status-draft {
+  background: #f1f5f9;
+}
+
 .sp-row-mine .sp-name {
   background: #dbeafe;
 }

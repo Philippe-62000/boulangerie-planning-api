@@ -72,7 +72,23 @@ const staffWeekPlanningSchema = new mongoose.Schema({
   lastSentBy: { type: String, default: '' },
   sendCount: { type: Number, default: 0 },
   lastSendSummary: { type: String, default: '' },
-  rows: { type: [rowSchema], default: [] }
+  rows: { type: [rowSchema], default: [] },
+  actualRows: { type: [rowSchema], default: [] },
+  actualStatus: {
+    type: String,
+    enum: ['none', 'draft', 'validated'],
+    default: 'none'
+  },
+  actualValidatedAt: { type: Date },
+  actualValidatedBy: { type: String, default: '' },
+  acknowledgements: {
+    type: [{
+      employeeId: { type: mongoose.Schema.Types.ObjectId, ref: 'Employee' },
+      employeeName: { type: String, default: '' },
+      acknowledgedAt: { type: Date, default: Date.now }
+    }],
+    default: []
+  }
 }, { timestamps: true });
 
 staffWeekPlanningSchema.index({ weekNumber: 1, year: 1 }, { unique: true });

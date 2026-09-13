@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
     <title>Dashboard Salarié - Planning Boulangerie</title>
     <script>
         (function () {
@@ -999,6 +1000,21 @@
             color: #64748b;
         }
 
+        .emp-plan-ack {
+            text-align: center;
+            margin: 0 0 16px;
+            padding: 12px;
+            border-radius: 8px;
+            background: #dbeafe;
+            color: #1e3a8a;
+            font-weight: 600;
+        }
+
+        .emp-plan-ack.done {
+            background: #dcfce7;
+            color: #166534;
+        }
+
         @media (max-width: 1100px) {
             html:not(.force-pc) #introHeader {
                 display: none !important;
@@ -1186,6 +1202,11 @@
                         <button type="button" class="btn btn-secondary" onclick="shiftPublishedWeek(-1)">◀ Semaine précédente</button>
                         <button type="button" class="btn btn-secondary" onclick="shiftPublishedWeek(1)">Semaine suivante ▶</button>
                     </div>
+                    <div class="emp-plan-nav">
+                        <button type="button" class="btn btn-primary" id="planMineBtn" onclick="setPlanShowAll(false)">Mon emploi du temps</button>
+                        <button type="button" class="btn btn-secondary" id="planAllBtn" onclick="setPlanShowAll(true)">Planning de tout le magasin</button>
+                    </div>
+                    <div id="planningAckBox"></div>
                     <div id="planningAlert"></div>
                     <div id="planningTableWrap" class="emp-plan-empty">Chargement du planning…</div>
                 </div>
@@ -1598,6 +1619,8 @@
         let currentEmployee = null;
         let planWeekNumber = null;
         let planYear = null;
+        let planShowAll = false;
+        let lastPublishedData = null;
 
         // Vérifier l'authentification au chargement
         document.addEventListener('DOMContentLoaded', async () => {
@@ -1850,8 +1873,16 @@
         }
 
         function renderPublishedPlanning(data) {
+            lastPublishedData = data;
             const wrap = document.getElementById('planningTableWrap');
             const rangeEl = document.getElementById('planningRange');
+            const ackBox = document.getElementById('planningAckBox');
+            const mineBtn = document.getElementById('planMineBtn');
+            const allBtn = document.getElementById('planAllBtn');
+            if (mineBtn && allBtn) {
+                mineBtn.className = planShowAll ? 'btn btn-secondary' : 'btn btn-primary';
+                allBtn.className = planShowAll ? 'btn btn-primary' : 'btn btn-secondary';
+            }
             if (!wrap) return;
             const weekNumber = data.weekNumber || (data.week && data.week.weekNumber) || planWeekNumber;
             const range = formatPlanDayRange(data.dates || []);
@@ -1863,6 +1894,7 @@
             if (!data.published || !data.week) {
                 wrap.className = 'emp-plan-empty';
                 wrap.textContent = 'Ce planning n’est pas encore validé par le magasin.';
+                if (ackBox) ackBox.innerHTML = '';
                 return;
             }
             const myId = String((currentEmployee && (currentEmployee.id || currentEmployee._id)) || '');
@@ -1872,7 +1904,8 @@
                 const holiday = iso && holidays.has(iso);
                 return `<th>${day} ${formatPlanShortDate(iso) || ''}${holiday ? '<br><small>Férié</small>' : ''}</th>`;
             }).join('');
-            const rows = (data.week.rows || []).map((row) => {
+            const sourceRows = (data.week.rows || []).filter((row) => planShowAll || String(row.employeeId) === myId);
+            const rows = sourceRows.map((row) => {
                 const mine = String(row.employeeId) === myId;
                 const cells = PLAN_DAYS.map((dayName) => {
                     const day = (row.days || []).find((item) => item.day === dayName);
@@ -1882,7 +1915,43 @@
                 return `<tr class="${mine ? 'mine' : ''}"><th>${escapeHtml(row.employeeName || '')}</th>${cells}</tr>`;
             }).join('');
             wrap.className = 'emp-plan-table-wrap';
-            wrap.innerHTML = `<table class="emp-plan-table"><thead><tr><th>Salarié</th>${head}</tr></thead><tbody>${rows}</tbody></table>`;
+            wrap.innerHTML = sourceRows.length
+                ? `<table class="emp-plan-table"><thead><tr><th>Salarié</th>${head}</tr></thead><tbody>${rows}</tbody></table>`
+                : `<div class="emp-plan-empty">Votre ligne n’apparaît pas encore sur ce planning.</div>`;
+            const ack = data.myAcknowledgement || (data.acknowledgements || []).find((item) => String(item.employeeId) === myId);
+            if (ackBox) {
+                if (ack && ack.acknowledgedAt) {
+                    const when = new Date(ack.acknowledgedAt);
+                    ackBox.innerHTML = `<div class="emp-plan-ack done">Prise de connaissance enregistrée le ${when.toLocaleDateString('fr-FR')} à ${when.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}.</div>`;
+                } else {
+                    ackBox.innerHTML = `<button type="button" class="btn btn-primary" onclick="acknowledgePlanning()">J’ai pris connaissance du planning</button>`;
+                }
+            }
+        }
+
+        function setPlanShowAll(value) {
+            planShowAll = !!value;
+            if (lastPublishedData) renderPublishedPlanning(lastPublishedData);
+        }
+
+        async function acknowledgePlanning() {
+            const token = localStorage.getItem('employeeToken');
+            if (!token || !planWeekNumber || !planYear) return;
+            try {
+                const response = await fetch(`${API_URL}/staff-planning/week/${planYear}/${planWeekNumber}/acknowledge`, {
+                    method: 'POST',
+                    headers: { Authorization: `Bearer ${token}` }
+                });
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.error || 'Enregistrement impossible');
+                if (lastPublishedData) {
+                    lastPublishedData.myAcknowledgement = data.acknowledgement;
+                    lastPublishedData.acknowledgements = data.acknowledgements || lastPublishedData.acknowledgements;
+                    renderPublishedPlanning(lastPublishedData);
+                }
+            } catch (error) {
+                alert(error.message || 'Impossible d’enregistrer la prise de connaissance');
+            }
         }
 
         async function loadPublishedPlanning() {

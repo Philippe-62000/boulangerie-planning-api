@@ -124,7 +124,7 @@ export function computePlanningHints(prevDays = [], currentDays = []) {
   return { prevRestWeekdays, seventhDates };
 }
 
-export function buildShopPrintHtml({ weekNumber, dates = [], rows = [], holidayDates = [] }) {
+export function buildShopPrintHtml({ weekNumber, dates = [], rows = [], holidayDates = [], title = 'Planning' }) {
   const holidays = new Set(holidayDates || []);
   const range = formatDayRange(dates);
   const head = DAYS.map((day, index) => {
@@ -132,7 +132,7 @@ export function buildShopPrintHtml({ weekNumber, dates = [], rows = [], holidayD
     const holiday = iso && holidays.has(iso);
     return `<th>${day} ${formatShortDate(iso) || ''}${holiday ? '<br><small>Férié</small>' : ''}</th>`;
   }).join('');
-  const body = (rows || []).map((row) => {
+  const body = (rows || []).filter((row) => !row._group).map((row) => {
     const cells = DAYS.map((dayName) => {
       const day = (row.days || []).find((item) => item.day === dayName);
       const label = (cellLabel(day) || '—').replace(/\n/g, '<br>');
@@ -145,7 +145,7 @@ export function buildShopPrintHtml({ weekNumber, dates = [], rows = [], holidayD
     return `<tr><th>${row.employeeName || ''}</th>${cells}<td>${formatHours(rowPaidHours(row))}</td></tr>`;
   }).join('');
   return `<!DOCTYPE html>
-<html lang="fr"><head><meta charset="UTF-8"><title>Planning semaine ${weekNumber}</title>
+<html lang="fr"><head><meta charset="UTF-8"><title>${title} semaine ${weekNumber}</title>
 <style>
   @page { size: A4 landscape; margin: 8mm; }
   body { font-family: Arial, sans-serif; color: #111; margin: 0; }
@@ -158,11 +158,106 @@ export function buildShopPrintHtml({ weekNumber, dates = [], rows = [], holidayD
   .pause { margin-top: 8px; border-top: 1px dashed #666; padding-top: 3px; font-size: 9px; white-space: nowrap; }
   .hrs { font-size: 9px; color: #333; }
 </style></head><body>
-<h1>Planning semaine ${weekNumber} — ${range}</h1>
+<h1>${title} semaine ${weekNumber} — ${range}</h1>
 <p>Chaque salarié inscrit, chaque jour travaillé, l’horaire de pause réellement pris (de … à …). Les jours fériés sont indiqués dans l’en-tête : les heures travaillées ce jour-là sont majorées.</p>
 <table>
 <thead><tr><th>Salarié</th>${head}<th>Semaine</th></tr></thead>
 <tbody>${body}</tbody>
 </table>
 </body></html>`;
+}
+
+export const CATEGORY_GROUPS = [
+  { id: 'preparation', label: 'Préparateurs' },
+  { id: 'boulanger', label: 'Boulangers' },
+  { id: 'vente', label: 'Vendeurs' }
+];
+
+export function groupRowsByCategory(rows = [], employeeOrder = []) {
+  const orderMap = new Map((employeeOrder || []).map((id, index) => [String(id), index]));
+  const buckets = { preparation: [], boulanger: [], vente: [] };
+  (rows || []).forEach((row) => {
+    const cat = buckets[row.employeeCategory] ? row.employeeCategory : 'vente';
+    buckets[cat].push(row);
+  });
+  const sortBucket = (list) => list.sort((a, b) => {
+    const ia = orderMap.has(String(a.employeeId)) ? orderMap.get(String(a.employeeId)) : 10000;
+    const ib = orderMap.has(String(b.employeeId)) ? orderMap.get(String(b.employeeId)) : 10000;
+    if (ia !== ib) return ia - ib;
+    return String(a.employeeName || '').localeCompare(String(b.employeeName || ''), 'fr');
+  });
+  return CATEGORY_GROUPS.map((group) => ({
+    ...group,
+    rows: sortBucket(buckets[group.id] || [])
+  })).filter((group) => group.rows.length);
+}
+
+export function todayIsoParis(dateInput = new Date()) {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Europe/Paris',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  }).format(dateInput);
+}
+
+export function isIsoDayFinished(isoDate, today = todayIsoParis()) {
+  return !!isoDate && String(isoDate) < String(today);
+}
+
+export function isIsoWeekFinished(dates = [], today = todayIsoParis()) {
+  const last = dates[dates.length - 1]?.date;
+  return !!last && String(last) < String(today);
+}
+
+export function openPrintHtml(html) {
+  const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const popup = window.open(url, '_blank');
+  if (!popup) {
+    URL.revokeObjectURL(url);
+    return false;
+  }
+  const tryPrint = () => {
+    try {
+      popup.focus();
+      popup.print();
+    } catch (error) {
+      console.error(error);
+    }
+  };
+  popup.addEventListener('load', tryPrint);
+  window.setTimeout(tryPrint, 400);
+  window.setTimeout(() => URL.revokeObjectURL(url), 60000);
+  return true;
+}
+
+export function buildMonthRecapHtml({ monthLabel, year, month, employees = [] }) {
+  const pages = (employees || []).map((employee) => {
+    const rows = (employee.days || []).map((day) => {
+      const label = (cellLabel(day) || '—').replace(/\n/g, '<br>');
+      return `<tr><td>${formatShortDate(day.date)} ${day.day || ''}</td><td>${label}</td><td>${formatHours(day.paidHours)}</td></tr>`;
+    }).join('');
+    return `<section class="page">
+      <h1>${employee.employeeName || ''}</h1>
+      <p>${monthLabel} · Contrat ${formatHours(employee.contractedHours)} · Payé ${formatHours(employee.paidHours)} · Nuit ${formatHours(employee.nightHours)} · HS 25% ${formatHours(employee.ot25)} · HS 50% ${formatHours(employee.ot50)} · Maladie ${employee.sickDays || 0} j</p>
+      <table>
+        <thead><tr><th>Jour</th><th>Horaire</th><th>Heures</th></tr></thead>
+        <tbody>${rows || '<tr><td colspan="3">Aucune heure ce mois</td></tr>'}</tbody>
+      </table>
+    </section>`;
+  }).join('');
+  return `<!DOCTYPE html>
+<html lang="fr"><head><meta charset="UTF-8"><title>Récapitulatif ${monthLabel || `${month}/${year}`}</title>
+<style>
+  @page { size: A4 portrait; margin: 12mm; }
+  body { font-family: Arial, sans-serif; color: #111; margin: 0; }
+  .page { page-break-after: always; }
+  .page:last-child { page-break-after: auto; }
+  h1 { font-size: 18px; margin: 0 0 6px; }
+  p { font-size: 12px; margin: 0 0 10px; }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  th, td { border: 1px solid #333; padding: 5px 6px; }
+  th { background: #f0f0f0; }
+</style></head><body>${pages}</body></html>`;
 }

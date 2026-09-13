@@ -19,9 +19,11 @@ const Sidebar = () => {
   });
   const [planningMenuExpanded, setPlanningMenuExpanded] = useState(() => {
     try {
-      return localStorage.getItem(`sidebar:${storageSuffix}:planningExpanded`) === '1';
+      const v = localStorage.getItem(`sidebar:${storageSuffix}:planningGroupExpanded`);
+      if (v === null) return true;
+      return v === '1';
     } catch {
-      return false;
+      return true;
     }
   });
   const [venteMenuExpanded, setVenteMenuExpanded] = useState(() => {
@@ -64,7 +66,7 @@ const Sidebar = () => {
 
   // Sous-menus admin (comme Social) — regroupent des entrées retirées du menu plat pour l’admin uniquement
   const PLANNING_MENU_ITEMS = [
-    { path: '/staff-planning', label: 'Planning', icon: '📅', menuId: 'staff-planning' },
+    { path: '/staff-planning', label: 'Planning salariés', icon: '📅', menuId: 'staff-planning' },
     { path: '/planning', label: 'Génération du planning', icon: '🎯', menuId: 'planning' },
     { path: '/constraints', label: 'Contraintes hebdomadaires', icon: '📋', menuId: 'constraints' }
   ];
@@ -222,7 +224,7 @@ const Sidebar = () => {
   useEffect(() => {
     try {
       localStorage.setItem(`sidebar:${storageSuffix}:socialExpanded`, socialMenuExpanded ? '1' : '0');
-      localStorage.setItem(`sidebar:${storageSuffix}:planningExpanded`, planningMenuExpanded ? '1' : '0');
+      localStorage.setItem(`sidebar:${storageSuffix}:planningGroupExpanded`, planningMenuExpanded ? '1' : '0');
       localStorage.setItem(`sidebar:${storageSuffix}:venteExpanded`, venteMenuExpanded ? '1' : '0');
       localStorage.setItem(`sidebar:${storageSuffix}:paiesExpanded`, paiesMenuExpanded ? '1' : '0');
       localStorage.setItem(`sidebar:${storageSuffix}:facturationExpanded`, facturationMenuExpanded ? '1' : '0');
@@ -300,7 +302,7 @@ const Sidebar = () => {
     { path: '/employees', label: 'Gestion des employés', icon: '👥', menuId: 'employees' },
     { path: '/constraints', label: 'Contraintes hebdomadaires', icon: '📋', menuId: 'constraints' },
     { path: '/planning', label: 'Génération du planning', icon: '🎯', menuId: 'planning' },
-    { path: '/staff-planning', label: 'Planning', icon: '📅', menuId: 'staff-planning' },
+    { path: '/staff-planning', label: 'Planning salariés', icon: '📅', menuId: 'staff-planning' },
     { path: '/sales-stats', label: 'Stats Vente', icon: '💰', menuId: 'sales-stats' },
     { path: '/message-vente', label: 'Message', icon: '✉️', menuId: 'message-vente' },
     { path: '/absences', label: 'État des absences', icon: '📈', menuId: 'absences' },
