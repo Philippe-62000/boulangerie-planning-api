@@ -21,6 +21,7 @@ function settingsPlain(doc) {
     ot25ToHour: json.ot25ToHour,
     ot50FromHour: json.ot50FromHour,
     defaultCfaCode: json.defaultCfaCode || 'CFA8',
+    employeeOrder: Array.isArray(json.employeeOrder) ? json.employeeOrder.map(String) : [],
     words: (json.words || []).filter((word) => (
       word && String(word.code).toUpperCase() !== 'FERIE' && word.category !== 'ferie'
     ))
@@ -193,6 +194,53 @@ function requireAdmin(req, res) {
     res.status(403).json({ success: false, error: 'Action réservée à l\'administrateur' });
     return false;
   }
+  return true;
+}
+
+function todayIsoParis(dateInput = new Date()) {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Europe/Paris',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  }).format(dateInput);
+}
+
+function isIsoDayFinished(isoDate, today = todayIsoParis()) {
+  return !!isoDate && String(isoDate) < String(today);
+}
+
+function isIsoWeekFinished(dates = [], today = todayIsoParis()) {
+  const last = dates[dates.length - 1]?.date;
+  return !!last && String(last) < String(today);
+}
+
+function cloneRows(rows) {
+  return JSON.parse(JSON.stringify(rows || []));
+}
+
+function hasActualLayer(week) {
+  return week?.actualStatus && week.actualStatus !== 'none' && Array.isArray(week.actualRows) && week.actualRows.length > 0;
+}
+
+function payrollRows(week) {
+  return hasActualLayer(week) ? week.actualRows : (week.rows || []);
+}
+
+function lockInfo(dates = []) {
+  const today = todayIsoParis();
+  const weekFinished = isIsoWeekFinished(dates, today);
+  return {
+    today,
+    weekFinished,
+    finishedDates: (dates || []).filter((item) => isIsoDayFinished(item.date, today)).map((item) => item.date)
+  };
+}
+
+function ensureActualCopy(weekDoc) {
+  if (hasActualLayer(weekDoc)) return false;
+  weekDoc.actualRows = cloneRows(weekDoc.toObject ? weekDoc.toObject().rows : weekDoc.rows);
+  weekDoc.actualStatus = 'draft';
   return true;
 }
 
@@ -421,10 +469,16 @@ const updateSettings = async (req, res) => {
     const fields = [
       'sundayOpen', 'breakThresholdHours', 'breakMinutes', 'maxDayHours', 'minRestHours',
       'maxSplitGapHours', 'nightStart', 'nightEnd', 'ot25FromHour', 'ot25ToHour',
-      'ot50FromHour', 'defaultCfaCode'
+      'ot50FromHour', 'defaultCfaCode', 'employeeOrder'
     ];
     fields.forEach((field) => {
-      if (body[field] !== undefined) doc[field] = body[field];
+      if (body[field] !== undefined) {
+        if (field === 'employeeOrder' && Array.isArray(body.employeeOrder)) {
+          doc.employeeOrder = body.employeeOrder.map(String);
+        } else if (field !== 'employeeOrder') {
+          doc[field] = body[field];
+        }
+      }
     });
     if (Array.isArray(body.words)) {
       doc.words = body.words
@@ -484,6 +538,7 @@ const getPublishedWeek = async (req, res) => {
 
     const dates = hours.weekDates(week.weekNumber, week.year);
     const settings = settingsPlain(await StaffPlanningSettings.getSingleton());
+    const employeeId = req.user?.employeeId || req.user?.id;
     res.json({
       success: true,
       published: true,
@@ -492,6 +547,8 @@ const getPublishedWeek = async (req, res) => {
       weekNumber: week.weekNumber,
       year: week.year,
       settings,
+      acknowledgements: week.acknowledgements || [],
+      myAcknowledgement: (week.acknowledgements || []).find((item) => String(item.employeeId) === String(employeeId)) || null,
       holidayLabels: frenchHolidays.holidayLabelsForIsoDates(dates.map((item) => item.date))
     });
   } catch (error) {
@@ -524,8 +581,12 @@ const getWeek = async (req, res) => {
     await syncWeekRows(week, settings);
     week.markModified('rows');
     week.markModified('holidayDates');
-    await week.save();
     const dates = hours.weekDates(weekNumber, year);
+    if ((week.status === 'validated' || week.status === 'sent') && isIsoWeekFinished(dates) && !hasActualLayer(week)) {
+      ensureActualCopy(week);
+    }
+    if (hasActualLayer(week)) week.markModified('actualRows');
+    await week.save();
     const prev = hours.addIsoWeeks(weekNumber, year, -1);
     const previousWeek = await StaffWeekPlanning.findOne({
       weekNumber: prev.weekNumber,
@@ -536,6 +597,7 @@ const getWeek = async (req, res) => {
       settings,
       dates,
       week,
+      lock: lockInfo(dates),
       previousWeek: {
         weekNumber: prev.weekNumber,
         year: prev.year,
@@ -558,7 +620,7 @@ const updateCell = async (req, res) => {
     if (!requireAdmin(req, res)) return;
     const weekNumber = parseInt(req.params.week, 10);
     const year = parseInt(req.params.year, 10);
-    const { employeeId, day, cell, applyToWeek } = req.body || {};
+    const { employeeId, day, cell, applyToWeek, layer } = req.body || {};
     if (!employeeId || !day) {
       return res.status(400).json({ success: false, error: 'Salarié et jour requis' });
     }
@@ -567,19 +629,37 @@ const updateCell = async (req, res) => {
     if (!week) {
       return res.status(404).json({ success: false, error: 'Planning introuvable' });
     }
-    const rowIndex = week.rows.findIndex((item) => String(item.employeeId) === String(employeeId));
+    const dates = hours.weekDates(weekNumber, year);
+    const lock = lockInfo(dates);
+    const useActual = layer === 'actual';
+    if (useActual) {
+      if (!hasActualLayer(week)) {
+        return res.status(400).json({ success: false, error: 'Le planning réel n\'existe pas encore pour cette semaine' });
+      }
+      if (week.actualStatus === 'validated') {
+        return res.status(403).json({ success: false, error: 'Le planning réel est validé et n\'est plus modifiable' });
+      }
+    } else {
+      if (lock.weekFinished) {
+        return res.status(403).json({ success: false, error: 'La semaine est terminée : le planning prévu n\'est plus modifiable. Utilisez le planning réel.' });
+      }
+    }
+    const rowsKey = useActual ? 'actualRows' : 'rows';
+    const rowIndex = week[rowsKey].findIndex((item) => String(item.employeeId) === String(employeeId));
     if (rowIndex < 0) {
       return res.status(404).json({ success: false, error: 'Salarié absent de cette semaine' });
     }
     const holidayDates = holidayDatesOf(week);
-    const dates = hours.weekDates(weekNumber, year);
     const dayMeta = dates.find((item) => item.day === day);
     if (!dayMeta) {
       return res.status(400).json({ success: false, error: 'Jour invalide' });
     }
+    if (!useActual && isIsoDayFinished(dayMeta.date, lock.today) && !applyToWeek) {
+      return res.status(403).json({ success: false, error: 'Ce jour est terminé et n\'est plus modifiable. Utilisez le planning réel.' });
+    }
     const cfaMap = await cfaDatesByEmployee(dates);
     const cfaDates = cfaMap.get(String(employeeId));
-    const plain = toPlain(week.rows[rowIndex]);
+    const plain = toPlain(week[rowsKey][rowIndex]);
     const currentDays = dates.map((meta) => {
       const found = (plain.days || []).find((item) => hours.plainDay(item).day === meta.day);
       return found ? { ...hours.plainDay(found), date: meta.date } : hours.emptyDay(meta.day, meta.date);
@@ -591,22 +671,30 @@ const updateCell = async (req, res) => {
       if (applyToWeek && !matchesDay && settings.sundayOpen === false && item.day === 'Dimanche') {
         return item;
       }
+      if (!useActual && applyToWeek && !matchesDay && isIsoDayFinished(item.date, lock.today)) {
+        return item;
+      }
+      if (!useActual && isIsoDayFinished(item.date, lock.today)) {
+        return item;
+      }
       return hours.computeDay(cell || { kind: 'empty' }, { day: item.day, date: item.date }, settings);
     });
     const nextRow = summarizeRow({
       ...plain,
       days
     }, settings, holidayDates);
-    week.rows = (week.toObject().rows || []).map((item, index) => (
+    const sourceRows = week.toObject()[rowsKey] || [];
+    week[rowsKey] = sourceRows.map((item, index) => (
       index === rowIndex ? nextRow : item
     ));
-    if (week.status !== 'draft') week.status = 'draft';
-    week.markModified('rows');
+    if (!useActual && week.status !== 'draft') week.status = 'draft';
+    week.markModified(rowsKey);
     await week.save();
     res.json({
       success: true,
       week,
-      alerts: collectAlerts(week)
+      lock,
+      alerts: collectAlerts(useActual ? { rows: week.actualRows } : week)
     });
   } catch (error) {
     console.error('staff-planning cell PUT', error);
@@ -619,6 +707,10 @@ const validateWeek = async (req, res) => {
     if (!requireAdmin(req, res)) return;
     const weekNumber = parseInt(req.params.week, 10);
     const year = parseInt(req.params.year, 10);
+    const dates = hours.weekDates(weekNumber, year);
+    if (isIsoWeekFinished(dates)) {
+      return res.status(403).json({ success: false, error: 'La semaine est terminée : le planning prévu n\'est plus modifiable' });
+    }
     const week = await StaffWeekPlanning.findOne({ weekNumber, year });
     if (!week) return res.status(404).json({ success: false, error: 'Planning introuvable' });
     const alerts = collectAlerts(week);
@@ -627,7 +719,7 @@ const validateWeek = async (req, res) => {
     week.validatedBy = req.user?.name || req.user?.email || 'admin';
     week.markModified('rows');
     await week.save();
-    res.json({ success: true, week, alerts });
+    res.json({ success: true, week, alerts, lock: lockInfo(dates) });
   } catch (error) {
     console.error('staff-planning validate', error);
     res.status(500).json({ success: false, error: 'Impossible de valider le planning' });
@@ -811,6 +903,9 @@ const toggleHoliday = async (req, res) => {
       return res.status(404).json({ success: false, error: 'Planning introuvable' });
     }
     const dates = hours.weekDates(weekNumber, year);
+    if (isIsoWeekFinished(dates) || isIsoDayFinished(date)) {
+      return res.status(403).json({ success: false, error: 'Ce jour ou cette semaine n\'est plus modifiable sur le planning prévu' });
+    }
     const official = new Set(frenchHolidays.holidaysForIsoDates(dates.map((item) => item.date)));
     const current = new Set(holidayDatesOf(week));
     const ignored = new Set(ignoredHolidayDatesOf(week));
@@ -908,7 +1003,7 @@ const getMonthCounters = async (req, res) => {
     }).lean();
     const byEmployee = new Map();
     weeks.forEach((week) => {
-      (week.rows || []).forEach((row) => {
+      (payrollRows(week) || []).forEach((row) => {
         const key = String(row.employeeId);
         if (!byEmployee.has(key)) {
           byEmployee.set(key, {
@@ -956,6 +1051,194 @@ const getMonthCounters = async (req, res) => {
   }
 };
 
+const acknowledgeWeek = async (req, res) => {
+  try {
+    const weekNumber = parseInt(req.params.week, 10);
+    const year = parseInt(req.params.year, 10);
+    const employeeId = req.user?.employeeId || req.user?.id;
+    if (!employeeId) {
+      return res.status(403).json({ success: false, error: 'Salarié non identifié' });
+    }
+    const week = await StaffWeekPlanning.findOne({ weekNumber, year });
+    if (!week) return res.status(404).json({ success: false, error: 'Planning introuvable' });
+    if (!['validated', 'sent'].includes(week.status)) {
+      return res.status(400).json({ success: false, error: 'Ce planning n\'est pas encore validé' });
+    }
+    const existing = (week.acknowledgements || []).find((item) => String(item.employeeId) === String(employeeId));
+    if (existing) {
+      return res.json({ success: true, already: true, acknowledgement: existing, acknowledgements: week.acknowledgements });
+    }
+    const employee = await Employee.findById(employeeId).select('name').lean();
+    const acknowledgement = {
+      employeeId,
+      employeeName: employee?.name || req.user?.name || '',
+      acknowledgedAt: new Date()
+    };
+    week.acknowledgements = [...(week.acknowledgements || []), acknowledgement];
+    week.markModified('acknowledgements');
+    await week.save();
+    res.json({ success: true, already: false, acknowledgement, acknowledgements: week.acknowledgements });
+  } catch (error) {
+    console.error('staff-planning acknowledge', error);
+    res.status(500).json({ success: false, error: 'Impossible d\'enregistrer la prise de connaissance' });
+  }
+};
+
+const createActualWeek = async (req, res) => {
+  try {
+    if (!requireAdmin(req, res)) return;
+    const weekNumber = parseInt(req.params.week, 10);
+    const year = parseInt(req.params.year, 10);
+    const week = await StaffWeekPlanning.findOne({ weekNumber, year });
+    if (!week) return res.status(404).json({ success: false, error: 'Planning introuvable' });
+    if (!['validated', 'sent'].includes(week.status) && !isIsoWeekFinished(hours.weekDates(weekNumber, year))) {
+      return res.status(400).json({ success: false, error: 'Validez d\'abord le planning prévu, ou attendez la fin de semaine' });
+    }
+    if (!hasActualLayer(week)) ensureActualCopy(week);
+    week.markModified('actualRows');
+    await week.save();
+    res.json({
+      success: true,
+      week,
+      lock: lockInfo(hours.weekDates(weekNumber, year)),
+      alerts: collectAlerts({ rows: week.actualRows })
+    });
+  } catch (error) {
+    console.error('staff-planning create actual', error);
+    res.status(500).json({ success: false, error: 'Impossible de créer le planning réel' });
+  }
+};
+
+const validateActualWeek = async (req, res) => {
+  try {
+    if (!requireAdmin(req, res)) return;
+    const weekNumber = parseInt(req.params.week, 10);
+    const year = parseInt(req.params.year, 10);
+    const week = await StaffWeekPlanning.findOne({ weekNumber, year });
+    if (!week) return res.status(404).json({ success: false, error: 'Planning introuvable' });
+    if (!hasActualLayer(week)) {
+      return res.status(400).json({ success: false, error: 'Créez d\'abord le planning réel' });
+    }
+    week.actualStatus = 'validated';
+    week.actualValidatedAt = new Date();
+    week.actualValidatedBy = req.user?.name || req.user?.email || 'admin';
+    week.markModified('actualRows');
+    await week.save();
+    res.json({
+      success: true,
+      week,
+      lock: lockInfo(hours.weekDates(weekNumber, year)),
+      alerts: collectAlerts({ rows: week.actualRows })
+    });
+  } catch (error) {
+    console.error('staff-planning validate actual', error);
+    res.status(500).json({ success: false, error: 'Impossible de valider le planning réel' });
+  }
+};
+
+const reorderEmployees = async (req, res) => {
+  try {
+    if (!requireAdmin(req, res)) return;
+    const doc = await StaffPlanningSettings.getSingleton();
+    const employeeOrder = Array.isArray(req.body?.employeeOrder) ? req.body.employeeOrder.map(String) : [];
+    const categories = req.body?.categories && typeof req.body.categories === 'object' ? req.body.categories : {};
+    doc.employeeOrder = employeeOrder;
+    await doc.save();
+    const allowed = new Set(['vente', 'preparation', 'boulanger']);
+    await Promise.all(Object.entries(categories).map(async ([id, cat]) => {
+      if (!allowed.has(cat)) return;
+      await Employee.updateOne({ _id: id }, { employeeCategory: cat });
+    }));
+    res.json({ success: true, settings: settingsPlain(doc) });
+  } catch (error) {
+    console.error('staff-planning reorder', error);
+    res.status(500).json({ success: false, error: 'Impossible d\'enregistrer l\'ordre des salariés' });
+  }
+};
+
+const getMonthRecap = async (req, res) => {
+  try {
+    const year = parseInt(req.query.year, 10);
+    const month = parseInt(req.query.month, 10);
+    if (!year || !month) {
+      return res.status(400).json({ success: false, error: 'Année et mois requis' });
+    }
+    const prefix = `${year}-${String(month).padStart(2, '0')}`;
+    const weeks = await StaffWeekPlanning.find({
+      year: { $in: [year, year - 1, year + 1] }
+    }).lean();
+    const byEmployee = new Map();
+    weeks.forEach((week) => {
+      (payrollRows(week) || []).forEach((row) => {
+        const key = String(row.employeeId);
+        if (!byEmployee.has(key)) {
+          byEmployee.set(key, {
+            employeeId: row.employeeId,
+            employeeName: row.employeeName,
+            contractedHours: row.contractedHours,
+            employeeCategory: row.employeeCategory || 'vente',
+            days: [],
+            paidHours: 0,
+            nightHours: 0,
+            sickDays: 0,
+            sickHours: 0,
+            cpHours: 0,
+            absenceHours: 0,
+            holidayHours: 0
+          });
+        }
+        const acc = byEmployee.get(key);
+        (row.days || []).forEach((day) => {
+          if (!day.date || !day.date.startsWith(prefix)) return;
+          acc.days.push({
+            date: day.date,
+            day: day.day,
+            kind: day.kind,
+            code: day.code,
+            shifts: day.shifts || [],
+            paidHours: day.paidHours || 0,
+            nightHours: day.nightHours || 0,
+            sickDays: day.sickDays || 0
+          });
+          acc.paidHours += day.paidHours || 0;
+          acc.nightHours += day.nightHours || 0;
+          acc.sickDays += day.sickDays || 0;
+          acc.sickHours += day.sickHours || 0;
+          acc.cpHours += day.cpHours || 0;
+          acc.absenceHours += day.absenceHours || 0;
+          acc.holidayHours += day.holidayHours || 0;
+        });
+      });
+    });
+    const settings = settingsPlain(await StaffPlanningSettings.getSingleton());
+    const employees = Array.from(byEmployee.values())
+      .map((item) => {
+        const overtime = hours.overtimeFromPaid(item.paidHours, settings);
+        item.days.sort((a, b) => String(a.date).localeCompare(String(b.date)));
+        return {
+          ...item,
+          paidHours: Math.round(item.paidHours * 100) / 100,
+          nightHours: Math.round(item.nightHours * 100) / 100,
+          ot25: overtime.ot25,
+          ot50: overtime.ot50
+        };
+      })
+      .sort((a, b) => String(a.employeeName || '').localeCompare(String(b.employeeName || ''), 'fr'));
+    const monthLabel = new Date(year, month - 1, 1).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
+    res.json({
+      success: true,
+      year,
+      month,
+      monthLabel,
+      source: 'planning réel s\'il existe, sinon planning prévu',
+      employees
+    });
+  } catch (error) {
+    console.error('staff-planning month recap', error);
+    res.status(500).json({ success: false, error: 'Impossible de préparer le récapitulatif mensuel' });
+  }
+};
+
 module.exports = {
   getSettings,
   updateSettings,
@@ -968,5 +1251,10 @@ module.exports = {
   copyWeekRows,
   toggleHoliday,
   getMonthCounters,
-  getEmployeeStats
+  getEmployeeStats,
+  acknowledgeWeek,
+  createActualWeek,
+  validateActualWeek,
+  reorderEmployees,
+  getMonthRecap
 };

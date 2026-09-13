@@ -15,7 +15,12 @@ import {
   hoursMatchContract,
   planningWords,
   rowPaidHours,
-  buildShopPrintHtml
+  buildShopPrintHtml,
+  buildMonthRecapHtml,
+  groupRowsByCategory,
+  isIsoDayFinished,
+  openPrintHtml,
+  todayIsoParis
 } from '../utils/staffPlanning';
 import './StaffPlanning.css';
 
@@ -118,6 +123,9 @@ const StaffPlanning = () => {
   const [teamModal, setTeamModal] = useState(false);
   const [teamSelected, setTeamSelected] = useState([]);
   const [statsModal, setStatsModal] = useState(null);
+  const [layer, setLayer] = useState('forecast');
+  const [lock, setLock] = useState({ today: todayIsoParis(), weekFinished: false, finishedDates: [] });
+  const [dragId, setDragId] = useState(null);
   const startHourRef = useRef(null);
 
   const canEdit = isAdmin();
@@ -132,6 +140,7 @@ const StaffPlanning = () => {
     if (payload.alerts) setAlerts(payload.alerts);
     if (payload.previousWeek?.rows) setPreviousRows(payload.previousWeek.rows);
     if (payload.holidayLabels) setHolidayLabels(payload.holidayLabels);
+    if (payload.lock) setLock(payload.lock);
   }, []);
 
   const loadWeek = useCallback(async (nextWeekNumber, nextYear) => {
@@ -209,12 +218,13 @@ const StaffPlanning = () => {
   const hintsByEmployee = useMemo(() => {
     const prevById = new Map((previousRows || []).map((row) => [String(row.employeeId), row]));
     const map = new Map();
-    (week?.rows || []).forEach((row) => {
+    const sourceRows = layer === 'actual' ? (week?.actualRows || []) : (week?.rows || []);
+    sourceRows.forEach((row) => {
       const prev = prevById.get(String(row.employeeId));
       map.set(String(row.employeeId), computePlanningHints(prev?.days || [], row.days || []));
     });
     return map;
-  }, [week, previousRows]);
+  }, [week, previousRows, layer]);
 
   const goWeek = (delta) => {
     const next = addIsoWeeks(weekNumber, year, delta);
@@ -222,10 +232,35 @@ const StaffPlanning = () => {
     setYear(next.year);
   };
 
+  const displayedRows = layer === 'actual' ? (week?.actualRows || []) : (week?.rows || []);
+  const groups = useMemo(
+    () => groupRowsByCategory(displayedRows, settings?.employeeOrder),
+    [displayedRows, settings]
+  );
+  const weekFinished = !!(lock?.weekFinished || (
+    dates[dates.length - 1]?.date && String(dates[dates.length - 1].date) < String(lock?.today || todayIsoParis())
+  ));
+  const actualExists = week?.actualStatus && week.actualStatus !== 'none' && (week.actualRows || []).length > 0;
+  const actualLocked = week?.actualStatus === 'validated';
+
+  const canEditDay = (isoDate) => {
+    if (!canEdit) return false;
+    if (layer === 'actual') return !actualLocked;
+    if (weekFinished) return false;
+    if (isIsoDayFinished(isoDate, lock?.today)) return false;
+    return true;
+  };
+
   const openEditor = (row, dayName) => {
     if (!canEdit) return;
-    setMenu(null);
     const day = (row.days || []).find((item) => item.day === dayName);
+    if (!canEditDay(day?.date)) {
+      toast.info(layer === 'actual'
+        ? 'Le planning réel est validé et n’est plus modifiable.'
+        : 'Ce jour est terminé. Utilisez le planning réel pour les absences, retards et maladies.');
+      return;
+    }
+    setMenu(null);
     const shifts = day?.shifts || [];
     setEditor({
       employeeId: row.employeeId,
@@ -290,7 +325,8 @@ const StaffPlanning = () => {
       employeeId: editor.employeeId,
       day: editor.day,
       cell: { kind: 'shifts', shifts },
-      applyToWeek: !!editor.applyToWeek
+      applyToWeek: !!editor.applyToWeek,
+      layer
     });
   };
 
@@ -300,7 +336,8 @@ const StaffPlanning = () => {
       employeeId: editor.employeeId,
       day: editor.day,
       cell: { kind: 'code', code },
-      applyToWeek: !!editor.applyToWeek
+      applyToWeek: !!editor.applyToWeek,
+      layer
     });
   };
 
@@ -310,7 +347,8 @@ const StaffPlanning = () => {
       employeeId: editor.employeeId,
       day: editor.day,
       cell: { kind: 'empty' },
-      applyToWeek: !!editor.applyToWeek
+      applyToWeek: !!editor.applyToWeek,
+      layer
     });
   };
 
@@ -373,6 +411,85 @@ const StaffPlanning = () => {
     } catch (error) {
       toast.error(error.response?.data?.error || 'Duplication impossible');
     }
+  };
+
+  const createActual = async () => {
+    try {
+      const response = await api.post(`/staff-planning/week/${year}/${weekNumber}/actual`);
+      applyWeekPayload(response.data);
+      setLayer('actual');
+      toast.success('Planning réel créé — vous pouvez y reporter maladies, absences et retards');
+    } catch (error) {
+      toast.error(error.response?.data?.error || 'Création du planning réel impossible');
+    }
+  };
+
+  const validateActual = async () => {
+    if (!window.confirm('Valider le planning réel ? Il servira au récapitulatif mensuel du comptable et ne sera plus modifiable.')) {
+      return;
+    }
+    try {
+      const response = await api.post(`/staff-planning/week/${year}/${weekNumber}/actual/validate`);
+      applyWeekPayload(response.data);
+      toast.success('Planning réel validé');
+    } catch (error) {
+      toast.error(error.response?.data?.error || 'Validation du planning réel impossible');
+    }
+  };
+
+  const printMonthRecap = async () => {
+    const monday = dates[0]?.date;
+    const [y, m] = monday ? monday.split('-') : [String(year), '1'];
+    try {
+      const response = await api.get('/staff-planning/month-recap', {
+        params: { year: Number(y), month: Number(m) }
+      });
+      const html = buildMonthRecapHtml(response.data);
+      if (!openPrintHtml(html)) toast.error('Autorisez les fenêtres pop-up pour le récapitulatif.');
+    } catch (error) {
+      toast.error(error.response?.data?.error || 'Récapitulatif mensuel indisponible');
+    }
+  };
+
+  const persistOrder = async (orderedIds, categories = {}) => {
+    try {
+      const response = await api.put('/staff-planning/reorder', { employeeOrder: orderedIds, categories });
+      if (response.data.settings) setSettings(response.data.settings);
+      await loadWeek(weekNumber, year);
+    } catch (error) {
+      toast.error(error.response?.data?.error || 'Impossible d’enregistrer l’ordre');
+    }
+  };
+
+  const flatOrderedIds = () => groups.flatMap((group) => group.rows.map((row) => String(row.employeeId)));
+
+  const moveRow = (employeeId, direction) => {
+    const flat = flatOrderedIds();
+    const index = flat.indexOf(String(employeeId));
+    const next = index + direction;
+    if (index < 0 || next < 0 || next >= flat.length) return;
+    const copy = [...flat];
+    const [item] = copy.splice(index, 1);
+    copy.splice(next, 0, item);
+    persistOrder(copy);
+  };
+
+  const onDropRow = (targetId, targetCategory) => {
+    if (!dragId || String(dragId) === String(targetId)) return;
+    const flat = flatOrderedIds();
+    const from = flat.indexOf(String(dragId));
+    const to = flat.indexOf(String(targetId));
+    if (from < 0 || to < 0) return;
+    const copy = [...flat];
+    const [item] = copy.splice(from, 1);
+    copy.splice(to, 0, item);
+    const source = displayedRows.find((row) => String(row.employeeId) === String(dragId));
+    const categories = {};
+    if (source && source.employeeCategory !== targetCategory) {
+      categories[String(dragId)] = targetCategory;
+    }
+    setDragId(null);
+    persistOrder(copy, categories);
   };
 
   const copyRows = async (direction, employeeIds) => {
@@ -463,28 +580,22 @@ const StaffPlanning = () => {
     const html = buildShopPrintHtml({
       weekNumber,
       dates,
-      rows: week?.rows || [],
-      holidayDates: week?.holidayDates || []
+      rows: displayedRows,
+      holidayDates: week?.holidayDates || [],
+      title: layer === 'actual' ? 'Planning réel' : 'Planning'
     });
-    const popup = window.open('', '_blank', 'noopener,noreferrer');
-    if (!popup) {
+    if (!openPrintHtml(html)) {
       toast.error('Autorisez les fenêtres pop-up pour imprimer le planning magasin.');
-      return;
     }
-    popup.document.open();
-    popup.document.write(html);
-    popup.document.close();
-    popup.focus();
-    setTimeout(() => {
-      popup.print();
-    }, 250);
   };
 
-  const statusLabel = week?.status === 'sent'
-    ? `Envoyé${week.sendCount > 1 ? ` (${week.sendCount} fois)` : ''}`
-    : week?.status === 'validated'
-      ? 'Validé'
-      : 'Brouillon';
+  const statusLabel = layer === 'actual'
+    ? (week?.actualStatus === 'validated' ? 'Planning réel validé' : (actualExists ? 'Planning réel (modifiable)' : 'Pas encore de planning réel'))
+    : week?.status === 'sent'
+      ? `Envoyé${week.sendCount > 1 ? ` (${week.sendCount} fois)` : ''}`
+      : week?.status === 'validated'
+        ? 'Validé'
+        : 'Brouillon';
 
   return (
     <div className="staff-planning">
@@ -536,21 +647,34 @@ const StaffPlanning = () => {
       </div>
 
       <div className="sp-actions no-print">
-        <span className={`sp-status sp-status-${week?.status || 'draft'}`}>{statusLabel}</span>
-        {alerts.length > 0 && (
+        <span className={`sp-status sp-status-${layer === 'actual' ? (week?.actualStatus || 'none') : (week?.status || 'draft')}`}>{statusLabel}</span>
+        {weekFinished && layer === 'forecast' && (
+          <span className="sp-status sp-status-alert">Semaine terminée — planning prévu verrouillé</span>
+        )}
+        {alerts.length > 0 && layer === 'forecast' && (
           <span className="sp-status sp-status-alert">{alerts.length} alerte(s) — confirmation à l’envoi</span>
         )}
-        {canEdit && (
+        <button type="button" className={`btn ${layer === 'forecast' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setLayer('forecast')}>Planning prévu</button>
+        <button type="button" className={`btn ${layer === 'actual' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setLayer('actual')}>Planning réel</button>
+        {canEdit && layer === 'forecast' && (
           <>
             <button type="button" className="btn btn-secondary" onClick={duplicate}>Dupliquer vers la semaine suivante</button>
-            <button type="button" className="btn btn-primary" onClick={send}>
+            <button type="button" className="btn btn-primary" onClick={send} disabled={weekFinished}>
               {(week?.sendCount || 0) > 0 ? 'Renvoyer le planning modifié' : 'Envoyer aux salariés'}
             </button>
+            <button type="button" className="btn btn-secondary" onClick={validate} disabled={weekFinished}>Valider le planning</button>
           </>
         )}
+        {canEdit && !actualExists && (
+          <button type="button" className="btn btn-secondary" onClick={createActual}>Créer le planning réel</button>
+        )}
+        {canEdit && layer === 'actual' && actualExists && !actualLocked && (
+          <button type="button" className="btn btn-primary" onClick={validateActual}>Valider le planning réel</button>
+        )}
         <button type="button" className="btn btn-secondary" onClick={printPlanning}>Imprimer (affichage magasin)</button>
-        {canEdit && (
-          <button type="button" className="btn btn-secondary" onClick={validate}>Valider le planning</button>
+        <button type="button" className="btn btn-secondary" onClick={printMonthRecap}>Récapitulatif mensuel des horaires</button>
+        {(week?.acknowledgements || []).length > 0 && (
+          <span className="sp-status">{(week.acknowledgements || []).length} prise(s) de connaissance</span>
         )}
       </div>
 
@@ -559,6 +683,18 @@ const StaffPlanning = () => {
         <span className="sp-legend-item sp-legend-six">7e jour consécutif sans repos (max. 6 jours de travail)</span>
         <span className="sp-legend-note">Couleurs d’aide : non imprimées</span>
       </div>
+      {(week?.acknowledgements || []).length > 0 && (
+        <div className="sp-alerts no-print">
+          <h3>Prise de connaissance</h3>
+          <ul>
+            {(week.acknowledgements || []).map((item) => (
+              <li key={String(item.employeeId)}>
+                {item.employeeName} — {item.acknowledgedAt ? new Date(item.acknowledgedAt).toLocaleString('fr-FR') : ''}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       <div className="sp-print-header">
         <h1>Planning semaine {weekNumber} — {formatDayRange(dates)}</h1>
@@ -567,6 +703,8 @@ const StaffPlanning = () => {
 
       {loading ? (
         <p className="no-print">Chargement du planning…</p>
+      ) : layer === 'actual' && !actualExists ? (
+        <p className="no-print">Pas encore de planning réel. Créez-le en copie du planning prévu pour y reporter les absences, maladies et retards.</p>
       ) : (
         <div className="sp-table-wrap">
           <table className="sp-grid">
@@ -578,7 +716,7 @@ const StaffPlanning = () => {
                   title={canEdit ? 'Importer ou copier le planning de l’équipe' : undefined}
                 >
                   Salarié
-                  {canEdit && <small className="sp-th-hint">équipe</small>}
+                  {canEdit && <small className="sp-th-hint">équipe · glisser pour ranger</small>}
                 </th>
                 {DAYS.map((day, index) => {
                   const iso = dates[index]?.date;
@@ -588,7 +726,7 @@ const StaffPlanning = () => {
                     <th key={day} className={isHoliday ? 'sp-th-holiday' : undefined}>
                       <div className="sp-day-head">
                         <span>{day} {formatShortDate(iso)}</span>
-                        {canEdit ? (
+                        {canEdit && layer === 'forecast' && canEditDay(iso) ? (
                           <label className="sp-ferie-check" onClick={(e) => e.stopPropagation()}>
                             <input
                               type="checkbox"
@@ -609,66 +747,88 @@ const StaffPlanning = () => {
               </tr>
             </thead>
             <tbody>
-              {(week?.rows || []).map((row) => {
-                const mine = String(row.employeeId) === String(myEmployeeId);
-                const month = counters.find((item) => String(item.employeeId) === String(row.employeeId));
-                const hints = hintsByEmployee.get(String(row.employeeId));
-                return (
-                  <tr key={row.employeeId} className={mine ? 'sp-row-mine' : undefined}>
-                    <td
-                      className="sp-name sp-name-menu"
-                      onClick={(event) => openEmployeeMenu(event, row)}
-                      onContextMenu={(event) => openEmployeeMenu(event, row)}
-                      title="Menu du salarié"
-                    >
-                      <strong>{row.employeeName}</strong>
-                      <small>{row.contractedHours}h</small>
-                    </td>
-                    {DAYS.map((dayName) => {
-                      const day = (row.days || []).find((item) => item.day === dayName);
-                      const label = cellLabel(day);
-                      const holiday = !!(day?.isHoliday || (day?.date && holidaySet.has(day.date)));
-                      const prevRest = hints?.prevRestWeekdays?.has(dayName);
-                      const sixthLimit = day?.date && hints?.seventhDates?.has(day.date);
-                      const hintClass = `${prevRest ? ' sp-cell-prev-rest' : ''}${sixthLimit ? ' sp-cell-six-day' : ''}`;
-                      const hintTitle = [
-                        prevRest ? `Repos en semaine ${prevWeek.weekNumber}` : '',
-                        sixthLimit ? '7e jour consécutif sans repos' : ''
-                      ].filter(Boolean).join(' · ');
-                      return (
-                        <td
-                          key={dayName}
-                          className={`sp-cell ${cellClass({ ...day, isHoliday: holiday })}${hintClass} ${canEdit ? 'sp-cell-edit' : ''}`}
-                          onClick={() => openEditor(row, dayName)}
-                          title={hintTitle || undefined}
-                        >
-                          <div className="sp-cell-label">{label || '—'}</div>
-                          {day?.paidHours > 0 && (
-                            <div className="sp-cell-hours">{formatHours(day.paidHours)}</div>
-                          )}
-                          {holiday && day?.paidHours > 0 && (
-                            <div className="sp-cell-holiday-hint">majoré</div>
-                          )}
-                          {holiday && !(day?.paidHours > 0) && (
-                            <div className="sp-cell-holiday-hint">Férié</div>
-                          )}
-                          {day?.alerts?.length > 0 && <div className="sp-cell-flag">!</div>}
-                          <div className="sp-pause-line">Pause : de ______ à ______</div>
-                        </td>
-                      );
-                    })}
-                    <td className={`sp-total${hoursMatchContract(row) ? ' sp-total-match' : ''}`}>
-                      <strong>{formatHours(rowPaidHours(row))}</strong>
-                      <small>/ {formatHours(row.contractedHours)}</small>
-                      {row.weeklyOt25 > 0 && <small>HS 25% {formatHours(row.weeklyOt25)}</small>}
-                      {row.weeklyOt50 > 0 && <small>HS 50% {formatHours(row.weeklyOt50)}</small>}
-                      {row.weeklyHolidayHours > 0 && <small>Férié {formatHours(row.weeklyHolidayHours)}</small>}
-                      {row.weeklySickDays > 0 && <small>Maladie {row.weeklySickDays} j</small>}
-                      {month?.sickDays > 0 && <small>Mal. {monthLabel}: {month.sickDays} j</small>}
-                    </td>
+              {groups.map((group) => (
+                <React.Fragment key={group.id}>
+                  <tr className="sp-group-row">
+                    <td colSpan={9}>{group.label}</td>
                   </tr>
-                );
-              })}
+                  {group.rows.map((row) => {
+                    const mine = String(row.employeeId) === String(myEmployeeId);
+                    const month = counters.find((item) => String(item.employeeId) === String(row.employeeId));
+                    const hints = hintsByEmployee.get(String(row.employeeId));
+                    return (
+                      <tr
+                        key={row.employeeId}
+                        className={mine ? 'sp-row-mine' : undefined}
+                        draggable={canEdit}
+                        onDragStart={() => setDragId(String(row.employeeId))}
+                        onDragOver={(event) => event.preventDefault()}
+                        onDrop={() => onDropRow(row.employeeId, group.id)}
+                      >
+                        <td
+                          className="sp-name sp-name-menu"
+                          onClick={(event) => openEmployeeMenu(event, row)}
+                          onContextMenu={(event) => openEmployeeMenu(event, row)}
+                          title="Menu du salarié — glisser pour ranger"
+                        >
+                          {canEdit && (
+                            <span className="sp-move">
+                              <button type="button" className="sp-move-btn" onClick={(e) => { e.stopPropagation(); moveRow(row.employeeId, -1); }}>▲</button>
+                              <button type="button" className="sp-move-btn" onClick={(e) => { e.stopPropagation(); moveRow(row.employeeId, 1); }}>▼</button>
+                            </span>
+                          )}
+                          <strong>{row.employeeName}</strong>
+                          <small>{row.contractedHours}h</small>
+                        </td>
+                        {DAYS.map((dayName) => {
+                          const day = (row.days || []).find((item) => item.day === dayName);
+                          const label = cellLabel(day);
+                          const holiday = !!(day?.isHoliday || (day?.date && holidaySet.has(day.date)));
+                          const prevRest = hints?.prevRestWeekdays?.has(dayName);
+                          const sixthLimit = day?.date && hints?.seventhDates?.has(day.date);
+                          const locked = !canEditDay(day?.date);
+                          const hintClass = `${prevRest ? ' sp-cell-prev-rest' : ''}${sixthLimit ? ' sp-cell-six-day' : ''}${locked ? ' sp-cell-locked' : ''}`;
+                          const hintTitle = [
+                            prevRest ? `Repos en semaine ${prevWeek.weekNumber}` : '',
+                            sixthLimit ? '7e jour consécutif sans repos' : '',
+                            locked ? 'Jour verrouillé' : ''
+                          ].filter(Boolean).join(' · ');
+                          return (
+                            <td
+                              key={dayName}
+                              className={`sp-cell ${cellClass({ ...day, isHoliday: holiday })}${hintClass} ${canEdit && !locked ? 'sp-cell-edit' : ''}`}
+                              onClick={() => openEditor(row, dayName)}
+                              title={hintTitle || undefined}
+                            >
+                              <div className="sp-cell-label">{label || '—'}</div>
+                              {day?.paidHours > 0 && (
+                                <div className="sp-cell-hours">{formatHours(day.paidHours)}</div>
+                              )}
+                              {holiday && day?.paidHours > 0 && (
+                                <div className="sp-cell-holiday-hint">majoré</div>
+                              )}
+                              {holiday && !(day?.paidHours > 0) && (
+                                <div className="sp-cell-holiday-hint">Férié</div>
+                              )}
+                              {day?.alerts?.length > 0 && <div className="sp-cell-flag">!</div>}
+                              <div className="sp-pause-line">Pause : de ______ à ______</div>
+                            </td>
+                          );
+                        })}
+                        <td className={`sp-total${hoursMatchContract(row) ? ' sp-total-match' : ''}`}>
+                          <strong>{formatHours(rowPaidHours(row))}</strong>
+                          <small>/ {formatHours(row.contractedHours)}</small>
+                          {row.weeklyOt25 > 0 && <small>HS 25% {formatHours(row.weeklyOt25)}</small>}
+                          {row.weeklyOt50 > 0 && <small>HS 50% {formatHours(row.weeklyOt50)}</small>}
+                          {row.weeklyHolidayHours > 0 && <small>Férié {formatHours(row.weeklyHolidayHours)}</small>}
+                          {row.weeklySickDays > 0 && <small>Maladie {row.weeklySickDays} j</small>}
+                          {month?.sickDays > 0 && <small>Mal. {monthLabel}: {month.sickDays} j</small>}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </React.Fragment>
+              ))}
             </tbody>
           </table>
         </div>
