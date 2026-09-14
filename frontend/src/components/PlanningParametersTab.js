@@ -214,9 +214,11 @@ const PlanningParametersTab = () => {
         <h4 style={{ marginTop: '1.5rem' }}>Mots-codes</h4>
         <p style={{ color: '#555' }}>
           Un mot peut compter dans le total de la semaine (ex. CFA8 = 8h). MAL ne compte pas dans le total
-          et alimente le compteur maladie du mois. Les jours fériés officiels français sont cochés
-          automatiquement à chaque nouvelle année (Pâques, 1er mai, 14 juillet, etc.). On peut toujours
-          décocher un jour dans la grille : les heures travaillées un jour férié sont majorées.
+          et alimente le compteur maladie du mois. Les congés payés (CP) valent le volume du contrat divisé
+          par 6 : une semaine complète = 6 jours de CP + 1 repos (0 h), soit 35 h ou 39 h selon le contrat.
+          Les jours fériés officiels français sont cochés automatiquement à chaque nouvelle année
+          (Pâques, 1er mai, 14 juillet, etc.). On peut toujours décocher un jour dans la grille : les heures
+          travaillées un jour férié sont majorées.
         </p>
         <div className="table-container">
           <table className="sp-words-table">
@@ -243,14 +245,18 @@ const PlanningParametersTab = () => {
                     />
                   </td>
                   <td>
-                    <input
-                      className="form-control"
-                      type="number"
-                      min="0"
-                      step="0.5"
-                      value={word.hours}
-                      onChange={(e) => updateWord(index, { hours: Number(e.target.value) })}
-                    />
+                    {String(word.code).toUpperCase() === 'CP' || word.category === 'cp' ? (
+                      <span style={{ color: '#555', whiteSpace: 'nowrap' }}>contrat / 6</span>
+                    ) : (
+                      <input
+                        className="form-control"
+                        type="number"
+                        min="0"
+                        step="0.5"
+                        value={word.hours}
+                        onChange={(e) => updateWord(index, { hours: Number(e.target.value) })}
+                      />
+                    )}
                   </td>
                   <td>
                     <select

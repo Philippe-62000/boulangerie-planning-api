@@ -135,9 +135,15 @@ async function overlayValidatedCpOnWeek(weekDoc, settings, cfaMap, employees, ho
       const day = hours.plainDay(raw);
       if (!cpDates.has(day.date)) return day;
       if (isProtectedCfa(day, cfaDates)) return day;
-      if (hours.normalizedCode(day.code) === 'CP') return day;
+      if (hours.isRestCode(day.code)) return day;
+      if (!settings.sundayOpen && day.day === 'Dimanche') return day;
+      const next = applyCodeToDay(day, 'CP', settings, plain.contractedHours);
+      if (hours.normalizedCode(day.code) === 'CP'
+        && Math.round((Number(day.cpHours) || 0) * 10000) === Math.round((Number(next.cpHours) || 0) * 10000)) {
+        return day;
+      }
       changed = true;
-      return applyCodeToDay(day, 'CP', settings);
+      return next;
     });
     return changed ? summarizeRow({ ...plain, days }, settings, holidayDates) : row;
   });
@@ -210,7 +216,7 @@ async function copyRowsPreserveCfa({ source, dest, employeeIds, settings }) {
         return destDay;
       }
       copiedDays += 1;
-      return hours.computeDay(copyDayPayload(srcDay), meta, settings);
+      return hours.computeDay(copyDayPayload(srcDay), meta, settings, plain.contractedHours);
     });
     return summarizeRow({ ...plain, days }, settings, holidayDates);
   });
@@ -387,8 +393,8 @@ function ensureActualCopy(weekDoc) {
   return true;
 }
 
-function applyCodeToDay(day, code, settings) {
-  return hours.computeDay({ kind: 'code', code }, { day: day.day, date: day.date }, settings);
+function applyCodeToDay(day, code, settings, contractedHours) {
+  return hours.computeDay({ kind: 'code', code }, { day: day.day, date: day.date }, settings, contractedHours);
 }
 
 function buildEmptyRow(employee, dates, settings, holidayDates) {
@@ -929,11 +935,15 @@ const updateCell = async (req, res) => {
       const found = (plain.days || []).find((item) => hours.plainDay(item).day === meta.day);
       return found ? { ...hours.plainDay(found), date: meta.date } : hours.emptyDay(meta.day, meta.date);
     });
+    const applyingCp = cell?.kind === 'code' && hours.normalizedCode(cell.code) === 'CP';
     const days = currentDays.map((item) => {
       const matchesDay = item.day === day;
       if (!applyToWeek && !matchesDay) return item;
       if (applyToWeek && !matchesDay && isProtectedCfa(item, cfaDates)) return item;
       if (applyToWeek && !matchesDay && settings.sundayOpen === false && item.day === 'Dimanche') {
+        return item;
+      }
+      if (applyToWeek && applyingCp && !matchesDay && hours.isRestCode(item.code)) {
         return item;
       }
       if (!useActual && applyToWeek && !matchesDay && isIsoDayFinished(item.date, lock.today)) {
@@ -942,7 +952,7 @@ const updateCell = async (req, res) => {
       if (!useActual && isIsoDayFinished(item.date, lock.today)) {
         return item;
       }
-      return hours.computeDay(cell || { kind: 'empty' }, { day: item.day, date: item.date }, settings);
+      return hours.computeDay(cell || { kind: 'empty' }, { day: item.day, date: item.date }, settings, plain.contractedHours);
     });
     const nextRow = summarizeRow({
       ...plain,
@@ -1232,8 +1242,8 @@ const swapWeekRows = async (req, res) => {
         return;
       }
       swappedDays += 1;
-      daysA.push(hours.computeDay(copyDayPayload(dayB), meta, settings));
-      daysB.push(hours.computeDay(copyDayPayload(dayA), meta, settings));
+      daysA.push(hours.computeDay(copyDayPayload(dayB), meta, settings, plainA.contractedHours));
+      daysB.push(hours.computeDay(copyDayPayload(dayA), meta, settings, plainB.contractedHours));
     });
     const nextRows = sourceRows.map((row, index) => {
       if (index === indexA) return summarizeRow({ ...plainA, days: daysA }, settings, holidayDates);

@@ -2186,7 +2186,9 @@
                     const day = (row.days || []).find((item) => item.day === dayName);
                     const label = escapeHtml(planCellLabel(day)).replace(/\n/g, '<br>');
                     const shown = (day && (Number(day.paidHours) || Number(day.cpHours)))
-                        || (day && day.kind === 'code' && String(day.code || '').toUpperCase() === 'CP' ? 7 : 0);
+                        || (day && day.kind === 'code' && String(day.code || '').toUpperCase() === 'CP'
+                          ? (Number(row.contractedHours) > 0 ? Number(row.contractedHours) / 6 : 35 / 6)
+                          : 0);
                     const hours = shown > 0 ? `<div style="font-size:12px;color:#334155;">${escapeHtml(formatPlanHours(shown))}</div>` : '';
                     return `<td>${label}${hours}</td>`;
                 }).join('');
@@ -2194,7 +2196,10 @@
                 const worked = (row.days || []).reduce((sum, day) => sum + (Number(day.paidHours) || 0), 0) || Number(row.weeklyPaidHours) || 0;
                 const cpHours = (row.days || []).reduce((sum, day) => {
                     if (Number(day.cpHours) > 0) return sum + Number(day.cpHours);
-                    if (day && day.kind === 'code' && String(day.code || '').toUpperCase() === 'CP') return sum + 7;
+                    if (day && day.kind === 'code' && String(day.code || '').toUpperCase() === 'CP') {
+                        const weekly = Number(row.contractedHours);
+                        return sum + (Number.isFinite(weekly) && weekly > 0 ? weekly / 6 : 35 / 6);
+                    }
                     return sum;
                 }, 0) || Number(row.weeklyCpHours) || 0;
                 const accountant = Math.round((worked - recup + cpHours) * 100) / 100;

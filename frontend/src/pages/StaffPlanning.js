@@ -12,6 +12,7 @@ import {
   formatHours,
   formatShortDate,
   getISOWeekInfo,
+  cpHoursForContract,
   hoursMatchContract,
   overtimeFromPaid,
   planningWords,
@@ -271,6 +272,7 @@ const StaffPlanning = () => {
     setEditor({
       employeeId: row.employeeId,
       employeeName: row.employeeName,
+      contractedHours: row.contractedHours,
       day: dayName,
       date: day?.date,
       currentCode: day?.kind === 'code' ? day.code : '',
@@ -964,8 +966,8 @@ const StaffPlanning = () => {
                               title={hintTitle || undefined}
                             >
                               <div className="sp-cell-label">{label || '—'}</div>
-                              {dayDisplayHours(day) > 0 && (
-                                <div className="sp-cell-hours">{formatHours(dayDisplayHours(day))}</div>
+                              {dayDisplayHours(day, row.contractedHours) > 0 && (
+                                <div className="sp-cell-hours">{formatHours(dayDisplayHours(day, row.contractedHours))}</div>
                               )}
                               {holiday && day?.paidHours > 0 && (
                                 <div className="sp-cell-holiday-hint">majoré</div>
@@ -1282,6 +1284,7 @@ const StaffPlanning = () => {
             </label>
             <p className="sp-modal-help">
               Si aucun mot-code n’est choisi, l’horaire du jour est recopié sur la semaine. Les jours CFA ne sont pas écrasés.
+              Un CP appliqué à toute la semaine laisse les jours REPOS à 0 h (6 j de CP + 1 repos = le volume du contrat).
               Tab : heure → minutes → heure de fin. Entrée : enregistrer et ouvrir le jour suivant (sauf le dimanche).
             </p>
             <button type="submit" className="btn btn-primary" disabled={saving}>
@@ -1299,7 +1302,11 @@ const StaffPlanning = () => {
                     onClick={() => applyCode(word.code)}
                   >
                     <strong>{word.code}</strong>
-                    <span>{formatHours(word.hours)}</span>
+                    <span>
+                      {String(word.code).toUpperCase() === 'CP' || word.category === 'cp'
+                        ? formatHours(cpHoursForContract(editor.contractedHours))
+                        : formatHours(word.hours)}
+                    </span>
                   </button>
                 ))}
               </div>
