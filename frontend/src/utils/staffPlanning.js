@@ -41,12 +41,37 @@ export function rowPaidHours(row) {
   return Number(row?.weeklyPaidHours) || 0;
 }
 
+export function rowCpHours(row) {
+  const fromDays = (row?.days || []).reduce((sum, day) => {
+    const stored = Number(day?.cpHours) || 0;
+    if (stored > 0) return sum + stored;
+    if (day && day.kind === 'code' && String(day.code || '').toUpperCase() === 'CP') return sum + 7;
+    return sum;
+  }, 0);
+  if (fromDays > 0) return Math.round(fromDays * 100) / 100;
+  return Number(row?.weeklyCpHours) || 0;
+}
+
+export function dayDisplayHours(day) {
+  const paid = Number(day?.paidHours) || 0;
+  if (paid > 0) return paid;
+  const cp = Number(day?.cpHours) || 0;
+  if (cp > 0) return cp;
+  if (day && day.kind === 'code' && String(day.code || '').toUpperCase() === 'CP') return 7;
+  return 0;
+}
+
 export function rowRecupHours(row) {
   return Number(row?.recupHours) || 0;
 }
 
 export function rowAccountantHours(row) {
   return Math.round((rowPaidHours(row) - rowRecupHours(row)) * 100) / 100;
+}
+
+export function rowWeekHours(row, useAccountant = false) {
+  const base = useAccountant ? rowAccountantHours(row) : rowPaidHours(row);
+  return Math.round((base + rowCpHours(row)) * 100) / 100;
 }
 
 export function overtimeFromPaid(paidHours, settings) {
@@ -68,7 +93,7 @@ export function overtimeFromPaid(paidHours, settings) {
 }
 
 export function hoursMatchContract(row, useAccountant = false) {
-  const paid = Number(useAccountant ? rowAccountantHours(row) : rowPaidHours(row));
+  const paid = Number(rowWeekHours(row, useAccountant));
   const contracted = Number(row.contractedHours);
   if (!Number.isFinite(paid) || !Number.isFinite(contracted) || contracted <= 0) return false;
   return Math.abs(paid - contracted) < 0.05;
@@ -165,10 +190,11 @@ export function buildShopPrintHtml({ weekNumber, dates = [], rows = [], holidayD
       const code = String(day?.code || '').toUpperCase();
       const isCode = day?.kind === 'code' || !day || day.kind === 'empty';
       const pause = isCode || code === 'REPOS' ? '' : '<div class="pause">Pause : de ______ à ______</div>';
-      const hoursText = day?.paidHours > 0 ? `<div class="hrs">${formatHours(day.paidHours)}</div>` : '';
+      const shown = dayDisplayHours(day);
+      const hoursText = shown > 0 ? `<div class="hrs">${formatHours(shown)}</div>` : '';
       return `<td>${label}${hoursText}${pause}</td>`;
     }).join('');
-    const weekHours = rowAccountantHours(row);
+    const weekHours = rowWeekHours(row, true);
     return `<tr><th>${row.employeeName || ''}</th>${cells}<td>${formatHours(weekHours)}</td></tr>`;
   }).join('');
   return `<!DOCTYPE html>

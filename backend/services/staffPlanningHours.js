@@ -365,8 +365,19 @@ function withHolidayHours(days, holidayDates = []) {
   });
 }
 
+function withCpHours(days, settings) {
+  const word = findWord(settings, 'CP');
+  const defaultHours = Number(word?.hours) || 7;
+  return (days || []).map((raw) => {
+    const day = plainDay(raw);
+    if (normalizedCode(day.code) !== 'CP') return day;
+    if (Number(day.cpHours) > 0) return day;
+    return { ...day, cpHours: defaultHours };
+  });
+}
+
 function summarizeDays(days, contractedHours, settings, holidayDates = []) {
-  const withRest = applyRestAlerts(withHolidayHours(days, holidayDates), settings);
+  const withRest = applyRestAlerts(withHolidayHours(withCpHours(days, settings), holidayDates), settings);
   const weeklyPaidHours = Math.round(withRest.reduce((sum, day) => sum + (day.paidHours || 0), 0) * 100) / 100;
   const weeklyNightHours = Math.round(withRest.reduce((sum, day) => sum + (day.nightHours || 0), 0) * 100) / 100;
   const weeklySickDays = withRest.reduce((sum, day) => sum + (day.sickDays || 0), 0);
