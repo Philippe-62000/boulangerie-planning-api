@@ -229,6 +229,20 @@
   background: #eff6ff;
 }
 
+.sp-ctx-swap {
+  max-height: 220px;
+  overflow-y: auto;
+  margin: 0.15rem 0 0.25rem;
+  padding: 0.15rem 0 0;
+  border-top: 1px solid #e5e7eb;
+}
+
+.sp-ctx-empty {
+  margin: 0.35rem 0.55rem;
+  font-size: 0.8rem;
+  color: #64748b;
+}
+
 .sp-modal-wide {
   width: min(520px, 92vw);
 }

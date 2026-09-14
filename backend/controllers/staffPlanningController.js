@@ -3,9 +3,11 @@ const RecupHour = require('../models/RecupHour');
 const ApprenticePlanning = require('../models/ApprenticePlanning');
 const StaffPlanningSettings = require('../models/StaffPlanningSettings');
 const StaffWeekPlanning = require('../models/StaffWeekPlanning');
+const VacationRequest = require('../models/VacationRequest');
 const emailService = require('../services/emailService');
 const hours = require('../services/staffPlanningHours');
 const frenchHolidays = require('../utils/frenchPublicHolidays');
+const { findEmployeeByPersonName } = require('../utils/personName');
 
 function settingsPlain(doc) {
   const json = doc.toObject ? doc.toObject() : doc;
@@ -58,6 +60,95 @@ function isProtectedCfa(day, cfaDates) {
   return hours.isCfaCode(day?.code) || (cfaDates && day?.date && cfaDates.has(day.date));
 }
 
+function isoDateOnly(value) {
+  if (!value) return '';
+  if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}/.test(value)) return value.slice(0, 10);
+  return todayIsoParis(new Date(value));
+}
+
+function eachIsoDateInclusive(start, end) {
+  const dates = [];
+  let current = isoDateOnly(start);
+  const last = isoDateOnly(end);
+  while (current && last && current <= last) {
+    dates.push(current);
+    const [year, month, day] = current.split('-').map(Number);
+    const next = new Date(Date.UTC(year, month - 1, day + 1));
+    current = next.toISOString().slice(0, 10);
+  }
+  return dates;
+}
+
+function weekInfoFromIso(iso) {
+  const [year, month, day] = String(iso).split('-').map(Number);
+  return hours.getISOWeekInfo(new Date(year, month - 1, day, 12, 0, 0));
+}
+
+function matchEmployeeForVacation(employees, vacation) {
+  const email = String(vacation?.employeeEmail || '').trim().toLowerCase();
+  if (email) {
+    const byEmail = employees.find((employee) => String(employee.email || '').trim().toLowerCase() === email);
+    if (byEmail) return byEmail;
+  }
+  return findEmployeeByPersonName(employees, vacation?.employeeName);
+}
+
+async function overlayValidatedCpOnWeek(weekDoc, settings, cfaMap, employees, holidayDates) {
+  const dates = hours.weekDates(weekDoc.weekNumber, weekDoc.year);
+  if (!dates.length) return weekDoc;
+  const first = dates[0].date;
+  const last = dates[dates.length - 1].date;
+  let vacations = [];
+  try {
+    vacations = await VacationRequest.find({
+      status: 'validated',
+      startDate: { $lte: new Date(`${last}T23:59:59.999Z`) },
+      endDate: { $gte: new Date(`${first}T00:00:00.000Z`) }
+    }).select('employeeName employeeEmail startDate endDate').lean();
+  } catch (error) {
+    console.error('staff-planning overlay CP', error);
+    return weekDoc;
+  }
+  if (!vacations.length) return weekDoc;
+
+  const weekDateSet = new Set(dates.map((item) => item.date));
+  const datesByEmployeeId = new Map();
+  vacations.forEach((vacation) => {
+    const employee = matchEmployeeForVacation(employees, vacation);
+    if (!employee) return;
+    const id = String(employee._id);
+    const set = datesByEmployeeId.get(id) || new Set();
+    eachIsoDateInclusive(vacation.startDate, vacation.endDate).forEach((iso) => {
+      if (weekDateSet.has(iso)) set.add(iso);
+    });
+    if (set.size) datesByEmployeeId.set(id, set);
+  });
+  if (!datesByEmployeeId.size) return weekDoc;
+
+  const applyOnRows = (rows) => (rows || []).map((row) => {
+    const cpDates = datesByEmployeeId.get(String(row.employeeId));
+    if (!cpDates || !cpDates.size) return row;
+    const cfaDates = cfaMap.get(String(row.employeeId));
+    const plain = toPlain(row);
+    let changed = false;
+    const days = (plain.days || []).map((raw) => {
+      const day = hours.plainDay(raw);
+      if (!cpDates.has(day.date)) return day;
+      if (isProtectedCfa(day, cfaDates)) return day;
+      if (hours.normalizedCode(day.code) === 'CP') return day;
+      changed = true;
+      return applyCodeToDay(day, 'CP', settings);
+    });
+    return changed ? summarizeRow({ ...plain, days }, settings, holidayDates) : row;
+  });
+
+  weekDoc.rows = applyOnRows(weekDoc.rows);
+  if (hasActualLayer(weekDoc) && weekDoc.actualStatus !== 'validated') {
+    weekDoc.actualRows = applyOnRows(weekDoc.actualRows);
+  }
+  return weekDoc;
+}
+
 function copyDayPayload(day) {
   const plain = hours.plainDay(day) || {};
   return {
@@ -84,6 +175,7 @@ async function ensureWeekDoc(weekNumber, year, settings) {
   await syncWeekRows(week, settings);
   week.markModified('rows');
   week.markModified('holidayDates');
+  if (hasActualLayer(week)) week.markModified('actualRows');
   await week.save();
   return week;
 }
@@ -427,6 +519,7 @@ async function syncWeekRows(weekDoc, settings) {
   }
   weekDoc.sundayOpen = settings.sundayOpen;
   weekDoc.holidayDates = holidayList;
+  await overlayValidatedCpOnWeek(weekDoc, settings, cfaMap, employees, holidayList);
   return weekDoc;
 }
 
@@ -1070,6 +1163,110 @@ const copyWeekRows = async (req, res) => {
   }
 };
 
+const swapWeekRows = async (req, res) => {
+  try {
+    if (!requireAdmin(req, res)) return;
+    const weekNumber = parseInt(req.params.week, 10);
+    const year = parseInt(req.params.year, 10);
+    const employeeIdA = req.body?.employeeIdA || req.body?.employeeId;
+    const employeeIdB = req.body?.employeeIdB || req.body?.withEmployeeId;
+    const useActual = req.body?.layer === 'actual';
+    if (!employeeIdA || !employeeIdB || String(employeeIdA) === String(employeeIdB)) {
+      return res.status(400).json({ success: false, error: 'Deux salariés distincts sont requis' });
+    }
+    const settings = settingsPlain(await StaffPlanningSettings.getSingleton());
+    const week = await StaffWeekPlanning.findOne({ weekNumber, year });
+    if (!week) return res.status(404).json({ success: false, error: 'Planning introuvable' });
+    const dates = hours.weekDates(weekNumber, year);
+    const lock = lockInfo(dates);
+    if (useActual) {
+      if (!hasActualLayer(week)) {
+        return res.status(400).json({ success: false, error: 'Le planning réel n\'existe pas encore pour cette semaine' });
+      }
+      if (week.actualStatus === 'validated') {
+        return res.status(403).json({ success: false, error: 'Le planning réel est validé et n\'est plus modifiable' });
+      }
+    } else if (lock.weekFinished) {
+      return res.status(403).json({ success: false, error: 'La semaine est terminée : le planning prévu n\'est plus modifiable' });
+    }
+    const rowsKey = useActual ? 'actualRows' : 'rows';
+    const sourceRows = week.toObject()[rowsKey] || [];
+    const indexA = sourceRows.findIndex((row) => String(row.employeeId) === String(employeeIdA));
+    const indexB = sourceRows.findIndex((row) => String(row.employeeId) === String(employeeIdB));
+    if (indexA < 0 || indexB < 0) {
+      return res.status(404).json({ success: false, error: 'Salarié absent de cette semaine' });
+    }
+    const holidayDates = holidayDatesOf(week);
+    const cfaMap = await cfaDatesByEmployee(dates);
+    const plainA = toPlain(sourceRows[indexA]);
+    const plainB = toPlain(sourceRows[indexB]);
+    const cfaA = cfaMap.get(String(plainA.employeeId));
+    const cfaB = cfaMap.get(String(plainB.employeeId));
+    let skippedCfa = 0;
+    let swappedDays = 0;
+    const daysA = [];
+    const daysB = [];
+    dates.forEach((meta) => {
+      const foundA = (plainA.days || []).find((item) => hours.plainDay(item).day === meta.day);
+      const foundB = (plainB.days || []).find((item) => hours.plainDay(item).day === meta.day);
+      const dayA = foundA ? { ...hours.plainDay(foundA), date: meta.date } : hours.emptyDay(meta.day, meta.date);
+      const dayB = foundB ? { ...hours.plainDay(foundB), date: meta.date } : hours.emptyDay(meta.day, meta.date);
+      if (!useActual && isIsoDayFinished(meta.date, lock.today)) {
+        daysA.push(dayA);
+        daysB.push(dayB);
+        return;
+      }
+      const aProtected = isProtectedCfa(dayA, cfaA);
+      const bProtected = isProtectedCfa(dayB, cfaB);
+      if (aProtected || bProtected) {
+        skippedCfa += 1;
+        daysA.push(dayA);
+        daysB.push(dayB);
+        return;
+      }
+      swappedDays += 1;
+      daysA.push(hours.computeDay(copyDayPayload(dayB), meta, settings));
+      daysB.push(hours.computeDay(copyDayPayload(dayA), meta, settings));
+    });
+    const nextRows = sourceRows.map((row, index) => {
+      if (index === indexA) return summarizeRow({ ...plainA, days: daysA }, settings, holidayDates);
+      if (index === indexB) return summarizeRow({ ...plainB, days: daysB }, settings, holidayDates);
+      return row;
+    });
+    week[rowsKey] = nextRows;
+    if (!useActual && week.status !== 'draft') week.status = 'draft';
+    week.markModified(rowsKey);
+    await week.save();
+    res.json({
+      success: true,
+      week,
+      dates,
+      lock,
+      alerts: collectAlerts(useActual ? { rows: week.actualRows } : week),
+      swappedDays,
+      skippedCfa
+    });
+  } catch (error) {
+    console.error('staff-planning swap', error);
+    res.status(500).json({ success: false, error: 'Impossible d\'intervertir les salariés' });
+  }
+};
+
+const refreshPlanningForVacation = async (vacationRequest) => {
+  if (!vacationRequest) return { weeks: 0, days: 0 };
+  const settings = settingsPlain(await StaffPlanningSettings.getSingleton());
+  const isoDates = eachIsoDateInclusive(vacationRequest.startDate, vacationRequest.endDate);
+  const weeks = new Map();
+  isoDates.forEach((iso) => {
+    const info = weekInfoFromIso(iso);
+    weeks.set(`${info.year}-${info.weekNumber}`, info);
+  });
+  for (const { weekNumber, year } of weeks.values()) {
+    await ensureWeekDoc(weekNumber, year, settings);
+  }
+  return { weeks: weeks.size, days: isoDates.length };
+};
+
 const toggleHoliday = async (req, res) => {
   try {
     if (!requireAdmin(req, res)) return;
@@ -1580,6 +1777,7 @@ module.exports = {
   sendWeek,
   duplicateWeek,
   copyWeekRows,
+  swapWeekRows,
   toggleHoliday,
   getMonthCounters,
   getEmployeeStats,
@@ -1589,5 +1787,6 @@ module.exports = {
   validateActualWeek,
   updateRecupHours,
   reorderEmployees,
-  getMonthRecap
+  getMonthRecap,
+  refreshPlanningForVacation
 };

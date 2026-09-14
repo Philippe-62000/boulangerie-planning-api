@@ -206,7 +206,7 @@ const VacationRequestAdmin = () => {
     try {
       const response = await api.patch(`/vacation-requests/${id}/accept`);
       if (response.data.success) {
-        toast.success('Demande acceptée');
+        toast.success('Demande acceptée — CP inscrit au planning');
         fetchVacationRequests();
       }
     } catch (error) {
