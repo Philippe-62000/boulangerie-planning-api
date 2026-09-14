@@ -212,6 +212,14 @@ const validateVacationRequest = async (req, res) => {
     // Marquer comme validé
     await vacationRequest.markAsValidated(validatedBy, notes);
 
+    try {
+      const staffPlanning = require('./staffPlanningController');
+      const planningResult = await staffPlanning.refreshPlanningForVacation(vacationRequest);
+      console.log('✅ Congés inscrits au planning (CP):', planningResult);
+    } catch (planningError) {
+      console.error('❌ Erreur inscription CP au planning:', planningError.message);
+    }
+
     // Créer automatiquement une absence dans "Gestion des salariés"
     try {
       const absenceResult = await createAbsenceFromVacationRequest(vacationRequest);

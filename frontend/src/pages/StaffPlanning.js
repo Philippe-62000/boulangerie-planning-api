@@ -255,10 +255,10 @@ const StaffPlanning = () => {
     return true;
   };
 
-  const openEditor = (row, dayName) => {
+  const openEditor = (row, dayName, options = {}) => {
     if (!canEdit) return;
     const day = (row.days || []).find((item) => item.day === dayName);
-    if (!canEditDay(day?.date)) {
+    if (!options.skipLockCheck && !canEditDay(day?.date)) {
       toast.info(layer === 'actual'
         ? 'Le planning réel est validé et n’est plus modifiable.'
         : 'Ce jour est terminé. Utilisez le planning réel pour les absences, retards et maladies.');
@@ -301,11 +301,29 @@ const StaffPlanning = () => {
     }
   };
 
-  const saveCell = async (payload) => {
+  const saveCell = async (payload, options = {}) => {
     setSaving(true);
     try {
       const response = await api.put(`/staff-planning/week/${year}/${weekNumber}/cell`, payload);
       applyWeekPayload(response.data);
+      const nextDayName = options.openNext && payload.day !== 'Dimanche' && !payload.applyToWeek
+        ? DAYS[DAYS.indexOf(payload.day) + 1]
+        : null;
+      if (nextDayName) {
+        const rowsKey = payload.layer === 'actual' ? 'actualRows' : 'rows';
+        const row = (response.data.week?.[rowsKey] || []).find((item) => String(item.employeeId) === String(payload.employeeId));
+        const nextMeta = (response.data.dates || dates).find((item) => item.day === nextDayName);
+        const nextLock = response.data.lock || lock;
+        const nextWeek = response.data.week;
+        const nextActualLocked = nextWeek?.actualStatus === 'validated';
+        const locked = payload.layer === 'actual'
+          ? nextActualLocked
+          : !!(nextLock.weekFinished || (nextMeta?.date && isIsoDayFinished(nextMeta.date, nextLock.today)));
+        if (row && nextMeta && !locked) {
+          openEditor(row, nextDayName, { skipLockCheck: true });
+          return;
+        }
+      }
       setEditor(null);
     } catch (error) {
       console.error(error);
@@ -331,7 +349,7 @@ const StaffPlanning = () => {
       cell: { kind: 'shifts', shifts },
       applyToWeek: !!editor.applyToWeek,
       layer
-    });
+    }, { openNext: true });
   };
 
   const applyCode = (code) => {
@@ -591,8 +609,9 @@ const StaffPlanning = () => {
       type: 'employee',
       employeeId: row.employeeId,
       employeeName: row.employeeName,
+      swapOpen: false,
       x: Math.min(event.clientX, window.innerWidth - 280),
-      y: Math.min(event.clientY, window.innerHeight - 220)
+      y: Math.min(event.clientY, window.innerHeight - 340)
     });
   };
 
@@ -602,6 +621,29 @@ const StaffPlanning = () => {
     setMenu(null);
     setTeamSelected(employeeOptions.map((row) => String(row.employeeId)));
     setTeamModal(true);
+  };
+
+  const swapWith = async (other) => {
+    if (!canEdit || !menu || !other) return;
+    if (!window.confirm(
+      `Intervertir ${menu.employeeName} et ${other.employeeName} sur la semaine ${weekNumber} ?\nLes jours CFA restent en place.`
+    )) return;
+    setSaving(true);
+    try {
+      const response = await api.post(`/staff-planning/week/${year}/${weekNumber}/swap`, {
+        employeeIdA: menu.employeeId,
+        employeeIdB: other.employeeId,
+        layer
+      });
+      applyWeekPayload(response.data);
+      setMenu(null);
+      const skipped = response.data.skippedCfa ? ` ${response.data.skippedCfa} jour(s) CFA conservés.` : '';
+      toast.success(`Semaines interverties.${skipped}`);
+    } catch (error) {
+      toast.error(error.response?.data?.error || 'Permutation impossible');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const openStats = async (employeeId, employeeName) => {
@@ -990,6 +1032,30 @@ const StaffPlanning = () => {
               <button type="button" onClick={() => copyRows('to-next', [String(menu.employeeId)])}>
                 Copier vers la semaine {nextWeek.weekNumber}
               </button>
+              <button
+                type="button"
+                onClick={() => setMenu((current) => current && ({ ...current, swapOpen: !current.swapOpen }))}
+              >
+                Intervertir avec…
+              </button>
+              {menu.swapOpen && (
+                <div className="sp-ctx-swap">
+                  {displayedRows.filter((row) => String(row.employeeId) !== String(menu.employeeId)).length === 0
+                    ? <p className="sp-ctx-empty">Aucun autre salarié</p>
+                    : displayedRows
+                      .filter((row) => String(row.employeeId) !== String(menu.employeeId))
+                      .map((row) => (
+                        <button
+                          key={String(row.employeeId)}
+                          type="button"
+                          disabled={saving}
+                          onClick={() => swapWith(row)}
+                        >
+                          {row.employeeName}
+                        </button>
+                      ))}
+                </div>
+              )}
             </>
           )}
           <button type="button" onClick={() => openStats(menu.employeeId, menu.employeeName)}>
@@ -1213,7 +1279,7 @@ const StaffPlanning = () => {
             </label>
             <p className="sp-modal-help">
               Si aucun mot-code n’est choisi, l’horaire du jour est recopié sur la semaine. Les jours CFA ne sont pas écrasés.
-              Tab : heure → minutes → heure de fin. Entrée : enregistrer.
+              Tab : heure → minutes → heure de fin. Entrée : enregistrer et ouvrir le jour suivant (sauf le dimanche).
             </p>
             <button type="submit" className="btn btn-primary" disabled={saving}>
               {saving ? '…' : 'Enregistrer les horaires'}

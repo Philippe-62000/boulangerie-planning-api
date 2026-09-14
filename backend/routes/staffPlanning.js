@@ -25,5 +25,6 @@ router.post('/week/:year/:week/actual/sign', controller.signActualWeek);
 router.post('/week/:year/:week/send', controller.sendWeek);
 router.post('/week/:year/:week/duplicate', controller.duplicateWeek);
 router.post('/week/:year/:week/copy', controller.copyWeekRows);
+router.post('/week/:year/:week/swap', controller.swapWeekRows);
 
 module.exports = router;
