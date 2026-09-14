@@ -20,6 +20,12 @@ function formatHours(hours) {
   return `${whole}h${String(Math.abs(mins)).padStart(2, '0')}`;
 }
 
+function cpHoursForContract(contractedHours) {
+  const weekly = Number(contractedHours);
+  const base = Number.isFinite(weekly) && weekly > 0 ? weekly : 35;
+  return Math.round((base / 6) * 10000) / 10000;
+}
+
 function getISOWeekInfo(dateInput) {
   const source = dateInput instanceof Date ? dateInput : new Date();
   const date = new Date(Date.UTC(source.getFullYear(), source.getMonth(), source.getDate()));
@@ -212,7 +218,7 @@ function findWord(settings, code) {
   return (settings.words || []).find((word) => normalizedCode(word.code) === needle) || null;
 }
 
-function computeDay(input, dayMeta, settings) {
+function computeDay(input, dayMeta, settings, contractedHours) {
   const base = emptyDay(dayMeta.day, dayMeta.date);
   const kind = input?.kind || 'empty';
 
@@ -226,9 +232,12 @@ function computeDay(input, dayMeta, settings) {
         alerts: [{ type: 'unknown_code', message: `Mot inconnu : ${input.code || ''}` }]
       };
     }
-    const hours = Number(word.hours) || 0;
-    const countsInTotal = word.countsInTotal === true;
     const category = word.category || 'autre';
+    const isCp = category === 'cp' || normalizedCode(word.code) === 'CP';
+    const hours = isCp
+      ? cpHoursForContract(contractedHours)
+      : (Number(word.hours) || 0);
+    const countsInTotal = word.countsInTotal === true;
     return {
       ...base,
       kind: 'code',
@@ -236,7 +245,7 @@ function computeDay(input, dayMeta, settings) {
       paidHours: countsInTotal ? hours : 0,
       sickDays: word.countsAsSick ? 1 : 0,
       sickHours: word.countsAsSick ? hours : 0,
-      cpHours: category === 'cp' ? hours : 0,
+      cpHours: isCp ? hours : 0,
       absenceHours: category === 'absence' ? hours : 0,
       holidayHours: 0
     };
@@ -365,19 +374,18 @@ function withHolidayHours(days, holidayDates = []) {
   });
 }
 
-function withCpHours(days, settings) {
-  const word = findWord(settings, 'CP');
-  const defaultHours = Number(word?.hours) || 7;
+function withCpHours(days, settings, contractedHours) {
+  const hoursPerDay = cpHoursForContract(contractedHours);
   return (days || []).map((raw) => {
     const day = plainDay(raw);
     if (normalizedCode(day.code) !== 'CP') return day;
-    if (Number(day.cpHours) > 0) return day;
-    return { ...day, cpHours: defaultHours };
+    if (Number(day.cpHours) === hoursPerDay) return day;
+    return { ...day, cpHours: hoursPerDay };
   });
 }
 
 function summarizeDays(days, contractedHours, settings, holidayDates = []) {
-  const withRest = applyRestAlerts(withHolidayHours(withCpHours(days, settings), holidayDates), settings);
+  const withRest = applyRestAlerts(withHolidayHours(withCpHours(days, settings, contractedHours), holidayDates), settings);
   const weeklyPaidHours = Math.round(withRest.reduce((sum, day) => sum + (day.paidHours || 0), 0) * 100) / 100;
   const weeklyNightHours = Math.round(withRest.reduce((sum, day) => sum + (day.nightHours || 0), 0) * 100) / 100;
   const weeklySickDays = withRest.reduce((sum, day) => sum + (day.sickDays || 0), 0);
@@ -409,7 +417,7 @@ function defaultWords() {
     { code: 'REPOS', hours: 0, category: 'repos', countsInTotal: false, countsAsSick: false },
     { code: 'CFA', hours: 7, category: 'formation', countsInTotal: true, countsAsSick: false },
     { code: 'CFA8', hours: 8, category: 'formation', countsInTotal: true, countsAsSick: false },
-    { code: 'CP', hours: 7, category: 'cp', countsInTotal: false, countsAsSick: false },
+    { code: 'CP', hours: 0, category: 'cp', countsInTotal: false, countsAsSick: false },
     { code: 'MAL', hours: 0, category: 'maladie', countsInTotal: false, countsAsSick: true },
     { code: 'ABS', hours: 0, category: 'absence', countsInTotal: false, countsAsSick: false }
   ];
@@ -443,6 +451,7 @@ module.exports = {
   weekDates,
   normalizeShifts,
   computeDay,
+  cpHoursForContract,
   emptyDay,
   plainDay,
   normalizedCode,

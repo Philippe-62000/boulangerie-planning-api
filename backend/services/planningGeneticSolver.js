@@ -4,6 +4,7 @@
  */
 
 const planningBusinessRules = require('../constants/planningBusinessRules');
+const { cpHoursForContract } = require('./staffPlanningHours');
 
 const SOLVER_DAY_NAMES = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
 
@@ -68,7 +69,10 @@ class PlanningBoulangerieSolver {
   getEffectiveHoursForSlot(slot, emp, slotHoursMap) {
     const raw = slotHoursMap[slot];
     if (raw === undefined || raw === null || slot === 'Repos') return raw || 0;
-    if (slot === 'Formation' || slot === 'CP') {
+    if (slot === 'CP') {
+      return cpHoursForContract(emp?.weeklyHours);
+    }
+    if (slot === 'Formation') {
       return raw;
     }
     const breakMin =
@@ -132,7 +136,7 @@ class PlanningBoulangerieSolver {
       '13h00-20h30': 7.5,
       '14h00-20h30': 6.5,
       Formation: 8.0,
-      CP: 5.5,
+      CP: 0,
       MAL: 0,
       Indisponible: 0,
       Repos: 0

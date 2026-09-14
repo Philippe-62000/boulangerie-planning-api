@@ -4,6 +4,7 @@ const WeeklyConstraints = require('../models/WeeklyConstraints');
 const EquityStats = require('../models/EquityStats');
 const axios = require('axios');
 const planningBusinessRules = require('../constants/planningBusinessRules');
+const { cpHoursForContract } = require('../services/staffPlanningHours');
 
 const {
   planningSolver,
@@ -122,7 +123,7 @@ class PlanningGenerator {
           case 'Formation':
             return { canWork: false, type: 'Formation', hours: 8 }; // Formation = 8h
           case 'CP':
-            return { canWork: false, type: 'CP', hours: employee.weeklyHours === 35 ? 5.5 : 6.5 };
+            return { canWork: false, type: 'CP', hours: cpHoursForContract(employee.weeklyHours) };
           case 'MAL':
             return { canWork: false, type: 'MAL' };
           case 'Indisponible':
@@ -656,7 +657,7 @@ class PlanningGenerator {
             });
             totalHours += 8;
           } else if (daySlot === 'CP') {
-            const cpHours = emp.weeklyHours === 35 ? 5.5 : 6.5;
+            const cpHours = cpHoursForContract(emp.weeklyHours);
             schedule.push({
               day: dayName,
               shifts: [],
@@ -734,7 +735,7 @@ class PlanningGenerator {
             });
             totalHours += 8;
           } else if (daySlot === 'CP') {
-            const cpHours = emp.weeklyHours === 35 ? 5.5 : 6.5;
+            const cpHours = cpHoursForContract(emp.weeklyHours);
             schedule.push({
               day: dayName,
               shifts: [],
@@ -924,10 +925,10 @@ class PlanningGenerator {
             schedule.push({
               day: dayName,
               shifts: [],
-              totalHours: emp.weeklyHours === 35 ? 5.5 : 6.5,
+              totalHours: cpHoursForContract(emp.weeklyHours),
               constraint: 'CP'
             });
-            totalHours += emp.weeklyHours === 35 ? 5.5 : 6.5;
+            totalHours += cpHoursForContract(emp.weeklyHours);
           } else if (daySchedule.slot === 'MAL') {
             schedule.push({
               day: dayName,
@@ -1053,7 +1054,7 @@ class PlanningGenerator {
           // Calculer les heures selon le type de contrainte
           switch (dayConstraint.type) {
             case 'CP':
-              constraintHours = employee.weeklyHours === 35 ? 5.5 : 6.5;
+              constraintHours = cpHoursForContract(employee.weeklyHours);
               break;
             case 'Formation':
               constraintHours = 8; // Formation = 8h

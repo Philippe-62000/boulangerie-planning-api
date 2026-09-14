@@ -28,6 +28,12 @@ export function formatHours(value) {
   return `${whole}h${String(Math.abs(mins)).padStart(2, '0')}`;
 }
 
+export function cpHoursForContract(contractedHours) {
+  const weekly = Number(contractedHours);
+  const base = Number.isFinite(weekly) && weekly > 0 ? weekly : 35;
+  return Math.round((base / 6) * 10000) / 10000;
+}
+
 export function formatShortDate(iso) {
   if (!iso) return '';
   const parts = String(iso).split('-');
@@ -42,22 +48,25 @@ export function rowPaidHours(row) {
 }
 
 export function rowCpHours(row) {
+  const perDay = cpHoursForContract(row?.contractedHours);
   const fromDays = (row?.days || []).reduce((sum, day) => {
     const stored = Number(day?.cpHours) || 0;
     if (stored > 0) return sum + stored;
-    if (day && day.kind === 'code' && String(day.code || '').toUpperCase() === 'CP') return sum + 7;
+    if (day && day.kind === 'code' && String(day.code || '').toUpperCase() === 'CP') return sum + perDay;
     return sum;
   }, 0);
   if (fromDays > 0) return Math.round(fromDays * 100) / 100;
   return Number(row?.weeklyCpHours) || 0;
 }
 
-export function dayDisplayHours(day) {
+export function dayDisplayHours(day, contractedHours) {
   const paid = Number(day?.paidHours) || 0;
   if (paid > 0) return paid;
   const cp = Number(day?.cpHours) || 0;
   if (cp > 0) return cp;
-  if (day && day.kind === 'code' && String(day.code || '').toUpperCase() === 'CP') return 7;
+  if (day && day.kind === 'code' && String(day.code || '').toUpperCase() === 'CP') {
+    return cpHoursForContract(contractedHours);
+  }
   return 0;
 }
 
@@ -190,7 +199,7 @@ export function buildShopPrintHtml({ weekNumber, dates = [], rows = [], holidayD
       const code = String(day?.code || '').toUpperCase();
       const isCode = day?.kind === 'code' || !day || day.kind === 'empty';
       const pause = isCode || code === 'REPOS' ? '' : '<div class="pause">Pause : de ______ à ______</div>';
-      const shown = dayDisplayHours(day);
+      const shown = dayDisplayHours(day, row.contractedHours);
       const hoursText = shown > 0 ? `<div class="hrs">${formatHours(shown)}</div>` : '';
       return `<td>${label}${hoursText}${pause}</td>`;
     }).join('');
