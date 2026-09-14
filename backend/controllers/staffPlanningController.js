@@ -624,16 +624,23 @@ function buildPlanningEmail({
     const cells = hours.DAYS.map((dayName) => {
       const day = (row.days || []).find((item) => item.day === dayName);
       const label = day ? formatDayLabel(day) : '';
-      const paid = day && day.paidHours ? `<br/><small>${hours.formatHours(day.paidHours)}</small>` : '';
+      const paidHours = day && (day.paidHours || day.cpHours)
+        ? `<br/><small>${hours.formatHours(day.paidHours || day.cpHours)}</small>`
+        : '';
       const holiday = day?.isHoliday && day.paidHours
         ? '<br/><small>Férié (majoré)</small>'
         : (day?.isHoliday ? '<br/><small>Férié</small>' : '');
-      return `<td style="border:1px solid #ddd;padding:6px;text-align:center;font-size:13px;">${label || '—'}${paid}${holiday}</td>`;
+      return `<td style="border:1px solid #ddd;padding:6px;text-align:center;font-size:13px;">${label || '—'}${paidHours}${holiday}</td>`;
     }).join('');
     const recup = Number(row.recupHours) || 0;
-    const weekLabel = isActual
-      ? `${hours.formatHours(row.weeklyAccountantHours || row.weeklyPaidHours)} / ${hours.formatHours(row.contractedHours)}${recup ? `<br/><small>Récup ${recup > 0 ? '+' : ''}${hours.formatHours(recup)}</small>` : ''}`
-      : `${hours.formatHours(row.weeklyPaidHours)} / ${hours.formatHours(row.contractedHours)}`;
+    const cpHours = Number(row.weeklyCpHours) || 0;
+    const baseHours = isActual
+      ? (Number(row.weeklyAccountantHours) || Number(row.weeklyPaidHours) || 0)
+      : (Number(row.weeklyPaidHours) || 0);
+    const weekTotal = Math.round((baseHours + cpHours) * 100) / 100;
+    const weekLabel = `${hours.formatHours(weekTotal)} / ${hours.formatHours(row.contractedHours)}${
+      cpHours ? `<br/><small>CP ${hours.formatHours(cpHours)}</small>` : ''
+    }${isActual && recup ? `<br/><small>Récup ${recup > 0 ? '+' : ''}${hours.formatHours(recup)}</small>` : ''}`;
     return `<tr>
       <td style="border:1px solid #ddd;padding:6px;font-weight:600;">${row.employeeName}</td>
       ${cells}

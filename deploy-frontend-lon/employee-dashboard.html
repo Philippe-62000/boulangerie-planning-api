@@ -2185,14 +2185,21 @@
                 const cells = PLAN_DAYS.map((dayName) => {
                     const day = (row.days || []).find((item) => item.day === dayName);
                     const label = escapeHtml(planCellLabel(day)).replace(/\n/g, '<br>');
-                    const hours = day && day.paidHours > 0 ? `<div style="font-size:12px;color:#334155;">${escapeHtml(formatPlanHours(day.paidHours))}</div>` : '';
+                    const shown = (day && (Number(day.paidHours) || Number(day.cpHours)))
+                        || (day && day.kind === 'code' && String(day.code || '').toUpperCase() === 'CP' ? 7 : 0);
+                    const hours = shown > 0 ? `<div style="font-size:12px;color:#334155;">${escapeHtml(formatPlanHours(shown))}</div>` : '';
                     return `<td>${label}${hours}</td>`;
                 }).join('');
                 const recup = Number(row.recupHours) || 0;
                 const worked = (row.days || []).reduce((sum, day) => sum + (Number(day.paidHours) || 0), 0) || Number(row.weeklyPaidHours) || 0;
-                const accountant = Math.round((worked - recup) * 100) / 100;
+                const cpHours = (row.days || []).reduce((sum, day) => {
+                    if (Number(day.cpHours) > 0) return sum + Number(day.cpHours);
+                    if (day && day.kind === 'code' && String(day.code || '').toUpperCase() === 'CP') return sum + 7;
+                    return sum;
+                }, 0) || Number(row.weeklyCpHours) || 0;
+                const accountant = Math.round((worked - recup + cpHours) * 100) / 100;
                 const weekCell = actualReady
-                    ? `<td><strong>${escapeHtml(formatPlanHours(accountant))}</strong><div style="font-size:12px;">/ ${escapeHtml(formatPlanHours(row.contractedHours))}</div>${recup ? `<div style="font-size:12px;color:${recup > 0 ? '#166534' : '#9a3412'};">Récup ${recup > 0 ? '+' : ''}${escapeHtml(formatPlanHours(recup))}</div>` : ''}</td>`
+                    ? `<td><strong>${escapeHtml(formatPlanHours(accountant))}</strong><div style="font-size:12px;">/ ${escapeHtml(formatPlanHours(row.contractedHours))}</div>${cpHours ? `<div style="font-size:12px;">CP ${escapeHtml(formatPlanHours(cpHours))}</div>` : ''}${recup ? `<div style="font-size:12px;color:${recup > 0 ? '#166534' : '#9a3412'};">Récup ${recup > 0 ? '+' : ''}${escapeHtml(formatPlanHours(recup))}</div>` : ''}</td>`
                     : '';
                 return `<tr class="${mine ? 'mine' : ''}"><th>${escapeHtml(row.employeeName || '')}</th>${cells}${weekCell}</tr>`;
             }).join('');

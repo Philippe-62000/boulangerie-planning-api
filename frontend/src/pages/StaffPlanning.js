@@ -15,9 +15,11 @@ import {
   hoursMatchContract,
   overtimeFromPaid,
   planningWords,
-  rowAccountantHours,
+  rowCpHours,
   rowPaidHours,
   rowRecupHours,
+  rowWeekHours,
+  dayDisplayHours,
   buildShopPrintHtml,
   buildMonthRecapHtml,
   groupRowsByCategory,
@@ -962,8 +964,8 @@ const StaffPlanning = () => {
                               title={hintTitle || undefined}
                             >
                               <div className="sp-cell-label">{label || '—'}</div>
-                              {day?.paidHours > 0 && (
-                                <div className="sp-cell-hours">{formatHours(day.paidHours)}</div>
+                              {dayDisplayHours(day) > 0 && (
+                                <div className="sp-cell-hours">{formatHours(dayDisplayHours(day))}</div>
                               )}
                               {holiday && day?.paidHours > 0 && (
                                 <div className="sp-cell-holiday-hint">majoré</div>
@@ -981,8 +983,9 @@ const StaffPlanning = () => {
                           onClick={() => openRecupModal(row)}
                           title={layer === 'actual' && canEdit && !actualLocked ? 'Cliquer pour affecter des heures de récup' : undefined}
                         >
-                          <strong>{formatHours(layer === 'actual' ? rowAccountantHours(row) : rowPaidHours(row))}</strong>
+                          <strong>{formatHours(rowWeekHours(row, layer === 'actual'))}</strong>
                           <small>/ {formatHours(row.contractedHours)}</small>
+                          {rowCpHours(row) > 0 && <small>CP {formatHours(rowCpHours(row))}</small>}
                           {layer === 'actual' && rowRecupHours(row) !== 0 && (
                             <small className={rowRecupHours(row) > 0 ? 'sp-recup-pos' : 'sp-recup-neg'}>
                               Récup {rowRecupHours(row) > 0 ? '+' : ''}{formatHours(rowRecupHours(row))}
