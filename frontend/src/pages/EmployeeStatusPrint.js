@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import api from '../services/api';
 import { toast } from 'react-toastify';
 import HolidayStatus from '../components/HolidayStatus';
+import { buildMonthRecapPrintFragment } from '../utils/staffPlanning';
 import './EmployeeStatusPrint.css';
 
 const EmployeeStatusPrint = () => {
@@ -315,25 +316,34 @@ const calculateTotalOverpayments = () => {
   }, 0);
 };
 
-  const handlePrint = () => {
-    // Créer une nouvelle fenêtre pour l'impression
+  const handlePrint = async () => {
     const printWindow = window.open('', '_blank');
     const printContent = document.querySelector('.print-content');
-    
-    if (printContent) {
-      // Créer une copie du contenu et retirer les sections de commentaire
-      const contentClone = printContent.cloneNode(true);
-      const commentSection = contentClone.querySelector('.accountant-comment-section');
-      const commentDisplay = contentClone.querySelector('.accountant-comment-display');
-      
-      if (commentSection) {
-        commentSection.remove();
-      }
-      if (commentDisplay) {
-        commentDisplay.remove();
-      }
-      
-      printWindow.document.write(`
+
+    if (!printContent) {
+      window.print();
+      return;
+    }
+
+    const contentClone = printContent.cloneNode(true);
+    const commentSection = contentClone.querySelector('.accountant-comment-section');
+    const commentDisplay = contentClone.querySelector('.accountant-comment-display');
+    if (commentSection) commentSection.remove();
+    if (commentDisplay) commentDisplay.remove();
+
+    let recapStyles = '';
+    let recapHtml = '';
+    try {
+      const response = await api.get('/staff-planning/month-recap', { params: { year, month } });
+      const fragment = buildMonthRecapPrintFragment(response.data);
+      recapStyles = fragment.styles || '';
+      recapHtml = fragment.html || '';
+    } catch (error) {
+      console.error('Récapitulatif mensuel indisponible', error);
+      toast.warn('Récapitulatif mensuel indisponible — impression de l’état seulement');
+    }
+
+    printWindow.document.write(`
         <!DOCTYPE html>
         <html>
         <head>
@@ -409,6 +419,7 @@ const calculateTotalOverpayments = () => {
               color: #000;
               min-height: 100px;
             }
+            ${recapStyles}
             @media print {
               body { margin: 0; padding: 15px; }
               .status-table tbody tr { page-break-inside: avoid; }
@@ -426,17 +437,14 @@ const calculateTotalOverpayments = () => {
               <div class="accountant-comment-content">${accountantComment.replace(/\n/g, '<br>')}</div>
             </div>
           ` : ''}
+          ${recapHtml}
         </body>
         </html>
       `);
-      printWindow.document.close();
-      printWindow.focus();
-      printWindow.print();
-      printWindow.close();
-    } else {
-      // Fallback vers l'impression normale
-      window.print();
-    }
+    printWindow.document.close();
+    printWindow.focus();
+    printWindow.print();
+    printWindow.close();
   };
 
   const handleExportExcel = () => {

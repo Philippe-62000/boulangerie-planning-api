@@ -212,6 +212,26 @@ function isOffCode(code) {
   return value === 'REPOS' || value === 'CP' || value === 'MAL' || value === 'ABS';
 }
 
+function isFullWeekWithCode(days, code) {
+  const needle = normalizedCode(code);
+  if (!needle) return false;
+  const list = days || [];
+  if (!list.length) return false;
+  let hasCode = false;
+  for (const raw of list) {
+    const day = plainDay(raw);
+    const value = normalizedCode(day.code);
+    if (day.kind === 'code' && value === needle) {
+      hasCode = true;
+      continue;
+    }
+    if (day.kind === 'code' && value === 'REPOS') continue;
+    if (!day.kind || day.kind === 'empty') continue;
+    return false;
+  }
+  return hasCode;
+}
+
 function findWord(settings, code) {
   if (!code) return null;
   const needle = normalizedCode(code);
@@ -458,6 +478,7 @@ module.exports = {
   isCfaCode,
   isRestCode,
   isOffCode,
+  isFullWeekWithCode,
   findWord,
   applyRestAlerts,
   withHolidayHours,

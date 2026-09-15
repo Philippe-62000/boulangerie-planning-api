@@ -38,6 +38,36 @@ function toPlain(doc) {
   return { ...doc };
 }
 
+function isPublishedForecast(week) {
+  return week?.status === 'validated' || week?.status === 'sent';
+}
+
+function invalidateAcknowledgements(week, employeeIds) {
+  const ids = new Set((employeeIds || []).map(String).filter(Boolean));
+  if (!week || !ids.size) return false;
+  let changed = false;
+  week.acknowledgements = (week.acknowledgements || []).map((item) => {
+    const plain = toPlain(item);
+    if (!ids.has(String(plain.employeeId)) || plain.stale) return item;
+    changed = true;
+    return {
+      ...plain,
+      stale: true,
+      staleAt: new Date()
+    };
+  });
+  if (changed) week.markModified('acknowledgements');
+  return changed;
+}
+
+function skipBulkSendReason(row, week) {
+  const ack = (week.acknowledgements || []).find((item) => String(item.employeeId) === String(row.employeeId));
+  if (ack && !ack.stale) return { reason: 'acked', label: 'Déjà pris connaissance' };
+  if (hours.isFullWeekWithCode(row.days, 'CP')) return { reason: 'cp', label: 'Congés toute la semaine' };
+  if (hours.isFullWeekWithCode(row.days, 'MAL')) return { reason: 'mal', label: 'Maladie toute la semaine' };
+  return null;
+}
+
 function holidayDatesOf(week) {
   return Array.isArray(week?.holidayDates) ? week.holidayDates.filter(Boolean) : [];
 }
@@ -125,26 +155,31 @@ async function overlayValidatedCpOnWeek(weekDoc, settings, cfaMap, employees, ho
   });
   if (!datesByEmployeeId.size) return weekDoc;
 
+  const changedIds = [];
   const applyOnRows = (rows) => (rows || []).map((row) => {
     const cpDates = datesByEmployeeId.get(String(row.employeeId));
     if (!cpDates || !cpDates.size) return row;
     const cfaDates = cfaMap.get(String(row.employeeId));
     const plain = toPlain(row);
     let changed = false;
+    let appliedNewCp = false;
     const days = (plain.days || []).map((raw) => {
       const day = hours.plainDay(raw);
       if (!cpDates.has(day.date)) return day;
       if (isProtectedCfa(day, cfaDates)) return day;
       if (hours.isRestCode(day.code)) return day;
       if (!settings.sundayOpen && day.day === 'Dimanche') return day;
+      const wasCp = hours.normalizedCode(day.code) === 'CP';
       const next = applyCodeToDay(day, 'CP', settings, plain.contractedHours);
-      if (hours.normalizedCode(day.code) === 'CP'
+      if (wasCp
         && Math.round((Number(day.cpHours) || 0) * 10000) === Math.round((Number(next.cpHours) || 0) * 10000)) {
         return day;
       }
+      if (!wasCp) appliedNewCp = true;
       changed = true;
       return next;
     });
+    if (appliedNewCp) changedIds.push(String(row.employeeId));
     return changed ? summarizeRow({ ...plain, days }, settings, holidayDates) : row;
   });
 
@@ -152,6 +187,7 @@ async function overlayValidatedCpOnWeek(weekDoc, settings, cfaMap, employees, ho
   if (hasActualLayer(weekDoc) && weekDoc.actualStatus !== 'validated') {
     weekDoc.actualRows = applyOnRows(weekDoc.actualRows);
   }
+  if (changedIds.length) invalidateAcknowledgements(weekDoc, changedIds);
   return weekDoc;
 }
 
@@ -221,7 +257,11 @@ async function copyRowsPreserveCfa({ source, dest, employeeIds, settings }) {
     return summarizeRow({ ...plain, days }, settings, holidayDates);
   });
 
-  dest.status = 'draft';
+  if (isPublishedForecast(dest)) {
+    invalidateAcknowledgements(dest, selected.size ? Array.from(selected) : (sourceRows || []).map((row) => String(row.employeeId)));
+  } else {
+    dest.status = 'draft';
+  }
   await syncWeekRows(dest, settings);
   dest.markModified('rows');
   dest.markModified('holidayDates');
@@ -616,12 +656,13 @@ function buildPlanningEmail({
   isUpdate,
   urgent = false,
   layer = 'forecast',
+  notifyChange = false,
   personalRow = null
 }) {
   const isActual = layer === 'actual';
   const title = isActual
     ? `Planning réel à signer — semaine ${weekNumber}`
-    : (isUpdate || urgent
+    : (notifyChange || urgent
       ? `Planning modifié — semaine ${weekNumber}`
       : `Planning semaine ${weekNumber}`);
   const range = dates.length ? `${dates[0].date} → ${dates[dates.length - 1].date}` : '';
@@ -659,9 +700,11 @@ function buildPlanningEmail({
     : '';
   const intro = isActual
     ? 'Votre planning réel de la semaine est disponible. Merci de le vérifier, puis de le signer sur votre téléphone.'
-    : (isUpdate || urgent
-      ? 'Le planning de l’équipe a été modifié. Merci de le consulter dès que possible.'
-      : 'Voici le planning de l’équipe pour la semaine.');
+    : (notifyChange
+      ? 'Le planning en cours a été modifié. Merci d’en prendre connaissance sur votre dashboard.'
+      : (isUpdate || urgent
+        ? 'Le planning de l’équipe a été modifié. Merci de le consulter dès que possible.'
+        : 'Le planning de l’équipe est validé. Voici le planning pour la semaine.'));
 
   const html = `
     <div style="font-family:Arial,sans-serif;color:#222;">
@@ -962,7 +1005,10 @@ const updateCell = async (req, res) => {
     week[rowsKey] = sourceRows.map((item, index) => (
       index === rowIndex ? nextRow : item
     ));
-    if (!useActual && week.status !== 'draft') week.status = 'draft';
+    if (!useActual) {
+      invalidateAcknowledgements(week, [employeeId]);
+      if (!isPublishedForecast(week) && week.status !== 'draft') week.status = 'draft';
+    }
     week.markModified(rowsKey);
     await week.save();
     res.json({
@@ -1010,20 +1056,38 @@ const sendWeek = async (req, res) => {
     if (!week) return res.status(404).json({ success: false, error: 'Planning introuvable' });
     const urgent = !!req.body?.urgent;
     const layer = req.body?.layer === 'actual' ? 'actual' : 'forecast';
+    const targetIds = Array.isArray(req.body?.employeeIds)
+      ? req.body.employeeIds.map(String).filter(Boolean)
+      : [];
+    const targeted = targetIds.length > 0;
     if (layer === 'actual' && week.actualStatus !== 'validated') {
       return res.status(400).json({ success: false, error: 'Validez d\'abord le planning réel avant d\'écrire aux salariés' });
     }
     const alerts = collectAlerts(layer === 'actual' ? { rows: week.actualRows } : week);
     const dates = hours.weekDates(weekNumber, year);
-    const sourceRows = layer === 'actual' ? (week.actualRows || []) : (week.rows || []);
+    const sourceRows = (layer === 'actual' ? (week.actualRows || []) : (week.rows || []))
+      .filter((row) => !targeted || targetIds.includes(String(row.employeeId)));
+    if (targeted && !sourceRows.length) {
+      return res.status(404).json({ success: false, error: 'Salarié absent de cette semaine' });
+    }
     const employees = await Employee.find({
       _id: { $in: sourceRows.map((row) => row.employeeId) }
     }).select('name email').lean();
     const byId = new Map(employees.map((employee) => [String(employee._id), employee]));
-    const isUpdate = layer === 'forecast' && (week.sendCount || 0) > 0;
+    const isUpdate = layer === 'forecast' && ((week.sendCount || 0) > 0 || targeted);
+    const notifyChange = targeted && layer === 'forecast';
     const results = [];
+    const skipped = [];
 
     for (const row of sourceRows) {
+      if (!targeted && layer === 'forecast') {
+        const skip = skipBulkSendReason(row, week);
+        if (skip) {
+          skipped.push({ employeeName: row.employeeName, reason: skip.reason, label: skip.label });
+          results.push({ employeeName: row.employeeName, ok: false, skipped: true, error: skip.label });
+          continue;
+        }
+      }
       const employee = byId.get(String(row.employeeId));
       if (!employee?.email) {
         results.push({ employeeName: row.employeeName, ok: false, error: 'Pas d\'email' });
@@ -1036,8 +1100,9 @@ const sendWeek = async (req, res) => {
         dates,
         week,
         isUpdate,
-        urgent: urgent || layer === 'actual',
+        urgent: urgent || layer === 'actual' || notifyChange,
         layer,
+        notifyChange,
         personalRow: layer === 'actual' ? row : null
       });
       const sent = await emailService.sendEmail(employee.email, mail.subject, mail.html, mail.text);
@@ -1050,7 +1115,7 @@ const sendWeek = async (req, res) => {
     }
 
     const okCount = results.filter((item) => item.ok).length;
-    if (layer === 'forecast') {
+    if (layer === 'forecast' && !targeted) {
       week.status = 'sent';
       week.lastSentAt = new Date();
       week.lastSentBy = req.user?.name || req.user?.email || 'admin';
@@ -1058,10 +1123,6 @@ const sendWeek = async (req, res) => {
       week.lastSendSummary = `${okCount}/${results.length} envoyés`;
       week.validatedAt = week.validatedAt || new Date();
       week.markModified('rows');
-      if (urgent) {
-        week.acknowledgements = [];
-        week.markModified('acknowledgements');
-      }
     }
     await week.save();
 
@@ -1070,9 +1131,10 @@ const sendWeek = async (req, res) => {
       week,
       alerts,
       results,
+      skipped,
       sent: okCount,
       total: results.length,
-      urgent,
+      urgent: urgent || notifyChange,
       layer
     });
   } catch (error) {
@@ -1251,7 +1313,10 @@ const swapWeekRows = async (req, res) => {
       return row;
     });
     week[rowsKey] = nextRows;
-    if (!useActual && week.status !== 'draft') week.status = 'draft';
+    if (!useActual) {
+      if (swappedDays > 0) invalidateAcknowledgements(week, [employeeIdA, employeeIdB]);
+      if (!isPublishedForecast(week) && week.status !== 'draft') week.status = 'draft';
+    }
     week.markModified(rowsKey);
     await week.save();
     res.json({
@@ -1315,7 +1380,7 @@ const toggleHoliday = async (req, res) => {
     week.holidayDates = Array.from(current);
     week.ignoredHolidayDates = Array.from(ignored);
     await syncWeekRows(week, settings);
-    if (week.status !== 'draft') week.status = 'draft';
+    if (!isPublishedForecast(week) && week.status !== 'draft') week.status = 'draft';
     week.markModified('rows');
     week.markModified('holidayDates');
     week.markModified('ignoredHolidayDates');
@@ -1462,10 +1527,24 @@ const acknowledgeWeek = async (req, res) => {
       return res.status(400).json({ success: false, error: 'Ce planning n\'est pas encore validé' });
     }
     const existing = (week.acknowledgements || []).find((item) => String(item.employeeId) === String(employeeId));
-    if (existing) {
+    if (existing && !existing.stale) {
       return res.json({ success: true, already: true, acknowledgement: existing, acknowledgements: week.acknowledgements });
     }
     const employee = await Employee.findById(employeeId).select('name').lean();
+    if (existing && existing.stale) {
+      existing.stale = false;
+      existing.staleAt = undefined;
+      existing.acknowledgedAt = new Date();
+      existing.employeeName = employee?.name || existing.employeeName || req.user?.name || '';
+      week.markModified('acknowledgements');
+      await week.save();
+      return res.json({
+        success: true,
+        already: false,
+        acknowledgement: existing,
+        acknowledgements: week.acknowledgements
+      });
+    }
     const acknowledgement = {
       employeeId,
       employeeName: employee?.name || req.user?.name || '',
