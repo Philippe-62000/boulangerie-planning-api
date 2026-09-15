@@ -666,7 +666,7 @@ function buildPlanningEmail({
       ? `Planning modifié — semaine ${weekNumber}`
       : `Planning semaine ${weekNumber}`);
   const range = dates.length ? `${dates[0].date} → ${dates[dates.length - 1].date}` : '';
-  const sourceRows = isActual && personalRow ? [personalRow] : (week.rows || []);
+  const sourceRows = personalRow ? [personalRow] : (week.rows || []);
   const teamRows = sourceRows.map((row) => {
     const cells = hours.DAYS.map((dayName) => {
       const day = (row.days || []).find((item) => item.day === dayName);
@@ -1089,12 +1089,13 @@ const sendWeek = async (req, res) => {
         }
       }
       const employee = byId.get(String(row.employeeId));
-      if (!employee?.email) {
-        results.push({ employeeName: row.employeeName, ok: false, error: 'Pas d\'email' });
+      const toEmail = String(employee?.email || '').trim();
+      if (!toEmail) {
+        results.push({ employeeName: row.employeeName, ok: false, error: 'Pas d\'email sur la fiche salarié' });
         continue;
       }
       const mail = buildPlanningEmail({
-        employeeName: employee.name,
+        employeeName: employee.name || row.employeeName,
         weekNumber,
         year,
         dates,
@@ -1103,14 +1104,25 @@ const sendWeek = async (req, res) => {
         urgent: urgent || layer === 'actual' || notifyChange,
         layer,
         notifyChange,
-        personalRow: layer === 'actual' ? row : null
+        personalRow: (layer === 'actual' || notifyChange) ? row : null
       });
-      const sent = await emailService.sendEmail(employee.email, mail.subject, mail.html, mail.text);
+      console.log('📧 Planning send', {
+        to: toEmail,
+        name: row.employeeName,
+        weekNumber,
+        year,
+        notifyChange,
+        targeted
+      });
+      const sent = await emailService.sendEmail(toEmail, mail.subject, mail.html, mail.text);
+      const localOnly = String(sent?.messageId || '').startsWith('local_');
       results.push({
-        employeeName: employee.name,
-        email: employee.email,
-        ok: !!sent?.success,
-        error: sent?.success ? null : (sent?.error || 'Envoi impossible')
+        employeeName: employee.name || row.employeeName,
+        email: toEmail,
+        ok: !!sent?.success && !localOnly,
+        error: localOnly
+          ? 'Service e-mail indisponible (non envoyé)'
+          : (sent?.success ? null : (sent?.error || 'Envoi impossible'))
       });
     }
 

@@ -427,12 +427,20 @@ const StaffPlanning = () => {
       });
       applyWeekPayload(response.data);
       setMenu(null);
-      const failed = (response.data.results || []).filter((item) => !item.ok && !item.skipped);
+      const results = response.data.results || [];
+      const failed = results.filter((item) => !item.ok && !item.skipped);
       const skipped = response.data.skipped || [];
-      if (failed.length) {
+      if (targeted) {
+        const result = results[0];
+        if (result?.ok) {
+          toast.success(`Notification envoyée à ${result.email || options.employeeName}`);
+        } else {
+          toast.error(result?.error
+            ? `${options.employeeName || 'Salarié'} : ${result.error}`
+            : 'Notification non envoyée');
+        }
+      } else if (failed.length) {
         toast.warn(`Envoyé à ${response.data.sent}/${response.data.total}. ${failed.length} sans e-mail ou en échec.`);
-      } else if (targeted) {
-        toast.success(`Notification envoyée à ${options.employeeName || 'le salarié'}`);
       } else {
         const skipNote = skipped.length ? ` Non envoyé : ${skipped.map((item) => item.employeeName).join(', ')}.` : '';
         toast.success(sendLayer === 'actual'
@@ -441,25 +449,6 @@ const StaffPlanning = () => {
       }
     } catch (error) {
       toast.error(error.response?.data?.error || 'Envoi impossible');
-    }
-  };
-
-  const duplicate = async () => {
-    const target = addIsoWeeks(weekNumber, year, 1);
-    if (!window.confirm(`Dupliquer la semaine ${weekNumber} vers la semaine ${target.weekNumber} ? Les jours CFA ne sont ni copiés ni écrasés.`)) {
-      return;
-    }
-    try {
-      const response = await api.post(`/staff-planning/week/${year}/${weekNumber}/duplicate`, {
-        targetWeek: target.weekNumber,
-        targetYear: target.year
-      });
-      setWeekNumber(target.weekNumber);
-      setYear(target.year);
-      applyWeekPayload(response.data);
-      toast.success(`Semaine ${target.weekNumber} créée`);
-    } catch (error) {
-      toast.error(error.response?.data?.error || 'Duplication impossible');
     }
   };
 
@@ -775,7 +764,6 @@ const StaffPlanning = () => {
         </button>
         {canEdit && layer === 'forecast' && (
           <>
-            <button type="button" className="btn btn-secondary" onClick={duplicate}>Dupliquer vers la semaine suivante</button>
             <button type="button" className="btn btn-primary" onClick={() => send()} disabled={weekFinished && (week?.sendCount || 0) === 0}>
               {(week?.sendCount || 0) > 0 ? 'Renvoyer aux salariés' : 'Envoyer aux salariés'}
             </button>
