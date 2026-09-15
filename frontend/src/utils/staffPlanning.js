@@ -266,6 +266,58 @@ export function isIsoDayFinished(isoDate, today = todayIsoParis()) {
   return !!isoDate && String(isoDate) < String(today);
 }
 
+export function isFullWeekWithCode(days, code) {
+  const needle = String(code || '').toUpperCase();
+  if (!needle) return false;
+  const list = days || [];
+  if (!list.length) return false;
+  let hasCode = false;
+  for (const day of list) {
+    const value = String(day?.code || '').toUpperCase();
+    if (day?.kind === 'code' && value === needle) {
+      hasCode = true;
+      continue;
+    }
+    if (day?.kind === 'code' && value === 'REPOS') continue;
+    if (!day?.kind || day.kind === 'empty') continue;
+    return false;
+  }
+  return hasCode;
+}
+
+export function listPlanningSendExclusions(rows = [], acknowledgements = []) {
+  const acked = [];
+  const cp = [];
+  const mal = [];
+  (rows || []).filter((row) => !row._group).forEach((row) => {
+    const ack = (acknowledgements || []).find((item) => String(item.employeeId) === String(row.employeeId));
+    if (ack && !ack.stale) {
+      acked.push(row.employeeName);
+      return;
+    }
+    if (isFullWeekWithCode(row.days, 'CP')) {
+      cp.push(row.employeeName);
+      return;
+    }
+    if (isFullWeekWithCode(row.days, 'MAL')) {
+      mal.push(row.employeeName);
+    }
+  });
+  return { acked, cp, mal };
+}
+
+export function formatPlanningSendConfirm(exclusions) {
+  const groups = [
+    exclusions.acked?.length ? `Déjà pris connaissance : ${exclusions.acked.join(', ')}` : '',
+    exclusions.cp?.length ? `Congés toute la semaine : ${exclusions.cp.join(', ')}` : '',
+    exclusions.mal?.length ? `Maladie toute la semaine : ${exclusions.mal.join(', ')}` : ''
+  ].filter(Boolean);
+  if (!groups.length) {
+    return 'Envoyer le planning validé à tous les salariés listés sur cette semaine ?';
+  }
+  return `Le message ne sera pas envoyé à :\n\n${groups.join('\n')}\n\nTous les autres salariés listés sur le planning le recevront. Continuer ?`;
+}
+
 export function isIsoWeekFinished(dates = [], today = todayIsoParis()) {
   const last = dates[dates.length - 1]?.date;
   return !!last && String(last) < String(today);
@@ -293,11 +345,11 @@ export function openPrintHtml(html) {
   return true;
 }
 
-export function buildMonthRecapHtml({ monthLabel, year, month, employees = [] }) {
+export function buildMonthRecapPages({ monthLabel, year, month, employees = [] }) {
   const pages = (employees || []).map((employee) => {
     const rows = (employee.days || []).map((day) => {
       const label = (cellLabel(day) || '—').replace(/\n/g, '<br>');
-      return `<tr><td>${formatShortDate(day.date)} ${day.day || ''}</td><td>${label}</td><td>${formatHours(day.paidHours)}</td></tr>`;
+      return `<tr><td>${formatShortDate(day.date)} ${day.day || ''}</td><td>${label}</td><td>${formatHours(dayDisplayHours(day, employee.contractedHours) || day.paidHours)}</td></tr>`;
     }).join('');
     return `<section class="page">
       <h1>${employee.employeeName || ''}</h1>
@@ -308,18 +360,34 @@ export function buildMonthRecapHtml({ monthLabel, year, month, employees = [] })
       </table>
     </section>`;
   }).join('');
+  const styles = `
+  .month-recap-print .page { page-break-after: always; }
+  .month-recap-print .page:last-child { page-break-after: auto; }
+  .month-recap-print h1, .month-recap-print h2 { font-size: 18px; margin: 0 0 8px; }
+  .month-recap-print .recap-meta { font-size: 16px; font-weight: 700; line-height: 1.35; margin: 0 0 12px; }
+  .month-recap-print p { font-size: 12px; margin: 0 0 10px; }
+  .month-recap-print table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .month-recap-print th, .month-recap-print td { border: 1px solid #333; padding: 5px 6px; }
+  .month-recap-print th { background: #f0f0f0; }
+  .month-recap-print .recap-title { page-break-before: always; font-size: 22px; margin: 0 0 16px; }`;
+  return { monthLabel, year, month, pages, styles };
+}
+
+export function buildMonthRecapHtml(data) {
+  const { monthLabel, year, month, pages, styles } = buildMonthRecapPages(data);
   return `<!DOCTYPE html>
 <html lang="fr"><head><meta charset="UTF-8"><title>Récapitulatif ${monthLabel || `${month}/${year}`}</title>
 <style>
   @page { size: A4 portrait; margin: 12mm; }
   body { font-family: Arial, sans-serif; color: #111; margin: 0; }
-  .page { page-break-after: always; }
-  .page:last-child { page-break-after: auto; }
-  h1 { font-size: 18px; margin: 0 0 8px; }
-  .recap-meta { font-size: 16px; font-weight: 700; line-height: 1.35; margin: 0 0 12px; }
-  p { font-size: 12px; margin: 0 0 10px; }
-  table { width: 100%; border-collapse: collapse; font-size: 12px; }
-  th, td { border: 1px solid #333; padding: 5px 6px; }
-  th { background: #f0f0f0; }
-</style></head><body>${pages}</body></html>`;
+  ${styles}
+</style></head><body><div class="month-recap-print">${pages}</div></body></html>`;
+}
+
+export function buildMonthRecapPrintFragment(data) {
+  const { monthLabel, pages, styles } = buildMonthRecapPages(data);
+  return {
+    styles,
+    html: `<div class="month-recap-print"><h2 class="recap-title">Récapitulatif mensuel des horaires — ${monthLabel || ''}</h2>${pages}</div>`
+  };
 }

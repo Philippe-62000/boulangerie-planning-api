@@ -2216,9 +2216,11 @@
             if (ackBox) {
                 if (actualReady) {
                     ackBox.innerHTML = '';
-                } else if (ack && ack.acknowledgedAt) {
+                } else if (ack && ack.acknowledgedAt && !ack.stale) {
                     const when = new Date(ack.acknowledgedAt);
                     ackBox.innerHTML = `<div class="emp-plan-ack done">Prise de connaissance enregistrée le ${when.toLocaleDateString('fr-FR')} à ${when.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}.</div>`;
+                } else if (ack && ack.stale) {
+                    ackBox.innerHTML = `<div class="emp-plan-ack">Le planning a été modifié. Merci d’en prendre à nouveau connaissance.</div><button type="button" class="btn btn-primary" onclick="acknowledgePlanning()">J’ai pris connaissance du planning modifié</button>`;
                 } else {
                     ackBox.innerHTML = `<button type="button" class="btn btn-primary" onclick="acknowledgePlanning()">J’ai pris connaissance du planning</button>`;
                 }

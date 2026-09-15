@@ -88,7 +88,9 @@ const staffWeekPlanningSchema = new mongoose.Schema({
     type: [{
       employeeId: { type: mongoose.Schema.Types.ObjectId, ref: 'Employee' },
       employeeName: { type: String, default: '' },
-      acknowledgedAt: { type: Date, default: Date.now }
+      acknowledgedAt: { type: Date, default: Date.now },
+      stale: { type: Boolean, default: false },
+      staleAt: { type: Date }
     }],
     default: []
   },
