@@ -285,14 +285,23 @@ export function isFullWeekWithCode(days, code) {
   return hasCode;
 }
 
+export function isChangeNotified(ack) {
+  return !!(ack && ack.stale && ack.changeNotifiedAt);
+}
+
 export function listPlanningSendExclusions(rows = [], acknowledgements = []) {
   const acked = [];
+  const notified = [];
   const cp = [];
   const mal = [];
   (rows || []).filter((row) => !row._group).forEach((row) => {
     const ack = (acknowledgements || []).find((item) => String(item.employeeId) === String(row.employeeId));
     if (ack && !ack.stale) {
       acked.push(row.employeeName);
+      return;
+    }
+    if (isChangeNotified(ack)) {
+      notified.push(row.employeeName);
       return;
     }
     if (isFullWeekWithCode(row.days, 'CP')) {
@@ -303,12 +312,13 @@ export function listPlanningSendExclusions(rows = [], acknowledgements = []) {
       mal.push(row.employeeName);
     }
   });
-  return { acked, cp, mal };
+  return { acked, notified, cp, mal };
 }
 
 export function formatPlanningSendConfirm(exclusions) {
   const groups = [
     exclusions.acked?.length ? `Déjà pris connaissance : ${exclusions.acked.join(', ')}` : '',
+    exclusions.notified?.length ? `Notification déjà envoyée : ${exclusions.notified.join(', ')}` : '',
     exclusions.cp?.length ? `Congés toute la semaine : ${exclusions.cp.join(', ')}` : '',
     exclusions.mal?.length ? `Maladie toute la semaine : ${exclusions.mal.join(', ')}` : ''
   ].filter(Boolean);

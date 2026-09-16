@@ -14,6 +14,7 @@ import {
   getISOWeekInfo,
   cpHoursForContract,
   hoursMatchContract,
+  isChangeNotified,
   overtimeFromPaid,
   planningWords,
   rowCpHours,
@@ -886,14 +887,17 @@ const StaffPlanning = () => {
                     const ack = (week?.acknowledgements || []).find((item) => String(item.employeeId) === String(row.employeeId));
                     const signed = (week?.actualSignatures || []).find((item) => String(item.employeeId) === String(row.employeeId));
                     const ackCurrent = ack && !ack.stale;
+                    const changeNotified = isChangeNotified(ack);
                     const nameStatus = signed ? 'sp-name-signed' : (ackCurrent ? 'sp-name-ack' : (ack?.stale ? 'sp-name-stale' : ''));
                     const nameTitle = signed
                       ? `Planning réel signé le ${new Date(signed.signedAt).toLocaleString('fr-FR')}`
                       : (ackCurrent
                         ? `Prise de connaissance le ${new Date(ack.acknowledgedAt).toLocaleString('fr-FR')}`
-                        : (ack?.stale
-                          ? 'Planning modifié depuis la prise de connaissance'
-                          : 'Menu du salarié — glisser pour ranger'));
+                        : (changeNotified
+                          ? `Notification envoyée le ${new Date(ack.changeNotifiedAt).toLocaleString('fr-FR')}`
+                          : (ack?.stale
+                            ? 'Planning modifié depuis la prise de connaissance'
+                            : 'Menu du salarié — glisser pour ranger')));
                     return (
                       <tr
                         key={row.employeeId}
@@ -917,7 +921,7 @@ const StaffPlanning = () => {
                           )}
                           <strong>{row.employeeName}</strong>
                           <small>{row.contractedHours}h</small>
-                          {canEdit && layer === 'forecast' && ack?.stale && (
+                          {canEdit && layer === 'forecast' && ack?.stale && !changeNotified && (
                             <button
                               type="button"
                               className="sp-notify-btn"
@@ -933,6 +937,14 @@ const StaffPlanning = () => {
                             >
                               Envoyer notification
                             </button>
+                          )}
+                          {layer === 'forecast' && changeNotified && (
+                            <span className="sp-notify-done">
+                              Notification envoyée
+                              {ack.changeNotifiedAt
+                                ? ` le ${new Date(ack.changeNotifiedAt).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })}`
+                                : ''}
+                            </span>
                           )}
                         </td>
                         {DAYS.map((dayName) => {
@@ -1026,8 +1038,12 @@ const StaffPlanning = () => {
               <>
                 {ack && (
                   <p className="sp-ctx-meta">
-                    {ack.stale ? 'Planning modifié depuis la prise de connaissance' : 'Prise de connaissance'}
-                    {ack.acknowledgedAt ? ` — ${new Date(ack.acknowledgedAt).toLocaleString('fr-FR')}` : ''}
+                    {isChangeNotified(ack)
+                      ? 'Notification envoyée'
+                      : (ack.stale ? 'Planning modifié depuis la prise de connaissance' : 'Prise de connaissance')}
+                    {isChangeNotified(ack) && ack.changeNotifiedAt
+                      ? ` — ${new Date(ack.changeNotifiedAt).toLocaleString('fr-FR')}`
+                      : (ack.acknowledgedAt ? ` — ${new Date(ack.acknowledgedAt).toLocaleString('fr-FR')}` : '')}
                   </p>
                 )}
                 {signed && (
@@ -1039,7 +1055,7 @@ const StaffPlanning = () => {
               </>
             );
           })()}
-          {canEdit && layer === 'forecast' && (week?.acknowledgements || []).some((item) => String(item.employeeId) === String(menu.employeeId) && item.stale) && (
+          {canEdit && layer === 'forecast' && (week?.acknowledgements || []).some((item) => String(item.employeeId) === String(menu.employeeId) && item.stale && !item.changeNotifiedAt) && (
             <button
               type="button"
               onClick={() => send({

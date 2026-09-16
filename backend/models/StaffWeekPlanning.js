@@ -90,7 +90,9 @@ const staffWeekPlanningSchema = new mongoose.Schema({
       employeeName: { type: String, default: '' },
       acknowledgedAt: { type: Date, default: Date.now },
       stale: { type: Boolean, default: false },
-      staleAt: { type: Date }
+      staleAt: { type: Date },
+      changeNotifiedAt: { type: Date },
+      changeNotifiedTo: { type: String, default: '' }
     }],
     default: []
   },

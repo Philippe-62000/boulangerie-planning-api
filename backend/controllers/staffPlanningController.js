@@ -48,12 +48,16 @@ function invalidateAcknowledgements(week, employeeIds) {
   let changed = false;
   week.acknowledgements = (week.acknowledgements || []).map((item) => {
     const plain = toPlain(item);
-    if (!ids.has(String(plain.employeeId)) || plain.stale) return item;
+    if (!ids.has(String(plain.employeeId))) return item;
+    const waitingWithoutMail = plain.stale && !plain.changeNotifiedAt;
+    if (waitingWithoutMail) return item;
     changed = true;
     return {
       ...plain,
       stale: true,
-      staleAt: new Date()
+      staleAt: new Date(),
+      changeNotifiedAt: null,
+      changeNotifiedTo: ''
     };
   });
   if (changed) week.markModified('acknowledgements');
@@ -63,9 +67,30 @@ function invalidateAcknowledgements(week, employeeIds) {
 function skipBulkSendReason(row, week) {
   const ack = (week.acknowledgements || []).find((item) => String(item.employeeId) === String(row.employeeId));
   if (ack && !ack.stale) return { reason: 'acked', label: 'Déjà pris connaissance' };
+  if (ack && ack.stale && ack.changeNotifiedAt) {
+    return { reason: 'notified', label: 'Notification déjà envoyée' };
+  }
   if (hours.isFullWeekWithCode(row.days, 'CP')) return { reason: 'cp', label: 'Congés toute la semaine' };
   if (hours.isFullWeekWithCode(row.days, 'MAL')) return { reason: 'mal', label: 'Maladie toute la semaine' };
   return null;
+}
+
+function stampChangeNotifications(week, results) {
+  if (!week || !Array.isArray(results) || !results.length) return false;
+  const byId = new Map(
+    (week.acknowledgements || []).map((item) => [String(item.employeeId), item])
+  );
+  let changed = false;
+  results.forEach((result) => {
+    if (!result?.ok || !result.employeeId) return;
+    const ack = byId.get(String(result.employeeId));
+    if (!ack || !ack.stale) return;
+    ack.changeNotifiedAt = new Date();
+    ack.changeNotifiedTo = result.email || ack.changeNotifiedTo || '';
+    changed = true;
+  });
+  if (changed) week.markModified('acknowledgements');
+  return changed;
 }
 
 function holidayDatesOf(week) {
@@ -1117,6 +1142,7 @@ const sendWeek = async (req, res) => {
       const sent = await emailService.sendEmail(toEmail, mail.subject, mail.html, mail.text);
       const localOnly = String(sent?.messageId || '').startsWith('local_');
       results.push({
+        employeeId: String(row.employeeId),
         employeeName: employee.name || row.employeeName,
         email: toEmail,
         ok: !!sent?.success && !localOnly,
@@ -1136,6 +1162,7 @@ const sendWeek = async (req, res) => {
       week.validatedAt = week.validatedAt || new Date();
       week.markModified('rows');
     }
+    if (layer === 'forecast') stampChangeNotifications(week, results);
     await week.save();
 
     res.json({
@@ -1546,6 +1573,8 @@ const acknowledgeWeek = async (req, res) => {
     if (existing && existing.stale) {
       existing.stale = false;
       existing.staleAt = undefined;
+      existing.changeNotifiedAt = null;
+      existing.changeNotifiedTo = '';
       existing.acknowledgedAt = new Date();
       existing.employeeName = employee?.name || existing.employeeName || req.user?.name || '';
       week.markModified('acknowledgements');
