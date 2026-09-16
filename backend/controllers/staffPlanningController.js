@@ -25,10 +25,18 @@ function settingsPlain(doc) {
     ot50FromHour: json.ot50FromHour,
     defaultCfaCode: json.defaultCfaCode || 'CFA8',
     employeeOrder: Array.isArray(json.employeeOrder) ? json.employeeOrder.map(String) : [],
+    testMode: !!json.testMode,
+    testEmployeeIds: Array.isArray(json.testEmployeeIds) ? json.testEmployeeIds.map(String) : [],
     words: (json.words || []).filter((word) => (
       word && String(word.code).toUpperCase() !== 'FERIE' && word.category !== 'ferie'
     ))
   };
+}
+
+function canNotifyEmployee(settings, employeeId) {
+  if (!settings?.testMode) return true;
+  const allowed = new Set((settings.testEmployeeIds || []).map(String).filter(Boolean));
+  return allowed.has(String(employeeId || ''));
 }
 
 function toPlain(doc) {
@@ -789,6 +797,12 @@ const updateSettings = async (req, res) => {
         }
       }
     });
+    if (body.testMode !== undefined) doc.testMode = !!body.testMode;
+    if (Array.isArray(body.testEmployeeIds)) {
+      doc.testEmployeeIds = body.testEmployeeIds
+        .map(String)
+        .filter((id) => /^[a-f0-9]{24}$/i.test(id));
+    }
     if (Array.isArray(body.words)) {
       doc.words = body.words
         .filter((word) => (
@@ -860,24 +874,33 @@ const getPublishedWeek = async (req, res) => {
       week.actualRows,
       employeeId
     );
-    const myAcknowledgement = (week.acknowledgements || []).find((item) => String(item.employeeId) === String(employeeId)) || null;
+    const notifyAllowed = canNotifyEmployee(settings, employeeId);
+    const myAcknowledgementRaw = (week.acknowledgements || []).find((item) => String(item.employeeId) === String(employeeId)) || null;
+    const myAcknowledgement = !notifyAllowed && myAcknowledgementRaw?.stale
+      ? { ...myAcknowledgementRaw, stale: false }
+      : myAcknowledgementRaw;
     const myActualSignature = signatureForEmployee(
       (week.actualSignatures || []).find((item) => String(item.employeeId) === String(employeeId))
     );
+    const actualValidated = notifyAllowed && week.actualStatus === 'validated';
     res.json({
       success: true,
       published: true,
+      planningNotifyAllowed: notifyAllowed,
       week: {
         ...week,
         rows: visibleRows,
-        actualRows: visibleActual,
-        actualSignatures: (week.actualSignatures || [])
-          .filter((item) => String(item.employeeId) === String(employeeId))
-          .map((item) => ({
-            employeeId: item.employeeId,
-            employeeName: item.employeeName,
-            signedAt: item.signedAt
-          }))
+        actualRows: actualValidated ? visibleActual : [],
+        actualStatus: actualValidated ? week.actualStatus : (week.actualStatus === 'validated' ? 'draft' : week.actualStatus),
+        actualSignatures: actualValidated
+          ? (week.actualSignatures || [])
+            .filter((item) => String(item.employeeId) === String(employeeId))
+            .map((item) => ({
+              employeeId: item.employeeId,
+              employeeName: item.employeeName,
+              signedAt: item.signedAt
+            }))
+          : []
       },
       dates,
       weekNumber: week.weekNumber,
@@ -885,8 +908,8 @@ const getPublishedWeek = async (req, res) => {
       settings,
       acknowledgements: week.acknowledgements || [],
       myAcknowledgement,
-      myActualSignature,
-      actualValidated: week.actualStatus === 'validated',
+      myActualSignature: actualValidated ? myActualSignature : null,
+      actualValidated,
       holidayLabels: frenchHolidays.holidayLabelsForIsoDates(dates.map((item) => item.date))
     });
   } catch (error) {
@@ -1095,6 +1118,7 @@ const sendWeek = async (req, res) => {
     if (targeted && !sourceRows.length) {
       return res.status(404).json({ success: false, error: 'Salarié absent de cette semaine' });
     }
+    const settings = settingsPlain(await StaffPlanningSettings.getSingleton());
     const employees = await Employee.find({
       _id: { $in: sourceRows.map((row) => row.employeeId) }
     }).select('name email').lean();
@@ -1105,6 +1129,17 @@ const sendWeek = async (req, res) => {
     const skipped = [];
 
     for (const row of sourceRows) {
+      if (!canNotifyEmployee(settings, row.employeeId)) {
+        skipped.push({ employeeName: row.employeeName, reason: 'test', label: 'Mode test' });
+        results.push({
+          employeeId: String(row.employeeId),
+          employeeName: row.employeeName,
+          ok: false,
+          skipped: true,
+          error: 'Mode test : salarié non inclus'
+        });
+        continue;
+      }
       if (!targeted && layer === 'forecast') {
         const skip = skipBulkSendReason(row, week);
         if (skip) {
@@ -1174,7 +1209,8 @@ const sendWeek = async (req, res) => {
       sent: okCount,
       total: results.length,
       urgent: urgent || notifyChange,
-      layer
+      layer,
+      testMode: !!settings.testMode
     });
   } catch (error) {
     console.error('staff-planning send', error);
@@ -1565,6 +1601,10 @@ const acknowledgeWeek = async (req, res) => {
     if (!['validated', 'sent'].includes(week.status)) {
       return res.status(400).json({ success: false, error: 'Ce planning n\'est pas encore validé' });
     }
+    const settings = settingsPlain(await StaffPlanningSettings.getSingleton());
+    if (!canNotifyEmployee(settings, employeeId)) {
+      return res.status(403).json({ success: false, error: 'Mode test : cette notification n\'est pas ouverte sur ce compte' });
+    }
     const existing = (week.acknowledgements || []).find((item) => String(item.employeeId) === String(employeeId));
     if (existing && !existing.stale) {
       return res.json({ success: true, already: true, acknowledgement: existing, acknowledgements: week.acknowledgements });
@@ -1617,6 +1657,10 @@ const signActualWeek = async (req, res) => {
     if (!week) return res.status(404).json({ success: false, error: 'Planning introuvable' });
     if (week.actualStatus !== 'validated') {
       return res.status(400).json({ success: false, error: 'Le planning réel n\'est pas encore validé par le magasin' });
+    }
+    const settings = settingsPlain(await StaffPlanningSettings.getSingleton());
+    if (!canNotifyEmployee(settings, employeeId)) {
+      return res.status(403).json({ success: false, error: 'Mode test : la signature n\'est pas ouverte sur ce compte' });
     }
     const row = (week.actualRows || []).find((item) => String(item.employeeId) === String(employeeId));
     if (!row) {
@@ -1701,14 +1745,20 @@ const validateActualWeek = async (req, res) => {
     week.markModified('actualRows');
     await week.save();
     const dates = hours.weekDates(weekNumber, year);
+    const settings = settingsPlain(await StaffPlanningSettings.getSingleton());
     const employees = await Employee.find({
       _id: { $in: (week.actualRows || []).map((row) => row.employeeId) }
     }).select('name email').lean();
     const byId = new Map(employees.map((employee) => [String(employee._id), employee]));
     const mailResults = [];
     for (const row of week.actualRows || []) {
+      if (!canNotifyEmployee(settings, row.employeeId)) {
+        mailResults.push({ employeeName: row.employeeName, ok: false, skipped: true, error: 'Mode test' });
+        continue;
+      }
       const employee = byId.get(String(row.employeeId));
-      if (!employee?.email) continue;
+      const toEmail = String(employee?.email || '').trim();
+      if (!toEmail) continue;
       const mail = buildPlanningEmail({
         employeeName: employee.name,
         weekNumber,
@@ -1720,16 +1770,23 @@ const validateActualWeek = async (req, res) => {
         layer: 'actual',
         personalRow: row
       });
-      const sent = await emailService.sendEmail(employee.email, mail.subject, mail.html, mail.text);
-      mailResults.push({ employeeName: employee.name, ok: !!sent?.success });
+      const sent = await emailService.sendEmail(toEmail, mail.subject, mail.html, mail.text);
+      const localOnly = String(sent?.messageId || '').startsWith('local_');
+      mailResults.push({
+        employeeName: employee.name,
+        email: toEmail,
+        ok: !!sent?.success && !localOnly
+      });
     }
     res.json({
       success: true,
       week,
+      settings,
       lock: lockInfo(dates),
       alerts: collectAlerts({ rows: week.actualRows }),
       mailed: mailResults.filter((item) => item.ok).length,
-      mailTotal: mailResults.length
+      mailTotal: mailResults.length,
+      testMode: !!settings.testMode
     });
   } catch (error) {
     console.error('staff-planning validate actual', error);

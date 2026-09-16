@@ -554,6 +554,16 @@
   line-height: 1.25;
 }
 
+.sp-test-banner {
+  margin: 0 0 0.75rem;
+  padding: 0.7rem 0.9rem;
+  background: #fff7ed;
+  border: 1px solid #fdba74;
+  color: #9a3412;
+  border-radius: 8px;
+  font-weight: 700;
+}
+
 .sp-ctx-meta {
   margin: 0 0 0.45rem;
   font-size: 0.75rem;

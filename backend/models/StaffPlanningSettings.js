@@ -28,6 +28,8 @@ const staffPlanningSettingsSchema = new mongoose.Schema({
   ot50FromHour: { type: Number, default: 44, min: 1, max: 80 },
   defaultCfaCode: { type: String, default: 'CFA8' },
   employeeOrder: { type: [String], default: [] },
+  testMode: { type: Boolean, default: false },
+  testEmployeeIds: { type: [mongoose.Schema.Types.ObjectId], ref: 'Employee', default: [] },
   words: { type: [wordSchema], default: defaultWords }
 }, { timestamps: true });
 

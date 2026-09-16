@@ -69,7 +69,8 @@ const PlanningParametersTab = () => {
   const save = async () => {
     setSaving(true);
     try {
-      const response = await api.put('/staff-planning/settings', settings);
+      const { testMode: _testMode, testEmployeeIds: _testEmployeeIds, ...planningSettings } = settings;
+      const response = await api.put('/staff-planning/settings', planningSettings);
       setSettings(response.data.settings);
       toast.success('Paramètres planning enregistrés');
     } catch (error) {

@@ -285,6 +285,19 @@ export function isFullWeekWithCode(days, code) {
   return hasCode;
 }
 
+export function formatTestModeSendNote(settings, rows = []) {
+  if (!settings?.testMode) return '';
+  const ids = new Set((settings.testEmployeeIds || []).map(String));
+  const names = (rows || [])
+    .filter((row) => ids.has(String(row.employeeId)))
+    .map((row) => row.employeeName)
+    .filter(Boolean);
+  if (!names.length) {
+    return '\n\nMODE TEST : aucun salarié coché — personne ne recevra le mail ni la notification.';
+  }
+  return `\n\nMODE TEST : mail et notification uniquement pour ${names.join(', ')}.`;
+}
+
 export function isChangeNotified(ack) {
   return !!(ack && ack.stale && ack.changeNotifiedAt);
 }

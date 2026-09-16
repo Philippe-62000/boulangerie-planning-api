@@ -24,6 +24,7 @@ import {
   dayDisplayHours,
   buildShopPrintHtml,
   formatPlanningSendConfirm,
+  formatTestModeSendNote,
   groupRowsByCategory,
   isIsoDayFinished,
   listPlanningSendExclusions,
@@ -408,17 +409,17 @@ const StaffPlanning = () => {
     if (sendLayer === 'forecast' && !urgent && !targeted && !confirmAlerts('Envoyer')) return;
     if (targeted) {
       const name = options.employeeName || 'ce salarié';
-      if (!window.confirm(`Envoyer une notification à ${name} ?\nLe planning en cours a été modifié : merci d’en prendre connaissance.`)) {
+      if (!window.confirm(`Envoyer une notification à ${name} ?\nLe planning en cours a été modifié : merci d’en prendre connaissance.${formatTestModeSendNote(settings, displayedRows)}`)) {
         return;
       }
     } else if (sendLayer === 'forecast' && !urgent) {
       const exclusions = listPlanningSendExclusions(week?.rows || [], week?.acknowledgements || []);
-      if (!window.confirm(formatPlanningSendConfirm(exclusions))) return;
+      if (!window.confirm(`${formatPlanningSendConfirm(exclusions)}${formatTestModeSendNote(settings, week?.rows || [])}`)) return;
     } else {
       const confirmLabel = sendLayer === 'actual'
         ? 'Envoyer un e-mail URGENT à chaque salarié pour qu’il signe son planning réel ?'
         : 'Le planning a été modifié : envoyer un e-mail URGENT à tous les salariés ?';
-      if (!window.confirm(confirmLabel)) return;
+      if (!window.confirm(`${confirmLabel}${formatTestModeSendNote(settings, displayedRows)}`)) return;
     }
     try {
       const response = await api.post(`/staff-planning/week/${year}/${weekNumber}/send`, {
@@ -434,7 +435,7 @@ const StaffPlanning = () => {
       if (targeted) {
         const result = results[0];
         if (result?.ok) {
-          toast.success(`Notification envoyée à ${result.email || options.employeeName}`);
+          toast.success(`Notification envoyée à ${result.email || options.employeeName}${response.data.testMode ? ' (mode test)' : ''}`);
         } else {
           toast.error(result?.error
             ? `${options.employeeName || 'Salarié'} : ${result.error}`
@@ -444,9 +445,10 @@ const StaffPlanning = () => {
         toast.warn(`Envoyé à ${response.data.sent}/${response.data.total}. ${failed.length} sans e-mail ou en échec.`);
       } else {
         const skipNote = skipped.length ? ` Non envoyé : ${skipped.map((item) => item.employeeName).join(', ')}.` : '';
+        const testNote = response.data.testMode ? ' Mode test.' : '';
         toast.success(sendLayer === 'actual'
-          ? `E-mail envoyé à ${response.data.sent} salarié(s) pour signature`
-          : `Planning envoyé à ${response.data.sent} salarié(s).${skipNote}`);
+          ? `E-mail envoyé à ${response.data.sent} salarié(s) pour signature.${testNote}`
+          : `Planning envoyé à ${response.data.sent} salarié(s).${skipNote}${testNote}`);
       }
     } catch (error) {
       toast.error(error.response?.data?.error || 'Envoi impossible');
@@ -510,7 +512,7 @@ const StaffPlanning = () => {
   };
 
   const validateActual = async () => {
-    if (!window.confirm('Valider le planning réel ? Il ne sera plus modifiable. Un e-mail URGENT partira pour que chaque salarié le signe sur son téléphone.')) {
+    if (!window.confirm(`Valider le planning réel ? Il ne sera plus modifiable. Un e-mail URGENT partira pour que chaque salarié le signe sur son téléphone.${formatTestModeSendNote(settings, week?.actualRows || displayedRows)}`)) {
       return;
     }
     try {
@@ -518,7 +520,7 @@ const StaffPlanning = () => {
       applyWeekPayload(response.data);
       const mailed = Number(response.data.mailed) || 0;
       toast.success(mailed
-        ? `Planning réel validé — e-mail envoyé à ${mailed} salarié(s)`
+        ? `Planning réel validé — e-mail envoyé à ${mailed} salarié(s)${response.data.testMode ? ' (mode test)' : ''}`
         : 'Planning réel validé');
     } catch (error) {
       toast.error(error.response?.data?.error || 'Validation du planning réel impossible');
@@ -697,6 +699,12 @@ const StaffPlanning = () => {
 
   return (
     <div className="staff-planning">
+      {settings?.testMode && (
+        <div className="sp-test-banner no-print">
+          Mode test activé — mails et notifications uniquement pour les salariés cochés dans Paramètres.
+          {formatTestModeSendNote(settings, displayedRows).replace(/^\s*MODE TEST : /, ' ')}
+        </div>
+      )}
       <div className="sp-toolbar no-print">
         <div>
           <h2>Planning</h2>
