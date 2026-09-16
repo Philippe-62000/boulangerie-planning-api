@@ -2144,7 +2144,9 @@
             const mineBtn = document.getElementById('planMineBtn');
             const allBtn = document.getElementById('planAllBtn');
             const teamNav = document.getElementById('planTeamNav');
-            const actualReady = !!(data.actualValidated || (data.week && data.week.actualStatus === 'validated'));
+            const actualReady = data.planningNotifyAllowed === false
+                ? false
+                : !!(data.actualValidated || (data.week && data.week.actualStatus === 'validated'));
             if (titleEl) titleEl.textContent = actualReady ? '📅 Planning réel' : '📅 Planning';
             if (teamNav) teamNav.style.display = actualReady ? 'none' : '';
             if (mineBtn && allBtn) {
@@ -2214,7 +2216,14 @@
                 : `<div class="emp-plan-empty">${actualReady ? 'Votre planning réel n’est pas encore disponible pour cette semaine.' : 'Votre ligne n’apparaît pas encore sur ce planning.'}</div>`;
             const ack = data.myAcknowledgement || (data.acknowledgements || []).find((item) => String(item.employeeId) === myId);
             if (ackBox) {
-                if (actualReady) {
+                if (data.planningNotifyAllowed === false) {
+                    if (ack && ack.acknowledgedAt && !ack.stale) {
+                        const when = new Date(ack.acknowledgedAt);
+                        ackBox.innerHTML = `<div class="emp-plan-ack done">Prise de connaissance enregistrée le ${when.toLocaleDateString('fr-FR')} à ${when.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}.</div>`;
+                    } else {
+                        ackBox.innerHTML = '';
+                    }
+                } else if (actualReady) {
                     ackBox.innerHTML = '';
                 } else if (ack && ack.acknowledgedAt && !ack.stale) {
                     const when = new Date(ack.acknowledgedAt);

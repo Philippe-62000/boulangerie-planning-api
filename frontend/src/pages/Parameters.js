@@ -6,6 +6,7 @@ import './Parameters-email-styles.css';
 import './Parameters-tabs-styles.css';
 import CamarisManagersSettings from '../components/CamarisManagersSettings';
 import PlanningParametersTab from '../components/PlanningParametersTab';
+import PlanningTestModeCard from '../components/PlanningTestModeCard';
 
 const isLonguenesseSite = () =>
   typeof window !== 'undefined' && window.location.pathname.startsWith('/lon');
@@ -799,6 +800,8 @@ const Parameters = () => {
       <div className="page-header">
         <h2>⚙️ Paramètres</h2>
       </div>
+
+      <PlanningTestModeCard />
 
       {/* Navigation par onglets */}
       <div className="tabs-navigation">
