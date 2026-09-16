@@ -1744,6 +1744,19 @@
         let planYear = null;
         let planShowAll = false;
         let lastPublishedData = null;
+        (function initPlanWeekFromUrl() {
+            try {
+                const params = new URLSearchParams(window.location.search || '');
+                const week = parseInt(params.get('week'), 10);
+                const year = parseInt(params.get('year'), 10);
+                if (week && year) {
+                    planWeekNumber = week;
+                    planYear = year;
+                }
+            } catch (error) {
+                console.warn('Impossible de lire la semaine dans l’URL', error);
+            }
+        })();
 
         // Vérifier l'authentification au chargement
         document.addEventListener('DOMContentLoaded', async () => {

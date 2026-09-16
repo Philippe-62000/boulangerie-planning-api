@@ -31,6 +31,7 @@ import {
   openPrintHtml,
   todayIsoParis
 } from '../utils/staffPlanning';
+import PlanningTestModeCard from '../components/PlanningTestModeCard';
 import './StaffPlanning.css';
 
 function splitHm(value) {
@@ -417,8 +418,8 @@ const StaffPlanning = () => {
       if (!window.confirm(`${formatPlanningSendConfirm(exclusions)}${formatTestModeSendNote(settings, week?.rows || [])}`)) return;
     } else {
       const confirmLabel = sendLayer === 'actual'
-        ? 'Envoyer un e-mail URGENT à chaque salarié pour qu’il signe son planning réel ?'
-        : 'Le planning a été modifié : envoyer un e-mail URGENT à tous les salariés ?';
+        ? 'Envoyer un e-mail à chaque salarié pour qu’il signe son planning réel ?'
+        : 'Le planning a été modifié : envoyer un e-mail à tous les salariés ?';
       if (!window.confirm(`${confirmLabel}${formatTestModeSendNote(settings, displayedRows)}`)) return;
     }
     try {
@@ -512,7 +513,7 @@ const StaffPlanning = () => {
   };
 
   const validateActual = async () => {
-    if (!window.confirm(`Valider le planning réel ? Il ne sera plus modifiable. Un e-mail URGENT partira pour que chaque salarié le signe sur son téléphone.${formatTestModeSendNote(settings, week?.actualRows || displayedRows)}`)) {
+    if (!window.confirm(`Valider le planning réel ? Il ne sera plus modifiable. Un e-mail partira pour que chaque salarié le signe sur son téléphone.${formatTestModeSendNote(settings, week?.actualRows || displayedRows)}`)) {
       return;
     }
     try {
@@ -1029,6 +1030,12 @@ const StaffPlanning = () => {
               </li>
             ))}
           </ul>
+        </div>
+      )}
+
+      {canEdit && (
+        <div className="no-print" style={{ marginTop: '1.5rem' }}>
+          <PlanningTestModeCard />
         </div>
       )}
 
