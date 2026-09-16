@@ -1154,6 +1154,20 @@ const sendWeek = async (req, res) => {
           continue;
         }
       }
+      if (!targeted && layer === 'actual') {
+        const signed = (week.actualSignatures || []).some((item) => String(item.employeeId) === String(row.employeeId));
+        if (signed) {
+          skipped.push({ employeeName: row.employeeName, reason: 'signed', label: 'Déjà signé' });
+          results.push({
+            employeeId: String(row.employeeId),
+            employeeName: row.employeeName,
+            ok: false,
+            skipped: true,
+            error: 'Déjà signé'
+          });
+          continue;
+        }
+      }
       const employee = byId.get(String(row.employeeId));
       const toEmail = String(employee?.email || '').trim();
       if (!toEmail) {

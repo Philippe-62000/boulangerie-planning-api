@@ -341,6 +341,18 @@ export function formatPlanningSendConfirm(exclusions) {
   return `Le message ne sera pas envoyé à :\n\n${groups.join('\n')}\n\nTous les autres salariés listés sur le planning le recevront. Continuer ?`;
 }
 
+export function listUnsignedActualEmployees(rows = [], signatures = []) {
+  const signedIds = new Set((signatures || []).map((item) => String(item.employeeId)));
+  return (rows || []).filter((row) => !row._group && !signedIds.has(String(row.employeeId)));
+}
+
+export function formatActualReminderConfirm(signedNames = []) {
+  if (!signedNames.length) {
+    return 'Envoyer une relance de signature aux salariés qui n’ont pas encore signé leur planning réel ?';
+  }
+  return `Le message ne sera pas envoyé à ceux qui ont déjà signé :\n\n${signedNames.join(', ')}\n\nLes autres recevront une relance. Continuer ?`;
+}
+
 export function isIsoWeekFinished(dates = [], today = todayIsoParis()) {
   const last = dates[dates.length - 1]?.date;
   return !!last && String(last) < String(today);
