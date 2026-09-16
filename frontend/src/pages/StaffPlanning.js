@@ -806,33 +806,6 @@ const StaffPlanning = () => {
         <span className="sp-legend-item sp-legend-ack">Prise de connaissance (prévu)</span>
         <span className="sp-legend-item sp-legend-signed">Planning réel signé</span>
       </div>
-      {(week?.actualSignatures || []).length > 0 && (
-        <div className="sp-alerts no-print sp-sign-list">
-          <h3>Signatures du planning réel</h3>
-          <ul>
-            {(week.actualSignatures || []).map((item) => (
-              <li key={String(item.employeeId)}>
-                <div>
-                  <strong>{item.employeeName}</strong>
-                  {' — '}
-                  {item.signedAt ? new Date(item.signedAt).toLocaleString('fr-FR') : ''}
-                </div>
-                {item.snapshot ? (
-                  <small>
-                    Semaine signée : {formatHours(item.snapshot.weeklyAccountantHours || item.snapshot.weeklyPaidHours)} / {formatHours(item.snapshot.contractedHours)}
-                    {Number(item.snapshot.recupHours)
-                      ? ` · récup ${Number(item.snapshot.recupHours) > 0 ? '+' : ''}${formatHours(item.snapshot.recupHours)}`
-                      : ''}
-                  </small>
-                ) : null}
-                {item.signatureDataUrl ? (
-                  <img src={item.signatureDataUrl} alt={`Signature ${item.employeeName}`} className="sp-sign-thumb" />
-                ) : null}
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
 
       <div className="sp-print-header">
         <h1>Planning semaine {weekNumber} — {formatDayRange(dates)}</h1>
@@ -1062,10 +1035,23 @@ const StaffPlanning = () => {
                   </p>
                 )}
                 {signed && (
-                  <p className="sp-ctx-meta">
-                    Planning réel signé
-                    {signed.signedAt ? ` — ${new Date(signed.signedAt).toLocaleString('fr-FR')}` : ''}
-                  </p>
+                  <div className="sp-ctx-sign">
+                    <p className="sp-ctx-meta">
+                      Planning réel signé
+                      {signed.signedAt ? ` — ${new Date(signed.signedAt).toLocaleString('fr-FR')}` : ''}
+                    </p>
+                    {signed.snapshot ? (
+                      <p className="sp-ctx-meta">
+                        Semaine signée : {formatHours(signed.snapshot.weeklyAccountantHours || signed.snapshot.weeklyPaidHours)} / {formatHours(signed.snapshot.contractedHours)}
+                        {Number(signed.snapshot.recupHours)
+                          ? ` · récup ${Number(signed.snapshot.recupHours) > 0 ? '+' : ''}${formatHours(signed.snapshot.recupHours)}`
+                          : ''}
+                      </p>
+                    ) : null}
+                    {signed.signatureDataUrl ? (
+                      <img src={signed.signatureDataUrl} alt={`Signature ${menu.employeeName}`} className="sp-ctx-sign-img" />
+                    ) : null}
+                  </div>
                 )}
               </>
             );

@@ -199,6 +199,7 @@
   position: fixed;
   z-index: 80;
   min-width: 240px;
+  max-width: min(360px, calc(100vw - 1.5rem));
   background: #fff;
   border: 1px solid #e5e7eb;
   border-radius: 10px;
@@ -569,6 +570,21 @@
   font-size: 0.75rem;
   color: #475569;
   line-height: 1.35;
+}
+
+.sp-ctx-sign {
+  margin: 0 0.45rem 0.55rem;
+}
+
+.sp-ctx-sign-img {
+  display: block;
+  width: 100%;
+  max-height: 120px;
+  object-fit: contain;
+  background: #fff;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  margin-top: 0.25rem;
 }
 
 .sp-legend-ack::before {
