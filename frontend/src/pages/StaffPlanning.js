@@ -24,14 +24,15 @@ import {
   dayDisplayHours,
   buildShopPrintHtml,
   formatPlanningSendConfirm,
+  formatActualReminderConfirm,
   formatTestModeSendNote,
   groupRowsByCategory,
   isIsoDayFinished,
   listPlanningSendExclusions,
+  listUnsignedActualEmployees,
   openPrintHtml,
   todayIsoParis
 } from '../utils/staffPlanning';
-import PlanningTestModeCard from '../components/PlanningTestModeCard';
 import './StaffPlanning.css';
 
 function splitHm(value) {
@@ -416,11 +417,16 @@ const StaffPlanning = () => {
     } else if (sendLayer === 'forecast' && !urgent) {
       const exclusions = listPlanningSendExclusions(week?.rows || [], week?.acknowledgements || []);
       if (!window.confirm(`${formatPlanningSendConfirm(exclusions)}${formatTestModeSendNote(settings, week?.rows || [])}`)) return;
+    } else if (sendLayer === 'actual') {
+      const unsigned = listUnsignedActualEmployees(week?.actualRows || displayedRows, week?.actualSignatures || []);
+      if (!unsigned.length) {
+        toast.info('Tous les salariés ont déjà signé le planning réel');
+        return;
+      }
+      const signedNames = (week?.actualSignatures || []).map((item) => item.employeeName).filter(Boolean);
+      if (!window.confirm(`${formatActualReminderConfirm(signedNames)}${formatTestModeSendNote(settings, unsigned)}`)) return;
     } else {
-      const confirmLabel = sendLayer === 'actual'
-        ? 'Envoyer un e-mail à chaque salarié pour qu’il signe son planning réel ?'
-        : 'Le planning a été modifié : envoyer un e-mail à tous les salariés ?';
-      if (!window.confirm(`${confirmLabel}${formatTestModeSendNote(settings, displayedRows)}`)) return;
+      if (!window.confirm(`Le planning a été modifié : envoyer un e-mail à tous les salariés ?${formatTestModeSendNote(settings, displayedRows)}`)) return;
     }
     try {
       const response = await api.post(`/staff-planning/week/${year}/${weekNumber}/send`, {
@@ -448,7 +454,7 @@ const StaffPlanning = () => {
         const skipNote = skipped.length ? ` Non envoyé : ${skipped.map((item) => item.employeeName).join(', ')}.` : '';
         const testNote = response.data.testMode ? ' Mode test.' : '';
         toast.success(sendLayer === 'actual'
-          ? `E-mail envoyé à ${response.data.sent} salarié(s) pour signature.${testNote}`
+          ? `Relance envoyée à ${response.data.sent} salarié(s).${skipNote}${testNote}`
           : `Planning envoyé à ${response.data.sent} salarié(s).${skipNote}${testNote}`);
       }
     } catch (error) {
@@ -781,8 +787,8 @@ const StaffPlanning = () => {
           </>
         )}
         {canEdit && layer === 'actual' && actualExists && actualLocked && (
-          <button type="button" className="btn btn-urgent" onClick={() => send({ urgent: true, layer: 'actual' })}>
-            Planning modifié
+          <button type="button" className="btn btn-primary" onClick={() => send({ layer: 'actual' })}>
+            Relance signature
           </button>
         )}
         {canEdit && !actualExists && (
@@ -1003,12 +1009,6 @@ const StaffPlanning = () => {
               </li>
             ))}
           </ul>
-        </div>
-      )}
-
-      {canEdit && (
-        <div className="no-print" style={{ marginTop: '1.5rem' }}>
-          <PlanningTestModeCard />
         </div>
       )}
 

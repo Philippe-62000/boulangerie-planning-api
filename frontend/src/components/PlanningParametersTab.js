@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import api from '../services/api';
 import { toast } from 'react-toastify';
 import '../pages/StaffPlanning.css';
+import PlanningTestModeCard from './PlanningTestModeCard';
 
 const CATEGORIES = [
   { value: 'repos', label: 'Repos' },
@@ -86,6 +87,7 @@ const PlanningParametersTab = () => {
   }
 
   return (
+    <>
     <div className="card">
       <div className="card-header">
         <h3>Planning salariés</h3>
@@ -303,6 +305,8 @@ const PlanningParametersTab = () => {
         </div>
       </div>
     </div>
+    <PlanningTestModeCard />
+    </>
   );
 };
 
