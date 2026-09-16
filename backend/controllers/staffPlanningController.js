@@ -50,6 +50,20 @@ function isPublishedForecast(week) {
   return week?.status === 'validated' || week?.status === 'sent';
 }
 
+function publishedWeekFilter(weekNumber, year) {
+  const filter = {
+    $or: [
+      { status: { $in: ['validated', 'sent'] } },
+      { actualStatus: 'validated' }
+    ]
+  };
+  if (weekNumber && year) {
+    filter.weekNumber = weekNumber;
+    filter.year = year;
+  }
+  return filter;
+}
+
 function invalidateAcknowledgements(week, employeeIds) {
   const ids = new Set((employeeIds || []).map(String).filter(Boolean));
   if (!week || !ids.size) return false;
@@ -631,8 +645,10 @@ function formatDayLabel(day) {
   return '';
 }
 
-function dashboardUrl() {
-  return `https://www.filmara.fr/${getSiteKey() === 'lon' ? 'lon' : 'plan'}/employee-dashboard.html`;
+function dashboardUrl(weekNumber, year) {
+  const base = `https://www.filmara.fr/${getSiteKey() === 'lon' ? 'lon' : 'plan'}/employee-dashboard.html`;
+  if (weekNumber && year) return `${base}?week=${weekNumber}&year=${year}`;
+  return base;
 }
 
 function signatureSnapshot(row) {
@@ -727,10 +743,7 @@ function buildPlanningEmail({
       <td style="border:1px solid #ddd;padding:6px;text-align:center;">${weekLabel}</td>
     </tr>`;
   }).join('');
-  const link = dashboardUrl();
-  const urgentBanner = urgent
-    ? '<p style="background:#b91c1c;color:#fff;padding:10px 12px;border-radius:6px;font-weight:700;">URGENT — merci de consulter dès maintenant votre planning.</p>'
-    : '';
+  const link = dashboardUrl(weekNumber, year);
   const intro = isActual
     ? 'Votre planning réel de la semaine est disponible. Merci de le vérifier, puis de le signer sur votre téléphone.'
     : (notifyChange
@@ -741,8 +754,7 @@ function buildPlanningEmail({
 
   const html = `
     <div style="font-family:Arial,sans-serif;color:#222;">
-      ${urgentBanner}
-      <h2>${urgent && !isActual ? 'URGENT — ' : ''}${title}</h2>
+      <h2>${title}</h2>
       <p>Bonjour ${employeeName},</p>
       <p>${intro} Semaine ${weekNumber} (${range}).</p>
       <p><a href="${link}">Ouvrir mon dashboard Filmara</a></p>
@@ -763,7 +775,7 @@ function buildPlanningEmail({
       <p style="margin-top:16px;font-size:12px;color:#666;">Filmara — planning du personnel</p>
     </div>
   `;
-  const subject = `${urgent ? 'URGENT — ' : ''}${title} ${year}`;
+  const subject = `${title} ${year}`;
   const text = `${subject} — ${range} — ${link}`;
   return { subject, html, text };
 }
@@ -836,16 +848,10 @@ const getPublishedWeek = async (req, res) => {
       ? { weekNumber: requestedWeek, year: requestedYear }
       : now;
 
-    let week = await StaffWeekPlanning.findOne({
-      weekNumber: target.weekNumber,
-      year: target.year,
-      status: { $in: ['validated', 'sent'] }
-    }).lean();
+    let week = await StaffWeekPlanning.findOne(publishedWeekFilter(target.weekNumber, target.year)).lean();
 
     if (!week && !hasRequest) {
-      week = await StaffWeekPlanning.findOne({
-        status: { $in: ['validated', 'sent'] }
-      }).sort({ year: -1, weekNumber: -1, updatedAt: -1 }).lean();
+      week = await StaffWeekPlanning.findOne(publishedWeekFilter()).sort({ year: -1, weekNumber: -1, updatedAt: -1 }).lean();
     }
 
     if (!week) {
@@ -1742,6 +1748,11 @@ const validateActualWeek = async (req, res) => {
     week.actualStatus = 'validated';
     week.actualValidatedAt = new Date();
     week.actualValidatedBy = req.user?.name || req.user?.email || 'admin';
+    if (!isPublishedForecast(week)) {
+      week.status = 'validated';
+      week.validatedAt = week.validatedAt || new Date();
+      week.validatedBy = week.validatedBy || req.user?.name || req.user?.email || 'admin';
+    }
     week.markModified('actualRows');
     await week.save();
     const dates = hours.weekDates(weekNumber, year);
@@ -1766,7 +1777,7 @@ const validateActualWeek = async (req, res) => {
         dates,
         week,
         isUpdate: false,
-        urgent: true,
+        urgent: false,
         layer: 'actual',
         personalRow: row
       });
