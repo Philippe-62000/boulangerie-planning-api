@@ -41,6 +41,62 @@ export function formatShortDate(iso) {
   return `${Number(parts[2])}/${Number(parts[1])}`;
 }
 
+export function normalizeRecapPersonName(name) {
+  return String(name || '')
+    .split(' - ')[0]
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\s+/g, ' ');
+}
+
+const EMPTY_EXPENSE_LINE = {
+  meal: '0,00 €',
+  km: '0 km',
+  advance: '0,00 €',
+  overpayment: '0,00 €',
+  primes: '0,00 €',
+  total: '0,00 €'
+};
+
+export function lookupRecapExpense(employee, expensesById = {}, expensesByName = {}) {
+  if (!employee) return EMPTY_EXPENSE_LINE;
+  const byId = expensesById[String(employee.employeeId || '')];
+  if (byId) return byId;
+  const byName = expensesByName[normalizeRecapPersonName(employee.employeeName)];
+  return byName || EMPTY_EXPENSE_LINE;
+}
+
+export function buildExpenseLineHtml(expense = EMPTY_EXPENSE_LINE) {
+  const row = { ...EMPTY_EXPENSE_LINE, ...(expense || {}) };
+  return `<div class="expense-line">
+      <h2>Frais</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Frais Repas</th>
+            <th>Total KM</th>
+            <th>Acompte</th>
+            <th>Trop Perçu</th>
+            <th>Primes</th>
+            <th>Total Général</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>${row.meal}</td>
+            <td>${row.km}</td>
+            <td>${row.advance}</td>
+            <td>${row.overpayment}</td>
+            <td>${row.primes}</td>
+            <td><b>${row.total}</b></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>`;
+}
+
 export function rowPaidHours(row) {
   const fromDays = (row?.days || []).reduce((sum, day) => sum + (Number(day.paidHours) || 0), 0);
   if (fromDays > 0) return Math.round(fromDays * 100) / 100;
@@ -431,7 +487,15 @@ export function openPrintHtml(html) {
   return true;
 }
 
-export function buildMonthRecapPages({ monthLabel, year, month, employees = [], settings }) {
+export function buildMonthRecapPages({
+  monthLabel,
+  year,
+  month,
+  employees = [],
+  settings,
+  expensesById = {},
+  expensesByName = {}
+}) {
   const pages = (employees || []).map((employee) => {
     const dayRows = (employee.days || []).map((day) => {
       const label = (cellLabel(day) || '—').replace(/\n/g, '<br>');
@@ -461,6 +525,7 @@ export function buildMonthRecapPages({ monthLabel, year, month, employees = [], 
         <tbody>${weekRows}</tbody>
       </table>`
       : '';
+    const expense = lookupRecapExpense(employee, expensesById, expensesByName);
     return `<section class="page">
       <h1>${employee.employeeName || ''}</h1>
       <p class="recap-meta">${monthLabel} · Contrat ${formatHours(employee.contractedHours)} · Payé ${formatHours(employee.paidHours)} · Nuit ${formatHours(employee.nightHours)} · HS 25% ${formatHours(employee.ot25)} · HS 50% ${formatHours(employee.ot50)} · Maladie ${employee.sickDays || 0} j</p>
@@ -470,10 +535,11 @@ export function buildMonthRecapPages({ monthLabel, year, month, employees = [], 
         <thead><tr><th>Jour</th><th>Horaire</th><th>Heures</th></tr></thead>
         <tbody>${dayRows || '<tr><td colspan="3">Aucune heure ce mois</td></tr>'}</tbody>
       </table>
+      ${buildExpenseLineHtml(expense)}
     </section>`;
   }).join('');
   const styles = `
-  .month-recap-print .page { page-break-after: always; }
+  .month-recap-print .page { page-break-after: always; display: flex; flex-direction: column; min-height: 258mm; }
   .month-recap-print .page:last-child { page-break-after: auto; }
   .month-recap-print h1 { font-size: 18px; margin: 0 0 8px; }
   .month-recap-print h2 { font-size: 14px; margin: 14px 0 8px; }
@@ -483,6 +549,8 @@ export function buildMonthRecapPages({ monthLabel, year, month, employees = [], 
   .month-recap-print th, .month-recap-print td { border: 1px solid #333; padding: 5px 6px; }
   .month-recap-print th { background: #f0f0f0; }
   .month-recap-print .week-recap { margin-bottom: 4px; }
+  .month-recap-print .expense-line { margin-top: auto; padding-top: 16px; page-break-inside: avoid; }
+  .month-recap-print .expense-line h2 { margin-top: 0; }
   .month-recap-print .recap-title { page-break-before: always; font-size: 22px; margin: 0 0 16px; }`;
   return { monthLabel, year, month, pages, styles };
 }
