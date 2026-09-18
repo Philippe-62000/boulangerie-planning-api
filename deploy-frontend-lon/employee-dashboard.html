@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
@@ -1736,7 +1736,7 @@
         // API dynamique : /lon = Longuenesse (api-3), /plan = Arras (api-4-pbfy)
         const API_URL = (window.location.pathname || '').startsWith('/lon')
             ? 'https://boulangerie-planning-api-3.onrender.com/api'
-            : 'https://boulangerie-planning-api-3.onrender.com/api';
+            : 'https://boulangerie-planning-api-4-pbfy.onrender.com/api';
         const BASE_PATH = (window.location.pathname || '').startsWith('/lon') ? '/lon' : '/plan';
         const PLAN_DAYS = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
         let currentEmployee = null;
@@ -2267,7 +2267,6 @@
             signBox.innerHTML = formatRecupLine(myRow) + (signed && signed.signedAt
                 ? `<div class="emp-sign-box">
                     <div class="emp-plan-ack signed">Planning réel signé le ${new Date(signed.signedAt).toLocaleDateString('fr-FR')} à ${new Date(signed.signedAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}.</div>
-                    ${signed.signatureDataUrl ? `<img class="emp-sign-preview" alt="Votre signature" src="${signed.signatureDataUrl}">` : ''}
                    </div>`
                 : `<div class="emp-sign-box">
                     <h3>Signer le planning réel</h3>
