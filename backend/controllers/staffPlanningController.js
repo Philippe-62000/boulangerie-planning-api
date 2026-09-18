@@ -677,15 +677,16 @@ function isValidSignatureDataUrl(value) {
   return value.length >= 1200 && value.length <= 450000;
 }
 
-function signatureForEmployee(item) {
+function signatureForEmployee(item, { includeImage = true } = {}) {
   if (!item) return null;
-  return {
+  const payload = {
     employeeId: item.employeeId,
     employeeName: item.employeeName,
     signedAt: item.signedAt,
-    signatureDataUrl: item.signatureDataUrl || '',
     snapshot: item.snapshot || {}
   };
+  if (includeImage) payload.signatureDataUrl = item.signatureDataUrl || '';
+  return payload;
 }
 
 function withOwnRow(visibleRows, allRows, employeeId) {
@@ -886,7 +887,8 @@ const getPublishedWeek = async (req, res) => {
       ? { ...myAcknowledgementRaw, stale: false }
       : myAcknowledgementRaw;
     const myActualSignature = signatureForEmployee(
-      (week.actualSignatures || []).find((item) => String(item.employeeId) === String(employeeId))
+      (week.actualSignatures || []).find((item) => String(item.employeeId) === String(employeeId)),
+      { includeImage: false }
     );
     const actualValidated = notifyAllowed && week.actualStatus === 'validated';
     res.json({
@@ -1691,7 +1693,7 @@ const signActualWeek = async (req, res) => {
       return res.json({
         success: true,
         already: true,
-        signature: signatureForEmployee(existing)
+        signature: signatureForEmployee(existing, { includeImage: false })
       });
     }
     const employee = await Employee.findById(employeeId).select('name').lean();
@@ -1708,7 +1710,7 @@ const signActualWeek = async (req, res) => {
     res.json({
       success: true,
       already: false,
-      signature: signatureForEmployee(record)
+      signature: signatureForEmployee(record, { includeImage: false })
     });
   } catch (error) {
     console.error('staff-planning sign actual', error);
