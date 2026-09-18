@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import api from '../services/api';
 import { toast } from 'react-toastify';
 import HolidayStatus from '../components/HolidayStatus';
-import { buildMonthRecapPrintFragment } from '../utils/staffPlanning';
+import { buildMonthRecapPrintFragment, normalizeRecapPersonName } from '../utils/staffPlanning';
 import './EmployeeStatusPrint.css';
 
 const EmployeeStatusPrint = () => {
@@ -335,7 +335,29 @@ const calculateTotalOverpayments = () => {
     let recapHtml = '';
     try {
       const response = await api.get('/staff-planning/month-recap', { params: { year, month } });
-      const fragment = buildMonthRecapPrintFragment(response.data);
+      const expensesById = {};
+      const expensesByName = {};
+      (data?.employees || []).forEach((employee) => {
+        const advanceAmount = getEmployeeAdvance(employee.employeeName, employee.employeeId);
+        const overpaymentAmount = getEmployeeOverpayment(employee.employeeId);
+        const primesAmount = getEmployeePrimesTotal(employee.employeeId);
+        const mealAmount = employee.mealExpense?.totalAmount || 0;
+        const row = {
+          meal: formatCurrency(mealAmount),
+          km: `${employee.kmExpense?.totalKm || 0} km`,
+          advance: formatCurrency(advanceAmount),
+          overpayment: formatCurrency(overpaymentAmount),
+          primes: formatCurrency(primesAmount),
+          total: formatCurrency(mealAmount + advanceAmount - overpaymentAmount + primesAmount)
+        };
+        expensesById[String(employee.employeeId)] = row;
+        expensesByName[normalizeRecapPersonName(employee.employeeName)] = row;
+      });
+      const fragment = buildMonthRecapPrintFragment({
+        ...response.data,
+        expensesById,
+        expensesByName
+      });
       recapStyles = fragment.styles || '';
       recapHtml = fragment.html || '';
     } catch (error) {
