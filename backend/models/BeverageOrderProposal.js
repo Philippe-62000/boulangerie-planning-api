@@ -9,6 +9,7 @@ const productLineSchema = new mongoose.Schema(
     consumedQty: { type: Number, default: 0 },
     /** Conso de la période précédente (pour affichage écart). */
     previousConsumedQty: { type: Number, default: null },
+    /** Nombre de colis actuellement en stock. */
     stockQty: { type: Number, default: 0 },
     marginPercent: { type: Number, default: 10 },
     /** Unités par colis (12 ou 24). */

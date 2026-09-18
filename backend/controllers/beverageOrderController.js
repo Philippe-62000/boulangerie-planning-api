@@ -30,6 +30,13 @@ function withoutIgnoredProducts(products) {
   return (products || []).filter((p) => p?.name && !isIgnoredBeverageName(p.name));
 }
 
+function withoutHiddenProducts(products, prefsMap) {
+  return withoutIgnoredProducts(products).filter((p) => {
+    const pref = prefsMap?.get(String(p.name || '').trim().toUpperCase());
+    return !pref?.hidden;
+  });
+}
+
 function extractPeriodHint(text) {
   const m = String(text).match(/Périodes?\s*\n?([0-9,\s]+)/i);
   if (m) return String(m[1]).replace(/\s+/g, '').slice(0, 120);
@@ -43,7 +50,8 @@ async function loadProductPrefs(siteKey) {
   for (const r of rows) {
     map.set(String(r.name).trim().toUpperCase(), {
       packSize: normalizePackSize(r.packSize),
-      sortOrder: Number.isFinite(Number(r.sortOrder)) ? Number(r.sortOrder) : 9999
+      sortOrder: Number.isFinite(Number(r.sortOrder)) ? Number(r.sortOrder) : 9999,
+      hidden: !!r.hidden
     });
   }
   return map;
@@ -147,19 +155,22 @@ const getCurrent = async (req, res) => {
       doc = await BeverageOrderProposal.findOne({ siteKey }).sort({ createdAt: -1 }).lean();
     }
     if (doc?.products?.length) {
-      doc.products = withoutIgnoredProducts(doc.products);
       const prefs = await loadProductPrefs(siteKey);
+      const margin = Number(doc.marginPercent) || 10;
       doc.products = sortProductsByOrder(
-        doc.products.map((p) => {
+        withoutHiddenProducts(doc.products, prefs).map((p) => {
           const key = String(p.name || '').trim().toUpperCase();
           const pref = prefs.get(key);
-          if (pref) {
-            if (!Number.isFinite(Number(p.sortOrder)) || Number(p.sortOrder) >= 9000) {
-              p.sortOrder = pref.sortOrder;
-            }
-            if (!p.packSize) p.packSize = pref.packSize;
+          let sortOrder = Number(p.sortOrder);
+          if (pref && (!Number.isFinite(sortOrder) || sortOrder >= 9000)) {
+            sortOrder = pref.sortOrder;
           }
-          return p;
+          const packSize = normalizePackSize(p.packSize || pref?.packSize);
+          return enrichOrderFields(
+            { ...p, packSize, sortOrder },
+            p.marginPercent != null ? p.marginPercent : margin,
+            packSize
+          );
         })
       );
     }
@@ -214,7 +225,6 @@ const saveLineOrder = async (req, res) => {
       .filter((i) => i.name);
     await upsertProductPrefs(siteKey, normalized);
 
-    // Mettre à jour aussi la proposition courante si elle existe
     const current = await BeverageOrderProposal.findOne({ siteKey, isCurrent: true }).sort({
       updatedAt: -1
     });
@@ -237,6 +247,41 @@ const saveLineOrder = async (req, res) => {
     res.json({ success: true, data: rows });
   } catch (err) {
     console.error('❌ beverageOrders.saveLineOrder:', err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+};
+
+/** POST /api/beverage-orders/hide-product — ancienne référence à ne plus commander */
+const hideProduct = async (req, res) => {
+  try {
+    const siteKey = normalizeSiteKey(req.body?.siteKey || req.query?.siteKey);
+    const name = String(req.body?.name || '').trim();
+    if (!name) {
+      return res.status(400).json({ success: false, error: 'Nom de produit requis' });
+    }
+    const key = name.toUpperCase();
+    const rows = await BeveragePackConfig.find({ siteKey }).lean();
+    const existing = rows.find((r) => String(r.name || '').trim().toUpperCase() === key);
+    if (existing) {
+      await BeveragePackConfig.updateOne({ _id: existing._id }, { $set: { hidden: true } });
+    } else {
+      await BeveragePackConfig.create({ siteKey, name, hidden: true });
+    }
+
+    const current = await BeverageOrderProposal.findOne({ siteKey, isCurrent: true }).sort({
+      updatedAt: -1
+    });
+    if (current?.products?.length) {
+      current.products = current.products.filter(
+        (p) => String(p.name || '').trim().toUpperCase() !== key
+      );
+      current.markModified('products');
+      await current.save();
+    }
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error('❌ beverageOrders.hideProduct:', err);
     res.status(500).json({ success: false, error: err.message });
   }
 };
@@ -292,14 +337,14 @@ const parsePdf = async (req, res) => {
     }
 
     const products = mergeWithPrevious(
-      withoutIgnoredProducts(rawProducts),
-      withoutIgnoredProducts(previousDoc?.products || []),
+      withoutHiddenProducts(rawProducts, prefsMap),
+      withoutHiddenProducts(previousDoc?.products || [], prefsMap),
       prefsMap,
       marginPercent
     );
 
     const comparison = compareSalesPeriods(
-      withoutIgnoredProducts(previousDoc?.products || []),
+      withoutHiddenProducts(previousDoc?.products || [], prefsMap),
       products
     );
 
@@ -462,7 +507,16 @@ const getProposal = async (req, res) => {
       siteKey
     }).lean();
     if (!doc) return res.status(404).json({ success: false, error: 'Proposition introuvable' });
-    if (doc.products?.length) doc.products = withoutIgnoredProducts(doc.products);
+    if (doc.products?.length) {
+      const prefs = await loadProductPrefs(siteKey);
+      const margin = Number(doc.marginPercent) || 10;
+      doc.products = sortProductsByOrder(
+        withoutHiddenProducts(doc.products, prefs).map((p) => {
+          const packSize = normalizePackSize(p.packSize);
+          return enrichOrderFields(p, p.marginPercent != null ? p.marginPercent : margin, packSize);
+        })
+      );
+    }
     res.json({ success: true, data: doc });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
@@ -493,5 +547,6 @@ module.exports = {
   getPackConfig,
   savePackConfig,
   saveLineOrder,
+  hideProduct,
   compareProposals
 };

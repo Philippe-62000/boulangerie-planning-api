@@ -26,6 +26,7 @@ import {
   formatPlanningSendConfirm,
   formatActualReminderConfirm,
   formatTestModeSendNote,
+  flattenGroupedPlanningRows,
   groupRowsByCategory,
   isIsoDayFinished,
   listPlanningSendExclusions,
@@ -687,7 +688,7 @@ const StaffPlanning = () => {
     const html = buildShopPrintHtml({
       weekNumber,
       dates,
-      rows: displayedRows,
+      rows: flattenGroupedPlanningRows(groups),
       holidayDates: week?.holidayDates || [],
       title: layer === 'actual' ? 'Planning réel' : 'Planning'
     });

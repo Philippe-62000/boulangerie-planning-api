@@ -100,6 +100,10 @@
   width: 76px;
 }
 
+.bev-table col.bev-col-delete {
+  width: 40px;
+}
+
 .bev-table th,
 .bev-table td {
   border-bottom: 1px solid #e8e8e8;
@@ -164,6 +168,37 @@
 .bev-order-btn:disabled {
   opacity: 0.35;
   cursor: default;
+}
+
+.bev-stock-th {
+  cursor: pointer;
+  text-decoration: underline dotted;
+  text-underline-offset: 3px;
+}
+
+.bev-stock-th:hover {
+  color: #1a4d8c;
+}
+
+.bev-delete-cell {
+  text-align: center;
+  width: 36px;
+}
+
+.bev-delete-btn {
+  border: 1px solid #e0c4c4;
+  background: #fff;
+  color: #a33;
+  border-radius: 6px;
+  width: 28px;
+  height: 28px;
+  cursor: pointer;
+  line-height: 1;
+  font-size: 1.15rem;
+}
+
+.bev-delete-btn:hover {
+  background: #fdecea;
 }
 
 .bev-row-alert {
