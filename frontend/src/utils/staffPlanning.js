@@ -192,7 +192,10 @@ export function buildShopPrintHtml({ weekNumber, dates = [], rows = [], holidayD
     const holiday = iso && holidays.has(iso);
     return `<th>${day} ${formatShortDate(iso) || ''}${holiday ? '<br><small>Férié</small>' : ''}</th>`;
   }).join('');
-  const body = (rows || []).filter((row) => !row._group).map((row) => {
+  const body = (rows || []).map((row) => {
+    if (row._group) {
+      return `<tr class="sp-print-group"><th colspan="9">${row.groupLabel || row.label || ''}</th></tr>`;
+    }
     const cells = DAYS.map((dayName) => {
       const day = (row.days || []).find((item) => item.day === dayName);
       const label = (cellLabel(day) || '—').replace(/\n/g, '<br>');
@@ -217,6 +220,7 @@ export function buildShopPrintHtml({ weekNumber, dates = [], rows = [], holidayD
   th, td { border: 1px solid #333; padding: 4px 3px; text-align: center; vertical-align: top; }
   th { background: #f0f0f0; }
   td { height: 52px; }
+  .sp-print-group th { text-align: left; background: #d9d9d9; height: auto; font-size: 11px; }
   .pause { margin-top: 8px; border-top: 1px dashed #666; padding-top: 3px; font-size: 9px; white-space: nowrap; }
   .hrs { font-size: 9px; color: #333; }
 </style></head><body>
@@ -251,6 +255,53 @@ export function groupRowsByCategory(rows = [], employeeOrder = []) {
     ...group,
     rows: sortBucket(buckets[group.id] || [])
   })).filter((group) => group.rows.length);
+}
+
+export function flattenGroupedPlanningRows(groups = []) {
+  return (groups || []).flatMap((group) => [
+    { _group: true, groupLabel: group.label },
+    ...(group.rows || [])
+  ]);
+}
+
+export function recapWeeksFromDays(days = [], settings) {
+  const map = new Map();
+  (days || []).forEach((day) => {
+    if (!day?.date) return;
+    const [yearPart, monthPart, dayPart] = String(day.date).split('-').map(Number);
+    if (!yearPart || !monthPart || !dayPart) return;
+    const info = getISOWeekInfo(new Date(Date.UTC(yearPart, monthPart - 1, dayPart)));
+    const key = `${info.year}-W${String(info.weekNumber).padStart(2, '0')}`;
+    if (!map.has(key)) {
+      map.set(key, {
+        weekNumber: info.weekNumber,
+        year: info.year,
+        startDate: day.date,
+        endDate: day.date,
+        paidHours: 0,
+        nightHours: 0,
+        sickDays: 0
+      });
+    }
+    const week = map.get(key);
+    if (day.date < week.startDate) week.startDate = day.date;
+    if (day.date > week.endDate) week.endDate = day.date;
+    week.paidHours += Number(day.paidHours) || 0;
+    week.nightHours += Number(day.nightHours) || 0;
+    week.sickDays += Number(day.sickDays) || 0;
+  });
+  return Array.from(map.values())
+    .sort((a, b) => String(a.startDate).localeCompare(String(b.startDate)))
+    .map((week) => {
+      const overtime = overtimeFromPaid(week.paidHours, settings);
+      return {
+        ...week,
+        paidHours: Math.round(week.paidHours * 100) / 100,
+        nightHours: Math.round(week.nightHours * 100) / 100,
+        ot25: overtime.ot25,
+        ot50: overtime.ot50
+      };
+    });
 }
 
 export function todayIsoParis(dateInput = new Date()) {
@@ -380,30 +431,58 @@ export function openPrintHtml(html) {
   return true;
 }
 
-export function buildMonthRecapPages({ monthLabel, year, month, employees = [] }) {
+export function buildMonthRecapPages({ monthLabel, year, month, employees = [], settings }) {
   const pages = (employees || []).map((employee) => {
-    const rows = (employee.days || []).map((day) => {
+    const dayRows = (employee.days || []).map((day) => {
       const label = (cellLabel(day) || '—').replace(/\n/g, '<br>');
       return `<tr><td>${formatShortDate(day.date)} ${day.day || ''}</td><td>${label}</td><td>${formatHours(dayDisplayHours(day, employee.contractedHours) || day.paidHours)}</td></tr>`;
     }).join('');
+    const weeks = (employee.weeks && employee.weeks.length)
+      ? employee.weeks
+      : recapWeeksFromDays(employee.days, settings);
+    const weekRows = weeks.map((week) => {
+      const period = week.startDate === week.endDate
+        ? formatShortDate(week.startDate)
+        : `${formatShortDate(week.startDate)} – ${formatShortDate(week.endDate)}`;
+      return `<tr>
+        <td>S${week.weekNumber}</td>
+        <td>${period}</td>
+        <td>${formatHours(week.paidHours)}</td>
+        <td>${formatHours(week.nightHours)}</td>
+        <td>${formatHours(week.ot25)}</td>
+        <td>${formatHours(week.ot50)}</td>
+        <td>${week.sickDays || 0} j</td>
+      </tr>`;
+    }).join('');
+    const weekTable = weeks.length
+      ? `<h2>Récapitulatif par semaine</h2>
+      <table class="week-recap">
+        <thead><tr><th>Semaine</th><th>Période</th><th>Payé</th><th>Nuit</th><th>HS 25%</th><th>HS 50%</th><th>Maladie</th></tr></thead>
+        <tbody>${weekRows}</tbody>
+      </table>`
+      : '';
     return `<section class="page">
       <h1>${employee.employeeName || ''}</h1>
       <p class="recap-meta">${monthLabel} · Contrat ${formatHours(employee.contractedHours)} · Payé ${formatHours(employee.paidHours)} · Nuit ${formatHours(employee.nightHours)} · HS 25% ${formatHours(employee.ot25)} · HS 50% ${formatHours(employee.ot50)} · Maladie ${employee.sickDays || 0} j</p>
+      ${weekTable}
+      <h2>Détail par jour</h2>
       <table>
         <thead><tr><th>Jour</th><th>Horaire</th><th>Heures</th></tr></thead>
-        <tbody>${rows || '<tr><td colspan="3">Aucune heure ce mois</td></tr>'}</tbody>
+        <tbody>${dayRows || '<tr><td colspan="3">Aucune heure ce mois</td></tr>'}</tbody>
       </table>
     </section>`;
   }).join('');
   const styles = `
   .month-recap-print .page { page-break-after: always; }
   .month-recap-print .page:last-child { page-break-after: auto; }
-  .month-recap-print h1, .month-recap-print h2 { font-size: 18px; margin: 0 0 8px; }
+  .month-recap-print h1 { font-size: 18px; margin: 0 0 8px; }
+  .month-recap-print h2 { font-size: 14px; margin: 14px 0 8px; }
   .month-recap-print .recap-meta { font-size: 16px; font-weight: 700; line-height: 1.35; margin: 0 0 12px; }
   .month-recap-print p { font-size: 12px; margin: 0 0 10px; }
   .month-recap-print table { width: 100%; border-collapse: collapse; font-size: 12px; }
   .month-recap-print th, .month-recap-print td { border: 1px solid #333; padding: 5px 6px; }
   .month-recap-print th { background: #f0f0f0; }
+  .month-recap-print .week-recap { margin-bottom: 4px; }
   .month-recap-print .recap-title { page-break-before: always; font-size: 22px; margin: 0 0 16px; }`;
   return { monthLabel, year, month, pages, styles };
 }

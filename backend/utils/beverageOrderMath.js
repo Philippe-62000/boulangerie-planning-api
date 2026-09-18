@@ -4,12 +4,14 @@
 
 const { isIgnoredBeverageName } = require('./parseCrisalidInvendusPdf');
 
-function computeUnitsNeeded(consumedQty, stockQty, marginPercent) {
+function computeUnitsNeeded(consumedQty, stockPacks, packSize, marginPercent) {
   const consumed = Math.max(0, Number(consumedQty) || 0);
-  const stock = Math.max(0, Number(stockQty) || 0);
+  const packs = Math.max(0, Number(stockPacks) || 0);
+  const size = normalizePackSize(packSize);
   const margin = Math.max(0, Number(marginPercent) || 0);
+  const stockUnits = packs * size;
   const need = Math.ceil(consumed * (1 + margin / 100));
-  return Math.max(0, need - stock);
+  return Math.max(0, need - stockUnits);
 }
 
 function normalizePackSize(raw, fallback = 12) {
@@ -42,7 +44,7 @@ function enrichOrderFields(product, marginPercent = 10, defaultPackSize = 12) {
       ? Math.max(0, Number(product.marginPercent))
       : Math.max(0, Number(marginPercent) || 0);
   const packSize = normalizePackSize(product.packSize, defaultPackSize);
-  const toOrderQty = computeUnitsNeeded(consumedQty, stockQty, lineMargin);
+  const toOrderQty = computeUnitsNeeded(consumedQty, stockQty, packSize, lineMargin);
   const packsToOrder = computePacksToOrder(toOrderQty, packSize);
   return {
     ...product,

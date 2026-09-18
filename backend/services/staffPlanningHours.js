@@ -380,6 +380,46 @@ function overtimeFromPaid(paidHours, settings) {
   };
 }
 
+function recapWeeksFromDays(days, settings) {
+  const map = new Map();
+  (days || []).forEach((day) => {
+    if (!day?.date) return;
+    const [yearPart, monthPart, dayPart] = String(day.date).split('-').map(Number);
+    if (!yearPart || !monthPart || !dayPart) return;
+    const info = getISOWeekInfo(new Date(Date.UTC(yearPart, monthPart - 1, dayPart)));
+    const key = `${info.year}-W${String(info.weekNumber).padStart(2, '0')}`;
+    if (!map.has(key)) {
+      map.set(key, {
+        weekNumber: info.weekNumber,
+        year: info.year,
+        startDate: day.date,
+        endDate: day.date,
+        paidHours: 0,
+        nightHours: 0,
+        sickDays: 0
+      });
+    }
+    const week = map.get(key);
+    if (day.date < week.startDate) week.startDate = day.date;
+    if (day.date > week.endDate) week.endDate = day.date;
+    week.paidHours += Number(day.paidHours) || 0;
+    week.nightHours += Number(day.nightHours) || 0;
+    week.sickDays += Number(day.sickDays) || 0;
+  });
+  return Array.from(map.values())
+    .sort((a, b) => String(a.startDate).localeCompare(String(b.startDate)))
+    .map((week) => {
+      const overtime = overtimeFromPaid(week.paidHours, settings || {});
+      return {
+        ...week,
+        paidHours: Math.round(week.paidHours * 100) / 100,
+        nightHours: Math.round(week.nightHours * 100) / 100,
+        ot25: overtime.ot25,
+        ot50: overtime.ot50
+      };
+    });
+}
+
 function withHolidayHours(days, holidayDates = []) {
   const set = new Set(holidayDates || []);
   return (days || []).map((raw) => {
@@ -484,6 +524,7 @@ module.exports = {
   withHolidayHours,
   summarizeDays,
   overtimeFromPaid,
+  recapWeeksFromDays,
   defaultSettings,
   defaultWords
 };

@@ -9,6 +9,7 @@ router.get('/current', controller.getCurrent);
 router.get('/pack-config', controller.getPackConfig);
 router.put('/pack-config', controller.savePackConfig);
 router.put('/line-order', controller.saveLineOrder);
+router.post('/hide-product', controller.hideProduct);
 router.post('/compare', controller.compareProposals);
 
 router.post('/parse', (req, res, next) => {

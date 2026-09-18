@@ -1967,7 +1967,8 @@ const getMonthRecap = async (req, res) => {
           paidHours: Math.round(item.paidHours * 100) / 100,
           nightHours: Math.round(item.nightHours * 100) / 100,
           ot25: overtime.ot25,
-          ot50: overtime.ot50
+          ot50: overtime.ot50,
+          weeks: hours.recapWeeksFromDays(item.days, settings)
         };
       })
       .sort((a, b) => String(a.employeeName || '').localeCompare(String(b.employeeName || ''), 'fr'));

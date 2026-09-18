@@ -10,16 +10,24 @@ function normalizePackSize(raw) {
   return Number(raw) === 24 ? 24 : 12;
 }
 
-function computeUnitsNeeded(consumedQty, stockQty, marginPercent) {
+function computeUnitsNeeded(consumedQty, stockPacks, packSize, marginPercent) {
   const consumed = Math.max(0, Number(consumedQty) || 0);
-  const stock = Math.max(0, Number(stockQty) || 0);
+  const packs = Math.max(0, Number(stockPacks) || 0);
+  const size = normalizePackSize(packSize);
   const margin = Math.max(0, Number(marginPercent) || 0);
-  return Math.max(0, Math.ceil(consumed * (1 + margin / 100)) - stock);
+  const stockUnits = packs * size;
+  const need = Math.ceil(consumed * (1 + margin / 100));
+  return Math.max(0, need - stockUnits);
 }
 
 function recomputeLine(p, marginPercent) {
   const packSize = normalizePackSize(p.packSize);
-  const toOrderQty = computeUnitsNeeded(p.consumedQty, p.stockQty, p.marginPercent ?? marginPercent);
+  const toOrderQty = computeUnitsNeeded(
+    p.consumedQty,
+    p.stockQty,
+    packSize,
+    p.marginPercent ?? marginPercent
+  );
   const packsToOrder = toOrderQty <= 0 ? 0 : Math.ceil(toOrderQty / packSize);
   return {
     ...p,
@@ -48,14 +56,17 @@ function isIgnoredBeverage(name) {
   return /kookabarra/i.test(String(name || ''));
 }
 
-/** Tab (ou Maj+Tab) : rester dans la colonne Stock, ligne suivante / précédente. */
-function onStockTabKeyDown(e) {
-  if (e.key !== 'Tab') return;
+/** Tab / Entrée (ou Maj+Tab) : rester dans la colonne Stock, ligne suivante / précédente. */
+function onStockNavKeyDown(e) {
+  if (e.key !== 'Tab' && e.key !== 'Enter') return;
   const inputs = Array.from(document.querySelectorAll('.bev-page .bev-stock-input'));
   const idx = inputs.indexOf(e.currentTarget);
   if (idx < 0) return;
-  const next = inputs[idx + (e.shiftKey ? -1 : 1)];
-  if (!next) return;
+  const next = inputs[idx + (e.key === 'Tab' && e.shiftKey ? -1 : 1)];
+  if (!next) {
+    if (e.key === 'Enter') e.preventDefault();
+    return;
+  }
   e.preventDefault();
   next.focus();
   if (typeof next.select === 'function') next.select();
@@ -299,6 +310,38 @@ const StocksBoissons = () => {
     );
   };
 
+  const zeroVisibleStocks = () => {
+    const keys = new Set(visibleProducts.map((p) => `${p.category}||${p.name}`));
+    if (!keys.size) return;
+    setProducts((prev) =>
+      prev.map((p) => {
+        if (!keys.has(`${p.category}||${p.name}`)) return p;
+        return recomputeLine({ ...p, stockQty: 0 }, marginPercent);
+      })
+    );
+  };
+
+  const hideProduct = async (name, category) => {
+    if (
+      !window.confirm(
+        `Ne plus commander « ${name} » ? La ligne sera retirée et ne reviendra pas au prochain import PDF.`
+      )
+    ) {
+      return;
+    }
+    try {
+      await api.post('/beverage-orders/hide-product', { siteKey, name });
+      setProducts((prev) => prev.filter((p) => !(p.name === name && p.category === category)));
+      setComparison((prev) => prev.filter((a) => a.name !== name));
+      setMessage({ type: 'ok', text: `${name} retiré des commandes.` });
+    } catch (err) {
+      setMessage({
+        type: 'err',
+        text: err.response?.data?.error || 'Impossible de retirer cette référence'
+      });
+    }
+  };
+
   const applyMarginToAll = (value) => {
     const margin = Math.max(0, Number(value) || 0);
     setMarginPercent(margin);
@@ -405,7 +448,7 @@ const StocksBoissons = () => {
       <div class="meta">Période : ${periodLabel || '—'} · Marge ${marginPercent}% · Fichier : ${sourceFileName || '—'}<br/>
       Commande le jeudi pour livraison le mardi</div>
       <table><thead><tr>
-        <th>Famille</th><th>Référence</th><th class="num">Conso</th><th class="num">Stock</th>
+        <th>Famille</th><th>Référence</th><th class="num">Conso</th><th class="num">Stock colis</th>
         <th class="num">Besoin u.</th><th class="num">/colis</th><th class="num">Colis</th><th class="num">Unités cmd</th>
       </tr></thead>
       <tbody>
@@ -440,7 +483,7 @@ const StocksBoissons = () => {
       <h1>Relevé de stocks — ${title} — ${siteLabel}</h1>
       <div class="meta">
         Date : _______________ &nbsp;&nbsp; Période ventes : ${periodLabel || '—'} &nbsp;&nbsp; Fichier : ${sourceFileName || '—'}<br/>
-        Noter le stock restant à la main. Notes = format commande (ex. /12 → 12 bouteilles = 1 colis).
+        Noter le stock restant en nombre de colis. Notes = format commande (ex. /12 → 12 bouteilles = 1 colis).
       </div>
       <table>
         <thead>
@@ -449,7 +492,7 @@ const StocksBoissons = () => {
             <th>Famille</th>
             <th>Référence</th>
             <th class="num">Conso sem.</th>
-            <th>Stock restant</th>
+            <th>Stock restant (colis)</th>
             <th>Notes</th>
           </tr>
         </thead>
@@ -510,7 +553,8 @@ const StocksBoissons = () => {
                   {sourceFileName ? ` · ${sourceFileName}` : ''}
                   <div className="stocks-hint">
                     Les ventes sont mémorisées dès l’import PDF (F5 / autre ordinateur). Uploader un
-                    nouveau PDF pour les remplacer ; stocks et tailles de colis sont repris.
+                    nouveau PDF pour les remplacer. Les stocks affichés sont ceux de la dernière
+                    saisie (en colis) : cliquez sur l’en-tête Stock pour tout remettre à 0.
                   </div>
                 </div>
               </div>
@@ -663,6 +707,7 @@ const StocksBoissons = () => {
                 <col className="bev-col-num" />
                 <col className="bev-col-num" />
                 <col className="bev-col-num" />
+                <col className="bev-col-delete" />
               </colgroup>
               <thead>
                 <tr>
@@ -673,11 +718,18 @@ const StocksBoissons = () => {
                   <th className="num">Offerts</th>
                   <th className="num">Conso</th>
                   <th className="num">Préc.</th>
-                  <th className="num">Stock</th>
+                  <th
+                    className="num bev-stock-th"
+                    onClick={zeroVisibleStocks}
+                    title="Cliquer pour mettre toute la colonne Stock à 0"
+                  >
+                    Stock
+                  </th>
                   <th className="num">/colis</th>
                   <th className="num">Besoin u.</th>
                   <th className="num">Colis</th>
                   <th className="num">U. cmd</th>
+                  <th className="num" aria-label="Retirer" />
                 </tr>
               </thead>
               <tbody>
@@ -723,9 +775,10 @@ const StocksBoissons = () => {
                           type="number"
                           min="0"
                           className="stocks-input bev-stock-input"
+                          title="Nombre de colis en stock"
                           value={p.stockQty ?? 0}
                           onFocus={(e) => e.target.select()}
-                          onKeyDown={onStockTabKeyDown}
+                          onKeyDown={onStockNavKeyDown}
                           onChange={(e) =>
                             patchProduct(p.name, p.category, {
                               stockQty: Math.max(0, parseInt(e.target.value, 10) || 0)
@@ -751,6 +804,17 @@ const StocksBoissons = () => {
                       <td className="num">{p.toOrderQty}</td>
                       <td className="num order">{p.packsToOrder}</td>
                       <td className="num">{p.orderUnits}</td>
+                      <td className="bev-delete-cell">
+                        <button
+                          type="button"
+                          className="bev-delete-btn"
+                          tabIndex={-1}
+                          onClick={() => hideProduct(p.name, p.category)}
+                          title="Ne plus commander cette référence"
+                        >
+                          ×
+                        </button>
+                      </td>
                     </tr>
                   );
                 })}
@@ -758,9 +822,12 @@ const StocksBoissons = () => {
             </table>
           </div>
           <p className="stocks-hint">
-            Utilisez ↑ ↓ pour classer les lignes comme sur votre bon de commande, puis{' '}
-            <b>Enregistrer l’ordre</b> (filtre « Toutes les familles » requis pour déplacer).
-            Exemple colis : conso 60, stock 5 → besoin 55 → colis de 12 → <b>5 colis</b>.
+            Le stock se saisit en <b>colis</b> (ex. 2 colis de 24 = 48 unités, déduites du besoin).
+            Cliquez sur l’en-tête <b>Stock</b> pour tout remettre à 0, puis saisissez l’inventaire :
+            Entrée passe à la ligne du dessous. Le bouton × retire une ancienne référence (elle ne
+            reviendra pas au prochain PDF). Utilisez ↑ ↓ pour classer comme sur le bon de commande,
+            puis <b>Enregistrer l’ordre</b>. Exemple : conso 58, stock 2 × 24, marge 10 % → besoin{' '}
+            <b>16 u.</b> → <b>1 colis</b> (24).
           </p>
         </section>
       )}

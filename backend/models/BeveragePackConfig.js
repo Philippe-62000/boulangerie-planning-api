@@ -7,7 +7,9 @@ const beveragePackConfigSchema = new mongoose.Schema(
     name: { type: String, required: true, trim: true },
     packSize: { type: Number, enum: [12, 24], default: 12 },
     /** Ordre dans la liste (aligné sur le bon de commande fournisseur). */
-    sortOrder: { type: Number, default: 9999 }
+    sortOrder: { type: Number, default: 9999 },
+    /** true = ancienne référence à ne plus proposer à l’achat. */
+    hidden: { type: Boolean, default: false }
   },
   { timestamps: true }
 );
