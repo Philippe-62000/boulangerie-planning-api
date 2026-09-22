@@ -46,6 +46,17 @@ function toPlain(doc) {
   return { ...doc };
 }
 
+/** Espace salarié : le bandeau « planning modifié » n’apparaît qu’après « Envoyer notification ». */
+function acknowledgementVisibleToEmployee(ack, notifyAllowed) {
+  if (!ack) return null;
+  const plain = toPlain(ack);
+  const hideModified = !notifyAllowed || (plain.stale && !plain.changeNotifiedAt);
+  if (hideModified && plain.stale) {
+    return { ...plain, stale: false };
+  }
+  return plain;
+}
+
 function isPublishedForecast(week) {
   return week?.status === 'validated' || week?.status === 'sent';
 }
@@ -883,9 +894,7 @@ const getPublishedWeek = async (req, res) => {
     );
     const notifyAllowed = canNotifyEmployee(settings, employeeId);
     const myAcknowledgementRaw = (week.acknowledgements || []).find((item) => String(item.employeeId) === String(employeeId)) || null;
-    const myAcknowledgement = !notifyAllowed && myAcknowledgementRaw?.stale
-      ? { ...myAcknowledgementRaw, stale: false }
-      : myAcknowledgementRaw;
+    const myAcknowledgement = acknowledgementVisibleToEmployee(myAcknowledgementRaw, notifyAllowed);
     const myActualSignature = signatureForEmployee(
       (week.actualSignatures || []).find((item) => String(item.employeeId) === String(employeeId)),
       { includeImage: false }
@@ -908,13 +917,18 @@ const getPublishedWeek = async (req, res) => {
               employeeName: item.employeeName,
               signedAt: item.signedAt
             }))
-          : []
+          : [],
+        acknowledgements: (week.acknowledgements || []).map((item) => (
+          String(item.employeeId) === String(employeeId) ? myAcknowledgement : item
+        ))
       },
       dates,
       weekNumber: week.weekNumber,
       year: week.year,
       settings,
-      acknowledgements: week.acknowledgements || [],
+      acknowledgements: (week.acknowledgements || []).map((item) => (
+        String(item.employeeId) === String(employeeId) ? myAcknowledgement : item
+      )),
       myAcknowledgement,
       myActualSignature: actualValidated ? myActualSignature : null,
       actualValidated,
