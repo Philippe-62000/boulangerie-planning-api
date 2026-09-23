@@ -42,16 +42,17 @@ function splitHm(value) {
   return { h, m };
 }
 
-function clampTimePart(value, max) {
-  const n = Number(String(value).replace(/\D/g, ''));
-  if (!Number.isFinite(n)) return '00';
-  return String(Math.max(0, Math.min(max, n))).padStart(2, '0');
-}
-
 function normalizeTime(value, fallback = '') {
   const { h, m } = splitHm(value);
   if (h === '' && m === '') return fallback;
-  return `${clampTimePart(h === '' ? '0' : h, 23)}:${clampTimePart(m === '' ? '0' : m, 59)}`;
+  const rawH = Number(String(h).replace(/\D/g, ''));
+  const rawM = Number(String(m).replace(/\D/g, ''));
+  let hours = Number.isFinite(rawH) ? rawH : 0;
+  let minutes = Number.isFinite(rawM) ? rawM : 0;
+  hours += Math.floor(minutes / 60);
+  minutes %= 60;
+  hours = ((hours % 24) + 24) % 24;
+  return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
 }
 
 function TimePair({ value, onChange, hourRef, emptyOk = false, skipTab = false, hourLabel, minuteLabel }) {
@@ -64,7 +65,7 @@ function TimePair({ value, onChange, hourRef, emptyOk = false, skipTab = false, 
         onChange('');
         return;
       }
-      onChange(`${clampTimePart(nextH === '' ? '0' : nextH, 23)}:${clampTimePart(nextM === '' ? '0' : nextM, 59)}`);
+      onChange(normalizeTime(`${nextH === '' ? '0' : nextH}:${nextM === '' ? '0' : nextM}`, emptyOk ? '' : '00:00'));
       return;
     }
     const hh = String(nextH).replace(/\D/g, '').slice(0, 2);

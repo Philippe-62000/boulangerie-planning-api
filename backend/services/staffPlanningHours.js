@@ -11,13 +11,25 @@ function parseMinutes(value) {
   return hours * 60 + minutes;
 }
 
+function minutesFromHours(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n) || n === 0) return 0;
+  return Math.round(n * 60);
+}
+
+function hoursFromMinutes(minutes) {
+  return (Number(minutes) || 0) / 60;
+}
+
 function formatHours(hours) {
   if (hours == null || Number.isNaN(Number(hours))) return '0h';
-  const rounded = Math.round(Number(hours) * 100) / 100;
-  const whole = Math.trunc(rounded);
-  const mins = Math.round((rounded - whole) * 60);
-  if (mins === 0) return `${whole}h`;
-  return `${whole}h${String(Math.abs(mins)).padStart(2, '0')}`;
+  const total = minutesFromHours(hours);
+  const sign = total < 0 ? '-' : '';
+  const abs = Math.abs(total);
+  const whole = Math.floor(abs / 60);
+  const mins = abs % 60;
+  if (mins === 0) return `${sign}${whole}h`;
+  return `${sign}${whole}h${String(mins).padStart(2, '0')}`;
 }
 
 function cpHoursForContract(contractedHours) {
@@ -167,8 +179,8 @@ function computeShifts(shifts, settings) {
   }
 
   return {
-    paidHours: Math.round(paidHours * 100) / 100,
-    nightHours: Math.round(nightHours * 100) / 100,
+    paidHours: hoursFromMinutes(Math.max(0, paidMinutes)),
+    nightHours: hoursFromMinutes(Math.round(nightHours * 60)),
     deductedBreakMinutes: deducted,
     alerts
   };
@@ -375,8 +387,8 @@ function overtimeFromPaid(paidHours, settings) {
     ot25 = paid - (from25 - 1);
   }
   return {
-    ot25: Math.round(ot25 * 100) / 100,
-    ot50: Math.round(ot50 * 100) / 100
+    ot25: hoursFromMinutes(minutesFromHours(ot25)),
+    ot50: hoursFromMinutes(minutesFromHours(ot50))
   };
 }
 
@@ -412,8 +424,8 @@ function recapWeeksFromDays(days, settings) {
       const overtime = overtimeFromPaid(week.paidHours, settings || {});
       return {
         ...week,
-        paidHours: Math.round(week.paidHours * 100) / 100,
-        nightHours: Math.round(week.nightHours * 100) / 100,
+        paidHours: hoursFromMinutes(minutesFromHours(week.paidHours)),
+        nightHours: hoursFromMinutes(minutesFromHours(week.nightHours)),
         ot25: overtime.ot25,
         ot50: overtime.ot50
       };
@@ -434,25 +446,45 @@ function withHolidayHours(days, holidayDates = []) {
   });
 }
 
+function refreshDayComputation(day, settings, contractedHours) {
+  const plain = plainDay(day) || {};
+  const meta = { day: plain.day, date: plain.date };
+  if (plain.kind === 'shifts') {
+    return computeDay({ kind: 'shifts', shifts: plain.shifts }, meta, settings, contractedHours);
+  }
+  if (plain.kind === 'code') {
+    return computeDay({ kind: 'code', code: plain.code }, meta, settings, contractedHours);
+  }
+  if (plain.kind === 'hours') {
+    return computeDay({ kind: 'hours', volumeHours: plain.volumeHours }, meta, settings, contractedHours);
+  }
+  return emptyDay(meta.day, meta.date);
+}
+
 function withCpHours(days, settings, contractedHours) {
   const hoursPerDay = cpHoursForContract(contractedHours);
   return (days || []).map((raw) => {
     const day = plainDay(raw);
-    if (normalizedCode(day.code) !== 'CP') return day;
+    if (normalizedCode(day.code) !== 'CP') {
+      return Number(day.cpHours) ? { ...day, cpHours: 0 } : day;
+    }
     if (Number(day.cpHours) === hoursPerDay) return day;
     return { ...day, cpHours: hoursPerDay };
   });
 }
 
 function summarizeDays(days, contractedHours, settings, holidayDates = []) {
-  const withRest = applyRestAlerts(withHolidayHours(withCpHours(days, settings, contractedHours), holidayDates), settings);
-  const weeklyPaidHours = Math.round(withRest.reduce((sum, day) => sum + (day.paidHours || 0), 0) * 100) / 100;
-  const weeklyNightHours = Math.round(withRest.reduce((sum, day) => sum + (day.nightHours || 0), 0) * 100) / 100;
+  const refreshed = (days || []).map((day) => refreshDayComputation(day, settings, contractedHours));
+  const withRest = applyRestAlerts(withHolidayHours(withCpHours(refreshed, settings, contractedHours), holidayDates), settings);
+  const weeklyPaidHours = hoursFromMinutes(withRest.reduce((sum, day) => sum + minutesFromHours(day.paidHours), 0));
+  const weeklyNightHours = hoursFromMinutes(withRest.reduce((sum, day) => sum + minutesFromHours(day.nightHours), 0));
   const weeklySickDays = withRest.reduce((sum, day) => sum + (day.sickDays || 0), 0);
-  const weeklySickHours = Math.round(withRest.reduce((sum, day) => sum + (day.sickHours || 0), 0) * 100) / 100;
-  const weeklyCpHours = Math.round(withRest.reduce((sum, day) => sum + (day.cpHours || 0), 0) * 100) / 100;
-  const weeklyAbsenceHours = Math.round(withRest.reduce((sum, day) => sum + (day.absenceHours || 0), 0) * 100) / 100;
-  const weeklyHolidayHours = Math.round(withRest.reduce((sum, day) => sum + (day.holidayHours || 0), 0) * 100) / 100;
+  const weeklySickHours = hoursFromMinutes(withRest.reduce((sum, day) => sum + minutesFromHours(day.sickHours), 0));
+  const weeklyCpHours = hoursFromMinutes(withRest.reduce((sum, day) => (
+    normalizedCode(day.code) === 'CP' ? sum + minutesFromHours(day.cpHours) : sum
+  ), 0));
+  const weeklyAbsenceHours = hoursFromMinutes(withRest.reduce((sum, day) => sum + minutesFromHours(day.absenceHours), 0));
+  const weeklyHolidayHours = hoursFromMinutes(withRest.reduce((sum, day) => sum + minutesFromHours(day.holidayHours), 0));
   const overtime = overtimeFromPaid(weeklyPaidHours, settings);
   const alertCount = withRest.reduce((sum, day) => sum + (day.alerts?.length || 0), 0);
 
@@ -505,6 +537,8 @@ module.exports = {
   DAYS,
   parseMinutes,
   formatHours,
+  minutesFromHours,
+  hoursFromMinutes,
   getISOWeekInfo,
   getMondayOfISOWeek,
   addIsoWeeks,

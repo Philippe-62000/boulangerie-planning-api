@@ -21,11 +21,19 @@ export function addIsoWeeks(weekNumber, year, delta) {
 
 export function formatHours(value) {
   if (value == null || Number.isNaN(Number(value))) return '0h';
-  const rounded = Math.round(Number(value) * 100) / 100;
-  const whole = Math.trunc(rounded);
-  const mins = Math.round((rounded - whole) * 60);
-  if (mins === 0) return `${whole}h`;
-  return `${whole}h${String(Math.abs(mins)).padStart(2, '0')}`;
+  const total = Math.round(Number(value) * 60);
+  const sign = total < 0 ? '-' : '';
+  const abs = Math.abs(total);
+  const whole = Math.floor(abs / 60);
+  const mins = abs % 60;
+  if (mins === 0) return `${sign}${whole}h`;
+  return `${sign}${whole}h${String(mins).padStart(2, '0')}`;
+}
+
+function minutesFromHours(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n) || n === 0) return 0;
+  return Math.round(n * 60);
 }
 
 export function cpHoursForContract(contractedHours) {
@@ -98,20 +106,20 @@ export function buildExpenseLineHtml(expense = EMPTY_EXPENSE_LINE) {
 }
 
 export function rowPaidHours(row) {
-  const fromDays = (row?.days || []).reduce((sum, day) => sum + (Number(day.paidHours) || 0), 0);
-  if (fromDays > 0) return Math.round(fromDays * 100) / 100;
+  const fromDays = (row?.days || []).reduce((sum, day) => sum + minutesFromHours(day.paidHours), 0);
+  if (fromDays > 0) return fromDays / 60;
   return Number(row?.weeklyPaidHours) || 0;
 }
 
 export function rowCpHours(row) {
   const perDay = cpHoursForContract(row?.contractedHours);
   const fromDays = (row?.days || []).reduce((sum, day) => {
+    const isCp = day && day.kind === 'code' && String(day.code || '').toUpperCase() === 'CP';
+    if (!isCp) return sum;
     const stored = Number(day?.cpHours) || 0;
-    if (stored > 0) return sum + stored;
-    if (day && day.kind === 'code' && String(day.code || '').toUpperCase() === 'CP') return sum + perDay;
-    return sum;
+    return sum + minutesFromHours(stored > 0 ? stored : perDay);
   }, 0);
-  if (fromDays > 0) return Math.round(fromDays * 100) / 100;
+  if (fromDays > 0) return fromDays / 60;
   return Number(row?.weeklyCpHours) || 0;
 }
 
@@ -131,12 +139,14 @@ export function rowRecupHours(row) {
 }
 
 export function rowAccountantHours(row) {
-  return Math.round((rowPaidHours(row) - rowRecupHours(row)) * 100) / 100;
+  return (
+    minutesFromHours(rowPaidHours(row) - rowRecupHours(row)) / 60
+  );
 }
 
 export function rowWeekHours(row, useAccountant = false) {
-  const base = useAccountant ? rowAccountantHours(row) : rowPaidHours(row);
-  return Math.round((base + rowCpHours(row)) * 100) / 100;
+  const baseMins = minutesFromHours(useAccountant ? rowAccountantHours(row) : rowPaidHours(row));
+  return (baseMins + minutesFromHours(rowCpHours(row))) / 60;
 }
 
 export function overtimeFromPaid(paidHours, settings) {
@@ -152,16 +162,16 @@ export function overtimeFromPaid(paidHours, settings) {
     ot25 = paid - (from25 - 1);
   }
   return {
-    ot25: Math.round(ot25 * 100) / 100,
-    ot50: Math.round(ot50 * 100) / 100
+    ot25: minutesFromHours(ot25) / 60,
+    ot50: minutesFromHours(ot50) / 60
   };
 }
 
 export function hoursMatchContract(row, useAccountant = false) {
-  const paid = Number(rowWeekHours(row, useAccountant));
-  const contracted = Number(row.contractedHours);
-  if (!Number.isFinite(paid) || !Number.isFinite(contracted) || contracted <= 0) return false;
-  return Math.abs(paid - contracted) < 0.05;
+  const paidMins = Math.round(Number(rowWeekHours(row, useAccountant)) * 60);
+  const contractedMins = Math.round(Number(row.contractedHours) * 60);
+  if (!Number.isFinite(paidMins) || !Number.isFinite(contractedMins) || contractedMins <= 0) return false;
+  return Math.abs(paidMins - contractedMins) <= 1;
 }
 
 export function planningWords(settings) {
@@ -352,8 +362,8 @@ export function recapWeeksFromDays(days = [], settings) {
       const overtime = overtimeFromPaid(week.paidHours, settings);
       return {
         ...week,
-        paidHours: Math.round(week.paidHours * 100) / 100,
-        nightHours: Math.round(week.nightHours * 100) / 100,
+        paidHours: minutesFromHours(week.paidHours) / 60,
+        nightHours: minutesFromHours(week.nightHours) / 60,
         ot25: overtime.ot25,
         ot50: overtime.ot50
       };
