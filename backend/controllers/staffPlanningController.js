@@ -371,7 +371,9 @@ function summarizeRow(row, settings, holidayDates) {
   const days = (plain.days || []).map((day) => hours.plainDay(day));
   const summarized = hours.summarizeDays(days, plain.contractedHours, settings, holidayDates);
   const recupHours = Number(plain.recupHours) || 0;
-  const accountant = Math.round(((Number(summarized.weeklyPaidHours) || 0) - recupHours) * 100) / 100;
+  const accountant = hours.hoursFromMinutes(
+    hours.minutesFromHours((Number(summarized.weeklyPaidHours) || 0) - recupHours)
+  );
   const overtime = hours.overtimeFromPaid(accountant, settings);
   return {
     employeeId: plain.employeeId,
@@ -745,7 +747,9 @@ function buildPlanningEmail({
     const baseHours = isActual
       ? (Number(row.weeklyAccountantHours) || Number(row.weeklyPaidHours) || 0)
       : (Number(row.weeklyPaidHours) || 0);
-    const weekTotal = Math.round((baseHours + cpHours) * 100) / 100;
+    const weekTotal = hours.hoursFromMinutes(
+      hours.minutesFromHours(baseHours) + hours.minutesFromHours(cpHours)
+    );
     const weekLabel = `${hours.formatHours(weekTotal)} / ${hours.formatHours(row.contractedHours)}${
       cpHours ? `<br/><small>CP ${hours.formatHours(cpHours)}</small>` : ''
     }${isActual && recup ? `<br/><small>Récup ${recup > 0 ? '+' : ''}${hours.formatHours(recup)}</small>` : ''}`;
