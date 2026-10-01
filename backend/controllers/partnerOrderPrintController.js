@@ -113,7 +113,7 @@ function pushWrapped(lines, label, value) {
   wrapText(`${label} : ${value}`, TICKET_WIDTH, '  ').forEach((l) => lines.push(l));
 }
 
-function buildOrderTicket(order) {
+function buildOrderTicket(order, { reprint = false } = {}) {
   const site = normalizeSite(order.site);
   const lines = [];
 
@@ -174,7 +174,7 @@ function buildOrderTicket(order) {
   return {
     id: String(order._id),
     kind: 'order',
-    title: 'NOUVELLE COMMANDE',
+    title: reprint ? 'REIMPRESSION COMMANDE' : 'NOUVELLE COMMANDE',
     subtitle: `ENTREPRISE - ${SITE_LABELS[site]}`,
     lines
   };
@@ -223,7 +223,7 @@ const printQueue = async (req, res) => {
     );
     const since = new Date(Date.now() - windowHours * 3600 * 1000);
 
-    const [newOrders, requestOrders, staffMessages] = await Promise.all([
+    const [newOrders, reprintOrders, requestOrders, staffMessages] = await Promise.all([
       PartnerOrder.find({
         ...siteQ,
         status: 'submitted',
@@ -231,6 +231,13 @@ const printQueue = async (req, res) => {
         createdAt: { $gte: since }
       })
         .sort({ createdAt: 1 })
+        .limit(MAX_TICKETS_PER_CALL)
+        .lean(),
+      PartnerOrder.find({
+        ...siteQ,
+        reprintQueuedAt: { $type: 'date' }
+      })
+        .sort({ reprintQueuedAt: 1 })
         .limit(MAX_TICKETS_PER_CALL)
         .lean(),
       PartnerOrder.find({
@@ -252,8 +259,19 @@ const printQueue = async (req, res) => {
         .lean()
     ]);
 
+    const seenOrderIds = new Set();
+    const orderTickets = [];
+    for (const order of [...reprintOrders, ...newOrders]) {
+      const id = String(order._id);
+      if (seenOrderIds.has(id)) continue;
+      seenOrderIds.add(id);
+      const reprint = order.reprintQueuedAt instanceof Date
+        || (order.reprintQueuedAt && !Number.isNaN(new Date(order.reprintQueuedAt).getTime()));
+      orderTickets.push(buildOrderTicket(order, { reprint }));
+    }
+
     const tickets = [
-      ...newOrders.map(buildOrderTicket),
+      ...orderTickets,
       ...requestOrders.map(buildClientRequestTicket),
       ...staffMessages.map(buildStaffMessageTicket)
     ];
@@ -286,7 +304,7 @@ const printQueueAck = async (req, res) => {
       orderIds.length > 0
         ? PartnerOrder.updateMany(
             { _id: { $in: orderIds }, ...siteQ },
-            { $set: { printedAt: now } }
+            { $set: { printedAt: now, reprintQueuedAt: null } }
           )
         : { modifiedCount: 0 },
       clientRequestOrderIds.length > 0
@@ -317,4 +335,32 @@ const printQueueAck = async (req, res) => {
   }
 };
 
-module.exports = { printQueue, printQueueAck };
+/** POST /api/partner-orders/internal/:id/reprint — remet le ticket dans la file de la caisse. */
+const reprintOrder = async (req, res) => {
+  try {
+    const id = String(req.params.id || '').trim();
+    if (!id) {
+      return res.status(400).json({ success: false, error: 'Identifiant manquant' });
+    }
+    const site = normalizeSite(req.query.site || req.body?.site);
+    const order = await PartnerOrder.findOne({ _id: id, ...siteMatchQuery(site) });
+    if (!order) {
+      return res.status(404).json({ success: false, error: 'Commande introuvable' });
+    }
+    order.reprintQueuedAt = new Date();
+    await order.save();
+    return res.json({
+      success: true,
+      message:
+        'Envoyé à l’imprimante de la caisse. Le ticket sortira sous environ une minute (agent d’impression allumé).'
+    });
+  } catch (err) {
+    if (err?.name === 'CastError') {
+      return res.status(404).json({ success: false, error: 'Commande introuvable' });
+    }
+    console.error('❌ reprintOrder:', err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+};
+
+module.exports = { printQueue, printQueueAck, reprintOrder };

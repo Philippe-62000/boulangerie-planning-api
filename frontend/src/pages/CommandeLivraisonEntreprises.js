@@ -183,6 +183,29 @@ const formatOrderWhen = (d) => {
   }
 };
 
+function ReprintButton({ onClick, busy, queued }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={busy || queued}
+      title="Relancer l’impression du ticket sur l’imprimante de la caisse"
+      style={{
+        padding: '6px 10px',
+        borderRadius: '8px',
+        border: '1px solid #0f766e',
+        background: queued ? '#ccfbf1' : '#f0fdfa',
+        color: '#0f766e',
+        fontWeight: 700,
+        cursor: busy || queued ? 'wait' : 'pointer',
+        whiteSpace: 'nowrap'
+      }}
+    >
+      {queued ? 'Réimpression en cours…' : busy ? 'Envoi…' : 'Réimprimer'}
+    </button>
+  );
+}
+
 /** Textarea « une ligne = un élément » : garde la ligne vide finale tant que l'utilisateur vient d'appuyer sur Entrée. */
 function multilineToStringList(raw) {
   const s = String(raw ?? '');
@@ -280,6 +303,7 @@ const CommandeLivraisonEntreprises = () => {
   const [messageModalOrder, setMessageModalOrder] = useState(null);
   const [messageDraft, setMessageDraft] = useState('');
   const [messageSending, setMessageSending] = useState(false);
+  const [reprintingId, setReprintingId] = useState(null);
   const messageModalOpenedAt = useRef(0);
 
   const load = async () => {
@@ -567,6 +591,25 @@ const CommandeLivraisonEntreprises = () => {
     } catch (e) {
       console.error(e);
       alert(e?.response?.data?.error || 'Impossible de changer le statut de la commande.');
+    }
+  };
+
+  const reprintOrder = async (order) => {
+    const id = order?._id || order?.id;
+    if (!id) return;
+    setReprintingId(String(id));
+    try {
+      const res = await api.post(`/partner-orders/internal/${id}/reprint`, {}, { params: { site } });
+      alert(
+        res.data?.message ||
+          'Envoyé à l’imprimante de la caisse. Le ticket sortira sous environ une minute.'
+      );
+      await load();
+    } catch (e) {
+      console.error(e);
+      alert(e?.response?.data?.error || 'Impossible d’envoyer à l’imprimante de la caisse.');
+    } finally {
+      setReprintingId(null);
     }
   };
 
@@ -915,8 +958,23 @@ const CommandeLivraisonEntreprises = () => {
                       ) : null}
                     </div>
                     <div style={{ minWidth: '240px' }}>
-                      <div style={{ fontSize: '0.9rem', color: '#333' }}>
-                        <b>Formule :</b> {o.itemsSnapshot?.label || '—'}
+                      <div
+                        style={{
+                          display: 'flex',
+                          gap: '0.5rem',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          flexWrap: 'wrap'
+                        }}
+                      >
+                        <div style={{ fontSize: '0.9rem', color: '#333' }}>
+                          <b>Formule :</b> {o.itemsSnapshot?.label || '—'}
+                        </div>
+                        <ReprintButton
+                          onClick={() => reprintOrder(o)}
+                          busy={reprintingId === String(o._id || o.id)}
+                          queued={!!o.reprintQueuedAt}
+                        />
                       </div>
                       {Array.isArray(o.itemsSnapshot?.items) && o.itemsSnapshot.items.length > 0 && (
                         <ul style={{ margin: '6px 0 0', paddingLeft: '18px' }}>
@@ -945,6 +1003,11 @@ const CommandeLivraisonEntreprises = () => {
                   </div>
 
                   <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginTop: '10px' }}>
+                    <ReprintButton
+                      onClick={() => reprintOrder(o)}
+                      busy={reprintingId === String(o._id || o.id)}
+                      queued={!!o.reprintQueuedAt}
+                    />
                     {o.clientRequest?.status === 'pending' ? (
                       <button
                         type="button"

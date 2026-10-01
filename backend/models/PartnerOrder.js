@@ -80,6 +80,8 @@ const partnerOrderSchema = new mongoose.Schema(
     messageAlertClearedAt: { type: Date, default: null },
     /** Ticket imprimé sur la caisse (agent d'impression boutique). */
     printedAt: { type: Date, default: null },
+    /** Demande de réimpression (l’agent caisse reprend le même ticket). */
+    reprintQueuedAt: { type: Date, default: null },
     /** Id commande sur le site client Vercel (si Mongo distinct). */
     vercelOrderId: { type: String, trim: true, default: '', index: true },
     /** Demande client d'annulation ou de modification (commande « pris en compte »). */
@@ -106,6 +108,7 @@ const partnerOrderSchema = new mongoose.Schema(
 );
 
 partnerOrderSchema.index({ site: 1, status: 1, datetime: 1 });
+partnerOrderSchema.index({ site: 1, reprintQueuedAt: 1 });
 
 module.exports = mongoose.model('PartnerOrder', partnerOrderSchema);
 
