@@ -280,7 +280,8 @@ async function ensureWeekDoc(weekNumber, year, settings) {
   return week;
 }
 
-async function copyRowsPreserveCfa({ source, dest, employeeIds, settings }) {
+async function copyRowsPreserveCfa({ source, dest, employeeIds, settings, actor }) {
+  captureForecastOriginIfNeeded(dest, actor);
   const destDates = hours.weekDates(dest.weekNumber, dest.year);
   const holidayDates = holidayDatesOf(dest);
   const cfaMap = await cfaDatesByEmployee(destDates);
@@ -323,6 +324,7 @@ async function copyRowsPreserveCfa({ source, dest, employeeIds, settings }) {
   await syncWeekRows(dest, settings);
   dest.markModified('rows');
   dest.markModified('holidayDates');
+  rememberForecastSnapshot(dest, actor, 'edit');
   await dest.save();
   return { week: dest, copiedDays, skippedCfa };
 }
@@ -466,6 +468,136 @@ function isIsoWeekFinished(dates = [], today = todayIsoParis()) {
 
 function cloneRows(rows) {
   return JSON.parse(JSON.stringify(rows || []));
+}
+
+const SNAPSHOT_COALESCE_MS = 20 * 60 * 1000;
+const MAX_FORECAST_SNAPSHOTS = 40;
+
+function actorName(req) {
+  return req?.user?.name || req?.user?.email || 'admin';
+}
+
+function leanForecastRows(rows) {
+  return (rows || []).map((row) => {
+    const plain = toPlain(row) || {};
+    return {
+      employeeId: plain.employeeId,
+      employeeName: plain.employeeName,
+      contractedHours: plain.contractedHours,
+      employeeCategory: plain.employeeCategory || 'vente',
+      days: (plain.days || []).map((raw) => {
+        const day = hours.plainDay(raw) || {};
+        return {
+          day: day.day,
+          date: day.date,
+          kind: day.kind || 'empty',
+          code: day.code || '',
+          shifts: (day.shifts || []).map((shift) => ({
+            startTime: shift.startTime || shift.start || '',
+            endTime: shift.endTime || shift.end || ''
+          })),
+          volumeHours: Number(day.volumeHours) || 0,
+          paidHours: Number(day.paidHours) || 0,
+          nightHours: Number(day.nightHours) || 0,
+          sickDays: Number(day.sickDays) || 0,
+          sickHours: Number(day.sickHours) || 0,
+          cpHours: Number(day.cpHours) || 0,
+          absenceHours: Number(day.absenceHours) || 0,
+          holidayHours: Number(day.holidayHours) || 0,
+          deductedBreakMinutes: Number(day.deductedBreakMinutes) || 0,
+          isHoliday: !!day.isHoliday
+        };
+      }),
+      weeklyPaidHours: Number(plain.weeklyPaidHours) || 0,
+      weeklyNightHours: Number(plain.weeklyNightHours) || 0,
+      weeklyCpHours: Number(plain.weeklyCpHours) || 0,
+      weeklyOt25: Number(plain.weeklyOt25) || 0,
+      weeklyOt50: Number(plain.weeklyOt50) || 0,
+      recupHours: Number(plain.recupHours) || 0,
+      alertCount: Number(plain.alertCount) || 0
+    };
+  });
+}
+
+function snapshotFingerprint(rows) {
+  return JSON.stringify((rows || []).map((row) => ({
+    employeeId: String(row.employeeId || ''),
+    days: (row.days || []).map((day) => ({
+      day: day.day,
+      kind: day.kind,
+      code: day.code || '',
+      shifts: day.shifts || [],
+      volumeHours: day.volumeHours || 0,
+      paidHours: day.paidHours || 0
+    }))
+  })));
+}
+
+function forecastSnapshotSummaries(week) {
+  return (week?.forecastSnapshots || [])
+    .map((item) => ({
+      id: String(item._id),
+      savedAt: item.savedAt,
+      savedBy: item.savedBy || '',
+      reason: item.reason || 'edit'
+    }))
+    .sort((a, b) => new Date(b.savedAt) - new Date(a.savedAt));
+}
+
+function publicWeek(week) {
+  if (!week) return week;
+  const obj = typeof week.toObject === 'function' ? week.toObject() : { ...week };
+  obj.forecastSnapshots = forecastSnapshotSummaries(obj);
+  return obj;
+}
+
+function captureForecastOriginIfNeeded(week, actor) {
+  if (!week || (week.forecastSnapshots || []).length) return false;
+  if (!(week.rows || []).length) return false;
+  const savedAt = week.validatedAt || week.lastSentAt || week.updatedAt || new Date();
+  const reason = week.status === 'sent' ? 'sent' : (week.status === 'validated' ? 'validated' : 'edit');
+  week.forecastSnapshots = [{
+    savedAt,
+    savedBy: week.validatedBy || week.lastSentBy || actor || '',
+    reason,
+    rows: leanForecastRows(week.rows)
+  }];
+  week.markModified('forecastSnapshots');
+  return true;
+}
+
+function rememberForecastSnapshot(week, actor, reason = 'edit') {
+  if (!week) return false;
+  const rows = leanForecastRows(week.rows);
+  if (!rows.length) return false;
+  if (!Array.isArray(week.forecastSnapshots)) week.forecastSnapshots = [];
+  const fingerprint = snapshotFingerprint(rows);
+  const last = week.forecastSnapshots[week.forecastSnapshots.length - 1];
+  if (last && snapshotFingerprint(last.rows) === fingerprint) return false;
+  const now = new Date();
+  if (
+    last
+    && (last.reason || 'edit') === 'edit'
+    && reason === 'edit'
+    && (now - new Date(last.savedAt || 0)) < SNAPSHOT_COALESCE_MS
+  ) {
+    last.rows = rows;
+    last.savedAt = now;
+    last.savedBy = actor || last.savedBy || '';
+    week.markModified('forecastSnapshots');
+    return true;
+  }
+  week.forecastSnapshots.push({
+    savedAt: now,
+    savedBy: actor || '',
+    reason,
+    rows
+  });
+  while (week.forecastSnapshots.length > MAX_FORECAST_SNAPSHOTS) {
+    week.forecastSnapshots.shift();
+  }
+  week.markModified('forecastSnapshots');
+  return true;
 }
 
 function hasActualLayer(week) {
@@ -924,7 +1056,8 @@ const getPublishedWeek = async (req, res) => {
           : [],
         acknowledgements: (week.acknowledgements || []).map((item) => (
           String(item.employeeId) === String(employeeId) ? myAcknowledgement : item
-        ))
+        )),
+        forecastSnapshots: undefined
       },
       dates,
       weekNumber: week.weekNumber,
@@ -974,6 +1107,9 @@ const getWeek = async (req, res) => {
     }
     if (hasActualLayer(week)) week.markModified('actualRows');
     await overlayActualRecup(week, settings);
+    if (isPublishedForecast(week)) {
+      captureForecastOriginIfNeeded(week, week.validatedBy || week.lastSentBy);
+    }
     await week.save();
     const prev = hours.addIsoWeeks(weekNumber, year, -1);
     const previousWeek = await StaffWeekPlanning.findOne({
@@ -984,7 +1120,7 @@ const getWeek = async (req, res) => {
       success: true,
       settings,
       dates,
-      week,
+      week: publicWeek(week),
       lock: lockInfo(dates),
       previousWeek: {
         weekNumber: prev.weekNumber,
@@ -1076,18 +1212,20 @@ const updateCell = async (req, res) => {
       days
     }, settings, holidayDates);
     const sourceRows = week.toObject()[rowsKey] || [];
+    if (!useActual) captureForecastOriginIfNeeded(week, actorName(req));
     week[rowsKey] = sourceRows.map((item, index) => (
       index === rowIndex ? nextRow : item
     ));
     if (!useActual) {
       invalidateAcknowledgements(week, [employeeId]);
       if (!isPublishedForecast(week) && week.status !== 'draft') week.status = 'draft';
+      rememberForecastSnapshot(week, actorName(req), 'edit');
     }
     week.markModified(rowsKey);
     await week.save();
     res.json({
       success: true,
-      week,
+      week: publicWeek(week),
       lock,
       alerts: collectAlerts(useActual ? { rows: week.actualRows } : week)
     });
@@ -1113,8 +1251,9 @@ const validateWeek = async (req, res) => {
     week.validatedAt = new Date();
     week.validatedBy = req.user?.name || req.user?.email || 'admin';
     week.markModified('rows');
+    rememberForecastSnapshot(week, actorName(req), 'validated');
     await week.save();
-    res.json({ success: true, week, alerts, lock: lockInfo(dates) });
+    res.json({ success: true, week: publicWeek(week), alerts, lock: lockInfo(dates) });
   } catch (error) {
     console.error('staff-planning validate', error);
     res.status(500).json({ success: false, error: 'Impossible de valider le planning' });
@@ -1236,13 +1375,14 @@ const sendWeek = async (req, res) => {
       week.lastSendSummary = `${okCount}/${results.length} envoyés`;
       week.validatedAt = week.validatedAt || new Date();
       week.markModified('rows');
+      rememberForecastSnapshot(week, actorName(req), 'sent');
     }
     if (layer === 'forecast') stampChangeNotifications(week, results);
     await week.save();
 
     res.json({
       success: true,
-      week,
+      week: publicWeek(week),
       alerts,
       results,
       skipped,
@@ -1280,12 +1420,13 @@ const duplicateWeek = async (req, res) => {
       source,
       dest,
       employeeIds: (source.rows || []).map((row) => String(row.employeeId)),
-      settings
+      settings,
+      actor: actorName(req)
     });
 
     res.json({
       success: true,
-      week: copied.week,
+      week: publicWeek(copied.week),
       dates: hours.weekDates(target.weekNumber, target.year),
       settings,
       alerts: collectAlerts(copied.week),
@@ -1334,14 +1475,14 @@ const copyWeekRows = async (req, res) => {
     }
 
     const dest = await ensureWeekDoc(destKey.weekNumber, destKey.year, settings);
-    const copied = await copyRowsPreserveCfa({ source, dest, employeeIds, settings });
+    const copied = await copyRowsPreserveCfa({ source, dest, employeeIds, settings, actor: actorName(req) });
     const current = direction === 'to-next'
       ? await StaffWeekPlanning.findOne({ weekNumber, year })
       : copied.week;
 
     res.json({
       success: true,
-      week: current,
+      week: publicWeek(current),
       dates: hours.weekDates(weekNumber, year),
       settings,
       alerts: collectAlerts(current),
@@ -1427,16 +1568,18 @@ const swapWeekRows = async (req, res) => {
       if (index === indexB) return summarizeRow({ ...plainB, days: daysB }, settings, holidayDates);
       return row;
     });
+    if (!useActual) captureForecastOriginIfNeeded(week, actorName(req));
     week[rowsKey] = nextRows;
     if (!useActual) {
       if (swappedDays > 0) invalidateAcknowledgements(week, [employeeIdA, employeeIdB]);
       if (!isPublishedForecast(week) && week.status !== 'draft') week.status = 'draft';
+      rememberForecastSnapshot(week, actorName(req), 'edit');
     }
     week.markModified(rowsKey);
     await week.save();
     res.json({
       success: true,
-      week,
+      week: publicWeek(week),
       dates,
       lock,
       alerts: collectAlerts(useActual ? { rows: week.actualRows } : week),
@@ -1494,15 +1637,17 @@ const toggleHoliday = async (req, res) => {
     }
     week.holidayDates = Array.from(current);
     week.ignoredHolidayDates = Array.from(ignored);
+    captureForecastOriginIfNeeded(week, actorName(req));
     await syncWeekRows(week, settings);
     if (!isPublishedForecast(week) && week.status !== 'draft') week.status = 'draft';
+    rememberForecastSnapshot(week, actorName(req), 'edit');
     week.markModified('rows');
     week.markModified('holidayDates');
     week.markModified('ignoredHolidayDates');
     await week.save();
     res.json({
       success: true,
-      week,
+      week: publicWeek(week),
       dates,
       settings,
       holidayLabels: frenchHolidays.holidayLabelsForIsoDates(dates.map((item) => item.date)),
@@ -1758,7 +1903,7 @@ const createActualWeek = async (req, res) => {
     const dates = hours.weekDates(weekNumber, year);
     res.json({
       success: true,
-      week,
+      week: publicWeek(week),
       dates,
       lock: lockInfo(dates),
       alerts: collectAlerts({ rows: week.actualRows })
@@ -1825,7 +1970,7 @@ const validateActualWeek = async (req, res) => {
     }
     res.json({
       success: true,
-      week,
+      week: publicWeek(week),
       settings,
       lock: lockInfo(dates),
       alerts: collectAlerts({ rows: week.actualRows }),
@@ -1891,7 +2036,7 @@ const updateRecupHours = async (req, res) => {
     const dates = hours.weekDates(weekNumber, year);
     res.json({
       success: true,
-      week,
+      week: publicWeek(week),
       dates,
       lock: lockInfo(dates),
       alerts: collectAlerts({ rows: week.actualRows })
@@ -2007,11 +2152,45 @@ const getMonthRecap = async (req, res) => {
   }
 };
 
+const getForecastSnapshot = async (req, res) => {
+  try {
+    if (!requireAdmin(req, res)) return;
+    const weekNumber = parseInt(req.params.week, 10);
+    const year = parseInt(req.params.year, 10);
+    const snapshotId = String(req.params.snapshotId || '');
+    if (!weekNumber || !year || !snapshotId) {
+      return res.status(400).json({ success: false, error: 'Semaine et version requises' });
+    }
+    const week = await StaffWeekPlanning.findOne({ weekNumber, year });
+    if (!week) return res.status(404).json({ success: false, error: 'Planning introuvable' });
+    const snap = (week.forecastSnapshots || []).id
+      ? week.forecastSnapshots.id(snapshotId)
+      : (week.forecastSnapshots || []).find((item) => String(item._id) === snapshotId);
+    if (!snap) {
+      return res.status(404).json({ success: false, error: 'Version introuvable' });
+    }
+    res.json({
+      success: true,
+      snapshot: {
+        id: String(snap._id),
+        savedAt: snap.savedAt,
+        savedBy: snap.savedBy || '',
+        reason: snap.reason || 'edit',
+        rows: snap.rows || []
+      }
+    });
+  } catch (error) {
+    console.error('staff-planning snapshot GET', error);
+    res.status(500).json({ success: false, error: 'Impossible de charger cette version du planning' });
+  }
+};
+
 module.exports = {
   getSettings,
   updateSettings,
   getPublishedWeek,
   getWeek,
+  getForecastSnapshot,
   updateCell,
   validateWeek,
   sendWeek,

@@ -14,6 +14,7 @@ router.get('/stats/:employeeId', controller.getEmployeeStats);
 router.get('/month-recap', controller.getMonthRecap);
 router.put('/reorder', controller.reorderEmployees);
 router.get('/week/:year/:week', controller.getWeek);
+router.get('/week/:year/:week/snapshot/:snapshotId', controller.getForecastSnapshot);
 router.put('/week/:year/:week/cell', controller.updateCell);
 router.put('/week/:year/:week/holiday', controller.toggleHoliday);
 router.post('/week/:year/:week/validate', controller.validateWeek);
