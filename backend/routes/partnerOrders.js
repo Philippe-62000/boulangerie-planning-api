@@ -24,6 +24,7 @@ router.post('/print-queue/ack', requirePrintAgentKey, printController.printQueue
 // Internal (salariés/admin) for dashboard + listing (read-only)
 router.get('/pending-count', authenticateEmployee, controller.internalPendingCount);
 router.get('/internal', authenticateEmployee, controller.internalListOrders);
+router.post('/internal/:id/reprint', authenticateEmployee, printController.reprintOrder);
 router.post('/internal/:id/message', authenticateEmployee, controller.sendInternalOrderMessage);
 router.patch('/internal/:id/message-alert', authenticateEmployee, controller.dismissInternalOrderMessageAlert);
 router.patch('/internal/:id/status', authenticateEmployee, controller.adminUpdateOrderStatus);

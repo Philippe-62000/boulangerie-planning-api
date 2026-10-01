@@ -119,17 +119,21 @@ const emptyEditor = {
 
 function formatSnapshotOption(item) {
   if (!item?.savedAt) return 'Version';
-  const when = new Date(item.savedAt).toLocaleString('fr-FR', {
+  const parts = new Intl.DateTimeFormat('fr-FR', {
     timeZone: 'Europe/Paris',
-    dateStyle: 'short',
-    timeStyle: 'short'
-  });
+    day: '2-digit',
+    month: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false
+  }).formatToParts(new Date(item.savedAt));
+  const get = (type) => parts.find((part) => part.type === type)?.value || '';
   const reason = item.reason === 'validated'
     ? 'Validé'
     : item.reason === 'sent'
       ? 'Envoyé'
       : 'Modifié';
-  return `${when} — ${reason}`;
+  return `${get('day')}/${get('month')} ${get('hour')}h${get('minute')} — ${reason}`;
 }
 
 const StaffPlanning = () => {
@@ -827,22 +831,6 @@ const StaffPlanning = () => {
         >
           Planning réel
         </button>
-        {isAdmin() && layer === 'forecast' && (week?.forecastSnapshots || []).length > 0 && (
-          <label className="sp-history-label">
-            Versions
-            <select
-              className="form-control sp-history-select"
-              value={viewingSnapshot?.id || ''}
-              disabled={loadingSnapshot}
-              onChange={(event) => openSnapshot(event.target.value)}
-            >
-              <option value="">Actuelle (salariés)</option>
-              {(week.forecastSnapshots || []).map((item) => (
-                <option key={item.id} value={item.id}>{formatSnapshotOption(item)}</option>
-              ))}
-            </select>
-          </label>
-        )}
         {canEdit && layer === 'forecast' && (
           <>
             <button type="button" className="btn btn-primary" onClick={() => send()} disabled={weekFinished && (week?.sendCount || 0) === 0}>
@@ -870,10 +858,42 @@ const StaffPlanning = () => {
           <span className="sp-status sp-status-signed">{(week.actualSignatures || []).length} signature(s) réel</span>
         )}
       </div>
+      {isAdmin() && layer === 'forecast' && (
+        <div className="sp-history-bar no-print">
+          <div className="sp-history-bar-head">
+            <strong>Historique du prévu</strong>
+            <span>
+              {(week?.forecastSnapshots || []).length === 0
+                ? 'Aucune version datée pour l’instant. Elle apparaît après une modification du planning déjà validé ou envoyé. Les salariés voient uniquement la version actuelle.'
+                : 'Cliquez une date pour revoir le planning de ce moment. Les salariés voient uniquement la version actuelle.'}
+            </span>
+          </div>
+          <div className="sp-history-chips">
+            <button
+              type="button"
+              className={`sp-history-chip ${!viewingSnapshot ? 'is-active' : ''}`}
+              onClick={() => openSnapshot('')}
+            >
+              Actuelle (salariés)
+            </button>
+            {(week?.forecastSnapshots || []).map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                className={`sp-history-chip ${viewingSnapshot?.id === item.id ? 'is-active' : ''}`}
+                disabled={loadingSnapshot}
+                onClick={() => openSnapshot(item.id)}
+              >
+                {formatSnapshotOption(item)}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
       {viewingHistory && (
         <div className="sp-history-banner no-print" role="status">
           Consultation de la version du {formatSnapshotOption(viewingSnapshot)}. Les salariés voient uniquement la version actuelle.
-          <button type="button" className="btn btn-secondary" onClick={() => setViewingSnapshot(null)}>Revenir à la version actuelle</button>
+          <button type="button" className="btn btn-secondary" onClick={() => openSnapshot('')}>Revenir à la version actuelle</button>
         </div>
       )}
 
