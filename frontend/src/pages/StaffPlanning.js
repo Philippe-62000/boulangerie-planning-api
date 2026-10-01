@@ -117,6 +117,21 @@ const emptyEditor = {
   applyToWeek: false
 };
 
+function formatSnapshotOption(item) {
+  if (!item?.savedAt) return 'Version';
+  const when = new Date(item.savedAt).toLocaleString('fr-FR', {
+    timeZone: 'Europe/Paris',
+    dateStyle: 'short',
+    timeStyle: 'short'
+  });
+  const reason = item.reason === 'validated'
+    ? 'Validé'
+    : item.reason === 'sent'
+      ? 'Envoyé'
+      : 'Modifié';
+  return `${when} — ${reason}`;
+}
+
 const StaffPlanning = () => {
   const { user, isAdmin } = useAuth();
   const current = getISOWeekInfo();
@@ -140,9 +155,12 @@ const StaffPlanning = () => {
   const [lock, setLock] = useState({ today: todayIsoParis(), weekFinished: false, finishedDates: [] });
   const [dragId, setDragId] = useState(null);
   const [recupModal, setRecupModal] = useState(null);
+  const [viewingSnapshot, setViewingSnapshot] = useState(null);
+  const [loadingSnapshot, setLoadingSnapshot] = useState(false);
   const startHourRef = useRef(null);
 
-  const canEdit = isAdmin();
+  const viewingHistory = layer === 'forecast' && !!viewingSnapshot;
+  const canEdit = isAdmin() && !viewingHistory;
   const myEmployeeId = user?.employeeId || user?.id;
   const prevWeek = useMemo(() => addIsoWeeks(weekNumber, year, -1), [weekNumber, year]);
   const nextWeek = useMemo(() => addIsoWeeks(weekNumber, year, 1), [weekNumber, year]);
@@ -159,6 +177,7 @@ const StaffPlanning = () => {
 
   const loadWeek = useCallback(async (nextWeekNumber, nextYear) => {
     setLoading(true);
+    setViewingSnapshot(null);
     try {
       const response = await api.get(`/staff-planning/week/${nextYear}/${nextWeekNumber}`);
       applyWeekPayload(response.data);
@@ -171,6 +190,25 @@ const StaffPlanning = () => {
       setLoading(false);
     }
   }, [applyWeekPayload]);
+
+  const openSnapshot = async (snapshotId) => {
+    if (!snapshotId) {
+      setViewingSnapshot(null);
+      return;
+    }
+    setLoadingSnapshot(true);
+    try {
+      const response = await api.get(`/staff-planning/week/${year}/${weekNumber}/snapshot/${snapshotId}`);
+      setViewingSnapshot(response.data.snapshot);
+      setLayer('forecast');
+    } catch (error) {
+      console.error(error);
+      toast.error(error.response?.data?.error || 'Impossible de charger cette version');
+      setViewingSnapshot(null);
+    } finally {
+      setLoadingSnapshot(false);
+    }
+  };
 
   useEffect(() => {
     loadWeek(weekNumber, year);
@@ -232,13 +270,15 @@ const StaffPlanning = () => {
   const hintsByEmployee = useMemo(() => {
     const prevById = new Map((previousRows || []).map((row) => [String(row.employeeId), row]));
     const map = new Map();
-    const sourceRows = layer === 'actual' ? (week?.actualRows || []) : (week?.rows || []);
+    const sourceRows = layer === 'actual'
+      ? (week?.actualRows || [])
+      : (viewingSnapshot?.rows || week?.rows || []);
     sourceRows.forEach((row) => {
       const prev = prevById.get(String(row.employeeId));
       map.set(String(row.employeeId), computePlanningHints(prev?.days || [], row.days || []));
     });
     return map;
-  }, [week, previousRows, layer]);
+  }, [week, previousRows, layer, viewingSnapshot]);
 
   const goWeek = (delta) => {
     const next = addIsoWeeks(weekNumber, year, delta);
@@ -246,7 +286,9 @@ const StaffPlanning = () => {
     setYear(next.year);
   };
 
-  const displayedRows = layer === 'actual' ? (week?.actualRows || []) : (week?.rows || []);
+  const displayedRows = layer === 'actual'
+    ? (week?.actualRows || [])
+    : (viewingSnapshot?.rows || week?.rows || []);
   const groups = useMemo(
     () => groupRowsByCategory(displayedRows, settings?.employeeOrder),
     [displayedRows, settings]
@@ -691,7 +733,11 @@ const StaffPlanning = () => {
       dates,
       rows: flattenGroupedPlanningRows(groups),
       holidayDates: week?.holidayDates || [],
-      title: layer === 'actual' ? 'Planning réel' : 'Planning'
+      title: layer === 'actual'
+        ? 'Planning réel'
+        : (viewingSnapshot
+          ? `Planning prévu — version du ${formatSnapshotOption(viewingSnapshot)}`
+          : 'Planning')
     });
     if (!openPrintHtml(html)) {
       toast.error('Autorisez les fenêtres pop-up pour imprimer le planning magasin.');
@@ -774,12 +820,29 @@ const StaffPlanning = () => {
           type="button"
           className={`btn ${layer === 'actual' ? 'btn-primary' : 'btn-secondary'}`}
           onClick={() => {
+            setViewingSnapshot(null);
             setLayer('actual');
-            if (!loading && !actualExists && canEdit) createActual();
+            if (!loading && !actualExists && isAdmin()) createActual();
           }}
         >
           Planning réel
         </button>
+        {isAdmin() && layer === 'forecast' && (week?.forecastSnapshots || []).length > 0 && (
+          <label className="sp-history-label">
+            Versions
+            <select
+              className="form-control sp-history-select"
+              value={viewingSnapshot?.id || ''}
+              disabled={loadingSnapshot}
+              onChange={(event) => openSnapshot(event.target.value)}
+            >
+              <option value="">Actuelle (salariés)</option>
+              {(week.forecastSnapshots || []).map((item) => (
+                <option key={item.id} value={item.id}>{formatSnapshotOption(item)}</option>
+              ))}
+            </select>
+          </label>
+        )}
         {canEdit && layer === 'forecast' && (
           <>
             <button type="button" className="btn btn-primary" onClick={() => send()} disabled={weekFinished && (week?.sendCount || 0) === 0}>
@@ -807,6 +870,12 @@ const StaffPlanning = () => {
           <span className="sp-status sp-status-signed">{(week.actualSignatures || []).length} signature(s) réel</span>
         )}
       </div>
+      {viewingHistory && (
+        <div className="sp-history-banner no-print" role="status">
+          Consultation de la version du {formatSnapshotOption(viewingSnapshot)}. Les salariés voient uniquement la version actuelle.
+          <button type="button" className="btn btn-secondary" onClick={() => setViewingSnapshot(null)}>Revenir à la version actuelle</button>
+        </div>
+      )}
 
       <div className="sp-legend no-print">
         <span className="sp-legend-item sp-legend-prev">Repos de la semaine {prevWeek.weekNumber}</span>
@@ -816,7 +885,7 @@ const StaffPlanning = () => {
       </div>
 
       <div className="sp-print-header">
-        <h1>Planning semaine {weekNumber} — {formatDayRange(dates)}</h1>
+        <h1>Planning semaine {weekNumber} — {formatDayRange(dates)}{viewingHistory ? ` — ${formatSnapshotOption(viewingSnapshot)}` : ''}</h1>
       </div>
 
       {loading ? (

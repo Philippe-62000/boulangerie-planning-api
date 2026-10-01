@@ -84,6 +84,15 @@ const staffWeekPlanningSchema = new mongoose.Schema({
   },
   actualValidatedAt: { type: Date },
   actualValidatedBy: { type: String, default: '' },
+  forecastSnapshots: {
+    type: [{
+      savedAt: { type: Date, default: Date.now },
+      savedBy: { type: String, default: '' },
+      reason: { type: String, default: 'edit' },
+      rows: { type: mongoose.Schema.Types.Mixed, default: [] }
+    }],
+    default: []
+  },
   acknowledgements: {
     type: [{
       employeeId: { type: mongoose.Schema.Types.ObjectId, ref: 'Employee' },
