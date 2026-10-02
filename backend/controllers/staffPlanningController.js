@@ -374,7 +374,8 @@ function summarizeRow(row, settings, holidayDates) {
   const summarized = hours.summarizeDays(days, plain.contractedHours, settings, holidayDates);
   const recupHours = Number(plain.recupHours) || 0;
   const accountant = hours.hoursFromMinutes(
-    hours.minutesFromHours((Number(summarized.weeklyPaidHours) || 0) - recupHours)
+    hours.minutesFromHours(Number(summarized.weeklyPaidHours) || 0)
+    - hours.minutesFromHours(recupHours)
   );
   const overtime = hours.overtimeFromPaid(accountant, settings);
   return {
@@ -1990,13 +1991,14 @@ const updateRecupHours = async (req, res) => {
     const weekNumber = parseInt(req.params.week, 10);
     const year = parseInt(req.params.year, 10);
     const employeeId = req.body?.employeeId;
-    const recupHours = Number.parseFloat(req.body?.hours);
+    const rawHours = Number.parseFloat(req.body?.hours);
+    if (!Number.isFinite(rawHours)) {
+      return res.status(400).json({ success: false, error: 'Nombre d\'heures de récup invalide' });
+    }
+    const recupHours = hours.hoursFromMinutes(hours.minutesFromHours(rawHours));
     const comment = typeof req.body?.comment === 'string' ? req.body.comment.trim().slice(0, 500) : '';
     if (!employeeId) {
       return res.status(400).json({ success: false, error: 'Salarié requis' });
-    }
-    if (!Number.isFinite(recupHours)) {
-      return res.status(400).json({ success: false, error: 'Nombre d\'heures de récup invalide' });
     }
     const week = await StaffWeekPlanning.findOne({ weekNumber, year });
     if (!week) return res.status(404).json({ success: false, error: 'Planning introuvable' });

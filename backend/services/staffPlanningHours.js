@@ -17,6 +17,38 @@ function minutesFromHours(value) {
   return Math.round(n * 60);
 }
 
+/** 00.26 = 26 minutes (heures.minutes), pas 0,26 h décimales. */
+function parseClockHours(raw) {
+  const s = String(raw ?? '').trim().replace(',', '.');
+  if (!s || s === '+' || s === '-') return NaN;
+  const sign = s.startsWith('-') ? -1 : 1;
+  const body = s.replace(/^[+-]/, '').trim().toLowerCase();
+  const hm = body.match(/^(\d{1,3})[h:](\d{1,2})$/);
+  if (hm) {
+    const minutes = Number(hm[2]);
+    if (minutes > 59) return NaN;
+    return sign * hoursFromMinutes(Number(hm[1]) * 60 + minutes);
+  }
+  const dotted = body.match(/^(\d{1,3})(?:\.(\d{1,2}))?$/);
+  if (!dotted) return NaN;
+  const hoursPart = Number(dotted[1]);
+  const minStr = dotted[2];
+  if (minStr == null) return sign * hoursPart;
+  const minutes = Number(minStr);
+  if (minutes > 59) return NaN;
+  return sign * hoursFromMinutes(hoursPart * 60 + minutes);
+}
+
+function formatClockHours(hours) {
+  const total = minutesFromHours(hours);
+  if (!Number.isFinite(total)) return '00.00';
+  const sign = total < 0 ? '-' : '';
+  const abs = Math.abs(total);
+  const whole = Math.floor(abs / 60);
+  const mins = abs % 60;
+  return `${sign}${String(whole).padStart(2, '0')}.${String(mins).padStart(2, '0')}`;
+}
+
 function hoursFromMinutes(minutes) {
   return (Number(minutes) || 0) / 60;
 }
@@ -536,6 +568,8 @@ function defaultSettings() {
 module.exports = {
   DAYS,
   parseMinutes,
+  parseClockHours,
+  formatClockHours,
   formatHours,
   minutesFromHours,
   hoursFromMinutes,

@@ -42,4 +42,29 @@ const noon = days.map((meta) => hours.computeDay(
 ));
 assert.strictEqual(hours.formatHours(hours.summarizeDays(noon, 39, settings).weeklyPaidHours), '35h50');
 
+assert.strictEqual(hours.formatClockHours(26 / 60), '00.26');
+assert.strictEqual(hours.formatClockHours(0.43), '00.26');
+assert.strictEqual(hours.formatClockHours(1.5), '01.30');
+assert.strictEqual(hours.parseClockHours('00.26'), 26 / 60);
+assert.strictEqual(hours.parseClockHours('0.26'), 26 / 60);
+assert.strictEqual(hours.parseClockHours('00,26'), 26 / 60);
+assert.strictEqual(hours.parseClockHours('1.30'), 1.5);
+assert.strictEqual(hours.parseClockHours('01.30'), 1.5);
+assert.strictEqual(hours.parseClockHours('0h26'), 26 / 60);
+assert.strictEqual(hours.parseClockHours('-00.26'), -26 / 60);
+assert.ok(Number.isNaN(hours.parseClockHours('00.99')));
+
+const paidWeek = 35 + 26 / 60;
+assert.strictEqual(hours.formatHours(paidWeek), '35h26');
+assert.strictEqual(
+  hours.formatHours(hours.hoursFromMinutes(
+    hours.minutesFromHours(paidWeek) - hours.minutesFromHours(hours.parseClockHours('00.26'))
+  )),
+  '35h'
+);
+assert.strictEqual(
+  hours.formatHours(hours.parseClockHours('00.26')),
+  '0h26'
+);
+
 console.log('staff planning hours tests OK');

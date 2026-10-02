@@ -9,8 +9,10 @@ import {
   cellLabel,
   computePlanningHints,
   formatDayRange,
+  formatClockHours,
   formatHours,
   formatShortDate,
+  parseClockHours,
   getISOWeekInfo,
   cpHoursForContract,
   hoursMatchContract,
@@ -537,16 +539,16 @@ const StaffPlanning = () => {
       employeeName: row.employeeName,
       contractedHours: row.contractedHours,
       worked,
-      hours: String(rowRecupHours(row) || 0),
+      hours: formatClockHours(rowRecupHours(row) || 0),
       comment: row.recupComment || ''
     });
   };
 
   const saveRecupModal = async () => {
     if (!recupModal) return;
-    const hoursValue = Number.parseFloat(String(recupModal.hours).replace(',', '.'));
+    const hoursValue = parseClockHours(recupModal.hours);
     if (!Number.isFinite(hoursValue)) {
-      toast.error('Indiquez un nombre d’heures (+ pour ajouter au compteur, − pour en retirer)');
+      toast.error('Indiquez les heures.minutes, ex. 00.26 pour 26 minutes (+ au compteur, − pour en retirer)');
       return;
     }
     setSaving(true);
@@ -1299,9 +1301,11 @@ const StaffPlanning = () => {
       )}
 
       {recupModal && (() => {
-        const recup = Number.parseFloat(String(recupModal.hours).replace(',', '.'));
-        const recupValue = Number.isFinite(recup) ? recup : 0;
-        const accountant = Math.round((Number(recupModal.worked) - recupValue) * 100) / 100;
+        const recupValue = parseClockHours(recupModal.hours);
+        const recupOk = Number.isFinite(recupValue);
+        const workedMins = Math.round(Number(recupModal.worked) * 60);
+        const recupMins = recupOk ? Math.round(recupValue * 60) : 0;
+        const accountant = (workedMins - recupMins) / 60;
         const ot = overtimeFromPaid(accountant, settings);
         return (
           <div className="sp-modal-backdrop no-print" onClick={() => !saving && setRecupModal(null)}>
@@ -1315,11 +1319,13 @@ const StaffPlanning = () => {
                 Heures de récup cette semaine
                 <input
                   className="form-control"
-                  type="number"
-                  step="0.25"
+                  type="text"
+                  inputMode="decimal"
+                  placeholder="00.26"
                   value={recupModal.hours}
                   onChange={(e) => setRecupModal((current) => ({ ...current, hours: e.target.value }))}
                 />
+                <span className="sp-recup-hint">Saisir 00.26 pour 26 minutes (heures.minutes), 01.30 pour 1h30.</span>
               </label>
               <label className="sp-recup-field">
                 Justificatif
@@ -1332,9 +1338,9 @@ const StaffPlanning = () => {
                 />
               </label>
               <div className="sp-recup-preview">
-                <p>Comptable : <strong>{formatHours(accountant)}</strong></p>
-                <p>HS 25% : <strong>{formatHours(ot.ot25)}</strong>{ot.ot50 > 0 ? ` · HS 50% ${formatHours(ot.ot50)}` : ''}</p>
-                <p>Compteur salarié : <strong>{recupValue > 0 ? '+' : ''}{formatHours(recupValue)}</strong></p>
+                <p>Comptable : <strong>{recupOk ? formatHours(accountant) : '—'}</strong></p>
+                <p>HS 25% : <strong>{recupOk ? formatHours(ot.ot25) : '—'}</strong>{recupOk && ot.ot50 > 0 ? ` · HS 50% ${formatHours(ot.ot50)}` : ''}</p>
+                <p>Compteur salarié : <strong>{recupOk ? `${recupValue > 0 ? '+' : ''}${formatHours(recupValue)}` : 'saisie invalide'}</strong></p>
               </div>
               <div className="sp-modal-actions">
                 <button type="button" className="btn btn-primary" onClick={saveRecupModal} disabled={saving}>
