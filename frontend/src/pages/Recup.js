@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { toast } from 'react-toastify';
 import api from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
+import { formatClockHours, formatHours as formatHoursHm, parseClockHours } from '../utils/staffPlanning';
 import './Recup.css';
 
 const getMonday = (date) => {
@@ -62,9 +63,8 @@ const formatWeekRange = (weekStartValue) => {
 
 const formatHours = (value) => {
   const numberValue = Number.parseFloat(value) || 0;
-  const rounded = Math.round(numberValue * 100) / 100;
-  const sign = rounded > 0 ? '+' : '';
-  return `${sign}${rounded.toFixed(2)} h`;
+  const sign = numberValue > 0 ? '+' : '';
+  return `${sign}${formatHoursHm(numberValue)}`;
 };
 
 const getWeekNumber = (date) => {
@@ -101,12 +101,16 @@ const Recup = () => {
       if (response.data?.success) {
         const { data } = response.data;
         setEmployees(
-          (data.employees || []).map((employee) => ({
-            ...employee,
-            weekHours: Number(employee.weekHours || 0),
-            totalHours: Number(employee.totalHours || 0),
-            comment: employee.comment || ''
-          }))
+          (data.employees || []).map((employee) => {
+            const weekHours = Number(employee.weekHours || 0);
+            return {
+              ...employee,
+              weekHours,
+              hoursText: formatClockHours(weekHours),
+              totalHours: Number(employee.totalHours || 0),
+              comment: employee.comment || ''
+            };
+          })
         );
       } else {
         toast.error('Impossible de charger les heures de récup');
@@ -135,11 +139,15 @@ const Recup = () => {
   };
 
   const handleHoursChange = (employeeId, value) => {
-    const parsed = Number.parseFloat(value);
+    const parsed = parseClockHours(value);
     setEmployees((prev) =>
       prev.map((employee) =>
         employee.employeeId === employeeId
-          ? { ...employee, weekHours: Number.isNaN(parsed) ? 0 : parsed }
+          ? {
+              ...employee,
+              hoursText: value,
+              weekHours: value.trim() === '' ? 0 : (Number.isFinite(parsed) ? parsed : employee.weekHours)
+            }
           : employee
       )
     );
@@ -210,11 +218,14 @@ const Recup = () => {
       setSaving(true);
       await api.post('/recup-hours', {
         weekStart,
-        entries: employees.map((employee) => ({
-          employeeId: employee.employeeId,
-          hours: Number(employee.weekHours) || 0,
-          comment: employee.comment || ''
-        }))
+        entries: employees.map((employee) => {
+          const parsed = parseClockHours(employee.hoursText ?? formatClockHours(employee.weekHours));
+          return {
+            employeeId: employee.employeeId,
+            hours: Number.isFinite(parsed) ? parsed : 0,
+            comment: employee.comment || ''
+          };
+        })
       });
       toast.success('Heures de récup enregistrées avec succès');
       await loadRecupData(weekStart);
@@ -250,7 +261,7 @@ const Recup = () => {
           <h2>{isAdminUser ? '⏱️ Heures de récup' : '⏱️ Compteur heures'}</h2>
           <p>
             Semaine {weekNumber} · {formatWeekLabel(currentWeekStart)}
-            {!isAdminUser ? ' · votre compteur personnel' : ''}
+            {!isAdminUser ? ' · votre compteur personnel' : ' · saisie 00.26 = 26 minutes'}
           </p>
         </div>
         <div className="recup-week-selector">
@@ -302,7 +313,7 @@ const Recup = () => {
           <span className="summary-label">Total semaine</span>
           <span className={`summary-value ${computedTotals.weekTotal >= 0 ? 'positive' : 'negative'}`}>
             {computedTotals.weekTotal > 0 ? '+' : ''}
-            {computedTotals.weekTotal.toFixed(2)} h
+            {formatHoursHm(computedTotals.weekTotal)}
           </span>
         </div>
         <div className="recup-summary-card">
@@ -311,7 +322,7 @@ const Recup = () => {
             className={`summary-value ${computedTotals.cumulativeTotal >= 0 ? 'positive' : 'negative'}`}
           >
             {computedTotals.cumulativeTotal > 0 ? '+' : ''}
-            {computedTotals.cumulativeTotal.toFixed(2)} h
+            {formatHoursHm(computedTotals.cumulativeTotal)}
           </span>
         </div>
       </div>
@@ -360,16 +371,18 @@ const Recup = () => {
                     <td>
                       <span className={`badge ${cumulativeClass}`}>
                         {employee.totalHours > 0 ? '+' : ''}
-                        {Number(employee.totalHours || 0).toFixed(2)} h
+                        {formatHoursHm(Number(employee.totalHours || 0))}
                       </span>
                     </td>
                     <td>
                       <div className="hours-input-wrapper">
                         <input
-                          type="number"
-                          step="0.25"
+                          type="text"
+                          inputMode="decimal"
+                          placeholder="00.26"
+                          title="00.26 = 26 minutes"
                           className={`hours-input ${weekClass}`}
-                          value={employee.weekHours}
+                          value={employee.hoursText ?? formatClockHours(employee.weekHours)}
                           disabled={!isAdminUser}
                           onChange={(e) => handleHoursChange(employee.employeeId, e.target.value)}
                         />
