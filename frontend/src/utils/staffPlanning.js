@@ -264,6 +264,52 @@ export function isOffDay(day) {
   return day?.kind === 'code' && (code === 'REPOS' || code === 'CP' || code === 'MAL' || code === 'ABS');
 }
 
+function timeToMinutes(value) {
+  const match = String(value || '').match(/^(\d{1,2}):(\d{2})$/);
+  if (!match) return null;
+  return Number(match[1]) * 60 + Number(match[2]);
+}
+
+function shiftSpanMinutes(shift) {
+  const start = timeToMinutes(shift?.startTime || shift?.start);
+  const end = timeToMinutes(shift?.endTime || shift?.end);
+  if (start == null || end == null) return 0;
+  let span = end - start;
+  if (span <= 0) span += 24 * 60;
+  return span;
+}
+
+function breakThresholdMinutes(settings) {
+  const hours = Number(settings?.breakThresholdHours);
+  return Math.round((Number.isFinite(hours) ? hours : 5) * 60);
+}
+
+function isWorkDayForPause(day) {
+  if (!day) return false;
+  if (day.kind === 'shifts') return Array.isArray(day.shifts) && day.shifts.length > 0;
+  if (day.kind === 'hours') return (Number(day.volumeHours) || Number(day.paidHours) || 0) > 0;
+  return false;
+}
+
+function dayRequiresUnpaidBreak(day, settings) {
+  if (Number(day?.deductedBreakMinutes) > 0) return true;
+  const threshold = breakThresholdMinutes(settings);
+  if (day?.kind === 'shifts') {
+    return (day.shifts || []).some((shift) => shiftSpanMinutes(shift) > threshold);
+  }
+  if (day?.kind === 'hours') {
+    return Math.round((Number(day.volumeHours) || Number(day.paidHours) || 0) * 60) > threshold;
+  }
+  return false;
+}
+
+export function pauseLineForDay(day, settings) {
+  if (!isWorkDayForPause(day)) return '';
+  return dayRequiresUnpaidBreak(day, settings)
+    ? 'Pause : de ______ à ______'
+    : 'sans pause';
+}
+
 export function computePlanningHints(prevDays = [], currentDays = []) {
   const prevRestWeekdays = new Set((prevDays || []).filter(isRestDay).map((day) => day.day));
   const seventhDates = new Set();
@@ -282,7 +328,7 @@ export function computePlanningHints(prevDays = [], currentDays = []) {
   return { prevRestWeekdays, seventhDates };
 }
 
-export function buildShopPrintHtml({ weekNumber, dates = [], rows = [], holidayDates = [], title = 'Planning' }) {
+export function buildShopPrintHtml({ weekNumber, dates = [], rows = [], holidayDates = [], title = 'Planning', settings = null }) {
   const holidays = new Set(holidayDates || []);
   const range = formatDayRange(dates);
   const head = DAYS.map((day, index) => {
@@ -297,9 +343,10 @@ export function buildShopPrintHtml({ weekNumber, dates = [], rows = [], holidayD
     const cells = DAYS.map((dayName) => {
       const day = (row.days || []).find((item) => item.day === dayName);
       const label = (cellLabel(day) || '—').replace(/\n/g, '<br>');
-      const code = String(day?.code || '').toUpperCase();
-      const isCode = day?.kind === 'code' || !day || day.kind === 'empty';
-      const pause = isCode || code === 'REPOS' ? '' : '<div class="pause">Pause : de ______ à ______</div>';
+      const pauseText = pauseLineForDay(day, settings);
+      const pause = pauseText
+        ? `<div class="pause${pauseText === 'sans pause' ? ' pause-none' : ''}">${pauseText}</div>`
+        : '';
       const shown = dayDisplayHours(day, row.contractedHours);
       const hoursText = shown > 0 ? `<div class="hrs">${formatHours(shown)}</div>` : '';
       return `<td>${label}${hoursText}${pause}</td>`;
@@ -320,6 +367,7 @@ export function buildShopPrintHtml({ weekNumber, dates = [], rows = [], holidayD
   td { height: 52px; }
   .sp-print-group th { text-align: left; background: #d9d9d9; height: auto; font-size: 11px; }
   .pause { margin-top: 8px; border-top: 1px dashed #666; padding-top: 3px; font-size: 9px; white-space: nowrap; }
+  .pause-none { border-top: none; font-style: italic; }
   .hrs { font-size: 9px; color: #333; }
 </style></head><body>
 <h1>${title} semaine ${weekNumber} — ${range}</h1>

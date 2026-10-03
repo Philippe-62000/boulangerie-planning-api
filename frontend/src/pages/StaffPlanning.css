@@ -890,10 +890,9 @@
     white-space: nowrap;
   }
 
-  .sp-cell-repos .sp-pause-line,
-  .sp-cell-empty .sp-pause-line,
-  .sp-cell-code .sp-pause-line {
-    display: none;
+  .sp-pause-none {
+    border-top: none;
+    font-style: italic;
   }
 
   .sp-cell-flag,
