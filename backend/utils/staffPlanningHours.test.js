@@ -67,4 +67,82 @@ assert.strictEqual(
   '0h26'
 );
 
+const restSettings = hours.defaultSettings();
+const sunday2030 = hours.computeDay(
+  { kind: 'shifts', shifts: [{ startTime: '11:00', endTime: '20:30' }] },
+  { day: 'Dimanche', date: '2026-10-04' },
+  restSettings,
+  35
+);
+const monday0600 = hours.computeDay(
+  { kind: 'shifts', shifts: [{ startTime: '06:00', endTime: '14:00' }] },
+  { day: 'Lundi', date: '2026-10-05' },
+  restSettings,
+  35
+);
+const monday0800 = hours.computeDay(
+  { kind: 'shifts', shifts: [{ startTime: '08:00', endTime: '14:00' }] },
+  { day: 'Lundi', date: '2026-10-05' },
+  restSettings,
+  35
+);
+const acrossShort = hours.summarizeDays(
+  [monday0600],
+  35,
+  restSettings,
+  [],
+  { previousDay: sunday2030 }
+);
+assert.strictEqual(
+  acrossShort.days[0].alerts.filter((alert) => alert.type === 'min_rest').length,
+  1,
+  '20h30 -> 06h00 doit alerter (9h30 < 11h)'
+);
+assert.ok(acrossShort.days[0].alerts.find((alert) => alert.type === 'min_rest').message.includes('9h30'));
+
+const acrossOk = hours.summarizeDays(
+  [monday0800],
+  35,
+  restSettings,
+  [],
+  { previousDay: sunday2030 }
+);
+assert.strictEqual(
+  acrossOk.days[0].alerts.filter((alert) => alert.type === 'min_rest').length,
+  0,
+  '20h30 -> 08h00 ne doit pas alerter (11h30)'
+);
+
+const sundayWarned = hours.summarizeDays(
+  [sunday2030],
+  35,
+  restSettings,
+  [],
+  { nextDay: monday0600 }
+);
+assert.strictEqual(
+  sundayWarned.days[0].alerts.filter((alert) => alert.type === 'min_rest').length,
+  1,
+  'dimanche 20h30 doit alerter si le lundi suivant commence à 06h'
+);
+
+const saturday2030 = hours.computeDay(
+  { kind: 'shifts', shifts: [{ startTime: '12:00', endTime: '20:30' }] },
+  { day: 'Samedi', date: '2026-10-03' },
+  restSettings,
+  35
+);
+const sunday0600 = hours.computeDay(
+  { kind: 'shifts', shifts: [{ startTime: '06:00', endTime: '12:00' }] },
+  { day: 'Dimanche', date: '2026-10-04' },
+  restSettings,
+  35
+);
+const intraWeek = hours.summarizeDays([saturday2030, sunday0600], 35, restSettings);
+assert.strictEqual(
+  intraWeek.days[1].alerts.filter((alert) => alert.type === 'min_rest').length,
+  1,
+  'samedi 20h30 -> dimanche 06h00 reste alerte dans la même semaine'
+);
+
 console.log('staff planning hours tests OK');
