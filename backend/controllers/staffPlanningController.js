@@ -181,7 +181,7 @@ function matchEmployeeForVacation(employees, vacation) {
   return findEmployeeByPersonName(employees, vacation?.employeeName);
 }
 
-async function overlayValidatedCpOnWeek(weekDoc, settings, cfaMap, employees, holidayDates) {
+async function overlayValidatedCpOnWeek(weekDoc, settings, cfaMap, employees, holidayDates, restMaps) {
   const dates = hours.weekDates(weekDoc.weekNumber, weekDoc.year);
   if (!dates.length) return weekDoc;
   const first = dates[0].date;
@@ -238,7 +238,12 @@ async function overlayValidatedCpOnWeek(weekDoc, settings, cfaMap, employees, ho
       return next;
     });
     if (appliedNewCp) changedIds.push(String(row.employeeId));
-    return changed ? summarizeRow({ ...plain, days }, settings, holidayDates) : row;
+    return changed ? summarizeRow(
+      { ...plain, days },
+      settings,
+      holidayDates,
+      adjacentForEmployee(restMaps, row.employeeId)
+    ) : row;
   });
 
   weekDoc.rows = applyOnRows(weekDoc.rows);
@@ -368,10 +373,51 @@ function accumulateDayStats(stats, day, holidaySet) {
   if (isAbs) stats.absences += 1;
 }
 
-function summarizeRow(row, settings, holidayDates) {
+function rowBoundaryDay(row, edge) {
+  const days = ((toPlain(row) || {}).days || []).map((day) => hours.plainDay(day)).filter(Boolean);
+  if (!days.length) return null;
+  return edge === 'first' ? days[0] : days[days.length - 1];
+}
+
+function adjacentMapsFromWeeks(previousWeek, nextWeek, useActual = false) {
+  const rowsOf = (week) => {
+    if (!week) return [];
+    if (useActual && Array.isArray(week.actualRows) && week.actualRows.length) return week.actualRows;
+    return week.rows || [];
+  };
+  const prev = new Map();
+  const next = new Map();
+  rowsOf(previousWeek).forEach((row) => {
+    prev.set(String(row.employeeId), rowBoundaryDay(row, 'last'));
+  });
+  rowsOf(nextWeek).forEach((row) => {
+    next.set(String(row.employeeId), rowBoundaryDay(row, 'first'));
+  });
+  return { prev, next };
+}
+
+function adjacentForEmployee(maps, employeeId) {
+  const id = String(employeeId || '');
+  return {
+    previousDay: maps?.prev?.get(id) || null,
+    nextDay: maps?.next?.get(id) || null
+  };
+}
+
+async function loadAdjacentWeeks(weekNumber, year) {
+  const prev = hours.addIsoWeeks(weekNumber, year, -1);
+  const next = hours.addIsoWeeks(weekNumber, year, 1);
+  const [previousWeek, nextWeek] = await Promise.all([
+    StaffWeekPlanning.findOne({ weekNumber: prev.weekNumber, year: prev.year }).select('rows actualRows').lean(),
+    StaffWeekPlanning.findOne({ weekNumber: next.weekNumber, year: next.year }).select('rows actualRows').lean()
+  ]);
+  return { previousWeek, nextWeek };
+}
+
+function summarizeRow(row, settings, holidayDates, adjacent = {}) {
   const plain = toPlain(row) || {};
   const days = (plain.days || []).map((day) => hours.plainDay(day));
-  const summarized = hours.summarizeDays(days, plain.contractedHours, settings, holidayDates);
+  const summarized = hours.summarizeDays(days, plain.contractedHours, settings, holidayDates, adjacent);
   const recupHours = Number(plain.recupHours) || 0;
   const accountant = hours.hoursFromMinutes(
     hours.minutesFromHours(Number(summarized.weeklyPaidHours) || 0)
@@ -422,6 +468,8 @@ async function overlayActualRecup(week, settings) {
   const entries = await RecupHour.find({ employeeId: { $in: ids }, weekStart }).lean();
   const map = new Map(entries.map((entry) => [String(entry.employeeId), entry]));
   const holidayDates = holidayDatesOf(week);
+  const adjacentWeeks = await loadAdjacentWeeks(week.weekNumber, week.year);
+  const restMaps = adjacentMapsFromWeeks(adjacentWeeks.previousWeek, adjacentWeeks.nextWeek, true);
   week.actualRows = (week.actualRows || []).map((row) => {
     const entry = map.get(String(row.employeeId));
     const plain = toPlain(row);
@@ -429,7 +477,7 @@ async function overlayActualRecup(week, settings) {
       ...plain,
       recupHours: entry ? Number(entry.hours) || 0 : Number(plain.recupHours) || 0,
       recupComment: entry ? (entry.comment || '') : (plain.recupComment || '')
-    }, settings, holidayDates);
+    }, settings, holidayDates, adjacentForEmployee(restMaps, row.employeeId));
   });
   week.markModified('actualRows');
 }
@@ -647,7 +695,7 @@ function buildEmptyRow(employee, dates, settings, holidayDates) {
   };
 }
 
-function applyCfaAndSunday(row, dates, settings, cfaMap, { overwriteCodes = false, holidayDates = [] } = {}) {
+function applyCfaAndSunday(row, dates, settings, cfaMap, { overwriteCodes = false, holidayDates = [], adjacent = {} } = {}) {
   const plain = toPlain(row) || {};
   const cfaCode = hours.findWord(settings, settings.defaultCfaCode || 'CFA8')
     ? (settings.defaultCfaCode || 'CFA8')
@@ -678,7 +726,7 @@ function applyCfaAndSunday(row, dates, settings, cfaMap, { overwriteCodes = fals
     recupHours: plain.recupHours,
     recupComment: plain.recupComment,
     days
-  }, settings, holidayDates);
+  }, settings, holidayDates, adjacent);
 }
 
 async function syncWeekRows(weekDoc, settings) {
@@ -697,6 +745,8 @@ async function syncWeekRows(weekDoc, settings) {
   const holidayList = Array.from(holidayDates);
   const employees = await Employee.find(planningEmployeeFilter()).sort({ name: 1 }).lean();
   const cfaMap = await cfaDatesByEmployee(dates);
+  const adjacentWeeks = await loadAdjacentWeeks(weekDoc.weekNumber, weekDoc.year);
+  const restMaps = adjacentMapsFromWeeks(adjacentWeeks.previousWeek, adjacentWeeks.nextWeek, false);
   const byId = new Map((weekDoc.rows || []).map((row) => [String(row.employeeId), row]));
 
   const rows = employees.map((employee) => {
@@ -722,11 +772,13 @@ async function syncWeekRows(weekDoc, settings) {
       };
       return applyCfaAndSunday(dated, dates, settings, cfaMap, {
         overwriteCodes: false,
-        holidayDates: holidayList
+        holidayDates: holidayList,
+        adjacent: adjacentForEmployee(restMaps, employee._id)
       });
     }
     return applyCfaAndSunday(buildEmptyRow(employee, dates, settings, holidayList), dates, settings, cfaMap, {
-      holidayDates: holidayList
+      holidayDates: holidayList,
+      adjacent: adjacentForEmployee(restMaps, employee._id)
     });
   });
 
@@ -737,7 +789,7 @@ async function syncWeekRows(weekDoc, settings) {
   }
   weekDoc.sundayOpen = settings.sundayOpen;
   weekDoc.holidayDates = holidayList;
-  await overlayValidatedCpOnWeek(weekDoc, settings, cfaMap, employees, holidayList);
+  await overlayValidatedCpOnWeek(weekDoc, settings, cfaMap, employees, holidayList, restMaps);
   return weekDoc;
 }
 
@@ -1162,6 +1214,8 @@ const updateCell = async (req, res) => {
       return res.status(403).json({ success: false, error: 'Ce jour est terminé et n\'est plus modifiable. Utilisez le planning réel.' });
     }
     const cfaMap = await cfaDatesByEmployee(dates);
+    const adjacentWeeks = await loadAdjacentWeeks(weekNumber, year);
+    const restMaps = adjacentMapsFromWeeks(adjacentWeeks.previousWeek, adjacentWeeks.nextWeek, useActual);
     const cfaDates = cfaMap.get(String(employeeId));
     const plain = toPlain(week[rowsKey][rowIndex]);
     const currentDays = dates.map((meta) => {
@@ -1190,7 +1244,7 @@ const updateCell = async (req, res) => {
     const nextRow = summarizeRow({
       ...plain,
       days
-    }, settings, holidayDates);
+    }, settings, holidayDates, adjacentForEmployee(restMaps, employeeId));
     const sourceRows = week.toObject()[rowsKey] || [];
     if (!useActual) captureForecastOriginIfNeeded(week, actorName(req));
     week[rowsKey] = sourceRows.map((item, index) => (
@@ -1512,6 +1566,8 @@ const swapWeekRows = async (req, res) => {
       return res.status(404).json({ success: false, error: 'Salarié absent de cette semaine' });
     }
     const holidayDates = holidayDatesOf(week);
+    const adjacentWeeks = await loadAdjacentWeeks(weekNumber, year);
+    const restMaps = adjacentMapsFromWeeks(adjacentWeeks.previousWeek, adjacentWeeks.nextWeek, useActual);
     const cfaMap = await cfaDatesByEmployee(dates);
     const plainA = toPlain(sourceRows[indexA]);
     const plainB = toPlain(sourceRows[indexB]);
@@ -1544,8 +1600,12 @@ const swapWeekRows = async (req, res) => {
       daysB.push(hours.computeDay(copyDayPayload(dayA), meta, settings, plainB.contractedHours));
     });
     const nextRows = sourceRows.map((row, index) => {
-      if (index === indexA) return summarizeRow({ ...plainA, days: daysA }, settings, holidayDates);
-      if (index === indexB) return summarizeRow({ ...plainB, days: daysB }, settings, holidayDates);
+      if (index === indexA) {
+        return summarizeRow({ ...plainA, days: daysA }, settings, holidayDates, adjacentForEmployee(restMaps, plainA.employeeId));
+      }
+      if (index === indexB) {
+        return summarizeRow({ ...plainB, days: daysB }, settings, holidayDates, adjacentForEmployee(restMaps, plainB.employeeId));
+      }
       return row;
     });
     if (!useActual) captureForecastOriginIfNeeded(week, actorName(req));
@@ -1993,11 +2053,13 @@ const updateRecupHours = async (req, res) => {
     if (rowIndex < 0) {
       return res.status(404).json({ success: false, error: 'Salarié absent du planning réel' });
     }
+    const adjacentWeeks = await loadAdjacentWeeks(weekNumber, year);
+    const restMaps = adjacentMapsFromWeeks(adjacentWeeks.previousWeek, adjacentWeeks.nextWeek, true);
     const nextRow = summarizeRow({
       ...toPlain(week.actualRows[rowIndex]),
       recupHours,
       recupComment: comment
-    }, settings, holidayDates);
+    }, settings, holidayDates, adjacentForEmployee(restMaps, employeeId));
     const sourceRows = week.toObject().actualRows || [];
     week.actualRows = sourceRows.map((item, index) => (index === rowIndex ? nextRow : item));
     week.markModified('actualRows');

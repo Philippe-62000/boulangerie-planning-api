@@ -377,7 +377,23 @@ function plainDay(day) {
   return { ...day };
 }
 
-function applyRestAlerts(days, settings) {
+function minRestAlert(rest, minRest, message) {
+  return {
+    type: 'min_rest',
+    message: message || `Repos ${formatHours(rest)} avant la prise de poste (mini ${formatHours(minRest)})`
+  };
+}
+
+function applyShortRest(target, prevDay, nextDay, minRest, message) {
+  const rest = restHoursBetween(prevDay, nextDay);
+  if (rest == null || rest + 1e-6 >= minRest) return target;
+  return {
+    ...target,
+    alerts: [...(target.alerts || []), minRestAlert(rest, minRest, message)]
+  };
+}
+
+function applyRestAlerts(days, settings, adjacent = {}) {
   const minRest = settings.minRestHours ?? 11;
   const next = days.map((day) => {
     const plain = plainDay(day);
@@ -387,18 +403,32 @@ function applyRestAlerts(days, settings) {
     };
   });
 
+  if (adjacent.previousDay && next.length) {
+    next[0] = applyShortRest(
+      next[0],
+      plainDay(adjacent.previousDay),
+      next[0],
+      minRest
+    );
+  }
+
   for (let i = 1; i < next.length; i += 1) {
-    const rest = restHoursBetween(next[i - 1], next[i]);
-    if (rest == null) continue;
-    if (rest + 1e-6 < minRest) {
-      next[i] = {
-        ...next[i],
+    next[i] = applyShortRest(next[i], next[i - 1], next[i], minRest);
+  }
+
+  if (adjacent.nextDay && next.length) {
+    const last = next.length - 1;
+    const rest = restHoursBetween(next[last], plainDay(adjacent.nextDay));
+    if (rest != null && rest + 1e-6 < minRest) {
+      next[last] = {
+        ...next[last],
         alerts: [
-          ...next[i].alerts,
-          {
-            type: 'min_rest',
-            message: `Repos ${formatHours(rest)} avant la prise de poste (mini ${formatHours(minRest)})`
-          }
+          ...(next[last].alerts || []),
+          minRestAlert(
+            rest,
+            minRest,
+            `Repos ${formatHours(rest)} avant la prise de poste du lundi suivant (mini ${formatHours(minRest)})`
+          )
         ]
       };
     }
@@ -505,9 +535,13 @@ function withCpHours(days, settings, contractedHours) {
   });
 }
 
-function summarizeDays(days, contractedHours, settings, holidayDates = []) {
+function summarizeDays(days, contractedHours, settings, holidayDates = [], adjacent = {}) {
   const refreshed = (days || []).map((day) => refreshDayComputation(day, settings, contractedHours));
-  const withRest = applyRestAlerts(withHolidayHours(withCpHours(refreshed, settings, contractedHours), holidayDates), settings);
+  const withRest = applyRestAlerts(
+    withHolidayHours(withCpHours(refreshed, settings, contractedHours), holidayDates),
+    settings,
+    adjacent
+  );
   const weeklyPaidHours = hoursFromMinutes(withRest.reduce((sum, day) => sum + minutesFromHours(day.paidHours), 0));
   const weeklyNightHours = hoursFromMinutes(withRest.reduce((sum, day) => sum + minutesFromHours(day.nightHours), 0));
   const weeklySickDays = withRest.reduce((sum, day) => sum + (day.sickDays || 0), 0);
