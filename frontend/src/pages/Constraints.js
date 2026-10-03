@@ -37,32 +37,6 @@ const Constraints = () => {
     setWeekNumber(currentWeek);
   }, []);
 
-  // Appliquer automatiquement les jours de formation pour les apprentis
-  useEffect(() => {
-    if (employees.length > 0 && Object.keys(constraints).length > 0) {
-      const updatedConstraints = { ...constraints };
-      let hasChanges = false;
-
-      employees.forEach(employee => {
-        if (employee.contractType === 'Apprentissage' && employee.trainingDays) {
-          employee.trainingDays.forEach(day => {
-            if (constraints[employee._id]?.[day] !== 'Formation') {
-              if (!updatedConstraints[employee._id]) {
-                updatedConstraints[employee._id] = {};
-              }
-              updatedConstraints[employee._id][day] = 'Formation';
-              hasChanges = true;
-            }
-          });
-        }
-      });
-
-      if (hasChanges) {
-        setConstraints(updatedConstraints);
-      }
-    }
-  }, [employees, constraints]);
-
   const getWeekNumber = (date) => {
     const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
     const dayNum = d.getUTCDay() || 7;
