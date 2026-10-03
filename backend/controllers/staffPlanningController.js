@@ -145,7 +145,7 @@ function applyOfficialHolidays(weekDoc, dates, holidayDates) {
 }
 
 function isProtectedCfa(day, cfaDates) {
-  return hours.isCfaCode(day?.code) || (cfaDates && day?.date && cfaDates.has(day.date));
+  return !!(cfaDates && day?.date && cfaDates.has(day.date));
 }
 
 function isoDateOnly(value) {
@@ -657,8 +657,13 @@ function applyCfaAndSunday(row, dates, settings, cfaMap, { overwriteCodes = fals
     const day = hours.plainDay(raw);
     const isSundayClosed = !settings.sundayOpen && day.day === 'Dimanche';
     const isCfa = !!(cfaDates && day.date && cfaDates.has(day.date));
-    if (isCfa && (day.kind === 'empty' || overwriteCodes)) {
+    if (isCfa && (day.kind === 'empty' || overwriteCodes || hours.isCfaCode(day.code))) {
       return applyCodeToDay(day, cfaCode, settings);
+    }
+    if (hours.isCfaCode(day.code) && !isCfa) {
+      const cleared = hours.emptyDay(day.day, day.date);
+      if (isSundayClosed) return applyCodeToDay(cleared, 'REPOS', settings);
+      return cleared;
     }
     if (isSundayClosed && (day.kind === 'empty' || day.code === 'REPOS')) {
       return applyCodeToDay(day, 'REPOS', settings);
