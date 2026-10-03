@@ -258,15 +258,11 @@ const EmployeeModal = ({ employee, onSave, onClose, employees = [] }) => {
       return;
     }
 
-    // Pour les apprentis (vente / prépa / boulanger) : tuteur, jours CFA, fin de contrat
+    // Pour les apprentis (vente / prépa / boulanger) : tuteur, fin de contrat
     if (formData.contractType === 'Apprentissage') {
       const tutorValueCheck = getTutorId(formData.tutor);
       if (!tutorValueCheck) {
         alert('Veuillez sélectionner un tuteur pour cet apprenti');
-        return;
-      }
-      if (formData.trainingDays.length === 0) {
-        alert('Les apprentis doivent avoir au moins un jour de formation');
         return;
       }
       if (!formData.contractEndDate) {
@@ -642,7 +638,7 @@ const EmployeeModal = ({ employee, onSave, onClose, employees = [] }) => {
           {formData.contractType === 'Apprentissage' && (
             <>
               <div className="form-group">
-                <label className="form-label">Jours de formation *</label>
+                <label className="form-label">Jours de formation (facultatif)</label>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
                   {daysOfWeek.map(day => (
                     <label key={day} style={{ display: 'flex', alignItems: 'center', marginRight: '1rem' }}>
@@ -656,6 +652,10 @@ const EmployeeModal = ({ employee, onSave, onClose, employees = [] }) => {
                     </label>
                   ))}
                 </div>
+                <small style={{ display: 'block', marginTop: '0.4rem', color: '#64748b' }}>
+                  Ne pas cocher si les jours de CFA varient. Le planning reprend le calendrier de formation
+                  de chaque apprenti (tableau de bord), pas un jour fixe de la semaine.
+                </small>
               </div>
 
               <div className="form-group">

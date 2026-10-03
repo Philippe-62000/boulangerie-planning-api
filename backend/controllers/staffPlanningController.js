@@ -1,6 +1,5 @@
 const Employee = require('../models/Employee');
 const RecupHour = require('../models/RecupHour');
-const ApprenticePlanning = require('../models/ApprenticePlanning');
 const StaffPlanningSettings = require('../models/StaffPlanningSettings');
 const StaffWeekPlanning = require('../models/StaffWeekPlanning');
 const VacationRequest = require('../models/VacationRequest');
@@ -8,6 +7,7 @@ const emailService = require('../services/emailService');
 const hours = require('../services/staffPlanningHours');
 const frenchHolidays = require('../utils/frenchPublicHolidays');
 const { findEmployeeByPersonName } = require('../utils/personName');
+const { cfaDatesByEmployee } = require('../utils/apprenticeCfaDates');
 
 function settingsPlain(doc) {
   const json = doc.toObject ? doc.toObject() : doc;
@@ -647,30 +647,7 @@ function buildEmptyRow(employee, dates, settings, holidayDates) {
   };
 }
 
-async function cfaDatesByEmployee(dates) {
-  const siteKey = getSiteKey();
-  const dateSet = new Set(dates.map((item) => item.date));
-  const plannings = await ApprenticePlanning.find(
-    siteKey ? { $or: [{ siteKey }, { siteKey: { $exists: false } }] } : {}
-  ).lean();
-  const map = new Map();
-  plannings.forEach((planning) => {
-    const cfaDates = new Set();
-    if (Array.isArray(planning.trainingEntries) && planning.trainingEntries.length) {
-      planning.trainingEntries.forEach((entry) => {
-        if (entry.kind === 'cfa' && dateSet.has(entry.date)) cfaDates.add(entry.date);
-      });
-    } else {
-      (planning.trainingDates || []).forEach((date) => {
-        if (dateSet.has(date)) cfaDates.add(date);
-      });
-    }
-    if (cfaDates.size) map.set(String(planning.employeeId), cfaDates);
-  });
-  return map;
-}
-
-function applyCfaAndSunday(row, dates, settings, cfaMap, { overwriteCodes = false, trainingDays = [], holidayDates = [] } = {}) {
+function applyCfaAndSunday(row, dates, settings, cfaMap, { overwriteCodes = false, holidayDates = [] } = {}) {
   const plain = toPlain(row) || {};
   const cfaCode = hours.findWord(settings, settings.defaultCfaCode || 'CFA8')
     ? (settings.defaultCfaCode || 'CFA8')
@@ -679,8 +656,7 @@ function applyCfaAndSunday(row, dates, settings, cfaMap, { overwriteCodes = fals
   const days = (plain.days || []).map((raw) => {
     const day = hours.plainDay(raw);
     const isSundayClosed = !settings.sundayOpen && day.day === 'Dimanche';
-    const isCfa = (cfaDates && cfaDates.has(day.date))
-      || (Array.isArray(trainingDays) && trainingDays.includes(day.day) && !(cfaDates && cfaDates.size));
+    const isCfa = !!(cfaDates && day.date && cfaDates.has(day.date));
     if (isCfa && (day.kind === 'empty' || overwriteCodes)) {
       return applyCodeToDay(day, cfaCode, settings);
     }
@@ -741,12 +717,10 @@ async function syncWeekRows(weekDoc, settings) {
       };
       return applyCfaAndSunday(dated, dates, settings, cfaMap, {
         overwriteCodes: false,
-        trainingDays: employee.trainingDays || [],
         holidayDates: holidayList
       });
     }
     return applyCfaAndSunday(buildEmptyRow(employee, dates, settings, holidayList), dates, settings, cfaMap, {
-      trainingDays: employee.trainingDays || [],
       holidayDates: holidayList
     });
   });

@@ -105,6 +105,10 @@ const employeeSchema = new mongoose.Schema({
       return this.contractType === 'Apprentissage';
     }
   },
+  /**
+   * Jours de formation récurrents (facultatif, informatif).
+   * Le planning utilise le calendrier de formation de l'apprenti, pas ces cases.
+   */
   trainingDays: [{
     type: String,
     enum: ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche']

@@ -4,7 +4,8 @@ const WeeklyConstraints = require('../models/WeeklyConstraints');
 const EquityStats = require('../models/EquityStats');
 const axios = require('axios');
 const planningBusinessRules = require('../constants/planningBusinessRules');
-const { cpHoursForContract } = require('../services/staffPlanningHours');
+const { cpHoursForContract, weekDates } = require('../services/staffPlanningHours');
+const { cfaDatesByEmployee, weekFormationForEmployee } = require('../utils/apprenticeCfaDates');
 
 const {
   planningSolver,
@@ -36,6 +37,16 @@ class PlanningGenerator {
     const endMinute = endMinutes % 60;
     
     return `${endHour.toString().padStart(2, '0')}:${endMinute.toString().padStart(2, '0')}`;
+  }
+
+  async enrichEmployeesWithApprenticeCalendar(employees, weekNumber, year) {
+    const dates = weekDates(parseInt(weekNumber, 10), parseInt(year, 10));
+    const cfaMap = await cfaDatesByEmployee(dates);
+    return (employees || []).map((emp) => {
+      const plain = emp && typeof emp.toObject === 'function' ? emp.toObject() : { ...emp };
+      const { formationDayIndexes, trainingDays } = weekFormationForEmployee(cfaMap, emp._id, dates);
+      return { ...plain, formationDayIndexes, trainingDays };
+    });
   }
 
   // Configuration des besoins selon le cadre général - ÉQUILIBRÉE
@@ -341,6 +352,8 @@ class PlanningGenerator {
 
     await this.integrateDeclaredSickLeaves(employees, constraintsMap, wn, yr);
 
+    const employeesForSolver = await this.enrichEmployeesWithApprenticeCalendar(employees, wn, yr);
+
     const affluencesArray = [
       affluenceLevels?.Lundi ?? 2,
       affluenceLevels?.Mardi ?? 2,
@@ -351,7 +364,7 @@ class PlanningGenerator {
       affluenceLevels?.Dimanche ?? 2
     ];
 
-    const result = planningSolver.solvePlanning(employees, constraintsMap, affluencesArray, wn);
+    const result = planningSolver.solvePlanning(employeesForSolver, constraintsMap, affluencesArray, wn);
 
     if (!result.success) {
       return {
@@ -410,7 +423,8 @@ class PlanningGenerator {
       });
 
       // Préparer les données pour l'API OR-Tools Python
-      const employeesData = employees.map(emp => {
+      const employeesForSolver = await this.enrichEmployeesWithApprenticeCalendar(employees, weekNumber, year);
+      const employeesData = employeesForSolver.map(emp => {
         const empId = emp._id.toString();
         return {
           id: empId,
@@ -428,6 +442,7 @@ class PlanningGenerator {
           vendeusePlanningPreferences: emp.vendeusePlanningPreferences || null,
           trainingDaysOutsideShop: emp.trainingDaysOutsideShop,
           trainingDays: emp.trainingDays || [],
+          formationDayIndexes: emp.formationDayIndexes || [],
           contractType: getContractTypeForSolver(emp)
         };
       });
@@ -527,7 +542,8 @@ class PlanningGenerator {
       });
       
       // Préparer les données pour le constraint calculator
-      const employeesData = employees.map(emp => {
+      const employeesForSolver = await this.enrichEmployeesWithApprenticeCalendar(employees, weekNumber, year);
+      const employeesData = employeesForSolver.map(emp => {
         const rawRole = emp.role || '';
         const normalizedRole = rawRole.toLowerCase();
         const supervisorRoles = [
@@ -546,6 +562,7 @@ class PlanningGenerator {
           weeklyHours: emp.weeklyHours,
           skills: emp.skills || [],
           trainingDays: emp.trainingDays || [],
+          formationDayIndexes: emp.formationDayIndexes || [],
           sickLeave: emp.sickLeave || { isOnSickLeave: false },
           sixDaysPerWeek: !!sixDaysMap[emp._id.toString()],
           role: rawRole,
