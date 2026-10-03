@@ -25,6 +25,7 @@ import {
   rowWeekHours,
   dayDisplayHours,
   buildShopPrintHtml,
+  pauseLineForDay,
   formatPlanningSendConfirm,
   formatActualReminderConfirm,
   formatTestModeSendNote,
@@ -739,6 +740,7 @@ const StaffPlanning = () => {
       dates,
       rows: flattenGroupedPlanningRows(groups),
       holidayDates: week?.holidayDates || [],
+      settings,
       title: layer === 'actual'
         ? 'Planning réel'
         : (viewingSnapshot
@@ -1041,6 +1043,7 @@ const StaffPlanning = () => {
                             sixthLimit ? '7e jour consécutif sans repos' : '',
                             locked ? 'Jour verrouillé' : ''
                           ].filter(Boolean).join(' · ');
+                          const pauseLine = pauseLineForDay(day, settings);
                           return (
                             <td
                               key={dayName}
@@ -1059,7 +1062,11 @@ const StaffPlanning = () => {
                                 <div className="sp-cell-holiday-hint">Férié</div>
                               )}
                               {day?.alerts?.length > 0 && <div className="sp-cell-flag">!</div>}
-                              <div className="sp-pause-line">Pause : de ______ à ______</div>
+                              {pauseLine && (
+                                <div className={`sp-pause-line${pauseLine === 'sans pause' ? ' sp-pause-none' : ''}`}>
+                                  {pauseLine}
+                                </div>
+                              )}
                             </td>
                           );
                         })}
