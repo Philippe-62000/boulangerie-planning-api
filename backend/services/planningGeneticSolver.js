@@ -159,12 +159,9 @@ class PlanningBoulangerieSolver {
         return c;
       }
     }
-    const dayName = SOLVER_DAY_NAMES[dayIndex];
-    const ct = getContractTypeForSolver(emp);
     if (
-      ct === 'Apprentissage' &&
-      emp.trainingDays &&
-      emp.trainingDays.includes(dayName) &&
+      Array.isArray(emp.formationDayIndexes) &&
+      emp.formationDayIndexes.includes(dayIndex) &&
       emp.trainingDaysOutsideShop !== false
     ) {
       return 'Formation';
@@ -661,13 +658,13 @@ class PlanningBoulangerieSolver {
           }
         }
 
-        const dayName = SOLVER_DAY_NAMES[day];
-        const ct = getContractTypeForSolver(emp);
-        if (ct === 'Apprentissage' && emp.trainingDays && emp.trainingDays.includes(dayName)) {
-          if (emp.trainingDaysOutsideShop !== false) {
-            solution[empId][day] = 'Formation';
-            continue;
-          }
+        if (
+          Array.isArray(emp.formationDayIndexes) &&
+          emp.formationDayIndexes.includes(day) &&
+          emp.trainingDaysOutsideShop !== false
+        ) {
+          solution[empId][day] = 'Formation';
+          continue;
         }
 
         solution[empId][day] = this.pickRandomLegalSlot(emp, day, affluences);
