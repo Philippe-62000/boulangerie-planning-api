@@ -221,6 +221,59 @@
             color: #6c757d;
         }
 
+        .km-request-list {
+            margin-top: 28px;
+        }
+
+        .km-request-list h3 {
+            font-size: 18px;
+            margin-bottom: 12px;
+        }
+
+        .km-request-item {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 8px;
+            padding: 12px 14px;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            gap: 12px;
+            align-items: flex-start;
+        }
+
+        .km-request-item strong {
+            display: block;
+            margin-bottom: 4px;
+        }
+
+        .km-request-item small {
+            color: #6c757d;
+        }
+
+        .km-status {
+            flex-shrink: 0;
+            font-size: 12px;
+            font-weight: 700;
+            padding: 4px 8px;
+            border-radius: 999px;
+        }
+
+        .km-status-pending {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .km-status-validated {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .km-status-rejected {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
         .form-group {
             margin-bottom: 25px;
         }
@@ -1285,6 +1338,9 @@
             <button class="tab" onclick="switchTab('vacation')">
                 🏖️ Demande de Congés
             </button>
+            <button class="tab" onclick="switchTab('km')">
+                🚗 Frais Kilométriques
+            </button>
             <button class="tab" onclick="switchTab('documents')">
                 📁 Mes Documents
             </button>
@@ -1639,6 +1695,64 @@
                 </div>
             </div>
 
+            <div class="tab-panel" id="km-panel">
+                <div class="form-container">
+                    <h2 class="form-title">🚗 Frais Kilométriques</h2>
+                    <p class="form-subtitle">Déclarez un déplacement professionnel : la date du jour est proposée, vous pouvez la changer en cas d'oubli</p>
+
+                    <div id="kmAlert"></div>
+
+                    <div class="info-box">
+                        <h4>ℹ️ Informations</h4>
+                        <ul>
+                            <li>Choisissez la destination du déplacement</li>
+                            <li>Ajoutez une remarque si besoin (utile pour Divers)</li>
+                            <li>Votre responsable validera la demande avant inscription au tableau des frais KM</li>
+                        </ul>
+                    </div>
+
+                    <form id="kmForm">
+                        <div class="form-group">
+                            <label class="form-label" for="kmEmployee">Employé *</label>
+                            <input type="text" id="kmEmployee" class="form-control" readonly>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label" for="kmTripDate">Date du déplacement *</label>
+                            <input type="date" id="kmTripDate" name="tripDate" class="form-control" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label" for="kmDestination">Destination *</label>
+                            <select id="kmDestination" name="parameterId" class="form-control" required>
+                                <option value="">Chargement des destinations…</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label" for="kmRemark">Remarque</label>
+                            <textarea id="kmRemark" name="remark" class="form-control" rows="3" maxlength="500" placeholder="Précision sur le déplacement (optionnel)"></textarea>
+                        </div>
+
+                        <div class="form-group">
+                            <button type="submit" class="btn btn-primary" id="kmBtn">
+                                Envoyer
+                            </button>
+                        </div>
+                    </form>
+
+                    <div class="loading" id="kmLoading">
+                        <div class="spinner"></div>
+                        <p>Envoi en cours...</p>
+                    </div>
+
+                    <div class="km-request-list">
+                        <h3>Mes demandes</h3>
+                        <div id="kmRequestList">Aucune demande pour le moment.</div>
+                    </div>
+                </div>
+            </div>
+
             <!-- Onglet Mot de Passe -->
             <div class="tab-panel" id="password-panel">
                 <div class="form-container">
@@ -1736,7 +1850,7 @@
         // API dynamique : /lon = Longuenesse (api-3), /plan = Arras (api-4-pbfy)
         const API_URL = (window.location.pathname || '').startsWith('/lon')
             ? 'https://boulangerie-planning-api-3.onrender.com/api'
-            : 'https://boulangerie-planning-api-4-pbfy.onrender.com/api';
+            : 'https://boulangerie-planning-api-3.onrender.com/api';
         const BASE_PATH = (window.location.pathname || '').startsWith('/lon') ? '/lon' : '/plan';
         const PLAN_DAYS = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
         let currentEmployee = null;
@@ -1802,6 +1916,7 @@
                 // Afficher les informations de l'employé
                 document.getElementById('employeeName').textContent = currentEmployee.name;
                 document.getElementById('vacationEmployee').value = currentEmployee.name;
+                document.getElementById('kmEmployee').value = currentEmployee.name;
                 document.getElementById('sickLeaveEmployee').value = currentEmployee.name;
                 document.getElementById('sickLeaveEmployeeEmail').value = currentEmployee.email;
                 document.getElementById('mutuelleEmployee').value = currentEmployee.name;
@@ -2483,6 +2598,12 @@
                 loadEmpRecup();
             }
 
+            if (tabName === 'km') {
+                setKmTripDateToday();
+                loadKmDestinations();
+                loadMyKmRequests();
+            }
+
             if (tabName === 'documents') {
                 // Attendre que currentEmployee soit chargé avant d'activer l'onglet documents
                 if (currentEmployee && currentEmployee.id) {
@@ -2512,6 +2633,130 @@
             } else {
                 fileName.style.display = 'none';
                 fileName.classList.remove('file-selected');
+            }
+        });
+
+        function employeeAuthHeaders() {
+            return {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${localStorage.getItem('employeeToken')}`
+            };
+        }
+
+        function todayISODate() {
+            const d = new Date();
+            const pad = (n) => String(n).padStart(2, '0');
+            return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+        }
+
+        function setKmTripDateToday() {
+            const input = document.getElementById('kmTripDate');
+            if (input && !input.value) {
+                input.value = todayISODate();
+            }
+        }
+
+        function formatKmDate(iso) {
+            if (!iso || !/^\d{4}-\d{2}-\d{2}$/.test(iso)) return iso || '';
+            const [y, m, d] = iso.split('-');
+            return `${d}/${m}/${y}`;
+        }
+
+        function kmStatusLabel(status) {
+            if (status === 'validated') return 'Validée';
+            if (status === 'rejected') return 'Refusée';
+            return 'En attente';
+        }
+
+        async function loadKmDestinations() {
+            const select = document.getElementById('kmDestination');
+            if (!select) return;
+            const previous = select.value;
+            try {
+                const response = await fetch(`${API_URL}/km-expenses/destinations`, {
+                    headers: employeeAuthHeaders()
+                });
+                const result = await response.json();
+                const destinations = result.destinations || [];
+                if (!destinations.length) {
+                    select.innerHTML = '<option value="">Aucune destination configurée</option>';
+                    return;
+                }
+                select.innerHTML = '<option value="">Choisir une destination</option>' +
+                    destinations.map((dest) => {
+                        const label = `${dest.displayName || dest.name} (${dest.kmValue || 0} km)`;
+                        const selected = String(previous) === String(dest._id) ? ' selected' : '';
+                        return `<option value="${dest._id}"${selected}>${label}</option>`;
+                    }).join('');
+            } catch (error) {
+                console.error('Erreur destinations KM:', error);
+                select.innerHTML = '<option value="">Impossible de charger les destinations</option>';
+            }
+        }
+
+        async function loadMyKmRequests() {
+            const list = document.getElementById('kmRequestList');
+            if (!list) return;
+            try {
+                const response = await fetch(`${API_URL}/km-expenses/requests/mine`, {
+                    headers: employeeAuthHeaders()
+                });
+                const result = await response.json();
+                const requests = result.requests || [];
+                if (!requests.length) {
+                    list.textContent = 'Aucune demande pour le moment.';
+                    return;
+                }
+                list.innerHTML = requests.map((request) => `
+                    <div class="km-request-item">
+                        <div>
+                            <strong>${formatKmDate(request.tripDate)} — ${request.parameterName} (${request.kmValue || 0} km)</strong>
+                            <small>${request.remark ? request.remark.replace(/</g, '&lt;') : 'Sans remarque'}</small>
+                        </div>
+                        <span class="km-status km-status-${request.status || 'pending'}">${kmStatusLabel(request.status)}</span>
+                    </div>
+                `).join('');
+            } catch (error) {
+                console.error('Erreur liste demandes KM:', error);
+                list.textContent = 'Impossible de charger vos demandes.';
+            }
+        }
+
+        document.getElementById('kmForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const tripDate = document.getElementById('kmTripDate').value;
+            const parameterId = document.getElementById('kmDestination').value;
+            const remark = document.getElementById('kmRemark').value.trim();
+
+            if (!tripDate || !parameterId) {
+                showAlert('kmAlert', 'Choisissez une date et une destination.');
+                return;
+            }
+
+            hideAlert('kmAlert');
+            setFormEnabled('kmForm', false);
+
+            try {
+                const response = await fetch(`${API_URL}/km-expenses/requests`, {
+                    method: 'POST',
+                    headers: employeeAuthHeaders(),
+                    body: JSON.stringify({ tripDate, parameterId, remark })
+                });
+                const result = await response.json();
+                if (response.ok && result.success) {
+                    showAlert('kmAlert', 'Demande envoyée. Elle apparaîtra dans les frais KM après validation.', 'success');
+                    document.getElementById('kmRemark').value = '';
+                    document.getElementById('kmTripDate').value = todayISODate();
+                    document.getElementById('kmDestination').value = '';
+                    loadMyKmRequests();
+                } else {
+                    showAlert('kmAlert', result.message || result.error || 'Erreur lors de l\'envoi');
+                }
+            } catch (error) {
+                console.error('Erreur envoi KM:', error);
+                showAlert('kmAlert', 'Erreur de connexion. Vérifiez votre connexion internet.');
+            } finally {
+                setFormEnabled('kmForm', true);
             }
         });
 
