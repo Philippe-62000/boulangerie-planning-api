@@ -1,18 +1,21 @@
 const express = require('express');
 const router = express.Router();
 const kmExpenseController = require('../controllers/kmExpenseController');
+const kmTripRequestController = require('../controllers/kmTripRequestController');
+const { authenticateEmployee, authenticateManager } = require('../middleware/auth');
 
-// Récupérer les frais KM pour un mois/année donné
+router.get('/destinations', authenticateEmployee, kmTripRequestController.getKmDestinations);
+router.get('/requests/mine', authenticateEmployee, kmTripRequestController.listMyKmTripRequests);
+router.get('/requests/pending-count', authenticateManager, kmTripRequestController.getPendingKmTripCount);
+router.get('/requests', authenticateManager, kmTripRequestController.listPendingKmTripRequests);
+router.post('/requests', authenticateEmployee, kmTripRequestController.createKmTripRequest);
+router.patch('/requests/:id', authenticateManager, kmTripRequestController.updateKmTripRequest);
+router.post('/requests/:id/validate', authenticateManager, kmTripRequestController.validateKmTripRequest);
+router.post('/requests/:id/reject', authenticateManager, kmTripRequestController.rejectKmTripRequest);
+
 router.get('/', kmExpenseController.getKmExpenses);
-
-// Sauvegarder les frais KM pour un employé
 router.post('/', kmExpenseController.saveKmExpenses);
-
-// Sauvegarder tous les frais KM pour un mois/année (batch)
 router.post('/batch', kmExpenseController.saveAllKmExpenses);
-
-// Réinitialiser les données d'un employé spécifique
 router.post('/reset', kmExpenseController.resetEmployeeKmData);
 
 module.exports = router;
-
