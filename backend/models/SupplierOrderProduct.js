@@ -13,6 +13,10 @@ const supplierOrderProductSchema = new mongoose.Schema(
     unit: { type: String, default: 'pièce', trim: true },
     /** Stock cible optionnel (pour aide au calcul futur) */
     targetStock: { type: Number, default: null },
+    /** Besoin journalier (colonne Besoin J, Mill'Ange) */
+    needPerDay: { type: Number, default: null, min: 0 },
+    /** Besoin hebdomadaire (colonne Besoin S, Mill'Ange) */
+    needPerWeek: { type: Number, default: null, min: 0 },
     order: { type: Number, default: 0 },
     isActive: { type: Boolean, default: true }
   },

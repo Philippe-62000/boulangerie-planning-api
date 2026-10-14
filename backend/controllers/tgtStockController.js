@@ -101,7 +101,9 @@ const getProductsForEntry = async (req, res) => {
       supplierCode: p.supplierCode || '',
       unit: p.unit || 'pièce',
       order: p.order ?? 0,
-      isActive: p.isActive !== false
+      isActive: p.isActive !== false,
+      needPerDay: p.needPerDay ?? null,
+      needPerWeek: p.needPerWeek ?? null,
     }));
     res.json({ success: true, data: items, locations: locations.map((l) => l.name) });
   } catch (e) {

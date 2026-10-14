@@ -25,6 +25,13 @@ const {
 
 const getSupplierFromReq = (req) => parseSupplier(req.query?.supplier || req.body?.supplier);
 
+const parseOptionalNeed = (value, fallback) => {
+  if (value === undefined) return fallback;
+  if (value === '' || value == null) return null;
+  const n = Number(value);
+  return Number.isFinite(n) ? Math.max(0, n) : null;
+};
+
 const deliveryQuery = (siteKey, supplier) => {
   const s = parseSupplier(supplier);
   if (s === SUPPLIER_MILLANGE) return { siteKey, supplier: SUPPLIER_MILLANGE };
@@ -952,6 +959,8 @@ const putProducts = async (req, res) => {
         locationName,
         unit: String(item.unit || 'pièce').trim(),
         targetStock: item.targetStock != null && item.targetStock !== '' ? Number(item.targetStock) : null,
+        needPerDay: parseOptionalNeed(item.needPerDay, existing?.needPerDay ?? null),
+        needPerWeek: parseOptionalNeed(item.needPerWeek, existing?.needPerWeek ?? null),
         order: Number(item.order ?? idx),
         isActive: item.isActive !== false
       };

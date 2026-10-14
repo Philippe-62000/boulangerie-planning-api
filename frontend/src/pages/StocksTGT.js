@@ -23,6 +23,18 @@ const formatDateTime = (d) => {
 
 const resolveLocationName = (name) => (name && String(name).trim()) || 'Sans emplacement';
 
+const parseNeedQty = (raw) => {
+  if (raw === '' || raw == null) return null;
+  const n = Number(raw);
+  return Number.isFinite(n) ? Math.max(0, n) : null;
+};
+
+const formatNeedQty = (value) => {
+  if (value === '' || value == null) return '';
+  const n = Number(value);
+  return Number.isFinite(n) ? String(n) : '';
+};
+
 /** Nombre de semaines sur le modèle papier (triplet Carton / Unité / Stop répété). */
 const MODELE_PRINT_WEEKS = 3;
 const MODELE_PRINT_WEEK_LABELS = Array.from({ length: MODELE_PRINT_WEEKS }, (_, i) => `Sem. ${i + 1}`);
@@ -50,7 +62,10 @@ const StocksTGT = ({ channelKey = 'TGT' }) => {
   const [selectedEmployeeId, setSelectedEmployeeId] = useState('');
   const [cartonValues, setCartonValues] = useState({});
   const [unitValues, setUnitValues] = useState({});
+  const [needDayValues, setNeedDayValues] = useState({});
+  const [needWeekValues, setNeedWeekValues] = useState({});
   const [comment, setComment] = useState('');
+  const showNeedColumns = Boolean(channel.showNeedColumns);
 
   const [history, setHistory] = useState([]);
   const [historyLoading, setHistoryLoading] = useState(false);
@@ -168,30 +183,65 @@ const StocksTGT = ({ channelKey = 'TGT' }) => {
     setUnitValues((prev) => ({ ...prev, [String(productId)]: value }));
   };
 
-  const toggleProductStop = async (product, stopChecked) => {
-    const active = !stopChecked;
-    const name = String(product?.productName || '').trim();
+  const catalogItemFromProduct = (product, extra = {}) => ({
+    _id: product.productId,
+    name: String(product?.productName || '').trim(),
+    supplierCode: product.supplierCode || '',
+    locationId: product.locationId || null,
+    locationName: product.locationName || '',
+    unit: product.unit || 'pièce',
+    order: Number(product.order) || 0,
+    isActive: product.isActive !== false,
+    needPerDay: product.needPerDay ?? null,
+    needPerWeek: product.needPerWeek ?? null,
+    ...extra
+  });
+
+  const persistCatalogItem = async (product, extra = {}) => {
+    const name = String(product?.productName || extra.productName || '').trim();
     if (!name) {
       setMessage({ type: 'error', text: 'Nom produit manquant.' });
-      return;
+      return false;
     }
+    await api.put('/supplier-orders/products', {
+      siteKey,
+      supplier,
+      items: [catalogItemFromProduct({ ...product, productName: name }, extra)]
+    });
+    return true;
+  };
+
+  const persistAllNeeds = async () => {
+    if (!showNeedColumns || !products.length) return;
+    const items = products
+      .map((p, idx) => {
+        const pid = String(p.productId);
+        return catalogItemFromProduct(p, {
+          order: Number(p.order) || idx,
+          needPerDay: parseNeedQty(needDayValues[pid] ?? p.needPerDay),
+          needPerWeek: parseNeedQty(needWeekValues[pid] ?? p.needPerWeek)
+        });
+      })
+      .filter((it) => it.name);
+    if (!items.length) return;
+    await api.put('/supplier-orders/products', { siteKey, supplier, items });
+    setProducts((prev) =>
+      prev.map((p) => {
+        const pid = String(p.productId);
+        return {
+          ...p,
+          needPerDay: parseNeedQty(needDayValues[pid] ?? p.needPerDay),
+          needPerWeek: parseNeedQty(needWeekValues[pid] ?? p.needPerWeek)
+        };
+      })
+    );
+  };
+
+  const toggleProductStop = async (product, stopChecked) => {
+    const active = !stopChecked;
     try {
-      await api.put('/supplier-orders/products', {
-        siteKey,
-        supplier,
-        items: [
-          {
-            _id: product.productId,
-            name,
-            supplierCode: product.supplierCode || '',
-            locationId: product.locationId || null,
-            locationName: product.locationName || '',
-            unit: product.unit || 'pièce',
-            order: Number(product.order) || 0,
-            isActive: active
-          }
-        ]
-      });
+      const ok = await persistCatalogItem(product, { isActive: active });
+      if (!ok) return;
       setProducts((prev) =>
         prev.map((p) =>
           String(p.productId) === String(product.productId) ? { ...p, isActive: active } : p
@@ -202,6 +252,44 @@ const StocksTGT = ({ channelKey = 'TGT' }) => {
       setMessage({
         type: 'error',
         text: e.response?.data?.error || 'Impossible de mettre à jour le produit.'
+      });
+    }
+  };
+
+  const displayedNeed = (product, field, localMap) => {
+    const pid = String(product.productId);
+    if (Object.prototype.hasOwnProperty.call(localMap, pid)) {
+      return localMap[pid];
+    }
+    return formatNeedQty(product[field]);
+  };
+
+  const saveProductNeed = async (product, field, raw) => {
+    const pid = String(product.productId);
+    const value = parseNeedQty(raw);
+    const extra = {
+      needPerDay:
+        field === 'needPerDay'
+          ? value
+          : parseNeedQty(needDayValues[pid] ?? product.needPerDay),
+      needPerWeek:
+        field === 'needPerWeek'
+          ? value
+          : parseNeedQty(needWeekValues[pid] ?? product.needPerWeek)
+    };
+    try {
+      const ok = await persistCatalogItem(product, extra);
+      if (!ok) return;
+      setProducts((prev) =>
+        prev.map((p) =>
+          String(p.productId) === String(product.productId) ? { ...p, ...extra } : p
+        )
+      );
+    } catch (e) {
+      console.error(e);
+      setMessage({
+        type: 'error',
+        text: e.response?.data?.error || 'Impossible d’enregistrer le besoin.'
       });
     }
   };
@@ -269,6 +357,7 @@ const StocksTGT = ({ channelKey = 'TGT' }) => {
     setSending(true);
     setMessage(null);
     try {
+      await persistAllNeeds();
       const res = await api.post('/tgt-stocks/entry', {
         ...apiQ(),
         employeeId: selectedEmployeeId,
@@ -281,7 +370,9 @@ const StocksTGT = ({ channelKey = 'TGT' }) => {
       setComment('');
       setMessage({
         type: 'success',
-        text: res.data?.message || 'Saisie enregistrée avec succès.'
+        text: showNeedColumns
+          ? (res.data?.message || 'Saisie enregistrée.') + ' Besoins J / S mémorisés.'
+          : res.data?.message || 'Saisie enregistrée avec succès.'
       });
     } catch (e) {
       console.error(e);
@@ -450,6 +541,7 @@ const StocksTGT = ({ channelKey = 'TGT' }) => {
         <p>
           Par emplacement : 3 semaines d’affilée — pour chaque semaine, cases vides Carton, Unité et case Stop
           (cocher Stop si le produit est arrêté cette semaine).
+          {showNeedColumns ? ' Les colonnes Besoin J (jour) et Besoin S (semaine) rappellent les besoins habituels.' : ''}
         </p>
       </div>
 
@@ -469,6 +561,12 @@ const StocksTGT = ({ channelKey = 'TGT' }) => {
                   <thead>
                     <tr>
                       <th>Produit</th>
+                      {showNeedColumns ? (
+                        <>
+                          <th className="col-need" title="Besoin par jour">Besoin J</th>
+                          <th className="col-need" title="Besoin semaine">Besoin S</th>
+                        </>
+                      ) : null}
                       <th className="col-num">Carton</th>
                       <th className="col-num">Unité</th>
                       <th className="col-stop">Stop</th>
@@ -483,6 +581,48 @@ const StocksTGT = ({ channelKey = 'TGT' }) => {
                         className={stopped ? 'stocks-tgt-row--stopped' : ''}
                       >
                         <td>{p.productName}</td>
+                        {showNeedColumns ? (
+                          <>
+                            <td className="col-need">
+                              <input
+                                type="number"
+                                min="0"
+                                step="1"
+                                inputMode="decimal"
+                                className="qty-input"
+                                value={displayedNeed(p, 'needPerDay', needDayValues)}
+                                placeholder="—"
+                                title="Besoin par jour"
+                                onChange={(e) =>
+                                  setNeedDayValues((prev) => ({
+                                    ...prev,
+                                    [String(p.productId)]: e.target.value
+                                  }))
+                                }
+                                onBlur={(e) => saveProductNeed(p, 'needPerDay', e.target.value)}
+                              />
+                            </td>
+                            <td className="col-need">
+                              <input
+                                type="number"
+                                min="0"
+                                step="1"
+                                inputMode="decimal"
+                                className="qty-input"
+                                value={displayedNeed(p, 'needPerWeek', needWeekValues)}
+                                placeholder="—"
+                                title="Besoin semaine"
+                                onChange={(e) =>
+                                  setNeedWeekValues((prev) => ({
+                                    ...prev,
+                                    [String(p.productId)]: e.target.value
+                                  }))
+                                }
+                                onBlur={(e) => saveProductNeed(p, 'needPerWeek', e.target.value)}
+                              />
+                            </td>
+                          </>
+                        ) : null}
                         <td className="col-num">
                           <input
                             type="number"
@@ -530,12 +670,22 @@ const StocksTGT = ({ channelKey = 'TGT' }) => {
             {groupedProducts.map(([locName, group]) => (
               <section key={`print-${locName}`} className="modele-print-section">
                 <h3 className="modele-print-loc">{locName}</h3>
-                <table className="modele-print-table">
+                <table className={`modele-print-table${showNeedColumns ? ' modele-print-table--needs' : ''}`}>
                   <thead>
                     <tr>
                       <th className="modele-print-th-product" rowSpan={2}>
                         Produit
                       </th>
+                      {showNeedColumns ? (
+                        <>
+                          <th className="modele-print-th-need" rowSpan={2} title="Besoin par jour">
+                            Besoin J
+                          </th>
+                          <th className="modele-print-th-need" rowSpan={2} title="Besoin semaine">
+                            Besoin S
+                          </th>
+                        </>
+                      ) : null}
                       {MODELE_PRINT_WEEK_LABELS.map((label) => (
                         <th key={label} className="modele-print-th-week" colSpan={3}>
                           {label}
@@ -556,6 +706,16 @@ const StocksTGT = ({ channelKey = 'TGT' }) => {
                     {group.map((p) => (
                       <tr key={`p-${p.productId}`}>
                         <td className="modele-print-td-product">{p.productName}</td>
+                        {showNeedColumns ? (
+                          <>
+                            <td className="modele-print-td-need">
+                              {displayedNeed(p, 'needPerDay', needDayValues) || '—'}
+                            </td>
+                            <td className="modele-print-td-need">
+                              {displayedNeed(p, 'needPerWeek', needWeekValues) || '—'}
+                            </td>
+                          </>
+                        ) : null}
                         {MODELE_PRINT_WEEK_LABELS.map((label) => (
                           <React.Fragment key={`${p.productId}-${label}`}>
                             <td className="modele-print-td-qty modele-print-week-start">
