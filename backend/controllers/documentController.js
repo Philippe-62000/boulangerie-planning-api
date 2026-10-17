@@ -54,13 +54,14 @@ exports.getAllPersonalDocuments = async (req, res) => {
     const documents = await Document.find({ type: 'personal' })
       .populate({
         path: 'employeeId',
-        select: 'name role isActive',
-        match: { isActive: true }
+        select: 'name role isActive'
       })
       .sort({ uploadDate: -1 });
 
-    // Exclure les docs liés à un salarié désactivé (populate → null)
-    const activeOnly = documents.filter((doc) => doc.employeeId);
+    // Salariés actifs (isActive absent = ancien enregistrement, considéré actif)
+    const activeOnly = documents.filter((doc) => (
+      doc.employeeId && doc.employeeId.isActive !== false
+    ));
     
     console.log(`✅ ${activeOnly.length} documents personnels (salariés actifs) récupérés`);
     
@@ -84,12 +85,13 @@ exports.getEmployeeUploads = async (req, res) => {
     const documents = await Document.find({ type: 'employee_upload' })
       .populate({
         path: 'employeeId',
-        select: 'name role email isActive',
-        match: { isActive: true }
+        select: 'name role email isActive'
       })
       .sort({ uploadDate: -1 });
 
-    const activeOnly = documents.filter((doc) => doc.employeeId);
+    const activeOnly = documents.filter((doc) => (
+      doc.employeeId && doc.employeeId.isActive !== false
+    ));
 
     res.json({
       success: true,
