@@ -3,6 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" href="favicon.svg" type="image/svg+xml">
+    <link rel="icon" href="favicon.ico" sizes="any">
     <title>Gestion des Documents - Administration</title>
     <style>
         * {
@@ -617,7 +619,9 @@
                 select.innerHTML = '<option value="">Sélectionner un salarié</option>';
                 
                 if (data.success && data.data) {
-                    data.data.forEach(employee => {
+                    data.data
+                        .filter((employee) => employee.isActive !== false)
+                        .forEach(employee => {
                         const option = document.createElement('option');
                         option.value = employee._id;
                         option.textContent = `${employee.name} - ${employee.role}`;
@@ -795,6 +799,13 @@
                 
                 try {
                     let personalDocs = [];
+                    const employeesResponse = await fetch(`${API_URL}/employees`);
+                    const employeesData = await employeesResponse.json();
+                    const activeEmployees = (employeesData.success && Array.isArray(employeesData.data)
+                        ? employeesData.data
+                        : []
+                    ).filter((employee) => employee.isActive !== false);
+
                     const allPersonalResponse = await fetch(`${API_URL}/documents/all-personal`);
                     
                     if (allPersonalResponse.ok) {
@@ -803,18 +814,13 @@
                             personalDocs = allPersonalData.data;
                         }
                     } else if (allPersonalResponse.status === 404) {
-                        // Fallback: API pas encore mise à jour, récupérer par employé
-                        const employeesResponse = await fetch(`${API_URL}/employees`);
-                        const employeesData = await employeesResponse.json();
-                        if (employeesData.success && employeesData.data) {
-                            for (const emp of employeesData.data) {
-                                const r = await fetch(`${API_URL}/documents/personal/${emp._id}`);
-                                const d = await r.json();
-                                if (d.success && d.data) {
-                                    d.data.forEach(doc => {
-                                        personalDocs.push({ ...doc, employeeId: { _id: emp._id, name: emp.name, role: emp.role } });
-                                    });
-                                }
+                        for (const emp of activeEmployees) {
+                            const r = await fetch(`${API_URL}/documents/personal/${emp._id}`);
+                            const d = await r.json();
+                            if (d.success && d.data) {
+                                d.data.forEach(doc => {
+                                    personalDocs.push({ ...doc, employeeId: { _id: emp._id, name: emp.name, role: emp.role } });
+                                });
                             }
                         }
                     }
@@ -827,15 +833,21 @@
                         html += `<p style="color: #667eea; margin-bottom: 15px;"><strong>📤 Vue "Dernier upload"</strong> : ${personalDocs.length} document(s) du dernier batch (${formatDate(maxDate)})</p>`;
                     }
                     
-                    // Grouper par salarié
+                    // Tous les salariés actifs apparaissent, même sans document (ex. après réactivation)
                     const byEmployee = {};
+                    if (documentsFilter !== 'lastUpload') {
+                        activeEmployees.forEach((emp) => {
+                            byEmployee[String(emp._id)] = { name: emp.name, role: emp.role || '', docs: [] };
+                        });
+                    }
                     personalDocs.forEach(doc => {
-                        const empId = doc.employeeId?._id || doc.employeeId;
-                        const empName = doc.employeeId?.name || 'Salarié inconnu';
-                        const empRole = doc.employeeId?.role || '';
-                        const key = empId || 'unknown';
-                        if (!byEmployee[key]) byEmployee[key] = { name: empName, role: empRole, docs: [] };
-                        byEmployee[key].docs.push(doc);
+                        if (!doc.employeeId) return;
+                        if (doc.employeeId.isActive === false) return;
+                        const empId = String(doc.employeeId._id || doc.employeeId);
+                        const empName = doc.employeeId.name || 'Salarié inconnu';
+                        const empRole = doc.employeeId.role || '';
+                        if (!byEmployee[empId]) byEmployee[empId] = { name: empName, role: empRole, docs: [] };
+                        byEmployee[empId].docs.push(doc);
                     });
                     
                     // Trier les salariés par nom
@@ -850,6 +862,9 @@
                                     <div class="employee-section-header">👤 ${name}${role ? ' - ' + role : ''} (${docs.length} document${docs.length > 1 ? 's' : ''})</div>
                                     <div class="employee-section-body">
                             `;
+                            if (!docs.length) {
+                                html += '<p style="color: #6c757d; margin: 0;">Aucun document pour le moment. Utilisez le formulaire ci-dessus pour en ajouter.</p>';
+                            }
                             docs.forEach(doc => {
                                 const hasBeenDownloaded = doc.downloadCount && doc.downloadCount > 0;
                                 const downloadInfo = hasBeenDownloaded 
@@ -987,22 +1002,39 @@
                     body: formData
                 });
 
-                const result = await response.json();
+                let result = {};
+                const raw = await response.text();
+                try {
+                    result = raw ? JSON.parse(raw) : {};
+                } catch (_) {
+                    showAlert(
+                        `Erreur serveur (${response.status}). Réessayez ou vérifiez le type/taille du fichier (PDF, max 10 Mo).`,
+                        'danger'
+                    );
+                    return;
+                }
 
-                if (result.success) {
+                if (response.ok && result.success) {
                     showAlert(successMessage, 'success');
                     // Réinitialiser les formulaires
                     document.getElementById('generalUploadForm').reset();
                     document.getElementById('personalUploadForm').reset();
                     document.getElementById('batchUploadForm').reset();
-                    // Recharger la liste
-                    await loadDocuments();
+                    // Recharger la liste (ne pas faire échouer l'upload si le refresh échoue)
+                    try {
+                        await loadDocuments();
+                    } catch (reloadErr) {
+                        console.warn('Upload OK mais refresh liste:', reloadErr);
+                    }
                 } else {
-                    showAlert(result.error || 'Erreur lors de l\'upload', 'danger');
+                    showAlert(
+                        result.message || result.error || `Erreur lors de l'upload (${response.status})`,
+                        'danger'
+                    );
                 }
             } catch (error) {
                 console.error('Erreur upload:', error);
-                showAlert('Erreur lors de l\'upload du document', 'danger');
+                showAlert('Erreur réseau lors de l\'upload du document', 'danger');
             }
         }
 
