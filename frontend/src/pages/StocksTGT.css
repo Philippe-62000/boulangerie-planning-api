@@ -98,6 +98,11 @@
   text-align: center;
 }
 
+.stocks-tgt-table .col-need {
+  width: 5.5rem;
+  text-align: center;
+}
+
 .stocks-tgt-table .col-stop {
   width: 3.5rem;
   text-align: center;
@@ -233,6 +238,19 @@
   text-align: left;
   font-weight: 600;
   width: 28%;
+}
+
+.modele-print-table--needs .modele-print-th-product,
+.modele-print-table--needs .modele-print-td-product {
+  width: 20%;
+}
+
+.modele-print-th-need,
+.modele-print-td-need {
+  width: 6%;
+  text-align: center;
+  font-weight: 700;
+  font-size: 0.62rem;
 }
 
 .modele-print-th-week {

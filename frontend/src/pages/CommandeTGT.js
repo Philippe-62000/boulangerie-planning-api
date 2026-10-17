@@ -680,7 +680,9 @@ const CommandeTGT = ({ channelKey = 'TGT' }) => {
     locationName: resolveProductLocationName(p, locations),
     unit: p.unit || 'pièce',
     order: Number(p.order ?? idx),
-    isActive: p.isActive !== false
+    isActive: p.isActive !== false,
+    needPerDay: p.needPerDay ?? null,
+    needPerWeek: p.needPerWeek ?? null
   });
 
   const setProductActive = async (idx, active) => {
