@@ -28,9 +28,9 @@ function settingsPlain(doc) {
     employeeOrder: Array.isArray(json.employeeOrder) ? json.employeeOrder.map(String) : [],
     testMode: !!json.testMode,
     testEmployeeIds: Array.isArray(json.testEmployeeIds) ? json.testEmployeeIds.map(String) : [],
-    words: (json.words || []).filter((word) => (
+    words: hours.ensureCfaWords((json.words || []).filter((word) => (
       word && String(word.code).toUpperCase() !== 'FERIE' && word.category !== 'ferie'
-    ))
+    )))
   };
 }
 
@@ -767,10 +767,8 @@ function buildEmptyRow(employee, dates, settings, holidayDates) {
 
 function applyCfaAndSunday(row, dates, settings, cfaMap, { overwriteCodes = false, holidayDates = [], adjacent = {} } = {}) {
   const plain = toPlain(row) || {};
-  const cfaCode = hours.findWord(settings, settings.defaultCfaCode || 'CFA8')
-    ? (settings.defaultCfaCode || 'CFA8')
-    : 'CFA';
   const cfaDates = cfaMap.get(String(plain.employeeId || row.employeeId));
+  const cfaCode = hours.resolveCfaCode(settings, dates, cfaDates);
   const days = (plain.days || []).map((raw) => {
     const day = hours.plainDay(raw);
     const isSundayClosed = !settings.sundayOpen && day.day === 'Dimanche';

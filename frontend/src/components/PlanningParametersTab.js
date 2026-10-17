@@ -216,7 +216,9 @@ const PlanningParametersTab = () => {
 
         <h4 style={{ marginTop: '1.5rem' }}>Mots-codes</h4>
         <p style={{ color: '#555' }}>
-          Un mot peut compter dans le total de la semaine (ex. CFA8 = 8h). MAL ne compte pas dans le total
+          Un mot peut compter dans le total de la semaine (ex. CFA8 = 8h). Une semaine entière à l’école
+          (lundi–vendredi) est comptée en CFA7 (7h × 5 = 35h) ; les semaines mixtes gardent le mot CFA par défaut.
+          MAL ne compte pas dans le total
           et alimente le compteur maladie du mois. Les congés payés (CP) valent le volume du contrat divisé
           par 6 : une semaine complète = 6 jours de CP + 1 repos (0 h), soit 35 h ou 39 h selon le contrat.
           Les jours fériés officiels français sont cochés automatiquement à chaque nouvelle année
