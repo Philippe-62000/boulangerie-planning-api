@@ -19,6 +19,10 @@ const Employees = () => {
   const [showOnboardingOffboardingModal, setShowOnboardingOffboardingModal] = useState(false);
   const [showUniformModal, setShowUniformModal] = useState(false);
   const [showAdvanceModal, setShowAdvanceModal] = useState(false);
+  const [showRecoverModal, setShowRecoverModal] = useState(false);
+  const [inactiveEmployees, setInactiveEmployees] = useState([]);
+  const [recoverLoading, setRecoverLoading] = useState(false);
+  const [reactivatingId, setReactivatingId] = useState(null);
   const [editingEmployee, setEditingEmployee] = useState(null);
   const [advanceRequests, setAdvanceRequests] = useState([]);
   const [advanceStats, setAdvanceStats] = useState({});
@@ -65,6 +69,26 @@ const Employees = () => {
   const handleAddEmployee = () => {
     setEditingEmployee(null);
     setShowModal(true);
+  };
+
+  const fetchInactiveEmployees = async () => {
+    setRecoverLoading(true);
+    try {
+      const response = await api.get('/employees/inactive');
+      const data = response.data?.data || response.data;
+      setInactiveEmployees(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error('Erreur salariés inactifs:', error);
+      toast.error('Impossible de charger les salariés désactivés');
+      setInactiveEmployees([]);
+    } finally {
+      setRecoverLoading(false);
+    }
+  };
+
+  const handleOpenRecover = async () => {
+    setShowRecoverModal(true);
+    await fetchInactiveEmployees();
   };
 
 
@@ -255,13 +279,21 @@ const Employees = () => {
     }
   };
 
-  const handleReactivateEmployee = async (employeeId) => {
+  const handleReactivateEmployee = async (employeeId, employeeName) => {
+    const label = employeeName || 'ce salarié';
+    if (!window.confirm(`Réactiver ${label} ?`)) {
+      return;
+    }
+    setReactivatingId(employeeId);
     try {
       await api.patch(`/employees/${employeeId}/reactivate`);
-      toast.success('Employé réactivé');
-      fetchEmployees();
+      toast.success(`${label} a été réactivé`);
+      await fetchEmployees();
+      await fetchInactiveEmployees();
     } catch (error) {
       toast.error('Erreur lors de la réactivation');
+    } finally {
+      setReactivatingId(null);
     }
   };
 
@@ -402,8 +434,62 @@ const Employees = () => {
             </svg>
             Ajouter un employé
           </button>
+          <button className="btn btn-recover" onClick={handleOpenRecover}>
+            Récupérer un salarié
+          </button>
         </div>
       </div>
+
+      {showRecoverModal && (
+        <div
+          className="modal-overlay recover-modal-overlay"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowRecoverModal(false);
+            }
+          }}
+        >
+          <div className="recover-modal">
+            <div className="recover-modal-header">
+              <h3>Récupérer un salarié</h3>
+              <button
+                type="button"
+                className="recover-modal-close"
+                onClick={() => setShowRecoverModal(false)}
+              >
+                ✕
+              </button>
+            </div>
+            <p className="recover-modal-hint">
+              Salariés désactivés : choisissez celui à réactiver.
+            </p>
+            {recoverLoading ? (
+              <p>Chargement…</p>
+            ) : inactiveEmployees.length === 0 ? (
+              <p className="recover-modal-empty">Aucun salarié désactivé.</p>
+            ) : (
+              <ul className="recover-list">
+                {inactiveEmployees.map((emp) => (
+                  <li key={emp._id} className="recover-list-item">
+                    <div>
+                      <strong>{emp.name}</strong>
+                      <span>{getRoleLabel(emp.role)}</span>
+                    </div>
+                    <button
+                      type="button"
+                      className="btn btn-success"
+                      disabled={reactivatingId === emp._id}
+                      onClick={() => handleReactivateEmployee(emp._id, emp.name)}
+                    >
+                      {reactivatingId === emp._id ? 'Réactivation…' : 'Réactiver'}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Modal flottant pour ajouter/modifier un employé */}
       {showModal && (

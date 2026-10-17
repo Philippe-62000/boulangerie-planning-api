@@ -254,6 +254,19 @@ const updateEmployee = async (req, res) => {
   }
 };
 
+const getInactiveEmployees = async (req, res) => {
+  try {
+    const employees = await Employee.find({ isActive: false })
+      .select('name role email contractType weeklyHours isActive')
+      .sort({ name: 1 })
+      .lean();
+    res.json({ success: true, data: employees });
+  } catch (error) {
+    console.error('Erreur employés inactifs:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
 // Désactiver un employé (soft delete)
 const deactivateEmployee = async (req, res) => {
   try {
@@ -454,6 +467,7 @@ const employeeLogin = async (req, res) => {
 
 module.exports = {
   getAllEmployees,
+  getInactiveEmployees,
   getEmployeeById,
   createEmployee,
   updateEmployee,
