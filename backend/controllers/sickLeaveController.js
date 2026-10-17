@@ -6,6 +6,19 @@ const emailService = require('../services/emailService');
 const absenceService = require('../services/absenceService');
 const multer = require('multer');
 
+async function applyPlanningOverlayForSickLeave(sickLeave) {
+  if (!sickLeave) return;
+  const status = sickLeave.status;
+  if (status !== 'validated' && status !== 'declared') return;
+  try {
+    const staffPlanning = require('./staffPlanningController');
+    const planningResult = await staffPlanning.refreshPlanningForSickLeave(sickLeave);
+    console.log('✅ Maladie inscrite au planning (MAL):', planningResult);
+  } catch (planningError) {
+    console.error('❌ Erreur inscription MAL au planning:', planningError.message);
+  }
+}
+
 // Configuration Multer pour l'upload
 const storage = multer.memoryStorage();
 const upload = multer({
@@ -961,6 +974,7 @@ const validateSickLeave = async (req, res) => {
 
     // Récupérer sickLeave à nouveau pour avoir toutes les mises à jour
     sickLeave = await SickLeave.findById(id);
+    await applyPlanningOverlayForSickLeave(sickLeave);
 
     res.json({
       success: true,
@@ -1480,6 +1494,7 @@ const updateSickLeave = async (req, res) => {
     }
 
     console.log('✅ Arrêt maladie modifié:', updatedSickLeave._id);
+    await applyPlanningOverlayForSickLeave(updatedSickLeave);
 
     res.json({
       success: true,
