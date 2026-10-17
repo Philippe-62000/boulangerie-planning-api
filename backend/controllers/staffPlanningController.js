@@ -3,6 +3,7 @@ const RecupHour = require('../models/RecupHour');
 const StaffPlanningSettings = require('../models/StaffPlanningSettings');
 const StaffWeekPlanning = require('../models/StaffWeekPlanning');
 const VacationRequest = require('../models/VacationRequest');
+const SickLeave = require('../models/SickLeave');
 const emailService = require('../services/emailService');
 const hours = require('../services/staffPlanningHours');
 const frenchHolidays = require('../utils/frenchPublicHolidays');
@@ -172,13 +173,13 @@ function weekInfoFromIso(iso) {
   return hours.getISOWeekInfo(new Date(year, month - 1, day, 12, 0, 0));
 }
 
-function matchEmployeeForVacation(employees, vacation) {
-  const email = String(vacation?.employeeEmail || '').trim().toLowerCase();
+function matchEmployeeForRequest(employees, request) {
+  const email = String(request?.employeeEmail || '').trim().toLowerCase();
   if (email) {
     const byEmail = employees.find((employee) => String(employee.email || '').trim().toLowerCase() === email);
     if (byEmail) return byEmail;
   }
-  return findEmployeeByPersonName(employees, vacation?.employeeName);
+  return findEmployeeByPersonName(employees, request?.employeeName);
 }
 
 async function overlayValidatedCpOnWeek(weekDoc, settings, cfaMap, employees, holidayDates, restMaps) {
@@ -202,7 +203,7 @@ async function overlayValidatedCpOnWeek(weekDoc, settings, cfaMap, employees, ho
   const weekDateSet = new Set(dates.map((item) => item.date));
   const datesByEmployeeId = new Map();
   vacations.forEach((vacation) => {
-    const employee = matchEmployeeForVacation(employees, vacation);
+    const employee = matchEmployeeForRequest(employees, vacation);
     if (!employee) return;
     const id = String(employee._id);
     const set = datesByEmployeeId.get(id) || new Set();
@@ -238,6 +239,75 @@ async function overlayValidatedCpOnWeek(weekDoc, settings, cfaMap, employees, ho
       return next;
     });
     if (appliedNewCp) changedIds.push(String(row.employeeId));
+    return changed ? summarizeRow(
+      { ...plain, days },
+      settings,
+      holidayDates,
+      adjacentForEmployee(restMaps, row.employeeId)
+    ) : row;
+  });
+
+  weekDoc.rows = applyOnRows(weekDoc.rows);
+  if (hasActualLayer(weekDoc) && weekDoc.actualStatus !== 'validated') {
+    weekDoc.actualRows = applyOnRows(weekDoc.actualRows);
+  }
+  if (changedIds.length) invalidateAcknowledgements(weekDoc, changedIds);
+  return weekDoc;
+}
+
+async function overlayValidatedMalOnWeek(weekDoc, settings, cfaMap, employees, holidayDates, restMaps) {
+  const dates = hours.weekDates(weekDoc.weekNumber, weekDoc.year);
+  if (!dates.length) return weekDoc;
+  const first = dates[0].date;
+  const last = dates[dates.length - 1].date;
+  let sickLeaves = [];
+  try {
+    sickLeaves = await SickLeave.find({
+      status: { $in: ['validated', 'declared'] },
+      startDate: { $lte: new Date(`${last}T23:59:59.999Z`) },
+      endDate: { $gte: new Date(`${first}T00:00:00.000Z`) }
+    }).select('employeeName employeeEmail startDate endDate therapeuticPartTime').lean();
+  } catch (error) {
+    console.error('staff-planning overlay MAL', error);
+    return weekDoc;
+  }
+  sickLeaves = (sickLeaves || []).filter((item) => !item.therapeuticPartTime);
+  if (!sickLeaves.length) return weekDoc;
+
+  const weekDateSet = new Set(dates.map((item) => item.date));
+  const datesByEmployeeId = new Map();
+  sickLeaves.forEach((sickLeave) => {
+    const employee = matchEmployeeForRequest(employees, sickLeave);
+    if (!employee) return;
+    const id = String(employee._id);
+    const set = datesByEmployeeId.get(id) || new Set();
+    eachIsoDateInclusive(sickLeave.startDate, sickLeave.endDate).forEach((iso) => {
+      if (weekDateSet.has(iso)) set.add(iso);
+    });
+    if (set.size) datesByEmployeeId.set(id, set);
+  });
+  if (!datesByEmployeeId.size) return weekDoc;
+
+  const changedIds = [];
+  const applyOnRows = (rows) => (rows || []).map((row) => {
+    const malDates = datesByEmployeeId.get(String(row.employeeId));
+    if (!malDates || !malDates.size) return row;
+    const cfaDates = cfaMap.get(String(row.employeeId));
+    const plain = toPlain(row);
+    let changed = false;
+    let appliedNewMal = false;
+    const days = (plain.days || []).map((raw) => {
+      const day = hours.plainDay(raw);
+      if (!malDates.has(day.date)) return day;
+      if (isProtectedCfa(day, cfaDates)) return day;
+      if (hours.isRestCode(day.code)) return day;
+      if (!settings.sundayOpen && day.day === 'Dimanche') return day;
+      if (hours.normalizedCode(day.code) === 'MAL') return day;
+      appliedNewMal = true;
+      changed = true;
+      return applyCodeToDay(day, 'MAL', settings, plain.contractedHours);
+    });
+    if (appliedNewMal) changedIds.push(String(row.employeeId));
     return changed ? summarizeRow(
       { ...plain, days },
       settings,
@@ -790,6 +860,7 @@ async function syncWeekRows(weekDoc, settings) {
   weekDoc.sundayOpen = settings.sundayOpen;
   weekDoc.holidayDates = holidayList;
   await overlayValidatedCpOnWeek(weekDoc, settings, cfaMap, employees, holidayList, restMaps);
+  await overlayValidatedMalOnWeek(weekDoc, settings, cfaMap, employees, holidayList, restMaps);
   return weekDoc;
 }
 
@@ -1632,10 +1703,10 @@ const swapWeekRows = async (req, res) => {
   }
 };
 
-const refreshPlanningForVacation = async (vacationRequest) => {
-  if (!vacationRequest) return { weeks: 0, days: 0 };
+const refreshPlanningForPeriod = async (request) => {
+  if (!request) return { weeks: 0, days: 0 };
   const settings = settingsPlain(await StaffPlanningSettings.getSingleton());
-  const isoDates = eachIsoDateInclusive(vacationRequest.startDate, vacationRequest.endDate);
+  const isoDates = eachIsoDateInclusive(request.startDate, request.endDate);
   const weeks = new Map();
   isoDates.forEach((iso) => {
     const info = weekInfoFromIso(iso);
@@ -1646,6 +1717,9 @@ const refreshPlanningForVacation = async (vacationRequest) => {
   }
   return { weeks: weeks.size, days: isoDates.length };
 };
+
+const refreshPlanningForVacation = (vacationRequest) => refreshPlanningForPeriod(vacationRequest);
+const refreshPlanningForSickLeave = (sickLeave) => refreshPlanningForPeriod(sickLeave);
 
 const toggleHoliday = async (req, res) => {
   try {
@@ -2250,5 +2324,6 @@ module.exports = {
   updateRecupHours,
   reorderEmployees,
   getMonthRecap,
-  refreshPlanningForVacation
+  refreshPlanningForVacation,
+  refreshPlanningForSickLeave
 };
