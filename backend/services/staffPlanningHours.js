@@ -247,6 +247,41 @@ function isCfaCode(code) {
   return normalizedCode(code).startsWith('CFA');
 }
 
+const CFA_WEEKDAYS = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi'];
+
+function isFullWeekCfa(dates, cfaDates) {
+  const weekdays = (dates || []).filter((item) => CFA_WEEKDAYS.includes(item.day) && item.date);
+  if (weekdays.length < 5) return false;
+  if (!cfaDates || typeof cfaDates.has !== 'function') return false;
+  return weekdays.every((item) => cfaDates.has(item.date));
+}
+
+function ensureCfaWords(words) {
+  const list = Array.isArray(words) ? words.filter(Boolean) : [];
+  const codes = new Set(list.map((word) => normalizedCode(word.code)));
+  const extra = [];
+  if (!codes.has('CFA7')) {
+    extra.push({
+      code: 'CFA7',
+      hours: 7,
+      category: 'formation',
+      countsInTotal: true,
+      countsAsSick: false
+    });
+  }
+  return extra.length ? list.concat(extra) : list;
+}
+
+function resolveCfaCode(settings, dates, cfaDates) {
+  const safe = settings || {};
+  if (isFullWeekCfa(dates, cfaDates)) {
+    if (findWord(safe, 'CFA7')) return 'CFA7';
+    if (findWord(safe, 'CFA')) return 'CFA';
+  }
+  const fallback = safe.defaultCfaCode || 'CFA8';
+  return findWord(safe, fallback) ? fallback : 'CFA';
+}
+
 function isRestCode(code) {
   return normalizedCode(code) === 'REPOS';
 }
@@ -574,6 +609,7 @@ function defaultWords() {
   return [
     { code: 'REPOS', hours: 0, category: 'repos', countsInTotal: false, countsAsSick: false },
     { code: 'CFA', hours: 7, category: 'formation', countsInTotal: true, countsAsSick: false },
+    { code: 'CFA7', hours: 7, category: 'formation', countsInTotal: true, countsAsSick: false },
     { code: 'CFA8', hours: 8, category: 'formation', countsInTotal: true, countsAsSick: false },
     { code: 'CP', hours: 0, category: 'cp', countsInTotal: false, countsAsSick: false },
     { code: 'MAL', hours: 0, category: 'maladie', countsInTotal: false, countsAsSick: true },
@@ -618,6 +654,9 @@ module.exports = {
   plainDay,
   normalizedCode,
   isCfaCode,
+  isFullWeekCfa,
+  ensureCfaWords,
+  resolveCfaCode,
   isRestCode,
   isOffCode,
   isFullWeekWithCode,

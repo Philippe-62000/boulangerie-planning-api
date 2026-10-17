@@ -145,4 +145,21 @@ assert.strictEqual(
   'samedi 20h30 -> dimanche 06h00 reste alerte dans la même semaine'
 );
 
+const week43 = hours.weekDates(43, 2026);
+assert.strictEqual(week43[0].date, '2026-10-19');
+const fullCfa = new Set(week43.filter((d) => ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi'].includes(d.day)).map((d) => d.date));
+const cfaSettings = hours.defaultSettings();
+assert.strictEqual(hours.isFullWeekCfa(week43, fullCfa), true);
+assert.strictEqual(hours.resolveCfaCode(cfaSettings, week43, fullCfa), 'CFA7');
+const partialCfa = new Set(['2026-10-20', '2026-10-21']);
+assert.strictEqual(hours.isFullWeekCfa(week43, partialCfa), false);
+assert.strictEqual(hours.resolveCfaCode(cfaSettings, week43, partialCfa), 'CFA8');
+const fullWeekDays = week43.map((meta) => hours.computeDay(
+  fullCfa.has(meta.date) ? { kind: 'code', code: 'CFA7' } : { kind: 'code', code: 'REPOS' },
+  meta,
+  cfaSettings,
+  35
+));
+assert.strictEqual(hours.formatHours(hours.summarizeDays(fullWeekDays, 35, cfaSettings).weeklyPaidHours), '35h');
+
 console.log('staff planning hours tests OK');
