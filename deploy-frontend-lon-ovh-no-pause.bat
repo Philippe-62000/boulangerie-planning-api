@@ -27,6 +27,18 @@ if %errorlevel% GEQ 8 (
     exit /b 1
 )
 
+echo    - Suppression des source maps (.map) inutiles pour OVH...
+del /q "deploy-frontend-lon\static\js\*.map" 2>nul
+del /q "deploy-frontend-lon\static\css\*.map" 2>nul
+
+echo    - Copie des favicons + pages HTML public (admin-documents, etc.)...
+if exist "frontend\public\favicon.ico" copy "frontend\public\favicon.ico" "deploy-frontend-lon\" /Y
+if exist "frontend\public\favicon.svg" copy "frontend\public\favicon.svg" "deploy-frontend-lon\" /Y
+if exist "frontend\public\favicon-32.png" copy "frontend\public\favicon-32.png" "deploy-frontend-lon\" /Y
+for %%f in (frontend\public\*.html) do (
+    if /i not "%%~nxf"=="index.html" copy "%%f" "deploy-frontend-lon\" /Y
+)
+
 echo    - Création du .htaccess pour /lon/...
 echo RewriteEngine On > deploy-frontend-lon\.htaccess
 echo RewriteBase /lon/ >> deploy-frontend-lon\.htaccess
@@ -41,6 +53,13 @@ if %errorlevel% equ 0 (
     echo ✅ URLs API et chemins remplacés dans les fichiers HTML
 ) else (
     echo ⚠️ Remplacement PowerShell échoué, vérifiez manuellement les fichiers HTML
+)
+
+echo    - Vérification que les JS/CSS cités par les HTML existent...
+powershell -NoProfile -File "%~dp0verify-deploy-lon-assets.ps1"
+if %errorlevel% neq 0 (
+    echo ERREUR: des pages HTML pointent vers des JS/CSS absents. Ne pas uploader.
+    exit /b 1
 )
 
 echo.
