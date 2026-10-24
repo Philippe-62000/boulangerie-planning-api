@@ -366,6 +366,7 @@ const Employees = () => {
   const getContractLabel = (contractType) => {
     const labels = {
       CDI: 'CDI',
+      Temporaire: 'Contrat temporaire',
       Apprentissage: 'Contrat d\'apprentissage'
     };
     return labels[contractType] || contractType;

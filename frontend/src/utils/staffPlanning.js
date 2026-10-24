@@ -30,6 +30,12 @@ export function formatHours(value) {
   return `${sign}${whole}h${String(mins).padStart(2, '0')}`;
 }
 
+export function formatRecupBalance(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n) || n === 0) return '0h';
+  return `${n > 0 ? '+' : ''}${formatHours(n)}`;
+}
+
 function minutesFromHours(value) {
   const n = Number(value);
   if (!Number.isFinite(n) || n === 0) return 0;

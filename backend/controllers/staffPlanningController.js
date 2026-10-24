@@ -1,3 +1,4 @@
+const mongoose = require('mongoose');
 const Employee = require('../models/Employee');
 const RecupHour = require('../models/RecupHour');
 const StaffPlanningSettings = require('../models/StaffPlanningSettings');
@@ -663,10 +664,41 @@ function forecastSnapshotSummaries(week) {
     .sort((a, b) => new Date(b.savedAt) - new Date(a.savedAt));
 }
 
-function publicWeek(week) {
+function employeeIdKey(value) {
+  if (!value) return '';
+  if (typeof value === 'object' && value._id) return String(value._id);
+  return String(value);
+}
+
+async function recupBalanceMap(week) {
+  const ids = [];
+  for (const row of [...(week?.rows || []), ...(week?.actualRows || [])]) {
+    const id = employeeIdKey(row.employeeId);
+    if (id) ids.push(id);
+  }
+  const unique = [...new Set(ids)];
+  const objectIds = unique
+    .filter((id) => mongoose.Types.ObjectId.isValid(id))
+    .map((id) => new mongoose.Types.ObjectId(id));
+  if (!objectIds.length) return new Map();
+  const totals = await RecupHour.aggregate([
+    { $match: { employeeId: { $in: objectIds } } },
+    { $group: { _id: '$employeeId', totalHours: { $sum: '$hours' } } }
+  ]);
+  return new Map(totals.map((item) => [String(item._id), Number(item.totalHours) || 0]));
+}
+
+async function publicWeek(week) {
   if (!week) return week;
   const obj = typeof week.toObject === 'function' ? week.toObject() : { ...week };
   obj.forecastSnapshots = forecastSnapshotSummaries(obj);
+  const map = await recupBalanceMap(obj);
+  const stamp = (rows) => (rows || []).map((row) => ({
+    ...row,
+    recupBalance: map.get(employeeIdKey(row.employeeId)) || 0
+  }));
+  obj.rows = stamp(obj.rows);
+  obj.actualRows = stamp(obj.actualRows);
   return obj;
 }
 
@@ -1221,7 +1253,7 @@ const getWeek = async (req, res) => {
       success: true,
       settings,
       dates,
-      week: publicWeek(week),
+      week: await publicWeek(week),
       lock: lockInfo(dates),
       previousWeek: {
         weekNumber: prev.weekNumber,
@@ -1328,7 +1360,7 @@ const updateCell = async (req, res) => {
     await week.save();
     res.json({
       success: true,
-      week: publicWeek(week),
+      week: await publicWeek(week),
       lock,
       alerts: collectAlerts(useActual ? { rows: week.actualRows } : week)
     });
@@ -1356,7 +1388,7 @@ const validateWeek = async (req, res) => {
     week.markModified('rows');
     rememberForecastSnapshot(week, actorName(req), 'validated');
     await week.save();
-    res.json({ success: true, week: publicWeek(week), alerts, lock: lockInfo(dates) });
+    res.json({ success: true, week: await publicWeek(week), alerts, lock: lockInfo(dates) });
   } catch (error) {
     console.error('staff-planning validate', error);
     res.status(500).json({ success: false, error: 'Impossible de valider le planning' });
@@ -1485,7 +1517,7 @@ const sendWeek = async (req, res) => {
 
     res.json({
       success: true,
-      week: publicWeek(week),
+      week: await publicWeek(week),
       alerts,
       results,
       skipped,
@@ -1529,7 +1561,7 @@ const duplicateWeek = async (req, res) => {
 
     res.json({
       success: true,
-      week: publicWeek(copied.week),
+      week: await publicWeek(copied.week),
       dates: hours.weekDates(target.weekNumber, target.year),
       settings,
       alerts: collectAlerts(copied.week),
@@ -1585,7 +1617,7 @@ const copyWeekRows = async (req, res) => {
 
     res.json({
       success: true,
-      week: publicWeek(current),
+      week: await publicWeek(current),
       dates: hours.weekDates(weekNumber, year),
       settings,
       alerts: collectAlerts(current),
@@ -1688,7 +1720,7 @@ const swapWeekRows = async (req, res) => {
     await week.save();
     res.json({
       success: true,
-      week: publicWeek(week),
+      week: await publicWeek(week),
       dates,
       lock,
       alerts: collectAlerts(useActual ? { rows: week.actualRows } : week),
@@ -1759,7 +1791,7 @@ const toggleHoliday = async (req, res) => {
     await week.save();
     res.json({
       success: true,
-      week: publicWeek(week),
+      week: await publicWeek(week),
       dates,
       settings,
       holidayLabels: frenchHolidays.holidayLabelsForIsoDates(dates.map((item) => item.date)),
@@ -2015,7 +2047,7 @@ const createActualWeek = async (req, res) => {
     const dates = hours.weekDates(weekNumber, year);
     res.json({
       success: true,
-      week: publicWeek(week),
+      week: await publicWeek(week),
       dates,
       lock: lockInfo(dates),
       alerts: collectAlerts({ rows: week.actualRows })
@@ -2082,7 +2114,7 @@ const validateActualWeek = async (req, res) => {
     }
     res.json({
       success: true,
-      week: publicWeek(week),
+      week: await publicWeek(week),
       settings,
       lock: lockInfo(dates),
       alerts: collectAlerts({ rows: week.actualRows }),
@@ -2151,7 +2183,7 @@ const updateRecupHours = async (req, res) => {
     const dates = hours.weekDates(weekNumber, year);
     res.json({
       success: true,
-      week: publicWeek(week),
+      week: await publicWeek(week),
       dates,
       lock: lockInfo(dates),
       alerts: collectAlerts({ rows: week.actualRows })
