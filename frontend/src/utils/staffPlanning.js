@@ -212,6 +212,20 @@ export function hoursMatchContract(row, useAccountant = false) {
   return Math.abs(paidMins - contractedMins) <= 1;
 }
 
+export function suggestedRecupHours(row) {
+  const weekMins = minutesFromHours(rowWeekHours(row, false));
+  const contractMins = minutesFromHours(row.contractedHours);
+  if (!Number.isFinite(weekMins) || !Number.isFinite(contractMins) || contractMins <= 0) return 0;
+  return (weekMins - contractMins) / 60;
+}
+
+export function formatCounterAdjustment(value) {
+  const n = Number(value) || 0;
+  if (n > 0) return `+${formatHours(n)} au compteur`;
+  if (n < 0) return `${formatHours(n)} du compteur`;
+  return '';
+}
+
 export function planningWords(settings) {
   return (settings?.words || []).filter((word) => (
     word && String(word.code).toUpperCase() !== 'FERIE' && word.category !== 'ferie'
@@ -358,7 +372,12 @@ export function buildShopPrintHtml({ weekNumber, dates = [], rows = [], holidayD
       return `<td>${label}${hoursText}${pause}</td>`;
     }).join('');
     const weekHours = rowWeekHours(row, true);
-    return `<tr><th>${row.employeeName || ''}</th>${cells}<td>${formatHours(weekHours)}</td></tr>`;
+    const recup = rowRecupHours(row);
+    const poste = rowPaidHours(row);
+    const extra = recup
+      ? `<div class="hrs">Poste ${formatHours(poste)}</div><div class="hrs">${formatCounterAdjustment(recup)}</div>`
+      : '';
+    return `<tr><th>${row.employeeName || ''}</th>${cells}<td>${formatHours(weekHours)}${extra}</td></tr>`;
   }).join('');
   return `<!DOCTYPE html>
 <html lang="fr"><head><meta charset="UTF-8"><title>${title} semaine ${weekNumber}</title>

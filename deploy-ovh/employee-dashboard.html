@@ -2333,14 +2333,15 @@
                     return sum;
                 }, 0) || Number(row.weeklyCpHours) || 0;
                 const accountant = Math.round((worked - recup + cpHours) * 100) / 100;
-                const weekCell = actualReady
-                    ? `<td><strong>${escapeHtml(formatPlanHours(accountant))}</strong><div style="font-size:12px;">/ ${escapeHtml(formatPlanHours(row.contractedHours))}</div>${cpHours ? `<div style="font-size:12px;">CP ${escapeHtml(formatPlanHours(cpHours))}</div>` : ''}${recup ? `<div style="font-size:12px;color:${recup > 0 ? '#166534' : '#9a3412'};">Récup ${recup > 0 ? '+' : ''}${escapeHtml(formatPlanHours(recup))}</div>` : ''}</td>`
-                    : '';
+                const counterLine = !recup
+                    ? ''
+                    : `<div style="font-size:12px;color:${recup > 0 ? '#166534' : '#9a3412'};">${recup > 0 ? '+' + escapeHtml(formatPlanHours(recup)) + ' au compteur' : escapeHtml(formatPlanHours(recup)) + ' du compteur'}</div>`;
+                const weekCell = `<td><strong>${escapeHtml(formatPlanHours(accountant))}</strong><div style="font-size:12px;">/ ${escapeHtml(formatPlanHours(row.contractedHours))}</div>${recup ? `<div style="font-size:12px;">Poste ${escapeHtml(formatPlanHours(worked))}</div>` : ''}${cpHours ? `<div style="font-size:12px;">CP ${escapeHtml(formatPlanHours(cpHours))}</div>` : ''}${counterLine}</td>`;
                 return `<tr class="${mine ? 'mine' : ''}"><th>${escapeHtml(row.employeeName || '')}</th>${cells}${weekCell}</tr>`;
             }).join('');
             wrap.className = 'emp-plan-table-wrap';
             wrap.innerHTML = sourceRows.length
-                ? `<table class="emp-plan-table"><thead><tr><th>Salarié</th>${head}${actualReady ? '<th>Semaine</th>' : ''}</tr></thead><tbody>${rows}</tbody></table>`
+                ? `<table class="emp-plan-table"><thead><tr><th>Salarié</th>${head}<th>Semaine</th></tr></thead><tbody>${rows}</tbody></table>`
                 : `<div class="emp-plan-empty">${actualReady ? 'Votre planning réel n’est pas encore disponible pour cette semaine.' : 'Votre ligne n’apparaît pas encore sur ce planning.'}</div>`;
             const ack = data.myAcknowledgement || (data.acknowledgements || []).find((item) => String(item.employeeId) === myId);
             const showModified = !!(ack && ack.stale && ack.changeNotifiedAt);
@@ -2369,7 +2370,10 @@
         function formatRecupLine(row) {
             const recup = Number(row && row.recupHours) || 0;
             if (!recup) return '';
-            return `<p class="emp-plan-meta">Heures de récup cette semaine : <strong>${recup > 0 ? '+' : ''}${escapeHtml(formatPlanHours(recup))}</strong></p>`;
+            const label = recup > 0
+                ? `+${escapeHtml(formatPlanHours(recup))} au compteur`
+                : `${escapeHtml(formatPlanHours(recup))} du compteur`;
+            return `<p class="emp-plan-meta">Compteur cette semaine : <strong>${label}</strong></p>`;
         }
 
         function renderActualSignBox(data, actualReady, myRow) {

@@ -531,17 +531,18 @@ function applyRecupToMonth(acc, row, prefix) {
   }
 }
 
-async function overlayActualRecup(week, settings) {
-  if (!hasActualLayer(week)) return;
-  const weekStart = mondayLocalFromIsoWeek(week.weekNumber, week.year);
-  const ids = (week.actualRows || []).map((row) => row.employeeId).filter(Boolean);
-  if (!ids.length) return;
-  const entries = await RecupHour.find({ employeeId: { $in: ids }, weekStart }).lean();
-  const map = new Map(entries.map((entry) => [String(entry.employeeId), entry]));
-  const holidayDates = holidayDatesOf(week);
-  const adjacentWeeks = await loadAdjacentWeeks(week.weekNumber, week.year);
-  const restMaps = adjacentMapsFromWeeks(adjacentWeeks.previousWeek, adjacentWeeks.nextWeek, true);
-  week.actualRows = (week.actualRows || []).map((row) => {
+async function recupEntriesMap(weekNumber, year, employeeIds) {
+  const ids = (employeeIds || []).filter(Boolean);
+  if (!ids.length) return new Map();
+  const entries = await RecupHour.find({
+    employeeId: { $in: ids },
+    weekStart: mondayLocalFromIsoWeek(weekNumber, year)
+  }).lean();
+  return new Map(entries.map((entry) => [String(entry.employeeId), entry]));
+}
+
+function applyRecupMapToRows(rows, map, settings, holidayDates, restMaps) {
+  return (rows || []).map((row) => {
     const entry = map.get(String(row.employeeId));
     const plain = toPlain(row);
     return summarizeRow({
@@ -550,7 +551,28 @@ async function overlayActualRecup(week, settings) {
       recupComment: entry ? (entry.comment || '') : (plain.recupComment || '')
     }, settings, holidayDates, adjacentForEmployee(restMaps, row.employeeId));
   });
-  week.markModified('actualRows');
+}
+
+async function overlayRecup(week, settings) {
+  if (!week) return week;
+  const ids = [
+    ...(week.rows || []).map((row) => row.employeeId),
+    ...(week.actualRows || []).map((row) => row.employeeId)
+  ].filter(Boolean);
+  const map = await recupEntriesMap(week.weekNumber, week.year, ids);
+  const holidayDates = holidayDatesOf(week);
+  const adjacentWeeks = await loadAdjacentWeeks(week.weekNumber, week.year);
+  if ((week.rows || []).length) {
+    const restMaps = adjacentMapsFromWeeks(adjacentWeeks.previousWeek, adjacentWeeks.nextWeek, false);
+    week.rows = applyRecupMapToRows(week.rows, map, settings, holidayDates, restMaps);
+    if (typeof week.markModified === 'function') week.markModified('rows');
+  }
+  if ((week.actualRows || []).length) {
+    const restMaps = adjacentMapsFromWeeks(adjacentWeeks.previousWeek, adjacentWeeks.nextWeek, true);
+    week.actualRows = applyRecupMapToRows(week.actualRows, map, settings, holidayDates, restMaps);
+    if (typeof week.markModified === 'function') week.markModified('actualRows');
+  }
+  return week;
 }
 
 function getSiteKey() {
@@ -1009,15 +1031,20 @@ function buildPlanningEmail({
     }).join('');
     const recup = Number(row.recupHours) || 0;
     const cpHours = Number(row.weeklyCpHours) || 0;
-    const baseHours = isActual
-      ? (Number(row.weeklyAccountantHours) || Number(row.weeklyPaidHours) || 0)
-      : (Number(row.weeklyPaidHours) || 0);
+    const paidHours = Number(row.weeklyPaidHours) || 0;
+    const accountant = Number(row.weeklyAccountantHours);
+    const baseHours = Number.isFinite(accountant) ? accountant : paidHours;
     const weekTotal = hours.hoursFromMinutes(
       hours.minutesFromHours(baseHours) + hours.minutesFromHours(cpHours)
     );
+    const recupLine = !recup
+      ? ''
+      : (recup > 0
+        ? `<br/><small>+${hours.formatHours(recup)} au compteur</small>`
+        : `<br/><small>${hours.formatHours(recup)} du compteur</small>`);
     const weekLabel = `${hours.formatHours(weekTotal)} / ${hours.formatHours(row.contractedHours)}${
-      cpHours ? `<br/><small>CP ${hours.formatHours(cpHours)}</small>` : ''
-    }${isActual && recup ? `<br/><small>Récup ${recup > 0 ? '+' : ''}${hours.formatHours(recup)}</small>` : ''}`;
+      recup ? `<br/><small>Poste ${hours.formatHours(paidHours)}</small>` : ''
+    }${cpHours ? `<br/><small>CP ${hours.formatHours(cpHours)}</small>` : ''}${recupLine}`;
     return `<tr>
       <td style="border:1px solid #ddd;padding:6px;font-weight:600;">${row.employeeName}</td>
       ${cells}
@@ -1148,6 +1175,7 @@ const getPublishedWeek = async (req, res) => {
 
     const dates = hours.weekDates(week.weekNumber, week.year);
     const settings = settingsPlain(await StaffPlanningSettings.getSingleton());
+    await overlayRecup(week, settings);
     const hidden = await Employee.find({ showInStaffPlanning: false }).select('_id').lean();
     const hiddenIds = new Set(hidden.map((item) => String(item._id)));
     const employeeId = req.user?.employeeId || req.user?.id;
@@ -1239,7 +1267,7 @@ const getWeek = async (req, res) => {
       ensureActualCopy(week);
     }
     if (hasActualLayer(week)) week.markModified('actualRows');
-    await overlayActualRecup(week, settings);
+    await overlayRecup(week, settings);
     if (isPublishedForecast(week)) {
       captureForecastOriginIfNeeded(week, week.validatedBy || week.lastSentBy);
     }
@@ -1411,6 +1439,8 @@ const sendWeek = async (req, res) => {
     if (layer === 'actual' && week.actualStatus !== 'validated') {
       return res.status(400).json({ success: false, error: 'Validez d\'abord le planning réel avant d\'écrire aux salariés' });
     }
+    const settings = settingsPlain(await StaffPlanningSettings.getSingleton());
+    await overlayRecup(week, settings);
     const alerts = collectAlerts(layer === 'actual' ? { rows: week.actualRows } : week);
     const dates = hours.weekDates(weekNumber, year);
     const sourceRows = (layer === 'actual' ? (week.actualRows || []) : (week.rows || []))
@@ -1418,7 +1448,6 @@ const sendWeek = async (req, res) => {
     if (targeted && !sourceRows.length) {
       return res.status(404).json({ success: false, error: 'Salarié absent de cette semaine' });
     }
-    const settings = settingsPlain(await StaffPlanningSettings.getSingleton());
     const employees = await Employee.find({
       _id: { $in: sourceRows.map((row) => row.employeeId) }
     }).select('name email').lean();
@@ -2042,7 +2071,7 @@ const createActualWeek = async (req, res) => {
       });
     }
     week.markModified('actualRows');
-    await overlayActualRecup(week, settingsPlain(await StaffPlanningSettings.getSingleton()));
+    await overlayRecup(week, settingsPlain(await StaffPlanningSettings.getSingleton()));
     await week.save();
     const dates = hours.weekDates(weekNumber, year);
     res.json({
@@ -2145,28 +2174,14 @@ const updateRecupHours = async (req, res) => {
     }
     const week = await StaffWeekPlanning.findOne({ weekNumber, year });
     if (!week) return res.status(404).json({ success: false, error: 'Planning introuvable' });
-    if (!hasActualLayer(week)) {
-      return res.status(400).json({ success: false, error: 'Créez d\'abord le planning réel' });
-    }
     if (week.actualStatus === 'validated') {
       return res.status(403).json({ success: false, error: 'Le planning réel est validé et n\'est plus modifiable' });
     }
-    const settings = settingsPlain(await StaffPlanningSettings.getSingleton());
-    const holidayDates = holidayDatesOf(week);
-    const rowIndex = week.actualRows.findIndex((row) => String(row.employeeId) === String(employeeId));
-    if (rowIndex < 0) {
-      return res.status(404).json({ success: false, error: 'Salarié absent du planning réel' });
+    const inForecast = (week.rows || []).some((row) => String(row.employeeId) === String(employeeId));
+    const inActual = (week.actualRows || []).some((row) => String(row.employeeId) === String(employeeId));
+    if (!inForecast && !inActual) {
+      return res.status(404).json({ success: false, error: 'Salarié absent du planning' });
     }
-    const adjacentWeeks = await loadAdjacentWeeks(weekNumber, year);
-    const restMaps = adjacentMapsFromWeeks(adjacentWeeks.previousWeek, adjacentWeeks.nextWeek, true);
-    const nextRow = summarizeRow({
-      ...toPlain(week.actualRows[rowIndex]),
-      recupHours,
-      recupComment: comment
-    }, settings, holidayDates, adjacentForEmployee(restMaps, employeeId));
-    const sourceRows = week.toObject().actualRows || [];
-    week.actualRows = sourceRows.map((item, index) => (index === rowIndex ? nextRow : item));
-    week.markModified('actualRows');
     const weekStart = mondayLocalFromIsoWeek(weekNumber, year);
     await RecupHour.findOneAndUpdate(
       { employeeId, weekStart },
@@ -2179,6 +2194,8 @@ const updateRecupHours = async (req, res) => {
       },
       { upsert: true }
     );
+    const settings = settingsPlain(await StaffPlanningSettings.getSingleton());
+    await overlayRecup(week, settings);
     await week.save();
     const dates = hours.weekDates(weekNumber, year);
     res.json({
@@ -2186,7 +2203,7 @@ const updateRecupHours = async (req, res) => {
       week: await publicWeek(week),
       dates,
       lock: lockInfo(dates),
-      alerts: collectAlerts({ rows: week.actualRows })
+      alerts: collectAlerts(hasActualLayer(week) ? { rows: week.actualRows } : week)
     });
   } catch (error) {
     console.error('staff-planning recup', error);
