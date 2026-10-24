@@ -533,6 +533,11 @@
   color: #64748b;
 }
 
+.sp-recup-field .btn {
+  align-self: flex-start;
+  margin-top: 0.15rem;
+}
+
 .sp-recup-preview {
   background: #f8fafc;
   border: 1px solid #e2e8f0;

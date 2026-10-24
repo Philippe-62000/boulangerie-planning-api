@@ -12,6 +12,8 @@ import {
   formatClockHours,
   formatHours,
   formatRecupBalance,
+  formatCounterAdjustment,
+  suggestedRecupHours,
   formatShortDate,
   parseClockHours,
   getISOWeekInfo,
@@ -306,6 +308,7 @@ const StaffPlanning = () => {
   ));
   const actualExists = week?.actualStatus && week.actualStatus !== 'none' && (week.actualRows || []).length > 0;
   const actualLocked = week?.actualStatus === 'validated';
+  const canEditRecup = canEdit && !actualLocked && !viewingHistory;
 
   const canEditDay = (isoDate) => {
     if (!canEdit) return false;
@@ -534,14 +537,18 @@ const StaffPlanning = () => {
   };
 
   const openRecupModal = (row) => {
-    if (layer !== 'actual' || !canEdit || actualLocked) return;
+    if (!canEditRecup) return;
     const worked = rowPaidHours(row);
+    const current = rowRecupHours(row);
+    const suggested = suggestedRecupHours(row);
     setRecupModal({
       employeeId: row.employeeId,
       employeeName: row.employeeName,
       contractedHours: row.contractedHours,
       worked,
-      hours: formatClockHours(rowRecupHours(row) || 0),
+      cpHours: rowCpHours(row),
+      suggested,
+      hours: formatClockHours(current !== 0 ? current : suggested),
       comment: row.recupComment || ''
     });
   };
@@ -955,7 +962,10 @@ const StaffPlanning = () => {
                     </th>
                   );
                 })}
-                <th>Semaine</th>
+                <th title={canEditRecup ? 'Cliquer la case d’un salarié pour affecter le compteur d’heures' : undefined}>
+                  Semaine
+                  {canEditRecup && <small className="sp-th-hint">compteur si ≠ contrat</small>}
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -973,6 +983,9 @@ const StaffPlanning = () => {
                     const ackCurrent = ack && !ack.stale;
                     const changeNotified = isChangeNotified(ack);
                     const nameStatus = signed ? 'sp-name-signed' : (ackCurrent ? 'sp-name-ack' : (ack?.stale ? 'sp-name-stale' : ''));
+                    const recup = rowRecupHours(row);
+                    const posteHours = rowPaidHours(row);
+                    const weekTotal = rowWeekHours(row, true);
                     const nameTitle = signed
                       ? `Planning réel signé le ${new Date(signed.signedAt).toLocaleString('fr-FR')}`
                       : (ackCurrent
@@ -1084,16 +1097,17 @@ const StaffPlanning = () => {
                           );
                         })}
                         <td
-                          className={`sp-total${hoursMatchContract(row, layer === 'actual') ? ' sp-total-match' : ''}${layer === 'actual' && canEdit && !actualLocked ? ' sp-total-recup' : ''}`}
+                          className={`sp-total${hoursMatchContract(row, true) ? ' sp-total-match' : ''}${canEditRecup ? ' sp-total-recup' : ''}`}
                           onClick={() => openRecupModal(row)}
-                          title={layer === 'actual' && canEdit && !actualLocked ? 'Cliquer pour affecter des heures de récup' : undefined}
+                          title={canEditRecup ? 'Cliquer pour affecter des heures au compteur' : undefined}
                         >
-                          <strong>{formatHours(rowWeekHours(row, layer === 'actual'))}</strong>
+                          <strong>{formatHours(weekTotal)}</strong>
                           <small>/ {formatHours(row.contractedHours)}</small>
+                          {recup !== 0 && <small>Poste {formatHours(posteHours)}</small>}
                           {rowCpHours(row) > 0 && <small>CP {formatHours(rowCpHours(row))}</small>}
-                          {layer === 'actual' && rowRecupHours(row) !== 0 && (
-                            <small className={rowRecupHours(row) > 0 ? 'sp-recup-pos' : 'sp-recup-neg'}>
-                              Récup {rowRecupHours(row) > 0 ? '+' : ''}{formatHours(rowRecupHours(row))}
+                          {recup !== 0 && (
+                            <small className={recup > 0 ? 'sp-recup-pos' : 'sp-recup-neg'}>
+                              {formatCounterAdjustment(recup)}
                             </small>
                           )}
                           {row.weeklyOt25 > 0 && <small>HS 25% {formatHours(row.weeklyOt25)}</small>}
@@ -1325,27 +1339,39 @@ const StaffPlanning = () => {
         const recupOk = Number.isFinite(recupValue);
         const workedMins = Math.round(Number(recupModal.worked) * 60);
         const recupMins = recupOk ? Math.round(recupValue * 60) : 0;
+        const cpMins = Math.round(Number(recupModal.cpHours || 0) * 60);
         const accountant = (workedMins - recupMins) / 60;
+        const weekDone = (workedMins - recupMins + cpMins) / 60;
         const ot = overtimeFromPaid(accountant, settings);
+        const suggested = Number(recupModal.suggested) || 0;
         return (
           <div className="sp-modal-backdrop no-print" onClick={() => !saving && setRecupModal(null)}>
             <div className="sp-modal" onClick={(e) => e.stopPropagation()}>
-              <h3>Heures de récup — {recupModal.employeeName}</h3>
+              <h3>Compteur d’heures — {recupModal.employeeName}</h3>
               <p className="sp-modal-help">
-                Semaine {weekNumber} · travaillé {formatHours(recupModal.worked)} / contrat {formatHours(recupModal.contractedHours)}.
-                Un + ajoute au compteur et diminue les heures vues par le comptable. Un − retire du compteur.
+                Semaine {weekNumber} · {formatHours(recupModal.worked)} en poste / contrat {formatHours(recupModal.contractedHours)}.
+                Un + met des heures au compteur (semaine trop longue). Un − retire du compteur pour compléter la semaine.
               </p>
               <label className="sp-recup-field">
-                Heures de récup cette semaine
+                Volume affecté au compteur
                 <input
                   className="form-control"
                   type="text"
                   inputMode="decimal"
-                  placeholder="00.26"
+                  placeholder="-05.00"
                   value={recupModal.hours}
                   onChange={(e) => setRecupModal((current) => ({ ...current, hours: e.target.value }))}
                 />
-                <span className="sp-recup-hint">Saisir 00.26 pour 26 minutes (heures.minutes), 01.30 pour 1h30.</span>
+                <span className="sp-recup-hint">Saisir 00.26 pour 26 minutes (heures.minutes). Exemple : −05.00 pour 5h de déduction.</span>
+                {suggested !== 0 && (
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    onClick={() => setRecupModal((current) => ({ ...current, hours: formatClockHours(suggested) }))}
+                  >
+                    Compléter le contrat ({formatCounterAdjustment(suggested)})
+                  </button>
+                )}
               </label>
               <label className="sp-recup-field">
                 Justificatif
@@ -1354,13 +1380,17 @@ const StaffPlanning = () => {
                   rows={2}
                   value={recupModal.comment}
                   onChange={(e) => setRecupModal((current) => ({ ...current, comment: e.target.value }))}
-                  placeholder="Heures faites en plus, ou récup prise"
+                  placeholder="Heures en plus, ou déduction du compteur"
                 />
               </label>
               <div className="sp-recup-preview">
-                <p>Comptable : <strong>{recupOk ? formatHours(accountant) : '—'}</strong></p>
+                <p>Poste : <strong>{formatHours(recupModal.worked)}</strong></p>
+                {Number(recupModal.cpHours) > 0 && (
+                  <p>CP : <strong>{formatHours(recupModal.cpHours)}</strong></p>
+                )}
+                <p>Compteur : <strong>{recupOk ? formatCounterAdjustment(recupValue) || '0h' : 'saisie invalide'}</strong></p>
+                <p>Semaine effectuée : <strong>{recupOk ? `${formatHours(weekDone)} / ${formatHours(recupModal.contractedHours)}` : '—'}</strong></p>
                 <p>HS 25% : <strong>{recupOk ? formatHours(ot.ot25) : '—'}</strong>{recupOk && ot.ot50 > 0 ? ` · HS 50% ${formatHours(ot.ot50)}` : ''}</p>
-                <p>Compteur salarié : <strong>{recupOk ? `${recupValue > 0 ? '+' : ''}${formatHours(recupValue)}` : 'saisie invalide'}</strong></p>
               </div>
               <div className="sp-modal-actions">
                 <button type="button" className="btn btn-primary" onClick={saveRecupModal} disabled={saving}>
