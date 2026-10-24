@@ -102,7 +102,11 @@ const Recup = () => {
         const { data } = response.data;
         setEmployees(
           (data.employees || [])
-            .filter((employee) => employee.isActive !== false && employee.showInStaffPlanning !== false)
+            .filter((employee) => {
+              if (employee.isActive === false) return false;
+              if (isAdmin() && employee.showInStaffPlanning === false) return false;
+              return true;
+            })
             .map((employee) => {
               const weekHours = Number(employee.weekHours || 0);
               return {
@@ -123,7 +127,7 @@ const Recup = () => {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [isAdmin]);
 
   useEffect(() => {
     loadRecupData(weekStart);
