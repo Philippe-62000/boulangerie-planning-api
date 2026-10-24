@@ -11,6 +11,7 @@ import {
   formatDayRange,
   formatClockHours,
   formatHours,
+  formatRecupBalance,
   formatShortDate,
   parseClockHours,
   getISOWeekInfo,
@@ -1004,6 +1005,18 @@ const StaffPlanning = () => {
                           )}
                           <strong>{row.employeeName}</strong>
                           <small>{row.contractedHours}h</small>
+                          <small
+                            className={`sp-recup-balance ${
+                              Number(row.recupBalance) > 0
+                                ? 'sp-recup-pos'
+                                : Number(row.recupBalance) < 0
+                                  ? 'sp-recup-neg'
+                                  : 'sp-recup-zero'
+                            }`}
+                            title="Cumul des heures de récup"
+                          >
+                            Récup {formatRecupBalance(row.recupBalance)}
+                          </small>
                           {canEdit && layer === 'forecast' && ack?.stale && !changeNotified && (
                             <button
                               type="button"

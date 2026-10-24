@@ -27,7 +27,7 @@ const employeeSchema = new mongoose.Schema({
   },
   contractType: {
     type: String,
-    enum: ['CDI', 'Apprentissage'],
+    enum: ['CDI', 'Apprentissage', 'Temporaire'],
     required: true
   },
   age: {

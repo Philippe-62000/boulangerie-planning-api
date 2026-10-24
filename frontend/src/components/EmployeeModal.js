@@ -373,6 +373,7 @@ const EmployeeModal = ({ employee, onSave, onClose, employees = [] }) => {
                 required
               >
                 <option value="CDI">CDI</option>
+                <option value="Temporaire">Contrat temporaire</option>
                 <option value="Apprentissage">Contrat d'apprentissage</option>
               </select>
             </div>

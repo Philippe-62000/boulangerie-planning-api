@@ -29,18 +29,20 @@ exports.getRecupHours = async (req, res) => {
   try {
     const weekStart = parseWeekStart(req.query.weekStart);
     const isAdmin = req.user?.role === 'admin';
-    const employeeFilter = { isActive: true };
+    const employeeFilter = { isActive: { $ne: false } };
     if (!isAdmin) {
       const ownId = req.user?.employeeId || req.user?.id;
       if (!ownId || !mongoose.Types.ObjectId.isValid(ownId)) {
         return res.status(403).json({ success: false, error: 'Compte salarié introuvable' });
       }
       employeeFilter._id = ownId;
+    } else {
+      employeeFilter.showInStaffPlanning = { $ne: false };
     }
 
     const [employees, weekEntries, totals] = await Promise.all([
-      Employee.find(employeeFilter).sort({ name: 1 }),
-      RecupHour.find({ weekStart }),
+      Employee.find(employeeFilter).select('name role isActive showInStaffPlanning').sort({ name: 1 }).lean(),
+      RecupHour.find({ weekStart }).lean(),
       RecupHour.aggregate([
         {
           $group: {
@@ -52,26 +54,31 @@ exports.getRecupHours = async (req, res) => {
     ]);
 
     const entriesMap = new Map(
-      weekEntries.map((entry) => [entry.employeeId.toString(), entry])
+      weekEntries.map((entry) => [String(entry.employeeId), entry])
     );
 
     const totalsMap = new Map(
-      totals.map((item) => [item._id.toString(), item.totalHours])
+      totals.map((item) => [String(item._id), item.totalHours])
     );
 
-    const result = employees.map((employee) => {
-      const entry = entriesMap.get(employee._id.toString());
-      const total = totalsMap.get(employee._id.toString()) || 0;
+    const result = employees
+      .filter((employee) => employee.isActive !== false && (isAdmin ? employee.showInStaffPlanning !== false : true))
+      .map((employee) => {
+        const id = String(employee._id);
+        const entry = entriesMap.get(id);
+        const total = totalsMap.get(id) || 0;
 
-      return {
-        employeeId: employee._id,
-        employeeName: employee.name,
-        role: employee.role,
-        weekHours: entry ? entry.hours : 0,
-        totalHours: total,
-        comment: entry?.comment || ''
-      };
-    });
+        return {
+          employeeId: employee._id,
+          employeeName: employee.name,
+          role: employee.role,
+          isActive: employee.isActive !== false,
+          showInStaffPlanning: employee.showInStaffPlanning !== false,
+          weekHours: entry ? entry.hours : 0,
+          totalHours: total,
+          comment: entry?.comment || ''
+        };
+      });
 
     res.json({
       success: true,

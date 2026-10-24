@@ -509,6 +509,16 @@
   color: #9a3412;
 }
 
+.sp-name .sp-recup-balance {
+  font-weight: 600;
+  margin-top: 0.05rem;
+}
+
+.sp-name .sp-recup-zero {
+  color: #64748b;
+  font-weight: 500;
+}
+
 .sp-recup-field {
   display: flex;
   flex-direction: column;

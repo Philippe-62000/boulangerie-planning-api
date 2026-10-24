@@ -101,16 +101,18 @@ const Recup = () => {
       if (response.data?.success) {
         const { data } = response.data;
         setEmployees(
-          (data.employees || []).map((employee) => {
-            const weekHours = Number(employee.weekHours || 0);
-            return {
-              ...employee,
-              weekHours,
-              hoursText: formatClockHours(weekHours),
-              totalHours: Number(employee.totalHours || 0),
-              comment: employee.comment || ''
-            };
-          })
+          (data.employees || [])
+            .filter((employee) => employee.isActive !== false && employee.showInStaffPlanning !== false)
+            .map((employee) => {
+              const weekHours = Number(employee.weekHours || 0);
+              return {
+                ...employee,
+                weekHours,
+                hoursText: formatClockHours(weekHours),
+                totalHours: Number(employee.totalHours || 0),
+                comment: employee.comment || ''
+              };
+            })
         );
       } else {
         toast.error('Impossible de charger les heures de récup');

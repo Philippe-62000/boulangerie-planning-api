@@ -560,6 +560,7 @@ const Dashboard = () => {
         return;
       }
       const employees = [...(response.data.data.employees || [])]
+        .filter((e) => e.isActive !== false && e.showInStaffPlanning !== false)
         .sort((a, b) => (a.employeeName || '').localeCompare(b.employeeName || '', 'fr'));
       const printContent = `
         <!DOCTYPE html>
