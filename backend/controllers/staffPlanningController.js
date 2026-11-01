@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 const Employee = require('../models/Employee');
 const RecupHour = require('../models/RecupHour');
+const PlanningImperative = require('../models/PlanningImperative');
 const StaffPlanningSettings = require('../models/StaffPlanningSettings');
 const StaffWeekPlanning = require('../models/StaffWeekPlanning');
 const VacationRequest = require('../models/VacationRequest');
@@ -710,6 +711,50 @@ async function recupBalanceMap(week) {
   return new Map(totals.map((item) => [String(item._id), Number(item.totalHours) || 0]));
 }
 
+function publicPlanningImperative(item) {
+  return {
+    id: String(item._id),
+    kind: item.kind,
+    startTime: item.startTime || '',
+    endTime: item.endTime || '',
+    comment: item.comment || ''
+  };
+}
+
+async function overlayPlanningImperatives(weekObj) {
+  if (!weekObj) return weekObj;
+  const rows = [...(weekObj.rows || []), ...(weekObj.actualRows || [])];
+  const ids = [...new Set(rows.map((row) => employeeIdKey(row.employeeId)).filter(Boolean))];
+  const dates = [...new Set(rows.flatMap((row) => (row.days || []).map((day) => day?.date).filter(Boolean)))];
+  const objectIds = ids
+    .filter((id) => mongoose.Types.ObjectId.isValid(id))
+    .map((id) => new mongoose.Types.ObjectId(id));
+  if (!objectIds.length || !dates.length) return weekObj;
+  const items = await PlanningImperative.find({
+    employeeId: { $in: objectIds },
+    date: { $in: dates },
+    status: 'active'
+  }).lean();
+  const map = new Map();
+  for (const item of items) {
+    const key = `${employeeIdKey(item.employeeId)}|${item.date}`;
+    const list = map.get(key) || [];
+    list.push(publicPlanningImperative(item));
+    map.set(key, list);
+  }
+  const stampDays = (row) => ({
+    ...row,
+    days: (row.days || []).map((day) => {
+      const list = map.get(`${employeeIdKey(row.employeeId)}|${day.date}`) || [];
+      if (!list.length) return day;
+      return { ...day, planningImperatives: list };
+    })
+  });
+  weekObj.rows = (weekObj.rows || []).map(stampDays);
+  weekObj.actualRows = (weekObj.actualRows || []).map(stampDays);
+  return weekObj;
+}
+
 async function publicWeek(week) {
   if (!week) return week;
   const obj = typeof week.toObject === 'function' ? week.toObject() : { ...week };
@@ -721,6 +766,11 @@ async function publicWeek(week) {
   }));
   obj.rows = stamp(obj.rows);
   obj.actualRows = stamp(obj.actualRows);
+  try {
+    await overlayPlanningImperatives(obj);
+  } catch (error) {
+    console.error('overlayPlanningImperatives', error);
+  }
   return obj;
 }
 

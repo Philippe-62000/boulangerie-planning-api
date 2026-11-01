@@ -28,6 +28,7 @@ import TicketRestaurant from './pages/TicketRestaurant';
 import EmployeeDashboard from './pages/EmployeeDashboard';
 import AdvanceRequests from './pages/AdvanceRequests';
 import Recup from './pages/Recup';
+import PlanningImperative from './pages/PlanningImperative';
 import Primes from './pages/Primes';
 import MutuelleManagement from './pages/MutuelleManagement';
 import Ambassadeur from './pages/Ambassadeur';
@@ -274,6 +275,11 @@ const AppContent = () => {
             <Route path="/recup" element={
               <ProtectedRoute>
                 <Recup />
+              </ProtectedRoute>
+            } />
+            <Route path="/planning-imperative" element={
+              <ProtectedRoute>
+                <PlanningImperative />
               </ProtectedRoute>
             } />
             <Route path="/primes" element={
