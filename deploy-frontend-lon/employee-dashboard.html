@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
@@ -219,6 +219,44 @@
         .info-box li {
             margin-bottom: 5px;
             color: #6c757d;
+        }
+
+        .imp-help-btn {
+            display: block;
+            margin: 0 auto 20px;
+        }
+
+        .imp-kinds {
+            display: grid;
+            gap: 10px;
+        }
+
+        .imp-kinds label {
+            display: flex;
+            gap: 10px;
+            align-items: flex-start;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 12px;
+            cursor: pointer;
+            background: #fff;
+        }
+
+        .imp-kinds label.is-active {
+            border-color: #007bff;
+            background: #eef5ff;
+        }
+
+        .imp-kinds small {
+            display: block;
+            color: #6c757d;
+            font-weight: 400;
+        }
+
+        .imp-notice p {
+            margin-bottom: 12px;
+            line-height: 1.5;
+            color: #495057;
         }
 
         .km-request-list {
@@ -1338,6 +1376,9 @@
             <button class="tab" onclick="switchTab('vacation')">
                 🏖️ Demande de Congés
             </button>
+            <button class="tab" onclick="switchTab('imperative')">
+                📌 Impératif de Planning
+            </button>
             <button class="tab" onclick="switchTab('km')">
                 🚗 Frais Kilométriques
             </button>
@@ -1452,6 +1493,63 @@
                     <div class="loading" id="vacationLoading">
                         <div class="spinner"></div>
                         <p>Traitement en cours...</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="tab-panel" id="imperative-panel">
+                <div class="form-container">
+                    <h2 class="form-title">📌 Impératif de Planning</h2>
+                    <p class="form-subtitle">Signalez une journée complète de repos ou une plage horaire à ne pas proposer</p>
+                    <button type="button" class="btn btn-secondary imp-help-btn" onclick="openImperativeHelp()">
+                        Contraintes ponctuelles de planning
+                    </button>
+                    <div id="imperativeAlert"></div>
+                    <form id="imperativeForm">
+                        <div class="form-group">
+                            <label class="form-label" for="imperativeDate">Date de l’impératif *</label>
+                            <input type="date" id="imperativeDate" name="date" class="form-control" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Type d’impératif *</label>
+                            <div class="imp-kinds">
+                                <label class="is-active" id="imperativeKindRestLabel">
+                                    <input type="radio" name="imperativeKind" value="rest" checked onchange="syncImperativeKind()">
+                                    <span>
+                                        <strong>Journée complète en repos</strong>
+                                        <small>Ne pas proposer de créneau ce jour-là</small>
+                                    </span>
+                                </label>
+                                <label id="imperativeKindUnavailableLabel">
+                                    <input type="radio" name="imperativeKind" value="unavailable" onchange="syncImperativeKind()">
+                                    <span>
+                                        <strong>Indisponible de telle heure à telle heure</strong>
+                                        <small>Période à ne pas proposer sur la journée</small>
+                                    </span>
+                                </label>
+                            </div>
+                        </div>
+                        <div class="form-row" id="imperativeTimeRow" style="display: none;">
+                            <div class="form-group">
+                                <label class="form-label" for="imperativeStartTime">De *</label>
+                                <input type="time" id="imperativeStartTime" name="startTime" class="form-control" value="08:00">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label" for="imperativeEndTime">À *</label>
+                                <input type="time" id="imperativeEndTime" name="endTime" class="form-control" value="12:00">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="imperativeComment">Précision (optionnel)</label>
+                            <textarea id="imperativeComment" name="comment" class="form-control" rows="3" maxlength="500" placeholder="Ex. rendez-vous médical, déménagement…"></textarea>
+                        </div>
+                        <div class="form-group">
+                            <button type="submit" class="btn btn-primary" id="imperativeBtn">Enregistrer l’impératif</button>
+                        </div>
+                    </form>
+                    <div class="km-request-list">
+                        <h3>Mes impératifs</h3>
+                        <div id="imperativeList">Chargement…</div>
                     </div>
                 </div>
             </div>
@@ -1799,6 +1897,19 @@
                     </div>
                 </div>
             </div>
+        </div>
+    </div>
+
+    <div id="imperativeHelpModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <span class="close" onclick="closeImperativeHelp()">&times;</span>
+            <h2>Contraintes ponctuelles de planning</h2>
+            <div class="imp-notice">
+                <p>Ce formulaire a pour objectif de recueillir vos contraintes personnelles ponctuelles afin de faciliter l'organisation des plannings et d'en tenir compte dans la mesure du possible.</p>
+                <p>Il est destiné à signaler uniquement les impératifs personnels incontournables nécessitant une organisation particulière de votre journée de travail : rendez-vous médical, déménagement, démarches administratives importantes ou autre obligation ne pouvant être déplacée.</p>
+                <p>Les contraintes signalées seront étudiées et prises en compte dans la mesure du possible, en fonction des nécessités de service, des effectifs et de l'équilibre général des plannings.</p>
+            </div>
+            <button type="button" class="btn btn-primary" onclick="closeImperativeHelp()">Fermer</button>
         </div>
     </div>
 
@@ -2333,14 +2444,15 @@
                     return sum;
                 }, 0) || Number(row.weeklyCpHours) || 0;
                 const accountant = Math.round((worked - recup + cpHours) * 100) / 100;
-                const weekCell = actualReady
-                    ? `<td><strong>${escapeHtml(formatPlanHours(accountant))}</strong><div style="font-size:12px;">/ ${escapeHtml(formatPlanHours(row.contractedHours))}</div>${cpHours ? `<div style="font-size:12px;">CP ${escapeHtml(formatPlanHours(cpHours))}</div>` : ''}${recup ? `<div style="font-size:12px;color:${recup > 0 ? '#166534' : '#9a3412'};">Récup ${recup > 0 ? '+' : ''}${escapeHtml(formatPlanHours(recup))}</div>` : ''}</td>`
-                    : '';
+                const counterLine = !recup
+                    ? ''
+                    : `<div style="font-size:12px;color:${recup > 0 ? '#166534' : '#9a3412'};">${recup > 0 ? '+' + escapeHtml(formatPlanHours(recup)) + ' au compteur' : escapeHtml(formatPlanHours(recup)) + ' du compteur'}</div>`;
+                const weekCell = `<td><strong>${escapeHtml(formatPlanHours(accountant))}</strong><div style="font-size:12px;">/ ${escapeHtml(formatPlanHours(row.contractedHours))}</div>${recup ? `<div style="font-size:12px;">Poste ${escapeHtml(formatPlanHours(worked))}</div>` : ''}${cpHours ? `<div style="font-size:12px;">CP ${escapeHtml(formatPlanHours(cpHours))}</div>` : ''}${counterLine}</td>`;
                 return `<tr class="${mine ? 'mine' : ''}"><th>${escapeHtml(row.employeeName || '')}</th>${cells}${weekCell}</tr>`;
             }).join('');
             wrap.className = 'emp-plan-table-wrap';
             wrap.innerHTML = sourceRows.length
-                ? `<table class="emp-plan-table"><thead><tr><th>Salarié</th>${head}${actualReady ? '<th>Semaine</th>' : ''}</tr></thead><tbody>${rows}</tbody></table>`
+                ? `<table class="emp-plan-table"><thead><tr><th>Salarié</th>${head}<th>Semaine</th></tr></thead><tbody>${rows}</tbody></table>`
                 : `<div class="emp-plan-empty">${actualReady ? 'Votre planning réel n’est pas encore disponible pour cette semaine.' : 'Votre ligne n’apparaît pas encore sur ce planning.'}</div>`;
             const ack = data.myAcknowledgement || (data.acknowledgements || []).find((item) => String(item.employeeId) === myId);
             const showModified = !!(ack && ack.stale && ack.changeNotifiedAt);
@@ -2369,7 +2481,10 @@
         function formatRecupLine(row) {
             const recup = Number(row && row.recupHours) || 0;
             if (!recup) return '';
-            return `<p class="emp-plan-meta">Heures de récup cette semaine : <strong>${recup > 0 ? '+' : ''}${escapeHtml(formatPlanHours(recup))}</strong></p>`;
+            const label = recup > 0
+                ? `+${escapeHtml(formatPlanHours(recup))} au compteur`
+                : `${escapeHtml(formatPlanHours(recup))} du compteur`;
+            return `<p class="emp-plan-meta">Compteur cette semaine : <strong>${label}</strong></p>`;
         }
 
         function renderActualSignBox(data, actualReady, myRow) {
@@ -2596,6 +2711,11 @@
 
             if (tabName === 'recup') {
                 loadEmpRecup();
+            }
+
+            if (tabName === 'imperative') {
+                prepareImperativeForm();
+                loadImperatives();
             }
 
             if (tabName === 'km') {
@@ -2912,6 +3032,168 @@
             document.getElementById('vacationEmployee').value = currentEmployee.name;
             hideAlert('vacationAlert');
         }
+
+        function todayIsoParis() {
+            return new Intl.DateTimeFormat('en-CA', {
+                timeZone: 'Europe/Paris',
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit'
+            }).format(new Date());
+        }
+
+        function formatFrDate(isoDate) {
+            if (!isoDate) return '';
+            const [year, month, day] = String(isoDate).split('-');
+            return `${day}/${month}/${year}`;
+        }
+
+        function formatClockShort(value) {
+            const raw = String(value || '').trim();
+            if (!raw) return '';
+            const [h = '0', m = '00'] = raw.split(':');
+            const hour = String(parseInt(h, 10) || 0);
+            const minute = String(m || '00').padStart(2, '0');
+            return minute === '00' ? `${hour}h` : `${hour}h${minute}`;
+        }
+
+        function employeeAuthHeaders() {
+            return {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${localStorage.getItem('employeeToken')}`
+            };
+        }
+
+        function prepareImperativeForm() {
+            const dateInput = document.getElementById('imperativeDate');
+            const today = todayIsoParis();
+            if (dateInput) {
+                dateInput.min = today;
+                if (!dateInput.value) dateInput.value = today;
+            }
+            syncImperativeKind();
+        }
+
+        function syncImperativeKind() {
+            const kind = (document.querySelector('input[name="imperativeKind"]:checked') || {}).value || 'rest';
+            const restLabel = document.getElementById('imperativeKindRestLabel');
+            const unavailableLabel = document.getElementById('imperativeKindUnavailableLabel');
+            const timeRow = document.getElementById('imperativeTimeRow');
+            if (restLabel) restLabel.classList.toggle('is-active', kind === 'rest');
+            if (unavailableLabel) unavailableLabel.classList.toggle('is-active', kind === 'unavailable');
+            if (timeRow) timeRow.style.display = kind === 'unavailable' ? '' : 'none';
+            const start = document.getElementById('imperativeStartTime');
+            const end = document.getElementById('imperativeEndTime');
+            if (start) start.required = kind === 'unavailable';
+            if (end) end.required = kind === 'unavailable';
+        }
+
+        function openImperativeHelp() {
+            const modal = document.getElementById('imperativeHelpModal');
+            if (modal) modal.style.display = 'block';
+        }
+
+        function closeImperativeHelp() {
+            const modal = document.getElementById('imperativeHelpModal');
+            if (modal) modal.style.display = 'none';
+        }
+
+        function imperativeLabel(item) {
+            if (!item) return '';
+            if (item.kind === 'rest') return 'Journée complète en repos';
+            return `Indisponible de ${formatClockShort(item.startTime)} à ${formatClockShort(item.endTime)}`;
+        }
+
+        async function loadImperatives() {
+            const wrap = document.getElementById('imperativeList');
+            if (!wrap) return;
+            wrap.textContent = 'Chargement…';
+            try {
+                const response = await fetch(`${API_URL}/planning-imperatives`, {
+                    headers: employeeAuthHeaders()
+                });
+                const result = await response.json();
+                const today = todayIsoParis();
+                const items = (Array.isArray(result.data) ? result.data : []).filter((item) => item.date >= today);
+                if (!items.length) {
+                    wrap.innerHTML = '<p>Aucun impératif enregistré pour les prochaines semaines.</p>';
+                    return;
+                }
+                wrap.innerHTML = items.map((item) => `
+                    <div class="km-request-item">
+                        <div>
+                            <strong>${escapeHtml(formatFrDate(item.date))}</strong>
+                            <div>${escapeHtml(imperativeLabel(item))}</div>
+                            ${item.comment ? `<small>${escapeHtml(item.comment)}</small>` : ''}
+                        </div>
+                        <button type="button" class="btn btn-secondary" onclick="cancelImperative('${escapeHtml(item.id)}')">Annuler</button>
+                    </div>
+                `).join('');
+            } catch (error) {
+                console.error('Erreur chargement impératifs:', error);
+                wrap.textContent = 'Impossible de charger les impératifs.';
+            }
+        }
+
+        async function cancelImperative(id) {
+            if (!id || !window.confirm('Annuler cet impératif de planning ?')) return;
+            try {
+                const response = await fetch(`${API_URL}/planning-imperatives/${id}`, {
+                    method: 'DELETE',
+                    headers: employeeAuthHeaders()
+                });
+                const result = await response.json();
+                if (result.success) {
+                    showAlert('imperativeAlert', 'Impératif annulé.', 'success');
+                    loadImperatives();
+                } else {
+                    showAlert('imperativeAlert', result.error || 'Impossible d’annuler cet impératif');
+                }
+            } catch (error) {
+                console.error('Erreur annulation impératif:', error);
+                showAlert('imperativeAlert', 'Erreur de connexion. Vérifiez votre connexion internet.');
+            }
+        }
+
+        document.getElementById('imperativeForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const kind = (document.querySelector('input[name="imperativeKind"]:checked') || {}).value || 'rest';
+            const data = {
+                date: document.getElementById('imperativeDate').value,
+                kind,
+                startTime: kind === 'unavailable' ? document.getElementById('imperativeStartTime').value : '',
+                endTime: kind === 'unavailable' ? document.getElementById('imperativeEndTime').value : '',
+                comment: document.getElementById('imperativeComment').value || ''
+            };
+            if (!data.date) {
+                showAlert('imperativeAlert', 'Indiquez la date de l’impératif');
+                return;
+            }
+            hideAlert('imperativeAlert');
+            const btn = document.getElementById('imperativeBtn');
+            if (btn) btn.disabled = true;
+            try {
+                const response = await fetch(`${API_URL}/planning-imperatives`, {
+                    method: 'POST',
+                    headers: employeeAuthHeaders(),
+                    body: JSON.stringify(data)
+                });
+                const result = await response.json();
+                if (result.success) {
+                    showAlert('imperativeAlert', result.updated
+                        ? 'Impératif mis à jour pour cette date.'
+                        : 'Impératif enregistré. Il apparaîtra sur le planning du jour concerné.', 'success');
+                    loadImperatives();
+                } else {
+                    showAlert('imperativeAlert', result.error || 'Erreur lors de l’enregistrement');
+                }
+            } catch (error) {
+                console.error('Erreur enregistrement impératif:', error);
+                showAlert('imperativeAlert', 'Erreur de connexion. Vérifiez votre connexion internet.');
+            } finally {
+                if (btn) btn.disabled = false;
+            }
+        });
 
         function resetSickLeaveForm() {
             document.getElementById('sickLeaveForm').reset();
@@ -3411,6 +3693,10 @@
             const modal = document.getElementById('advanceModal');
             if (event.target === modal) {
                 closeAdvanceModal();
+            }
+            const helpModal = document.getElementById('imperativeHelpModal');
+            if (event.target === helpModal) {
+                closeImperativeHelp();
             }
         }
 
