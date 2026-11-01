@@ -140,6 +140,7 @@ const Sidebar = () => {
         { menuId: 'meal-expenses', isVisibleToAdmin: true, isVisibleToEmployee: true },
         { menuId: 'km-expenses', isVisibleToAdmin: true, isVisibleToEmployee: true },
         { menuId: 'recup', isVisibleToAdmin: true, isVisibleToEmployee: false },
+        { menuId: 'planning-imperative', isVisibleToAdmin: true, isVisibleToEmployee: true },
         { menuId: 'primes', isVisibleToAdmin: true, isVisibleToEmployee: false },
         { menuId: 'employee-status-print', isVisibleToAdmin: true, isVisibleToEmployee: false },
         { menuId: 'parameters', isVisibleToAdmin: true, isVisibleToEmployee: false },
@@ -181,6 +182,7 @@ const Sidebar = () => {
         { menuId: 'meal-expenses', isVisibleToAdmin: false, isVisibleToEmployee: true },
         { menuId: 'km-expenses', isVisibleToAdmin: false, isVisibleToEmployee: false },
         { menuId: 'recup', isVisibleToAdmin: false, isVisibleToEmployee: true },
+        { menuId: 'planning-imperative', isVisibleToAdmin: false, isVisibleToEmployee: true },
         { menuId: 'ticket-restaurant', isVisibleToAdmin: false, isVisibleToEmployee: false },
         { menuId: 'advance-requests', isVisibleToAdmin: false, isVisibleToEmployee: false },
         { menuId: 'vacation-management', isVisibleToAdmin: false, isVisibleToEmployee: false },
@@ -271,7 +273,10 @@ const Sidebar = () => {
               // Pour les salariés : si l'API n'a pas retourné un menu, c'est qu'il n'est pas autorisé
               // (l'API filtre par isVisibleToEmployee). Ne pas ajouter de défaut qui accorderait l'accès.
               if (user.role === 'employee') {
-                merged.push({ ...def, isVisibleToEmployee: false });
+                merged.push({
+                  ...def,
+                  isVisibleToEmployee: def.menuId === 'planning-imperative' ? !!def.isVisibleToEmployee : false
+                });
               } else {
                 merged.push(def);
               }
@@ -308,6 +313,7 @@ const Sidebar = () => {
     { path: '/meal-expenses', label: 'Frais Repas', icon: '🍽️', menuId: 'meal-expenses' },
     { path: '/km-expenses', label: 'Frais KM', icon: '🚗', menuId: 'km-expenses' },
     { path: '/recup', label: 'Heures de récup', icon: '⏱️', menuId: 'recup' },
+    { path: '/planning-imperative', label: 'Impératif de Planning', icon: '📌', menuId: 'planning-imperative' },
     { path: '/employee-status-print', label: 'Imprimer État', icon: '🖨️', menuId: 'employee-status-print' },
     { path: '/parameters', label: 'Paramètres', icon: '⚙️', menuId: 'parameters' },
     { path: '/ticket-restaurant', label: 'Ticket restaurant', icon: '🎫', menuId: 'ticket-restaurant' },
@@ -343,6 +349,12 @@ const Sidebar = () => {
         menuId === 'staff-planning')
     )
       return true;
+
+    // Nouveau menu salarié : visible tant que l’API n’a pas encore renvoyé la permission
+    if (menuId === 'planning-imperative' && !isAdmin()) {
+      const permission = menuPermissions.find((p) => p.menuId === menuId);
+      if (!permission) return true;
+    }
 
     // Permissions pas encore chargées : éviter menu vide (sous-menus + Véhicule invisibles)
     if (menuPermissions.length === 0) {

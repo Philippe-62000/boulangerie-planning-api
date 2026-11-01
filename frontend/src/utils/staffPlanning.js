@@ -256,6 +256,36 @@ export function cellLabel(day) {
   return '';
 }
 
+export function formatClockShort(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+  const [h = '0', m = '00'] = raw.split(':');
+  const hour = String(Number.parseInt(h, 10) || 0);
+  const minute = String(m || '00').padStart(2, '0');
+  return minute === '00' ? `${hour}h` : `${hour}h${minute}`;
+}
+
+export function formatPlanningImperative(items) {
+  const list = Array.isArray(items) ? items.filter(Boolean) : [];
+  if (!list.length) return '';
+  if (list.some((item) => item.kind === 'rest')) return 'Repos demandé';
+  return list
+    .filter((item) => item.kind === 'unavailable')
+    .map((item) => `Indispo ${formatClockShort(item.startTime)}–${formatClockShort(item.endTime)}`)
+    .join(' · ');
+}
+
+export function formatPlanningImperativeTitle(items) {
+  const list = Array.isArray(items) ? items.filter(Boolean) : [];
+  if (!list.length) return '';
+  return list.map((item) => {
+    const base = item.kind === 'rest'
+      ? 'Contrainte : journée complète en repos'
+      : `Ne pas proposer ${formatClockShort(item.startTime)}–${formatClockShort(item.endTime)}`;
+    return item.comment ? `${base} — ${item.comment}` : base;
+  }).join(' · ');
+}
+
 export function cellClass(day) {
   const holiday = day?.isHoliday ? ' sp-cell-holiday-day' : '';
   if (!day || !day.kind || day.kind === 'empty') return `sp-cell-empty${holiday}`;
@@ -369,7 +399,9 @@ export function buildShopPrintHtml({ weekNumber, dates = [], rows = [], holidayD
         : '';
       const shown = dayDisplayHours(day, row.contractedHours);
       const hoursText = shown > 0 ? `<div class="hrs">${formatHours(shown)}</div>` : '';
-      return `<td>${label}${hoursText}${pause}</td>`;
+      const imperative = formatPlanningImperative(day?.planningImperatives);
+      const imperativeText = imperative ? `<div class="imp">${imperative}</div>` : '';
+      return `<td>${label}${hoursText}${imperativeText}${pause}</td>`;
     }).join('');
     const weekHours = rowWeekHours(row, true);
     const recup = rowRecupHours(row);
@@ -394,6 +426,7 @@ export function buildShopPrintHtml({ weekNumber, dates = [], rows = [], holidayD
   .pause { margin-top: 8px; border-top: 1px dashed #666; padding-top: 3px; font-size: 9px; white-space: nowrap; }
   .pause-none { border-top: none; font-style: italic; }
   .hrs { font-size: 9px; color: #333; }
+  .imp { margin-top: 3px; font-size: 9px; font-weight: 700; color: #9a3412; background: #ffedd5; border-radius: 3px; padding: 1px 3px; }
 </style></head><body>
 <h1>${title} semaine ${weekNumber} — ${range}</h1>
 <table>

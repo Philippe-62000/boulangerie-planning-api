@@ -289,6 +289,15 @@ menuPermissionsSchema.statics.createDefaultPermissions = async function() {
         order: 14
       },
       {
+        menuId: 'planning-imperative',
+        menuName: 'Impératif de Planning',
+        menuPath: '/planning-imperative',
+        isVisibleToAdmin: true,
+        isVisibleToEmployee: true,
+        requiredPermissions: [],
+        order: 14.2
+      },
+      {
         menuId: 'primes',
         menuName: 'Primes',
         menuPath: '/primes',

@@ -220,7 +220,8 @@
 .sp-cell-label,
 .sp-cell-hours,
 .sp-cell-holiday-hint,
-.sp-pause-line {
+.sp-pause-line,
+.sp-cell-imperative {
   position: relative;
   z-index: 1;
 }
@@ -686,6 +687,38 @@
   background: #60a5fa;
 }
 
+.sp-legend-imperative::before {
+  background: #fdba74;
+  border-color: #f97316;
+}
+
+.sp-cell-imperative-day {
+  box-shadow: inset 0 0 0 2px #f97316;
+}
+
+.sp-cell-imperative {
+  margin-top: 0.2rem;
+  font-size: 0.68rem;
+  font-weight: 700;
+  line-height: 1.2;
+  color: #9a3412;
+  background: #ffedd5;
+  border-radius: 4px;
+  padding: 0.12rem 0.28rem;
+}
+
+.sp-imperative-banner {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  background: #fff7ed;
+  border: 1px solid #fdba74;
+  color: #9a3412;
+  border-radius: 8px;
+  padding: 0.65rem 0.75rem;
+  font-size: 0.9rem;
+}
+
 .btn-urgent {
   background: #b91c1c;
   color: #fff;
@@ -921,6 +954,10 @@
 
   .sp-cell-holiday-hint {
     color: #000;
+  }
+
+  .sp-cell-imperative {
+    color: #9a3412;
   }
 
   .sp-row-mine .sp-name {

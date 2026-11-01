@@ -1,0 +1,179 @@
+.imp-page {
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  max-width: 760px;
+}
+
+.imp-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.imp-header h2 {
+  margin: 0;
+  color: #2c3e50;
+}
+
+.imp-header p {
+  margin: 0.35rem 0 0;
+  color: #6c757d;
+}
+
+.imp-card {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.imp-card h3 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.imp-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-weight: 600;
+  color: #334155;
+}
+
+.imp-field input,
+.imp-field textarea {
+  font-weight: 400;
+  border: 1px solid #d0d7de;
+  border-radius: 8px;
+  padding: 0.55rem 0.7rem;
+  font-size: 1rem;
+}
+
+.imp-kinds {
+  border: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 0.6rem;
+}
+
+.imp-kinds legend {
+  font-weight: 700;
+  margin-bottom: 0.35rem;
+}
+
+.imp-kinds label {
+  display: flex;
+  gap: 0.7rem;
+  align-items: flex-start;
+  border: 1px solid #dbe3ec;
+  border-radius: 10px;
+  padding: 0.8rem;
+  cursor: pointer;
+}
+
+.imp-kinds label.is-active {
+  border-color: #2563eb;
+  background: #eff6ff;
+}
+
+.imp-kinds span {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.imp-kinds small {
+  color: #64748b;
+  font-weight: 400;
+}
+
+.imp-times {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.8rem;
+}
+
+.imp-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+}
+
+.imp-list li {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.8rem;
+  align-items: flex-start;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 0.8rem 0.9rem;
+}
+
+.imp-list li div {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.imp-list small {
+  color: #64748b;
+}
+
+.imp-empty {
+  margin: 0;
+  color: #64748b;
+}
+
+.imp-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgb(15 23 42 / 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 80;
+  padding: 1rem;
+}
+
+.imp-modal {
+  background: #fff;
+  border-radius: 14px;
+  padding: 1.4rem;
+  max-width: 620px;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.imp-modal h3 {
+  margin: 0;
+}
+
+.imp-modal p {
+  margin: 0;
+  line-height: 1.5;
+  color: #334155;
+}
+
+@media (max-width: 640px) {
+  .imp-times {
+    grid-template-columns: 1fr;
+  }
+
+  .imp-list li {
+    flex-direction: column;
+  }
+}

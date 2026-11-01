@@ -7,6 +7,8 @@ import {
   addIsoWeeks,
   cellClass,
   cellLabel,
+  formatPlanningImperative,
+  formatPlanningImperativeTitle,
   computePlanningHints,
   formatDayRange,
   formatClockHours,
@@ -336,6 +338,7 @@ const StaffPlanning = () => {
       day: dayName,
       date: day?.date,
       currentCode: day?.kind === 'code' ? day.code : '',
+      planningImperatives: day?.planningImperatives || [],
       start1: shifts[0]?.startTime || emptyEditor.start1,
       end1: shifts[0]?.endTime || emptyEditor.end1,
       start2: shifts[1]?.startTime || '',
@@ -914,6 +917,7 @@ const StaffPlanning = () => {
         <span className="sp-legend-item sp-legend-six">7e jour consécutif sans repos (max. 6 jours de travail)</span>
         <span className="sp-legend-item sp-legend-ack">Prise de connaissance (prévu)</span>
         <span className="sp-legend-item sp-legend-signed">Planning réel signé</span>
+        <span className="sp-legend-item sp-legend-imperative">Impératif salarié (repos ou plage à ne pas proposer)</span>
       </div>
 
       <div className="sp-print-header">
@@ -1063,11 +1067,13 @@ const StaffPlanning = () => {
                           const prevRest = hints?.prevRestWeekdays?.has(dayName);
                           const sixthLimit = day?.date && hints?.seventhDates?.has(day.date);
                           const locked = !canEditDay(day?.date);
-                          const hintClass = `${prevRest ? ' sp-cell-prev-rest' : ''}${sixthLimit ? ' sp-cell-six-day' : ''}${locked ? ' sp-cell-locked' : ''}`;
+                          const imperativeLabel = formatPlanningImperative(day?.planningImperatives);
+                          const hintClass = `${prevRest ? ' sp-cell-prev-rest' : ''}${sixthLimit ? ' sp-cell-six-day' : ''}${locked ? ' sp-cell-locked' : ''}${imperativeLabel ? ' sp-cell-imperative-day' : ''}`;
                           const hintTitle = [
                             prevRest ? `Repos en semaine ${prevWeek.weekNumber}` : '',
                             sixthLimit ? '7e jour consécutif sans repos' : '',
-                            locked ? 'Jour verrouillé' : ''
+                            locked ? 'Jour verrouillé' : '',
+                            formatPlanningImperativeTitle(day?.planningImperatives)
                           ].filter(Boolean).join(' · ');
                           const pauseLine = pauseLineForDay(day, settings);
                           return (
@@ -1086,6 +1092,9 @@ const StaffPlanning = () => {
                               )}
                               {holiday && !(day?.paidHours > 0) && (
                                 <div className="sp-cell-holiday-hint">Férié</div>
+                              )}
+                              {imperativeLabel && (
+                                <div className="sp-cell-imperative">{imperativeLabel}</div>
                               )}
                               {day?.alerts?.length > 0 && <div className="sp-cell-flag">!</div>}
                               {pauseLine && (
@@ -1416,6 +1425,12 @@ const StaffPlanning = () => {
             }}
           >
             <h3>{editor.employeeName} — {editor.day} {formatShortDate(editor.date)}</h3>
+            {formatPlanningImperative(editor.planningImperatives) && (
+              <div className="sp-imperative-banner">
+                <strong>{formatPlanningImperative(editor.planningImperatives)}</strong>
+                <span>{formatPlanningImperativeTitle(editor.planningImperatives)}</span>
+              </div>
+            )}
             <div className="sp-shift-fields">
               <div className="sp-shift-block">
                 <span className="sp-shift-caption">Créneau 1</span>
