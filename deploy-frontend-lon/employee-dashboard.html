@@ -1106,6 +1106,15 @@
             font-weight: 600;
         }
 
+        #planningAckBox {
+            text-align: center;
+            margin-bottom: 8px;
+        }
+
+        #planningAckBox .btn {
+            margin: 0 auto 12px;
+        }
+
         .emp-plan-ack.done {
             background: #dcfce7;
             color: #166534;
@@ -1502,7 +1511,7 @@
                     <h2 class="form-title">📌 Impératif de Planning</h2>
                     <p class="form-subtitle">Signalez une journée complète de repos ou une plage horaire à ne pas proposer</p>
                     <button type="button" class="btn btn-secondary imp-help-btn" onclick="openImperativeHelp()">
-                        Contraintes ponctuelles de planning
+                        Lire les contraintes ponctuelles de planning
                     </button>
                     <div id="imperativeAlert"></div>
                     <form id="imperativeForm">
@@ -2373,6 +2382,12 @@
                 .replace(/"/g, '&quot;');
         }
 
+        function formatAckWhen(ack) {
+            if (!ack || !ack.acknowledgedAt) return '';
+            const when = new Date(ack.acknowledgedAt);
+            return `Prise de connaissance enregistrée le ${when.toLocaleDateString('fr-FR')} à ${when.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}.`;
+        }
+
         function renderPublishedPlanning(data) {
             lastPublishedData = data;
             const wrap = document.getElementById('planningTableWrap');
@@ -2387,7 +2402,6 @@
                 ? false
                 : !!(data.actualValidated || (data.week && data.week.actualStatus === 'validated'));
             if (titleEl) titleEl.textContent = actualReady ? '📅 Planning réel' : '📅 Planning';
-            if (teamNav) teamNav.style.display = actualReady ? 'none' : '';
             if (mineBtn && allBtn) {
                 mineBtn.className = planShowAll ? 'btn btn-secondary' : 'btn btn-primary';
                 allBtn.className = planShowAll ? 'btn btn-primary' : 'btn btn-secondary';
@@ -2403,6 +2417,7 @@
                     : 'Planning de la semaine validé par le magasin';
             }
             if (!data.published || !data.week) {
+                if (teamNav) teamNav.style.display = 'none';
                 wrap.className = 'emp-plan-empty';
                 wrap.textContent = 'Ce planning n’est pas encore validé par le magasin.';
                 if (ackBox) ackBox.innerHTML = '';
@@ -2410,6 +2425,36 @@
                 return;
             }
             const myId = String((currentEmployee && (currentEmployee.id || currentEmployee._id)) || '');
+            const ack = data.myAcknowledgement || (data.acknowledgements || []).find((item) => String(item.employeeId) === myId);
+            const showModified = !!(ack && ack.stale && ack.changeNotifiedAt);
+            const mustAckToView = !actualReady
+                && data.planningNotifyAllowed !== false
+                && (showModified || !(ack && ack.acknowledgedAt));
+            if (teamNav) teamNav.style.display = (actualReady || mustAckToView) ? 'none' : '';
+            if (ackBox) {
+                if (data.planningNotifyAllowed === false) {
+                    ackBox.innerHTML = (ack && ack.acknowledgedAt && !showModified)
+                        ? `<div class="emp-plan-ack done">${escapeHtml(formatAckWhen(ack))}</div>`
+                        : '';
+                } else if (actualReady) {
+                    ackBox.innerHTML = '';
+                } else if (mustAckToView) {
+                    const extra = showModified
+                        ? `<div class="emp-plan-ack">Le planning a été modifié. Merci d’en prendre à nouveau connaissance.</div>`
+                        : '';
+                    ackBox.innerHTML = `${extra}<button type="button" class="btn btn-primary" id="planningAckBtn" onclick="acknowledgePlanning()">Prendre connaissance du planning</button>`;
+                } else if (ack && ack.acknowledgedAt) {
+                    ackBox.innerHTML = `<button type="button" class="btn btn-primary" disabled>J’ai pris connaissance du planning</button><div class="emp-plan-ack done">${escapeHtml(formatAckWhen(ack))}</div>`;
+                } else {
+                    ackBox.innerHTML = '';
+                }
+            }
+            if (mustAckToView) {
+                wrap.className = 'emp-plan-empty';
+                wrap.textContent = 'Cliquez sur « Prendre connaissance du planning » pour afficher votre emploi du temps.';
+                if (signBox) signBox.innerHTML = '';
+                return;
+            }
             const holidays = new Set((data.week.holidayDates || []).filter(Boolean));
             const head = PLAN_DAYS.map((day, index) => {
                 const iso = data.dates && data.dates[index] && data.dates[index].date;
@@ -2454,27 +2499,6 @@
             wrap.innerHTML = sourceRows.length
                 ? `<table class="emp-plan-table"><thead><tr><th>Salarié</th>${head}<th>Semaine</th></tr></thead><tbody>${rows}</tbody></table>`
                 : `<div class="emp-plan-empty">${actualReady ? 'Votre planning réel n’est pas encore disponible pour cette semaine.' : 'Votre ligne n’apparaît pas encore sur ce planning.'}</div>`;
-            const ack = data.myAcknowledgement || (data.acknowledgements || []).find((item) => String(item.employeeId) === myId);
-            const showModified = !!(ack && ack.stale && ack.changeNotifiedAt);
-            if (ackBox) {
-                if (data.planningNotifyAllowed === false) {
-                    if (ack && ack.acknowledgedAt && !showModified) {
-                        const when = new Date(ack.acknowledgedAt);
-                        ackBox.innerHTML = `<div class="emp-plan-ack done">Prise de connaissance enregistrée le ${when.toLocaleDateString('fr-FR')} à ${when.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}.</div>`;
-                    } else {
-                        ackBox.innerHTML = '';
-                    }
-                } else if (actualReady) {
-                    ackBox.innerHTML = '';
-                } else if (showModified) {
-                    ackBox.innerHTML = `<div class="emp-plan-ack">Le planning a été modifié. Merci d’en prendre à nouveau connaissance.</div><button type="button" class="btn btn-primary" onclick="acknowledgePlanning()">J’ai pris connaissance du planning modifié</button>`;
-                } else if (ack && ack.acknowledgedAt) {
-                    const when = new Date(ack.acknowledgedAt);
-                    ackBox.innerHTML = `<div class="emp-plan-ack done">Prise de connaissance enregistrée le ${when.toLocaleDateString('fr-FR')} à ${when.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}.</div>`;
-                } else {
-                    ackBox.innerHTML = `<button type="button" class="btn btn-primary" onclick="acknowledgePlanning()">J’ai pris connaissance du planning</button>`;
-                }
-            }
             renderActualSignBox(data, actualReady, myRow);
         }
 
@@ -2613,7 +2637,12 @@
 
         async function acknowledgePlanning() {
             const token = localStorage.getItem('employeeToken');
-            if (!token || !planWeekNumber || !planYear) return;
+            const btn = document.getElementById('planningAckBtn');
+            if (!token || !planWeekNumber || !planYear || (btn && btn.disabled)) return;
+            if (btn) {
+                btn.disabled = true;
+                btn.textContent = 'Enregistrement…';
+            }
             try {
                 const response = await fetch(`${API_URL}/staff-planning/week/${planYear}/${planWeekNumber}/acknowledge`, {
                     method: 'POST',
@@ -2627,6 +2656,10 @@
                     renderPublishedPlanning(lastPublishedData);
                 }
             } catch (error) {
+                if (btn) {
+                    btn.disabled = false;
+                    btn.textContent = 'Prendre connaissance du planning';
+                }
                 alert(error.message || 'Impossible d’enregistrer la prise de connaissance');
             }
         }
