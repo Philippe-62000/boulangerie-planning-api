@@ -6,6 +6,7 @@ import { formatClockShort } from '../utils/staffPlanning';
 import './PlanningImperative.css';
 
 const NOTICE_TITLE = 'Contraintes ponctuelles de planning';
+const NOTICE_BUTTON = 'Lire les contraintes ponctuelles de planning';
 const NOTICE_PARAGRAPHS = [
   'Ce formulaire a pour objectif de recueillir vos contraintes personnelles ponctuelles afin de faciliter l’organisation des plannings et d’en tenir compte dans la mesure du possible.',
   'Il est destiné à signaler uniquement les impératifs personnels incontournables nécessitant une organisation particulière de votre journée de travail : rendez-vous médical, déménagement, démarches administratives importantes ou autre obligation ne pouvant être déplacée.',
@@ -129,7 +130,7 @@ const PlanningImperative = () => {
           </p>
         </div>
         <button type="button" className="btn btn-secondary" onClick={() => setNoticeOpen(true)}>
-          {NOTICE_TITLE}
+          {NOTICE_BUTTON}
         </button>
       </div>
 
