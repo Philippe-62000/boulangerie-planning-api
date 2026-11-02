@@ -183,25 +183,25 @@ const formatOrderWhen = (d) => {
   }
 };
 
-function ReprintButton({ onClick, busy, queued }) {
+function ReprintButton({ onClick, busy }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      disabled={busy || queued}
+      disabled={busy}
       title="Relancer l’impression du ticket sur l’imprimante de la caisse"
       style={{
         padding: '6px 10px',
         borderRadius: '8px',
         border: '1px solid #0f766e',
-        background: queued ? '#ccfbf1' : '#f0fdfa',
+        background: '#f0fdfa',
         color: '#0f766e',
         fontWeight: 700,
-        cursor: busy || queued ? 'wait' : 'pointer',
+        cursor: busy ? 'wait' : 'pointer',
         whiteSpace: 'nowrap'
       }}
     >
-      {queued ? 'Réimpression en cours…' : busy ? 'Envoi…' : 'Réimprimer'}
+      {busy ? 'Envoi…' : 'Réimprimer'}
     </button>
   );
 }
@@ -973,7 +973,6 @@ const CommandeLivraisonEntreprises = () => {
                         <ReprintButton
                           onClick={() => reprintOrder(o)}
                           busy={reprintingId === String(o._id || o.id)}
-                          queued={!!o.reprintQueuedAt}
                         />
                       </div>
                       {Array.isArray(o.itemsSnapshot?.items) && o.itemsSnapshot.items.length > 0 && (
@@ -1006,7 +1005,6 @@ const CommandeLivraisonEntreprises = () => {
                     <ReprintButton
                       onClick={() => reprintOrder(o)}
                       busy={reprintingId === String(o._id || o.id)}
-                      queued={!!o.reprintQueuedAt}
                     />
                     {o.clientRequest?.status === 'pending' ? (
                       <button

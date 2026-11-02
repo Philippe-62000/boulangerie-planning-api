@@ -1678,6 +1678,8 @@ const replyMyOrderMessage = async (req, res) => {
 const internalListOrders = async (req, res) => {
   try {
     const site = normalizeSite(getSite(req));
+    const { expireStaleReprints } = require('./partnerOrderPrintController');
+    await expireStaleReprints(site);
     const status = req.query.status;
     const q = { site };
     if (status) q.status = status;

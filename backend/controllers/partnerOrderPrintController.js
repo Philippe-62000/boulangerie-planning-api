@@ -11,6 +11,19 @@ const { AUDIENCE_LABELS } = require('./staffPrintMessageController');
 const TICKET_WIDTH = 42; // caractères par ligne (imprimante 80 mm, marge de sécurité)
 const DEFAULT_WINDOW_HOURS = 72; // ne jamais imprimer un stock d'anciennes commandes
 const MAX_TICKETS_PER_CALL = 10;
+const REPRINT_TTL_MS = 20 * 60 * 1000; // au-delà, la caisse éteinte ne bloque plus la file
+
+function reprintSinceDate() {
+  return new Date(Date.now() - REPRINT_TTL_MS);
+}
+
+async function expireStaleReprints(site) {
+  const siteQ = typeof site === 'string' ? siteMatchQuery(site) : (site || {});
+  await PartnerOrder.updateMany(
+    { ...siteQ, reprintQueuedAt: { $type: 'date', $lt: reprintSinceDate() } },
+    { $set: { reprintQueuedAt: null } }
+  );
+}
 
 function siteMatchQuery(site) {
   if (site === 'longuenesse') return { site: { $in: ['longuenesse', 'lon'] } };
@@ -223,6 +236,8 @@ const printQueue = async (req, res) => {
     );
     const since = new Date(Date.now() - windowHours * 3600 * 1000);
 
+    await expireStaleReprints(site);
+
     const [newOrders, reprintOrders, requestOrders, staffMessages] = await Promise.all([
       PartnerOrder.find({
         ...siteQ,
@@ -235,7 +250,7 @@ const printQueue = async (req, res) => {
         .lean(),
       PartnerOrder.find({
         ...siteQ,
-        reprintQueuedAt: { $type: 'date' }
+        reprintQueuedAt: { $type: 'date', $gte: reprintSinceDate() }
       })
         .sort({ reprintQueuedAt: 1 })
         .limit(MAX_TICKETS_PER_CALL)
@@ -363,4 +378,4 @@ const reprintOrder = async (req, res) => {
   }
 };
 
-module.exports = { printQueue, printQueueAck, reprintOrder };
+module.exports = { printQueue, printQueueAck, reprintOrder, expireStaleReprints };
