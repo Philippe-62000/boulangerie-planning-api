@@ -286,6 +286,14 @@ const employeeSchema = new mongoose.Schema({
     type: Boolean,
     default: true
   },
+  /**
+   * Contrat temporaire : Oui = apparaît dans État Contrat Apprentis et peut avoir un planning
+   * (PDF / saisie manuelle) comme un apprenti. Non = absent de cette liste.
+   */
+  temporaryHasPlanning: {
+    type: Boolean,
+    default: false
+  },
   /** false = salarié de test / hors magasin : reste dans la liste mais n’apparaît pas au planning */
   showInStaffPlanning: {
     type: Boolean,
@@ -312,6 +320,10 @@ employeeSchema.pre('save', async function(next) {
 
   if (this.contractType === 'Apprentissage' && this.trainingDaysOutsideShop === undefined) {
     this.trainingDaysOutsideShop = true;
+  }
+
+  if (this.contractType !== 'Temporaire') {
+    this.temporaryHasPlanning = false;
   }
 
   if (this.vendeusePlanningPreferences && this.vendeusePlanningPreferences.preferredRestDay === '') {

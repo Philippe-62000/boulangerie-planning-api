@@ -440,7 +440,7 @@ const ApprenticePlanningPanel = ({ apprentices = [] }) => {
                     <option value="">— Choisir —</option>
                     {activeApprentices.map((emp) => (
                       <option key={emp._id} value={emp._id}>
-                        {emp.name}
+                        {emp.name}{emp.contractType === 'Temporaire' ? ' (temporaire)' : ''}
                       </option>
                     ))}
                   </select>
@@ -513,7 +513,7 @@ const ApprenticePlanningPanel = ({ apprentices = [] }) => {
                   <option value="">— Choisir —</option>
                   {activeApprentices.map((emp) => (
                     <option key={emp._id} value={emp._id}>
-                      {emp.name}
+                      {emp.name}{emp.contractType === 'Temporaire' ? ' (temporaire)' : ''}
                     </option>
                   ))}
                 </select>
@@ -781,6 +781,7 @@ const ApprenticePlanningPanel = ({ apprentices = [] }) => {
             return (
               <span key={emp._id} className={`app-plan-chip ${p ? 'has' : 'missing'}`}>
                 {emp.name}
+                {emp.contractType === 'Temporaire' ? ' (temp.)' : ''}
                 {p ? ` · ${shopPoleLabel(pole)} · intégré` : ' · sans planning'}
               </span>
             );

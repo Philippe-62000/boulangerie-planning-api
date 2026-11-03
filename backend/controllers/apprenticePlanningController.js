@@ -4,6 +4,7 @@ const ApprenticePlanning = require('../models/ApprenticePlanning');
 const Employee = require('../models/Employee');
 const sftpService = require('../services/sftpService');
 const { parseApprenticePlanningPdf } = require('../utils/parseApprenticePlanningPdf');
+const { canHaveTrainingPlanning } = require('../utils/trainingPlanning');
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -34,7 +35,7 @@ const listPlannings = async (req, res) => {
     const rows = await ApprenticePlanning.find({ siteKey })
       .populate(
         'employeeId',
-        'name contractType trainingDays contractEndDate role employeeCategory isActive'
+        'name contractType trainingDays contractEndDate role employeeCategory isActive temporaryHasPlanning'
       )
       .sort({ updatedAt: -1 })
       .lean();
@@ -152,14 +153,14 @@ const getGlobalView = async (req, res) => {
     const plannings = await ApprenticePlanning.find({ siteKey })
       .populate(
         'employeeId',
-        'name trainingDays contractEndDate contractType isActive role employeeCategory'
+        'name trainingDays contractEndDate contractType isActive role employeeCategory temporaryHasPlanning'
       )
       .lean();
 
     const data = plannings
       .filter((p) => {
         const emp = p.employeeId;
-        if (!emp || emp.contractType !== 'Apprentissage') return false;
+        if (!canHaveTrainingPlanning(emp)) return false;
         if (isContractFinished(emp)) return false;
         return true;
       })
@@ -208,10 +209,10 @@ const uploadPlanning = async (req, res) => {
     if (!employee) {
       return res.status(404).json({ success: false, error: 'Salarié introuvable' });
     }
-    if (employee.contractType !== 'Apprentissage') {
+    if (!canHaveTrainingPlanning(employee)) {
       return res.status(400).json({
         success: false,
-        error: 'Ce salarié n’est pas en contrat d’apprentissage'
+        error: 'Ce salarié n’a pas de planning de formation (apprenti, ou temporaire avec Planning = Oui)'
       });
     }
 
@@ -321,16 +322,16 @@ const saveManualDates = async (req, res) => {
     if (!employee) {
       return res.status(404).json({ success: false, error: 'Salarié introuvable' });
     }
-    if (employee.contractType !== 'Apprentissage') {
+    if (!canHaveTrainingPlanning(employee)) {
       return res.status(400).json({
         success: false,
-        error: 'Ce salarié n’est pas en contrat d’apprentissage'
+        error: 'Ce salarié n’a pas de planning de formation (apprenti, ou temporaire avec Planning = Oui)'
       });
     }
     if (isContractFinished(employee)) {
       return res.status(400).json({
         success: false,
-        error: 'Ce contrat d’apprentissage est terminé'
+        error: 'Ce contrat est terminé'
       });
     }
 
