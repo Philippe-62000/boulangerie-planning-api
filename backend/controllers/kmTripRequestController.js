@@ -2,6 +2,7 @@ const KmTripRequest = require('../models/KmTripRequest');
 const KmExpense = require('../models/KmExpense');
 const Employee = require('../models/Employee');
 const Parameter = require('../models/Parameters');
+const { roundKm } = require('../utils/roundKm');
 
 const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -84,7 +85,7 @@ const incrementKmExpenseCount = async (request) => {
       parameterName: request.parameterName,
       count: 1,
       kmValue: request.kmValue || 0,
-      totalKm: request.kmValue || 0
+      totalKm: roundKm(request.kmValue || 0)
     });
   } else {
     paramValue.count = (paramValue.count || 0) + 1;
@@ -92,7 +93,7 @@ const incrementKmExpenseCount = async (request) => {
     if (typeof request.kmValue === 'number') {
       paramValue.kmValue = request.kmValue;
     }
-    paramValue.totalKm = (paramValue.count || 0) * (paramValue.kmValue || 0);
+    paramValue.totalKm = roundKm((paramValue.count || 0) * (paramValue.kmValue || 0));
   }
   expense.employeeName = request.employeeName || expense.employeeName;
   expense.markModified('parameterValues');

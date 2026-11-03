@@ -3,6 +3,7 @@ const MealExpense = require('../models/MealExpense');
 const KmExpense = require('../models/KmExpense');
 const EmployeeOverpayment = require('../models/EmployeeOverpayment');
 const AccountantComment = require('../models/AccountantComment');
+const { roundKm } = require('../utils/roundKm');
 
 // Récupérer l'état complet des salariés pour un mois/année
 const getEmployeeStatus = async (req, res) => {
@@ -90,7 +91,7 @@ const getEmployeeStatus = async (req, res) => {
           dailyExpenses: []
         },
         kmExpense: kmExpense ? {
-          totalKm: kmExpense.totalKm,
+          totalKm: roundKm(kmExpense.totalKm),
           parameterValues: kmExpense.parameterValues
         } : {
           totalKm: 0,

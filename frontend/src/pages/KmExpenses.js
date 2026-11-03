@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import api from '../services/api';
 import { toast } from 'react-toastify';
+import { formatKm, roundKm } from '../utils/formatKm';
 import './KmExpenses.css';
 
 const KmExpenses = () => {
@@ -86,8 +87,10 @@ const KmExpenses = () => {
 
     parameter.count = parseInt(value) || 0;
     parameter.kmValue = kmValue;
-    parameter.totalKm = parameter.count * kmValue;
-    employee.totalKm = employee.parameterValues.reduce((total, param) => total + param.totalKm, 0);
+    parameter.totalKm = roundKm(parameter.count * kmValue);
+    employee.totalKm = roundKm(
+      employee.parameterValues.reduce((total, param) => total + (param.totalKm || 0), 0)
+    );
 
     setExpenses(newExpenses);
   };
@@ -248,10 +251,10 @@ const KmExpenses = () => {
               <tr>
                 <th className="employee-column">Salarié</th>
                 {parameters.map((param) => (
-                  <th key={param._id} className="param-column" title={`${param.displayName} (${param.kmValue} km)`}>
+                  <th key={param._id} className="param-column" title={`${param.displayName} (${formatKm(param.kmValue)} km)`}>
                     <div className="param-header">
                       <div className="param-name">{param.displayName}</div>
-                      <div className="param-km">({param.kmValue} km)</div>
+                      <div className="param-km">({formatKm(param.kmValue)} km)</div>
                     </div>
                   </th>
                 ))}
@@ -275,12 +278,12 @@ const KmExpenses = () => {
                         placeholder="0"
                       />
                       <div className="param-total">
-                        {paramValue.totalKm} km
+                        {formatKm(paramValue.totalKm)} km
                       </div>
                     </td>
                   ))}
                   <td className="total-cell">
-                    <strong>{employee.totalKm} km</strong>
+                    <strong>{formatKm(employee.totalKm)} km</strong>
                   </td>
                 </tr>
               ))}
@@ -344,7 +347,7 @@ const KmExpenses = () => {
                             >
                               {parameters.map((param) => (
                                 <option key={String(param._id)} value={String(param._id)}>
-                                  {param.displayName} ({param.kmValue} km)
+                                  {param.displayName} ({formatKm(param.kmValue)} km)
                                 </option>
                               ))}
                             </select>

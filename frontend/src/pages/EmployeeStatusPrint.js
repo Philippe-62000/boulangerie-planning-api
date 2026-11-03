@@ -3,6 +3,7 @@ import api from '../services/api';
 import { toast } from 'react-toastify';
 import HolidayStatus from '../components/HolidayStatus';
 import { buildMonthRecapPrintFragment, normalizeRecapPersonName } from '../utils/staffPlanning';
+import { formatKm, roundKm } from '../utils/formatKm';
 import './EmployeeStatusPrint.css';
 
 const EmployeeStatusPrint = () => {
@@ -344,7 +345,7 @@ const calculateTotalOverpayments = () => {
         const mealAmount = employee.mealExpense?.totalAmount || 0;
         const row = {
           meal: formatCurrency(mealAmount),
-          km: `${employee.kmExpense?.totalKm || 0} km`,
+          km: `${formatKm(employee.kmExpense?.totalKm)} km`,
           advance: formatCurrency(advanceAmount),
           overpayment: formatCurrency(overpaymentAmount),
           primes: formatCurrency(primesAmount),
@@ -489,7 +490,7 @@ const calculateTotalOverpayments = () => {
         const row = [
           `"${employee.employeeName || 'N/A'}"`,
           `"${formatCurrency(employee.mealExpense.totalAmount)}"`,
-          `"${employee.kmExpense.totalKm || 0} km"`,
+          `"${formatKm(employee.kmExpense.totalKm)} km"`,
           `"${formatCurrency(advanceAmount)}"`,
         `"${formatCurrency(overpaymentAmount)}"`,
         `"${formatCurrency(primesAmount)}"`,
@@ -500,12 +501,14 @@ const calculateTotalOverpayments = () => {
       
       // Ajouter les totaux
       const totalMeal = data.employees.reduce((sum, emp) => sum + emp.mealExpense.totalAmount, 0);
-      const totalKm = data.employees.reduce((sum, emp) => sum + emp.kmExpense.totalKm, 0);
+      const totalKm = roundKm(
+        data.employees.reduce((sum, emp) => sum + roundKm(emp.kmExpense.totalKm), 0)
+      );
       const totalAdvance = advanceRequests.reduce((sum, req) => sum + req.amount, 0);
     const totalOverpayment = calculateTotalOverpayments();
     const totalPrimes = data.employees.reduce((sum, emp) => sum + getEmployeePrimesTotal(emp.employeeId), 0);
     const totalGeneral = totalMeal + totalAdvance - totalOverpayment + totalPrimes;
-    csvContent += `"TOTAUX","${formatCurrency(totalMeal)}","${totalKm} km","${formatCurrency(totalAdvance)}","${formatCurrency(totalOverpayment)}","${formatCurrency(totalPrimes)}","${formatCurrency(totalGeneral)}"\n`;
+    csvContent += `"TOTAUX","${formatCurrency(totalMeal)}","${formatKm(totalKm)} km","${formatCurrency(totalAdvance)}","${formatCurrency(totalOverpayment)}","${formatCurrency(totalPrimes)}","${formatCurrency(totalGeneral)}"\n`;
   } else {
     // Données par défaut si pas de données
     csvContent += `"Aucune donnée disponible","","","","","",""\n`;
@@ -658,7 +661,9 @@ const calculateTotalOverpayments = () => {
   }
 
   const totalMealAmount = data?.employees?.reduce((sum, emp) => sum + (emp.mealExpense?.totalAmount || 0), 0) || 0;
-  const totalKmAmount = data?.employees?.reduce((sum, emp) => sum + (emp.kmExpense?.totalKm || 0), 0) || 0;
+  const totalKmAmount = roundKm(
+    (data?.employees || []).reduce((sum, emp) => sum + roundKm(emp.kmExpense?.totalKm), 0)
+  );
   const totalAdvanceAmount = advanceRequests?.reduce((sum, req) => sum + (req.amount || 0), 0) || 0;
   const totalOverpaymentAmount = data?.employees ? calculateTotalOverpayments() : 0;
   const totalPrimesAmount = data?.employees?.reduce((sum, emp) => sum + getEmployeePrimesTotal(emp.employeeId), 0) || 0;
@@ -793,7 +798,7 @@ const calculateTotalOverpayments = () => {
                         {formatCurrency(employee.mealExpense.totalAmount)}
                       </td>
                       <td className="km-amount">
-                        {employee.kmExpense.totalKm || 0} km
+                        {formatKm(employee.kmExpense.totalKm)} km
                       </td>
                       <td className="advance-amount">
                         {formatCurrency(advanceAmount)}
@@ -849,7 +854,7 @@ const calculateTotalOverpayments = () => {
                 <tr className="totals-row">
                   <td><strong>TOTAUX</strong></td>
                   <td><strong>{formatCurrency(totalMealAmount)}</strong></td>
-                  <td><strong>{totalKmAmount} km</strong></td>
+                  <td><strong>{formatKm(totalKmAmount)} km</strong></td>
                   <td><strong>{formatCurrency(totalAdvanceAmount)}</strong></td>
                   <td><strong>{formatCurrency(totalOverpaymentAmount)}</strong></td>
                   <td><strong>{formatCurrency(totalPrimesAmount)}</strong></td>
@@ -867,7 +872,7 @@ const calculateTotalOverpayments = () => {
               <strong>Total frais repas :</strong> {formatCurrency(totalMealAmount)}
             </div>
             <div className="summary-item">
-              <strong>Total kilomètres :</strong> {totalKmAmount} km
+              <strong>Total kilomètres :</strong> {formatKm(totalKmAmount)} km
             </div>
             <div className="summary-item">
               <strong>Total acomptes :</strong> {formatCurrency(totalAdvanceAmount)}

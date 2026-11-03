@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const { roundKm } = require('../utils/roundKm');
 
 const kmExpenseSchema = new mongoose.Schema({
   employeeId: {
@@ -76,11 +77,13 @@ kmExpenseSchema.pre('save', function(next) {
 kmExpenseSchema.pre('save', function(next) {
   // Calculer le total pour chaque paramètre
   this.parameterValues.forEach(param => {
-    param.totalKm = param.count * param.kmValue;
+    param.totalKm = roundKm(param.count * param.kmValue);
   });
   
   // Calculer le total général
-  this.totalKm = this.parameterValues.reduce((total, param) => total + param.totalKm, 0);
+  this.totalKm = roundKm(
+    this.parameterValues.reduce((total, param) => total + (param.totalKm || 0), 0)
+  );
   next();
 });
 
