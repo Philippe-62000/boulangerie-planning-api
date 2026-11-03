@@ -1,6 +1,7 @@
 const KmExpense = require('../models/KmExpense');
 const Employee = require('../models/Employee');
 const Parameter = require('../models/Parameters');
+const { roundKm } = require('../utils/roundKm');
 
 // Récupérer les frais KM pour un mois/année donné
 const getKmExpenses = async (req, res) => {
@@ -80,7 +81,7 @@ const getKmExpenses = async (req, res) => {
               parameterName: param.displayName,
               count: existingValue.count || 0,
               kmValue: param.kmValue, // Toujours utiliser la valeur actuelle du paramètre
-              totalKm: (existingValue.count || 0) * param.kmValue // Recalculer avec le kmValue actuel
+              totalKm: roundKm((existingValue.count || 0) * param.kmValue)
             };
           } else {
             // Nouveau paramètre qui n'existait pas avant
@@ -95,7 +96,9 @@ const getKmExpenses = async (req, res) => {
         });
 
         // Recalculer le total avec les kmValue mis à jour
-        const totalKm = parameterValues.reduce((total, param) => total + param.totalKm, 0);
+        const totalKm = roundKm(
+          parameterValues.reduce((total, param) => total + (param.totalKm || 0), 0)
+        );
 
         return {
           employeeId: employee._id,
