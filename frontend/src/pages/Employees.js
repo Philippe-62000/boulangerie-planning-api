@@ -574,7 +574,19 @@ const Employees = () => {
                       return <span style={{ color: '#ccc' }}>-</span>;
                     })()}
                   </td>
-                  <td>{getContractLabel(employee.contractType)}</td>
+                  <td>
+                    {getContractLabel(employee.contractType)}
+                    {(employee.contractType === 'Temporaire' || employee.contractType === 'Apprentissage') && employee.contractEndDate && (
+                      <div style={{ fontSize: '0.8rem', color: '#555', marginTop: '0.2rem' }}>
+                        fin {formatDate(employee.contractEndDate)}
+                      </div>
+                    )}
+                    {employee.contractType === 'Temporaire' && !employee.contractEndDate && (
+                      <div style={{ fontSize: '0.8rem', color: '#c0392b', marginTop: '0.2rem' }}>
+                        date de fin à renseigner
+                      </div>
+                    )}
+                  </td>
                   <td>
                     {employee.age} ans
                     {employee.isMinor && (

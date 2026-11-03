@@ -114,7 +114,13 @@ const employeeSchema = new mongoose.Schema({
     enum: ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche']
   }],
   contractEndDate: {
-    type: Date
+    type: Date,
+    required: [
+      function () {
+        return this.contractType === 'Temporaire';
+      },
+      'La date de fin est obligatoire pour un contrat temporaire'
+    ]
   },
   tutor: {
     type: mongoose.Schema.Types.ObjectId,

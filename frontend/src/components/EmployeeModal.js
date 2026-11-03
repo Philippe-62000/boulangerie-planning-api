@@ -151,9 +151,9 @@ const EmployeeModal = ({ employee, onSave, onClose, employees = [] }) => {
         ...(name === 'contractType' && value !== 'Apprentissage' ? {
           tutor: '',
           trainingDays: [],
-          contractEndDate: '',
           trainingDaysOutsideShop: true
         } : {}),
+        ...(name === 'contractType' && value === 'CDI' ? { contractEndDate: '' } : {}),
         [name]: type === 'checkbox' ? checked : value
       }));
     }
@@ -271,6 +271,11 @@ const EmployeeModal = ({ employee, onSave, onClose, employees = [] }) => {
       }
     }
 
+    if (formData.contractType === 'Temporaire' && !formData.contractEndDate) {
+      alert('Veuillez indiquer la date de fin du contrat temporaire');
+      return;
+    }
+
     const tutorValue = formData.contractType === 'Apprentissage' ? getTutorId(formData.tutor) : '';
 
     const dailyBreak = parseInt(formData.dailyBreakMinutes, 10);
@@ -285,7 +290,7 @@ const EmployeeModal = ({ employee, onSave, onClose, employees = [] }) => {
       weeklyHours: parseInt(formData.weeklyHours, 10),
       dailyBreakMinutes: Number.isFinite(dailyBreak) ? dailyBreak : 30,
       trainingDays: formData.trainingDays,
-      contractEndDate: formData.contractEndDate || undefined,
+      contractEndDate: formData.contractType === 'CDI' ? null : (formData.contractEndDate || undefined),
       tutor: formData.contractType === 'Apprentissage' ? (tutorValue || undefined) : undefined,
       email: formData.email || undefined,
       saleCode: formData.saleCode || undefined,
@@ -405,6 +410,21 @@ const EmployeeModal = ({ employee, onSave, onClose, employees = [] }) => {
               <small className="form-text">Email pour l'envoi des identifiants de connexion</small>
             </div>
           </div>
+
+          {formData.contractType === 'Temporaire' && (
+            <div className="form-group">
+              <label className="form-label">Date de fin du contrat *</label>
+              <input
+                type="date"
+                name="contractEndDate"
+                value={formData.contractEndDate}
+                onChange={handleInputChange}
+                className="form-control"
+                required
+              />
+              <small className="form-text">Obligatoire pour un contrat temporaire</small>
+            </div>
+          )}
 
           {/* Champ date de naissance (affiché uniquement pour les mineurs) */}
           {formData.age && formData.age !== '' && !isNaN(parseInt(formData.age)) && parseInt(formData.age) < 18 && (

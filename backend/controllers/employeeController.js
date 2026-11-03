@@ -186,6 +186,9 @@ const createEmployee = async (req, res) => {
     if (employeeData.connectionCode === '') {
       employeeData.connectionCode = undefined;
     }
+    if (employeeData.contractEndDate === '' || employeeData.contractEndDate === null) {
+      employeeData.contractEndDate = undefined;
+    }
     
     const employee = new Employee(employeeData);
     await employee.save();
@@ -228,6 +231,9 @@ const updateEmployee = async (req, res) => {
       req.body.vendeusePlanningPreferences === null;
     if (shouldUnsetVendeusePrefs) {
       delete updateData.vendeusePlanningPreferences;
+    }
+    if (updateData.contractEndDate === '') {
+      updateData.contractEndDate = null;
     }
     
     console.log('🔐 Champ password préservé lors de la mise à jour');
