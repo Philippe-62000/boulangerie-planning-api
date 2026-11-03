@@ -42,6 +42,7 @@ const rowSchema = new mongoose.Schema({
   employeeName: { type: String, required: true },
   contractedHours: { type: Number, required: true },
   employeeCategory: { type: String, default: 'vente' },
+  isMinor: { type: Boolean, default: false },
   days: { type: [daySchema], default: [] },
   weeklyPaidHours: { type: Number, default: 0 },
   weeklyNightHours: { type: Number, default: 0 },

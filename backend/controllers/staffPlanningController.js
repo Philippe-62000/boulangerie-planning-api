@@ -489,7 +489,8 @@ async function loadAdjacentWeeks(weekNumber, year) {
 function summarizeRow(row, settings, holidayDates, adjacent = {}) {
   const plain = toPlain(row) || {};
   const days = (plain.days || []).map((day) => hours.plainDay(day));
-  const summarized = hours.summarizeDays(days, plain.contractedHours, settings, holidayDates, adjacent);
+  const isMinor = !!plain.isMinor;
+  const summarized = hours.summarizeDays(days, plain.contractedHours, settings, holidayDates, adjacent, { isMinor });
   const recupHours = Number(plain.recupHours) || 0;
   const accountant = hours.hoursFromMinutes(
     hours.minutesFromHours(Number(summarized.weeklyPaidHours) || 0)
@@ -501,6 +502,7 @@ function summarizeRow(row, settings, holidayDates, adjacent = {}) {
     employeeName: plain.employeeName,
     contractedHours: plain.contractedHours,
     employeeCategory: plain.employeeCategory || 'vente',
+    isMinor,
     ...summarized,
     recupHours,
     recupComment: plain.recupComment || '',
@@ -859,12 +861,14 @@ function buildEmptyRow(employee, dates, settings, holidayDates) {
       day.day === 'Dimanche' ? applyCodeToDay(day, 'REPOS', settings) : day
     ));
   }
-  const summarized = hours.summarizeDays(days, employee.weeklyHours, settings, holidayDates);
+  const isMinor = hours.isMinorEmployee(employee, dates[0]?.date);
+  const summarized = hours.summarizeDays(days, employee.weeklyHours, settings, holidayDates, {}, { isMinor });
   return {
     employeeId: employee._id,
     employeeName: employee.name,
     contractedHours: employee.weeklyHours,
     employeeCategory: employee.employeeCategory || 'vente',
+    isMinor,
     ...summarized
   };
 }
@@ -895,6 +899,7 @@ function applyCfaAndSunday(row, dates, settings, cfaMap, { overwriteCodes = fals
     employeeName: plain.employeeName,
     contractedHours: plain.contractedHours,
     employeeCategory: plain.employeeCategory || 'vente',
+    isMinor: !!plain.isMinor,
     recupHours: plain.recupHours,
     recupComment: plain.recupComment,
     days
@@ -930,6 +935,7 @@ async function syncWeekRows(weekDoc, settings) {
         employeeName: employee.name,
         contractedHours: employee.weeklyHours,
         employeeCategory: employee.employeeCategory || plain.employeeCategory || 'vente',
+        isMinor: hours.isMinorEmployee(employee, dates[0]?.date),
         recupHours: Number(plain.recupHours) || 0,
         recupComment: plain.recupComment || '',
         days: dates.map((meta) => {
@@ -957,7 +963,15 @@ async function syncWeekRows(weekDoc, settings) {
   weekDoc.rows = rows;
   if (hasActualLayer(weekDoc)) {
     const allowed = new Set(rows.map((row) => String(row.employeeId)));
-    weekDoc.actualRows = (weekDoc.actualRows || []).filter((row) => allowed.has(String(row.employeeId)));
+    const minorById = new Map(rows.map((row) => [String(row.employeeId), !!row.isMinor]));
+    weekDoc.actualRows = (weekDoc.actualRows || [])
+      .filter((row) => allowed.has(String(row.employeeId)))
+      .map((row) => summarizeRow(
+        { ...toPlain(row), isMinor: !!minorById.get(String(row.employeeId)) },
+        settings,
+        holidayList,
+        adjacentForEmployee(restMaps, row.employeeId)
+      ));
   }
   weekDoc.sundayOpen = settings.sundayOpen;
   weekDoc.holidayDates = holidayList;

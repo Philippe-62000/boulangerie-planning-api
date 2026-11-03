@@ -162,4 +162,76 @@ const fullWeekDays = week43.map((meta) => hours.computeDay(
 ));
 assert.strictEqual(hours.formatHours(hours.summarizeDays(fullWeekDays, 35, cfaSettings).weeklyPaidHours), '35h');
 
+assert.strictEqual(hours.isMinorEmployee({ age: 17 }), true);
+assert.strictEqual(hours.isMinorEmployee({ age: 18 }), false);
+assert.strictEqual(hours.isMinorEmployee({ age: 30, birthDate: '2008-10-06' }, '2026-10-05'), true);
+assert.strictEqual(hours.isMinorEmployee({ age: 17, birthDate: '2008-10-05' }, '2026-10-05'), false);
+
+const longMinorDay = hours.computeDay(
+  { kind: 'shifts', shifts: [{ startTime: '08:00', endTime: '17:00' }] },
+  { day: 'Lundi', date: '2026-10-05' },
+  restSettings,
+  35
+);
+assert.ok(longMinorDay.paidHours > 8);
+const minorOver = hours.summarizeDays([longMinorDay], 35, restSettings, [], {}, { isMinor: true });
+assert.strictEqual(
+  minorOver.days[0].alerts.filter((alert) => alert.type === 'minor_max_day').length,
+  1,
+  'un mineur au-delà de 8h doit alerter'
+);
+assert.ok(minorOver.days[0].alerts.find((alert) => alert.type === 'minor_max_day').message.includes('maximum 8h'));
+assert.strictEqual(
+  minorOver.days[0].alerts.filter((alert) => alert.type === 'max_day').length,
+  0,
+  'l’alerte mineur remplace le seuil adulte'
+);
+
+const adultNine = hours.summarizeDays([longMinorDay], 35, restSettings, [], {}, { isMinor: false });
+assert.strictEqual(
+  adultNine.days[0].alerts.filter((alert) => alert.type === 'minor_max_day').length,
+  0,
+  'un majeur sous 10h ne doit pas alerter 8h'
+);
+
+const exactEight = hours.computeDay(
+  { kind: 'shifts', shifts: [{ startTime: '08:00', endTime: '16:30' }] },
+  { day: 'Mardi', date: '2026-10-06' },
+  restSettings,
+  35
+);
+assert.strictEqual(hours.formatHours(exactEight.paidHours), '8h');
+const minorExact = hours.summarizeDays([exactEight], 35, restSettings, [], {}, { isMinor: true });
+assert.strictEqual(
+  minorExact.days[0].alerts.filter((alert) => alert.type === 'minor_max_day').length,
+  0,
+  'pile 8h reste autorisé pour un mineur'
+);
+
+const cfaEight = hours.computeDay(
+  { kind: 'code', code: 'CFA8' },
+  { day: 'Mercredi', date: '2026-10-07' },
+  restSettings,
+  35
+);
+const minorCfa = hours.summarizeDays([cfaEight], 35, restSettings, [], {}, { isMinor: true });
+assert.strictEqual(
+  minorCfa.days[0].alerts.filter((alert) => alert.type === 'minor_max_day').length,
+  0,
+  'CFA8 (8h) ne doit pas alerter'
+);
+
+const volumeNine = hours.computeDay(
+  { kind: 'hours', volumeHours: 9 },
+  { day: 'Jeudi', date: '2026-10-08' },
+  restSettings,
+  35
+);
+const minorVolume = hours.summarizeDays([volumeNine], 35, restSettings, [], {}, { isMinor: true });
+assert.strictEqual(
+  minorVolume.days[0].alerts.filter((alert) => alert.type === 'minor_max_day').length,
+  1,
+  '9h en volume doit alerter pour un mineur'
+);
+
 console.log('staff planning hours tests OK');

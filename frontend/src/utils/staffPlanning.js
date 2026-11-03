@@ -286,6 +286,12 @@ export function formatPlanningImperativeTitle(items) {
   }).join(' · ');
 }
 
+function alertClassForDay(day) {
+  if (!day?.alerts?.length) return '';
+  const minor = day.alerts.some((alert) => alert.type === 'minor_max_day');
+  return minor ? ' sp-cell-alert sp-cell-alert-minor' : ' sp-cell-alert';
+}
+
 export function cellClass(day) {
   const holiday = day?.isHoliday ? ' sp-cell-holiday-day' : '';
   if (!day || !day.kind || day.kind === 'empty') return `sp-cell-empty${holiday}`;
@@ -297,12 +303,27 @@ export function cellClass(day) {
     else if (code === 'MAL') base = 'sp-cell-code sp-cell-mal';
     else if (code === 'CP') base = 'sp-cell-code sp-cell-cp';
     else if (code === 'ABS') base = 'sp-cell-code sp-cell-abs';
-    if (day.alerts?.length) return `${base} sp-cell-alert${holiday}`;
-    return `${base}${holiday}`;
+    return `${base}${alertClassForDay(day)}${holiday}`;
   }
-  const kind = `sp-cell-${day.kind}`;
-  if (day.alerts?.length) return `${kind} sp-cell-alert${holiday}`;
-  return `${kind}${holiday}`;
+  return `sp-cell-${day.kind}${alertClassForDay(day)}${holiday}`;
+}
+
+export function collectRowAlerts(rows) {
+  const items = [];
+  (rows || []).forEach((row) => {
+    (row.days || []).forEach((day) => {
+      (day.alerts || []).forEach((alert) => {
+        items.push({
+          employeeName: row.employeeName,
+          day: day.day,
+          date: day.date,
+          type: alert.type,
+          message: alert.message
+        });
+      });
+    });
+  });
+  return items;
 }
 
 export function isRestDay(day) {
@@ -401,7 +422,10 @@ export function buildShopPrintHtml({ weekNumber, dates = [], rows = [], holidayD
       const hoursText = shown > 0 ? `<div class="hrs">${formatHours(shown)}</div>` : '';
       const imperative = formatPlanningImperative(day?.planningImperatives);
       const imperativeText = imperative ? `<div class="imp">${imperative}</div>` : '';
-      return `<td>${label}${hoursText}${imperativeText}${pause}</td>`;
+      const minorOver = (day?.alerts || []).some((alert) => alert.type === 'minor_max_day');
+      const tdClass = minorOver ? ' class="minor-over"' : '';
+      const minorMark = minorOver ? '<div class="minor">Mineur &gt; 8h</div>' : '';
+      return `<td${tdClass}>${label}${hoursText}${imperativeText}${minorMark}${pause}</td>`;
     }).join('');
     const weekHours = rowWeekHours(row, true);
     const recup = rowRecupHours(row);
@@ -409,7 +433,8 @@ export function buildShopPrintHtml({ weekNumber, dates = [], rows = [], holidayD
     const extra = recup
       ? `<div class="hrs">Poste ${formatHours(poste)}</div><div class="hrs">${formatCounterAdjustment(recup)}</div>`
       : '';
-    return `<tr><th>${row.employeeName || ''}</th>${cells}<td>${formatHours(weekHours)}${extra}</td></tr>`;
+    const minorName = row.isMinor ? ' <span class="minor-tag">Mineur · 8h</span>' : '';
+    return `<tr><th>${row.employeeName || ''}${minorName}</th>${cells}<td>${formatHours(weekHours)}${extra}</td></tr>`;
   }).join('');
   return `<!DOCTYPE html>
 <html lang="fr"><head><meta charset="UTF-8"><title>${title} semaine ${weekNumber}</title>
@@ -427,6 +452,9 @@ export function buildShopPrintHtml({ weekNumber, dates = [], rows = [], holidayD
   .pause-none { border-top: none; font-style: italic; }
   .hrs { font-size: 9px; color: #333; }
   .imp { margin-top: 3px; font-size: 9px; font-weight: 700; color: #9a3412; background: #ffedd5; border-radius: 3px; padding: 1px 3px; }
+  .minor-over { box-shadow: inset 0 0 0 2px #dc2626; }
+  .minor { margin-top: 3px; font-size: 9px; font-weight: 700; color: #b91c1c; }
+  .minor-tag { display: inline-block; margin-left: 4px; font-size: 9px; font-weight: 700; color: #b91c1c; }
 </style></head><body>
 <h1>${title} semaine ${weekNumber} — ${range}</h1>
 <table>
