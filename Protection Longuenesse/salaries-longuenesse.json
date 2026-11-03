@@ -1,0 +1,19 @@
+{
+  "site": "Longuenesse",
+  "salaries": [
+    { "prenom": "Adeline", "nom": "Beghin" },
+    { "prenom": "Cindy", "nom": "Duchateau" },
+    { "prenom": "Geoffrey", "nom": "Gosse" },
+    { "prenom": "Jamie", "nom": "Grebert" },
+    { "prenom": "Justine", "nom": "Castier" },
+    { "prenom": "Ludivine", "nom": "Dermenghem" },
+    { "prenom": "Maeva", "nom": "Henon" },
+    { "prenom": "Maeva", "nom": "Registre" },
+    { "prenom": "Marie", "nom": "Bergeman" },
+    { "prenom": "Marina", "nom": "Moland" },
+    { "prenom": "Melodie", "nom": "Mantel" },
+    { "prenom": "Naia", "nom": "Follet" },
+    { "prenom": "Phi", "nom": "" },
+    { "prenom": "Soan", "nom": "Olivier" }
+  ]
+}

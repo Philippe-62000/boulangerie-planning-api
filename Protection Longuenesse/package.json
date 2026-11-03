@@ -1,0 +1,8 @@
+{
+  "name": "feuilles-presence-longuenesse",
+  "private": true,
+  "description": "Outils locaux pour classer les feuilles de présence PDF",
+  "dependencies": {
+    "pdf-lib": "^1.17.1"
+  }
+}
