@@ -586,6 +586,11 @@ const Employees = () => {
                         date de fin à renseigner
                       </div>
                     )}
+                    {employee.contractType === 'Temporaire' && (
+                      <div style={{ fontSize: '0.8rem', color: '#555', marginTop: '0.2rem' }}>
+                        Planning : {employee.temporaryHasPlanning ? 'Oui' : 'Non'}
+                      </div>
+                    )}
                   </td>
                   <td>
                     {employee.age} ans

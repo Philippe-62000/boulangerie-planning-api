@@ -6,6 +6,7 @@ import { buildFlourStocksStatusClient } from '../utils/flourStockStatus';
 import { formatDailyConsumptionKg, parseKgPerSack } from '../utils/flourUnits';
 import { useAuth } from '../contexts/AuthContext';
 import ApprenticePlanningPanel from '../components/ApprenticePlanningPanel';
+import { canHaveTrainingPlanning } from '../utils/trainingPlanning';
 import AuditSanitaireBanner from '../components/AuditSanitaireBanner';
 
 const normalizePersonName = (name) =>
@@ -766,8 +767,8 @@ const Dashboard = () => {
   // Filtrer les employés mineurs (âge < 18)
   const minorEmployees = employees.filter(emp => emp.age < 18);
 
-  // Filtrer les apprentis
-  const apprenticeEmployees = employees.filter(emp => emp.contractType === 'Apprentissage');
+  // Apprentis + contrats temporaires avec Planning = Oui
+  const apprenticeEmployees = employees.filter((emp) => canHaveTrainingPlanning(emp));
 
   // Formater une date
   const formatDate = (dateString) => {
@@ -1949,7 +1950,14 @@ const Dashboard = () => {
               <tbody>
                 {apprenticeEmployees.map((employee) => (
                   <tr key={employee._id}>
-                    <td>{employee.name}</td>
+                    <td>
+                      {employee.name}
+                      {employee.contractType === 'Temporaire' ? (
+                        <span style={{ marginLeft: '0.4rem', color: '#666', fontSize: '0.85rem' }}>
+                          (temporaire)
+                        </span>
+                      ) : null}
+                    </td>
                     <td>{formatDate(employee.contractEndDate)}</td>
                     <td>
                       {(() => {

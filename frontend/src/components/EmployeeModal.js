@@ -50,6 +50,7 @@ const EmployeeModal = ({ employee, onSave, onClose, employees = [] }) => {
     saleCode: '',
     mutuelle: 'Oui Entreprise',
     autoriseConduiteVehicule: false,
+    temporaryHasPlanning: false,
     isActive: true,
     emergencyContact: {
       lastName: '',
@@ -84,6 +85,7 @@ const EmployeeModal = ({ employee, onSave, onClose, employees = [] }) => {
         saleCode: employee.saleCode || '',
         mutuelle: employee.mutuelle || 'Oui Entreprise',
         autoriseConduiteVehicule: !!employee.autoriseConduiteVehicule,
+        temporaryHasPlanning: employee.contractType === 'Temporaire' && !!employee.temporaryHasPlanning,
         isActive: employee.isActive !== undefined ? employee.isActive : true,
         emergencyContact: employee.emergencyContact || {
           lastName: '',
@@ -115,6 +117,7 @@ const EmployeeModal = ({ employee, onSave, onClose, employees = [] }) => {
         saleCode: '',
         mutuelle: 'Oui Entreprise',
         autoriseConduiteVehicule: false,
+        temporaryHasPlanning: false,
         isActive: true,
         emergencyContact: {
           lastName: '',
@@ -154,6 +157,7 @@ const EmployeeModal = ({ employee, onSave, onClose, employees = [] }) => {
           trainingDaysOutsideShop: true
         } : {}),
         ...(name === 'contractType' && value === 'CDI' ? { contractEndDate: '' } : {}),
+        ...(name === 'contractType' && value !== 'Temporaire' ? { temporaryHasPlanning: false } : {}),
         [name]: type === 'checkbox' ? checked : value
       }));
     }
@@ -296,6 +300,8 @@ const EmployeeModal = ({ employee, onSave, onClose, employees = [] }) => {
       saleCode: formData.saleCode || undefined,
       mutuelle: formData.mutuelle,
       autoriseConduiteVehicule: !!formData.autoriseConduiteVehicule,
+      temporaryHasPlanning:
+        formData.contractType === 'Temporaire' ? !!formData.temporaryHasPlanning : false,
       isActive: formData.isActive,
       emergencyContact: formData.emergencyContact,
       trainingDaysOutsideShop:
@@ -423,6 +429,36 @@ const EmployeeModal = ({ employee, onSave, onClose, employees = [] }) => {
                 required
               />
               <small className="form-text">Obligatoire pour un contrat temporaire</small>
+            </div>
+          )}
+
+          {formData.contractType === 'Temporaire' && (
+            <div className="form-group">
+              <label className="form-label">Planning *</label>
+              <div style={{ display: 'flex', gap: '1.5rem', alignItems: 'center', marginTop: '0.35rem' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontWeight: 500 }}>
+                  <input
+                    type="radio"
+                    name="temporaryHasPlanning"
+                    checked={formData.temporaryHasPlanning === true}
+                    onChange={() => setFormData((prev) => ({ ...prev, temporaryHasPlanning: true }))}
+                  />
+                  Oui
+                </label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontWeight: 500 }}>
+                  <input
+                    type="radio"
+                    name="temporaryHasPlanning"
+                    checked={formData.temporaryHasPlanning !== true}
+                    onChange={() => setFormData((prev) => ({ ...prev, temporaryHasPlanning: false }))}
+                  />
+                  Non
+                </label>
+              </div>
+              <small className="form-text">
+                Oui : le nom apparaît dans État Contrat Apprentis et on peut ajouter un planning comme pour un apprenti.
+                Non : le nom n’apparaît pas dans cette liste.
+              </small>
             </div>
           )}
 
