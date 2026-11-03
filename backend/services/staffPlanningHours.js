@@ -428,6 +428,65 @@ function applyShortRest(target, prevDay, nextDay, minRest, message) {
   };
 }
 
+const MINOR_MAX_DAY_HOURS = 8;
+
+function isoDateParts(isoDate) {
+  const [year, month, day] = String(isoDate || '').split('-').map(Number);
+  if (!year || !month || !day) return null;
+  return { year, month, day };
+}
+
+function ageOnIsoDate(birthDate, isoDate) {
+  if (!birthDate) return null;
+  const birth = new Date(birthDate);
+  if (Number.isNaN(birth.getTime())) return null;
+  const on = isoDateParts(isoDate);
+  const onYear = on ? on.year : new Date().getFullYear();
+  const onMonth = on ? on.month : (new Date().getMonth() + 1);
+  const onDay = on ? on.day : new Date().getDate();
+  const birthYear = birth.getUTCFullYear();
+  const birthMonth = birth.getUTCMonth() + 1;
+  const birthDay = birth.getUTCDate();
+  let age = onYear - birthYear;
+  if (onMonth < birthMonth || (onMonth === birthMonth && onDay < birthDay)) age -= 1;
+  return age;
+}
+
+function isMinorEmployee(employee, isoDate) {
+  if (!employee) return false;
+  const fromBirth = ageOnIsoDate(employee.birthDate, isoDate);
+  if (fromBirth != null) return fromBirth < 18;
+  return Number(employee.age) < 18;
+}
+
+function applyMinorDayAlerts(days, isMinor) {
+  if (!isMinor) {
+    return (days || []).map((raw) => {
+      const day = plainDay(raw);
+      const alerts = (day.alerts || []).filter((alert) => alert.type !== 'minor_max_day');
+      return alerts.length === (day.alerts || []).length ? day : { ...day, alerts };
+    });
+  }
+  return (days || []).map((raw) => {
+    const day = plainDay(raw);
+    const paid = Number(day.paidHours) || 0;
+    const alerts = (day.alerts || []).filter((alert) => alert.type !== 'minor_max_day');
+    if (paid > MINOR_MAX_DAY_HOURS + 1e-6) {
+      return {
+        ...day,
+        alerts: [
+          ...alerts.filter((alert) => alert.type !== 'max_day'),
+          {
+            type: 'minor_max_day',
+            message: `Mineur : journée de ${formatHours(paid)} (maximum 8h)`
+          }
+        ]
+      };
+    }
+    return alerts.length === (day.alerts || []).length ? day : { ...day, alerts };
+  });
+}
+
 function applyRestAlerts(days, settings, adjacent = {}) {
   const minRest = settings.minRestHours ?? 11;
   const next = days.map((day) => {
@@ -570,27 +629,28 @@ function withCpHours(days, settings, contractedHours) {
   });
 }
 
-function summarizeDays(days, contractedHours, settings, holidayDates = [], adjacent = {}) {
+function summarizeDays(days, contractedHours, settings, holidayDates = [], adjacent = {}, flags = {}) {
   const refreshed = (days || []).map((day) => refreshDayComputation(day, settings, contractedHours));
   const withRest = applyRestAlerts(
     withHolidayHours(withCpHours(refreshed, settings, contractedHours), holidayDates),
     settings,
     adjacent
   );
-  const weeklyPaidHours = hoursFromMinutes(withRest.reduce((sum, day) => sum + minutesFromHours(day.paidHours), 0));
-  const weeklyNightHours = hoursFromMinutes(withRest.reduce((sum, day) => sum + minutesFromHours(day.nightHours), 0));
-  const weeklySickDays = withRest.reduce((sum, day) => sum + (day.sickDays || 0), 0);
-  const weeklySickHours = hoursFromMinutes(withRest.reduce((sum, day) => sum + minutesFromHours(day.sickHours), 0));
-  const weeklyCpHours = hoursFromMinutes(withRest.reduce((sum, day) => (
+  const withMinor = applyMinorDayAlerts(withRest, flags.isMinor);
+  const weeklyPaidHours = hoursFromMinutes(withMinor.reduce((sum, day) => sum + minutesFromHours(day.paidHours), 0));
+  const weeklyNightHours = hoursFromMinutes(withMinor.reduce((sum, day) => sum + minutesFromHours(day.nightHours), 0));
+  const weeklySickDays = withMinor.reduce((sum, day) => sum + (day.sickDays || 0), 0);
+  const weeklySickHours = hoursFromMinutes(withMinor.reduce((sum, day) => sum + minutesFromHours(day.sickHours), 0));
+  const weeklyCpHours = hoursFromMinutes(withMinor.reduce((sum, day) => (
     normalizedCode(day.code) === 'CP' ? sum + minutesFromHours(day.cpHours) : sum
   ), 0));
-  const weeklyAbsenceHours = hoursFromMinutes(withRest.reduce((sum, day) => sum + minutesFromHours(day.absenceHours), 0));
-  const weeklyHolidayHours = hoursFromMinutes(withRest.reduce((sum, day) => sum + minutesFromHours(day.holidayHours), 0));
+  const weeklyAbsenceHours = hoursFromMinutes(withMinor.reduce((sum, day) => sum + minutesFromHours(day.absenceHours), 0));
+  const weeklyHolidayHours = hoursFromMinutes(withMinor.reduce((sum, day) => sum + minutesFromHours(day.holidayHours), 0));
   const overtime = overtimeFromPaid(weeklyPaidHours, settings);
-  const alertCount = withRest.reduce((sum, day) => sum + (day.alerts?.length || 0), 0);
+  const alertCount = withMinor.reduce((sum, day) => sum + (day.alerts?.length || 0), 0);
 
   return {
-    days: withRest,
+    days: withMinor,
     weeklyPaidHours,
     weeklyNightHours,
     weeklySickDays,
@@ -662,6 +722,9 @@ module.exports = {
   isFullWeekWithCode,
   findWord,
   applyRestAlerts,
+  applyMinorDayAlerts,
+  isMinorEmployee,
+  MINOR_MAX_DAY_HOURS,
   withHolidayHours,
   summarizeDays,
   overtimeFromPaid,

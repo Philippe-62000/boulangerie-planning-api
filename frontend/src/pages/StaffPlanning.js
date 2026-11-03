@@ -7,6 +7,7 @@ import {
   addIsoWeeks,
   cellClass,
   cellLabel,
+  collectRowAlerts,
   formatPlanningImperative,
   formatPlanningImperativeTitle,
   computePlanningHints,
@@ -154,7 +155,6 @@ const StaffPlanning = () => {
   const [previousRows, setPreviousRows] = useState([]);
   const [holidayLabels, setHolidayLabels] = useState({});
   const [settings, setSettings] = useState(null);
-  const [alerts, setAlerts] = useState([]);
   const [counters, setCounters] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -181,7 +181,6 @@ const StaffPlanning = () => {
     if (payload.week) setWeek(payload.week);
     if (payload.dates) setDates(payload.dates);
     if (payload.settings) setSettings(payload.settings);
-    if (payload.alerts) setAlerts(payload.alerts);
     if (payload.previousWeek?.rows) setPreviousRows(payload.previousWeek.rows);
     if (payload.holidayLabels) setHolidayLabels(payload.holidayLabels);
     if (payload.lock) setLock(payload.lock);
@@ -301,6 +300,7 @@ const StaffPlanning = () => {
   const displayedRows = layer === 'actual'
     ? (week?.actualRows || [])
     : (viewingSnapshot?.rows || week?.rows || []);
+  const layerAlerts = useMemo(() => collectRowAlerts(displayedRows), [displayedRows]);
   const groups = useMemo(
     () => groupRowsByCategory(displayedRows, settings?.employeeOrder),
     [displayedRows, settings]
@@ -442,11 +442,12 @@ const StaffPlanning = () => {
   };
 
   const confirmAlerts = (actionLabel) => {
-    if (!alerts.length) return true;
-    const preview = alerts.slice(0, 8).map((item) => `${item.employeeName} (${item.day}) : ${item.message}`).join('\n');
-    const extra = alerts.length > 8 ? `\n… et ${alerts.length - 8} autre(s)` : '';
+    const list = collectRowAlerts(week?.rows || displayedRows);
+    if (!list.length) return true;
+    const preview = list.slice(0, 8).map((item) => `${item.employeeName} (${item.day}) : ${item.message}`).join('\n');
+    const extra = list.length > 8 ? `\n… et ${list.length - 8} autre(s)` : '';
     return window.confirm(
-      `${alerts.length} alerte(s) sur ce planning.\n\n${preview}${extra}\n\n${actionLabel} quand même ?`
+      `${list.length} alerte(s) sur ce planning.\n\n${preview}${extra}\n\n${actionLabel} quand même ?`
     );
   };
 
@@ -831,8 +832,8 @@ const StaffPlanning = () => {
         {weekFinished && layer === 'forecast' && (
           <span className="sp-status sp-status-alert">Semaine terminée — planning prévu verrouillé</span>
         )}
-        {alerts.length > 0 && layer === 'forecast' && (
-          <span className="sp-status sp-status-alert">{alerts.length} alerte(s) — confirmation à l’envoi</span>
+        {layerAlerts.length > 0 && layer === 'forecast' && (
+          <span className="sp-status sp-status-alert">{layerAlerts.length} alerte(s) — confirmation à l’envoi</span>
         )}
         <button type="button" className={`btn ${layer === 'forecast' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setLayer('forecast')}>Planning prévu</button>
         <button
@@ -1020,7 +1021,12 @@ const StaffPlanning = () => {
                               <button type="button" className="sp-move-btn" onClick={(e) => { e.stopPropagation(); moveRow(row.employeeId, 1); }}>▼</button>
                             </span>
                           )}
-                          <strong>{row.employeeName}</strong>
+                          <strong>
+                            {row.employeeName}
+                            {row.isMinor && (
+                              <span className="sp-minor-tag" title="Salarié mineur : maximum 8h par jour">Mineur · 8h</span>
+                            )}
+                          </strong>
                           <small>{row.contractedHours}h</small>
                           <small
                             className={`sp-recup-balance ${
@@ -1073,7 +1079,8 @@ const StaffPlanning = () => {
                             prevRest ? `Repos en semaine ${prevWeek.weekNumber}` : '',
                             sixthLimit ? '7e jour consécutif sans repos' : '',
                             locked ? 'Jour verrouillé' : '',
-                            formatPlanningImperativeTitle(day?.planningImperatives)
+                            formatPlanningImperativeTitle(day?.planningImperatives),
+                            ...(day?.alerts || []).map((item) => item.message)
                           ].filter(Boolean).join(' · ');
                           const pauseLine = pauseLineForDay(day, settings);
                           return (
@@ -1135,12 +1142,15 @@ const StaffPlanning = () => {
         </div>
       )}
 
-      {alerts.length > 0 && (
+      {layerAlerts.length > 0 && (
         <div className="sp-alerts no-print">
           <h3>Alertes de la semaine</h3>
           <ul>
-            {alerts.map((alert, index) => (
-              <li key={`${alert.employeeName}-${alert.day}-${index}`}>
+            {layerAlerts.map((alert, index) => (
+              <li
+                key={`${alert.employeeName}-${alert.day}-${index}`}
+                className={alert.type === 'minor_max_day' ? 'sp-alert-minor' : undefined}
+              >
                 <strong>{alert.employeeName}</strong> — {alert.day} : {alert.message}
               </li>
             ))}
