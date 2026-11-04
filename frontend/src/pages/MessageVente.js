@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import api from '../services/api';
 import { getSiteKey } from '../config/site';
@@ -52,7 +53,8 @@ const MessageVente = () => {
   return (
     <div className="message-vente-page">
       <header className="message-vente-header">
-        <h1>Message</h1>
+        <p className="message-vente-back"><Link to="/message-vente">← Messages</Link></p>
+        <h1>Message à Imprimer</h1>
         <p>
           Le message sera imprimé sur l’imprimante des commandes entreprises (ticket caisse).
         </p>

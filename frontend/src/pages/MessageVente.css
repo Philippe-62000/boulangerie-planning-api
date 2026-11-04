@@ -4,6 +4,15 @@
   padding: 1.5rem 1rem 3rem;
 }
 
+.message-vente-back {
+  margin: 0 0 0.4rem;
+}
+
+.message-vente-back a {
+  color: #7a5a3a;
+  text-decoration: none;
+}
+
 .message-vente-header h1 {
   margin: 0 0 0.35rem;
   font-size: 1.75rem;

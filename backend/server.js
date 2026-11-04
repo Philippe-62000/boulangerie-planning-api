@@ -243,6 +243,7 @@ app.use('/api/primes', require('./routes/primes'));
 app.use('/api/mutuelle', require('./routes/mutuelle'));
 app.use('/api/maintenance', require('./routes/maintenance'));
 app.use('/api/employee-messages', require('./routes/employeeMessages'));
+app.use('/api/service-notes', require('./routes/serviceNotes'));
 app.use('/api/recup-hours', require('./routes/recupHours'));
 app.use('/api/planning-imperatives', require('./routes/planningImperatives'));
 app.use('/api/ambassadors', require('./routes/ambassadors'));

@@ -1144,11 +1144,71 @@
             touch-action: none;
         }
 
-        #empSignCanvas {
+        #empSignCanvas,
+        #snSignCanvas {
             width: 100%;
             height: 160px;
             display: block;
             touch-action: none;
+        }
+
+        .sn-gate {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(15, 23, 42, 0.62);
+            z-index: 3000;
+            align-items: center;
+            justify-content: center;
+            padding: 16px;
+        }
+
+        .sn-gate.is-open {
+            display: flex;
+        }
+
+        .sn-gate-card {
+            width: min(640px, 100%);
+            max-height: calc(100vh - 32px);
+            overflow: auto;
+            background: #fff;
+            border-radius: 14px;
+            padding: 20px;
+        }
+
+        .sn-gate-kicker {
+            color: #b91c1c;
+            font-weight: 700;
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            margin-bottom: 6px;
+        }
+
+        .sn-gate-content,
+        .sn-note-content {
+            white-space: pre-wrap;
+            line-height: 1.5;
+            background: #f8fafc;
+            border-radius: 8px;
+            padding: 12px;
+            margin: 12px 0;
+        }
+
+        .sn-note-card {
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            padding: 12px;
+            margin-bottom: 10px;
+            background: #fff;
+        }
+
+        .sn-note-card.is-pending {
+            border-color: #dc2626;
+        }
+
+        .sn-note-card small {
+            color: #64748b;
         }
 
         .emp-sign-actions {
@@ -1351,6 +1411,20 @@
         <a href="#" class="connexion-btn" onclick="goToLogin(); return false;">🔐 Connexion</a>
         <p class="loading-hint">Si la page ne charge pas, cliquez sur Connexion pour vous reconnecter.</p>
     </div>
+    <div class="sn-gate" id="serviceNoteGate" aria-modal="true" role="dialog">
+        <div class="sn-gate-card">
+            <p class="sn-gate-kicker" id="snGateKicker">Note de service</p>
+            <h2 id="snGateTitle">Note de service</h2>
+            <p id="snGateMeta" style="color:#64748b;margin-bottom:8px;"></p>
+            <div class="sn-gate-content" id="snGateContent"></div>
+            <p>Après lecture, signez pour confirmer que vous avez pris connaissance de cette note.</p>
+            <div class="emp-sign-canvas-wrap"><canvas id="snSignCanvas" width="360" height="160"></canvas></div>
+            <div class="emp-sign-actions">
+                <button type="button" class="btn btn-secondary" onclick="clearServiceNoteSignature()">Effacer</button>
+                <button type="button" class="btn btn-primary" onclick="submitServiceNoteSignature()">J’ai lu et je signe</button>
+            </div>
+        </div>
+    </div>
 
     <div class="container" id="mainContent" style="display: none;">
         <div class="header">
@@ -1387,6 +1461,9 @@
             </button>
             <button class="tab" onclick="switchTab('imperative')">
                 📌 Impératif de Planning
+            </button>
+            <button class="tab" onclick="switchTab('notes')">
+                📝 Note de service
             </button>
             <button class="tab" onclick="switchTab('km')">
                 🚗 Frais Kilométriques
@@ -1720,6 +1797,15 @@
                         <div class="spinner"></div>
                         <p>Traitement en cours...</p>
                     </div>
+                </div>
+            </div>
+
+            <div class="tab-panel" id="notes-panel">
+                <div class="form-container">
+                    <h2 class="form-title">📝 Notes de service</h2>
+                    <p class="form-subtitle">Notes de la direction à lire et à signer</p>
+                    <div id="notesAlert"></div>
+                    <div id="notesList">Chargement des notes…</div>
                 </div>
             </div>
 
@@ -2061,6 +2147,7 @@
 
                 // Vérifier si la demande d'acompte est activée
                 await checkAdvanceRequestAvailability();
+                await loadPendingServiceNotes();
 
             } catch (error) {
                 console.error('Erreur authentification:', error);
@@ -2749,6 +2836,10 @@
             if (tabName === 'imperative') {
                 prepareImperativeForm();
                 loadImperatives();
+            }
+
+            if (tabName === 'notes') {
+                loadMyServiceNotes();
             }
 
             if (tabName === 'km') {
@@ -3804,6 +3895,163 @@
 
         // Fonction pour activer l'onglet acompte (appelée par l'admin)
         // Note: Cette fonction n'est plus utilisée car l'affichage est maintenant géré par le paramètre
+        let pendingServiceNotes = [];
+        let snSignDrawn = false;
+        let snSignDrawing = false;
+
+        function formatServiceNoteDate(value) {
+            if (!value) return '';
+            return new Date(value).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' });
+        }
+
+        async function authFetch(url, options = {}) {
+            const token = localStorage.getItem('employeeToken');
+            const headers = Object.assign({}, options.headers || {}, {
+                Authorization: `Bearer ${token}`
+            });
+            return fetch(url, Object.assign({}, options, { headers }));
+        }
+
+        async function loadPendingServiceNotes() {
+            try {
+                const response = await authFetch(`${API_URL}/service-notes/mine/pending`);
+                const data = await response.json();
+                pendingServiceNotes = Array.isArray(data.notes) ? data.notes : [];
+                renderServiceNoteGate();
+            } catch (error) {
+                console.warn('Notes de service:', error);
+            }
+        }
+
+        async function loadMyServiceNotes() {
+            const wrap = document.getElementById('notesList');
+            if (!wrap) return;
+            wrap.textContent = 'Chargement des notes…';
+            try {
+                const response = await authFetch(`${API_URL}/service-notes/mine`);
+                const data = await response.json();
+                const notes = Array.isArray(data.notes) ? data.notes : [];
+                if (!notes.length) {
+                    wrap.innerHTML = '<p>Aucune note de service pour le moment.</p>';
+                    return;
+                }
+                wrap.innerHTML = notes.map((note) => {
+                    const pending = !note.signedAt;
+                    const meta = pending
+                        ? 'À signer'
+                        : `Signée le ${escapeHtml(formatServiceNoteDate(note.signedAt))}`;
+                    return `<article class="sn-note-card${pending ? ' is-pending' : ''}">
+                        <strong>${escapeHtml(note.title || 'Note de service')}</strong>
+                        <div><small>${escapeHtml(formatServiceNoteDate(note.createdAt))} · ${meta}</small></div>
+                        <div class="sn-note-content">${escapeHtml(note.content || '')}</div>
+                    </article>`;
+                }).join('');
+            } catch (error) {
+                wrap.innerHTML = '<p>Impossible de charger les notes de service.</p>';
+            }
+        }
+
+        function bindServiceNotePad() {
+            const canvas = document.getElementById('snSignCanvas');
+            if (!canvas) return;
+            snSignDrawn = false;
+            snSignDrawing = false;
+            const ctx = canvas.getContext('2d');
+            const ratio = window.devicePixelRatio || 1;
+            const cssWidth = canvas.clientWidth || 360;
+            const cssHeight = 160;
+            canvas.width = Math.floor(cssWidth * ratio);
+            canvas.height = Math.floor(cssHeight * ratio);
+            ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, cssWidth, cssHeight);
+            ctx.strokeStyle = '#111827';
+            ctx.lineWidth = 2.4;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            const pos = (event) => {
+                const rect = canvas.getBoundingClientRect();
+                const point = (event.touches && event.touches[0]) || event;
+                return { x: point.clientX - rect.left, y: point.clientY - rect.top };
+            };
+            const start = (event) => {
+                event.preventDefault();
+                snSignDrawing = true;
+                if (canvas.setPointerCapture && event.pointerId != null) {
+                    try { canvas.setPointerCapture(event.pointerId); } catch (err) { /* ignore */ }
+                }
+                const p = pos(event);
+                ctx.beginPath();
+                ctx.moveTo(p.x, p.y);
+            };
+            const move = (event) => {
+                if (!snSignDrawing) return;
+                event.preventDefault();
+                const p = pos(event);
+                ctx.lineTo(p.x, p.y);
+                ctx.stroke();
+                snSignDrawn = true;
+            };
+            const end = (event) => {
+                if (!snSignDrawing) return;
+                event.preventDefault();
+                snSignDrawing = false;
+            };
+            canvas.onpointerdown = start;
+            canvas.onpointermove = move;
+            canvas.onpointerup = end;
+            canvas.onpointercancel = end;
+            canvas.onpointerleave = end;
+        }
+
+        function renderServiceNoteGate() {
+            const gate = document.getElementById('serviceNoteGate');
+            if (!gate) return;
+            const note = pendingServiceNotes[0];
+            if (!note) {
+                gate.classList.remove('is-open');
+                return;
+            }
+            document.getElementById('snGateKicker').textContent = pendingServiceNotes.length > 1
+                ? `Note de service · 1 / ${pendingServiceNotes.length}`
+                : 'Note de service';
+            document.getElementById('snGateTitle').textContent = note.title || 'Note de service';
+            document.getElementById('snGateMeta').textContent = formatServiceNoteDate(note.createdAt);
+            document.getElementById('snGateContent').textContent = note.content || '';
+            gate.classList.add('is-open');
+            window.setTimeout(bindServiceNotePad, 40);
+            authFetch(`${API_URL}/service-notes/${note.id}/viewed`, { method: 'POST' }).catch(() => {});
+        }
+
+        function clearServiceNoteSignature() {
+            bindServiceNotePad();
+        }
+
+        async function submitServiceNoteSignature() {
+            const note = pendingServiceNotes[0];
+            const canvas = document.getElementById('snSignCanvas');
+            if (!note || !canvas) return;
+            if (!snSignDrawn) {
+                alert('Signez d’abord dans le cadre, puis validez.');
+                return;
+            }
+            try {
+                const response = await authFetch(`${API_URL}/service-notes/${note.id}/sign`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ signatureDataUrl: canvas.toDataURL('image/png') })
+                });
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.error || 'Signature impossible');
+                pendingServiceNotes.shift();
+                renderServiceNoteGate();
+                const list = document.getElementById('notesList');
+                if (list) loadMyServiceNotes();
+            } catch (error) {
+                alert(error.message || 'Impossible d’enregistrer la signature');
+            }
+        }
+
         function enableAdvanceTab() {
             const advanceTab = document.getElementById('advance-tab');
             if (advanceTab) {

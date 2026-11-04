@@ -127,6 +127,15 @@ menuPermissionsSchema.statics.createDefaultPermissions = async function() {
         order: 5.1
       },
       {
+        menuId: 'notes-de-service',
+        menuName: 'Note de service',
+        menuPath: '/notes-de-service',
+        isVisibleToAdmin: false,
+        isVisibleToEmployee: true,
+        requiredPermissions: [],
+        order: 5.2
+      },
+      {
         menuId: 'parameters',
         menuName: 'Paramètres',
         menuPath: '/parameters',

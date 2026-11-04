@@ -136,6 +136,7 @@ const Sidebar = () => {
         { menuId: 'staff-planning', isVisibleToAdmin: true, isVisibleToEmployee: true },
         { menuId: 'sales-stats', isVisibleToAdmin: true, isVisibleToEmployee: true },
         { menuId: 'message-vente', isVisibleToAdmin: true, isVisibleToEmployee: true },
+        { menuId: 'notes-de-service', isVisibleToAdmin: false, isVisibleToEmployee: true },
         { menuId: 'absences', isVisibleToAdmin: true, isVisibleToEmployee: true },
         { menuId: 'meal-expenses', isVisibleToAdmin: true, isVisibleToEmployee: true },
         { menuId: 'km-expenses', isVisibleToAdmin: true, isVisibleToEmployee: true },
@@ -178,6 +179,7 @@ const Sidebar = () => {
         { menuId: 'staff-planning', isVisibleToAdmin: false, isVisibleToEmployee: true },
         { menuId: 'sales-stats', isVisibleToAdmin: false, isVisibleToEmployee: true },
         { menuId: 'message-vente', isVisibleToAdmin: false, isVisibleToEmployee: true },
+        { menuId: 'notes-de-service', isVisibleToAdmin: false, isVisibleToEmployee: true },
         { menuId: 'absences', isVisibleToAdmin: false, isVisibleToEmployee: true },
         { menuId: 'meal-expenses', isVisibleToAdmin: false, isVisibleToEmployee: true },
         { menuId: 'km-expenses', isVisibleToAdmin: false, isVisibleToEmployee: false },
@@ -275,7 +277,9 @@ const Sidebar = () => {
               if (user.role === 'employee') {
                 merged.push({
                   ...def,
-                  isVisibleToEmployee: def.menuId === 'planning-imperative' ? !!def.isVisibleToEmployee : false
+                  isVisibleToEmployee: ['planning-imperative', 'notes-de-service'].includes(def.menuId)
+                    ? !!def.isVisibleToEmployee
+                    : false
                 });
               } else {
                 merged.push(def);
@@ -309,6 +313,7 @@ const Sidebar = () => {
     { path: '/planning', label: 'Génération du planning', icon: '🎯', menuId: 'planning' },
     { path: '/sales-stats', label: 'Stats Vente', icon: '💰', menuId: 'sales-stats' },
     { path: '/message-vente', label: 'Message', icon: '✉️', menuId: 'message-vente' },
+    { path: '/notes-de-service', label: 'Note de service', icon: '📝', menuId: 'notes-de-service' },
     { path: '/absences', label: 'État des absences', icon: '📈', menuId: 'absences' },
     { path: '/meal-expenses', label: 'Frais Repas', icon: '🍽️', menuId: 'meal-expenses' },
     { path: '/km-expenses', label: 'Frais KM', icon: '🚗', menuId: 'km-expenses' },
@@ -351,7 +356,7 @@ const Sidebar = () => {
       return true;
 
     // Nouveau menu salarié : visible tant que l’API n’a pas encore renvoyé la permission
-    if (menuId === 'planning-imperative' && !isAdmin()) {
+    if ((menuId === 'planning-imperative' || menuId === 'notes-de-service') && !isAdmin()) {
       const permission = menuPermissions.find((p) => p.menuId === menuId);
       if (!permission) return true;
     }

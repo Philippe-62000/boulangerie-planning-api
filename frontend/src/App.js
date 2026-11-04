@@ -56,6 +56,10 @@ import StocksTGT from './pages/StocksTGT';
 import StocksMillAnge from './pages/StocksMillAnge';
 import StocksBoissons from './pages/StocksBoissons';
 import MessageVente from './pages/MessageVente';
+import MessageVenteHub from './pages/MessageVenteHub';
+import ServiceNotesAdmin from './pages/ServiceNotesAdmin';
+import ServiceNotesEmployee from './pages/ServiceNotesEmployee';
+import ServiceNoteGate from './components/ServiceNoteGate';
 import MerieuxDocuments from './pages/MerieuxDocuments';
 import CommandeMail from './pages/CommandeMail';
 import CommandeMailStandalone from './pages/CommandeMailStandalone';
@@ -82,6 +86,7 @@ const AppContent = () => {
       <div className="app-container">
         <Sidebar />
         <main className="app-main">
+          <ServiceNoteGate />
           <Routes>
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
             <Route path="/dashboard" element={
@@ -129,7 +134,26 @@ const AppContent = () => {
             <Route path="/message-vente" element={
               <ProtectedRoute>
                 <MenuPermissionGate menuId="message-vente">
+                  <MessageVenteHub />
+                </MenuPermissionGate>
+              </ProtectedRoute>
+            } />
+            <Route path="/message-vente/imprimer" element={
+              <ProtectedRoute>
+                <MenuPermissionGate menuId="message-vente">
                   <MessageVente />
+                </MenuPermissionGate>
+              </ProtectedRoute>
+            } />
+            <Route path="/message-vente/diffuser" element={
+              <ProtectedRoute adminOnly={true}>
+                <ServiceNotesAdmin />
+              </ProtectedRoute>
+            } />
+            <Route path="/notes-de-service" element={
+              <ProtectedRoute>
+                <MenuPermissionGate menuId="notes-de-service">
+                  <ServiceNotesEmployee />
                 </MenuPermissionGate>
               </ProtectedRoute>
             } />
