@@ -1190,7 +1190,7 @@ const StaffPlanning = () => {
                     const staffing = categoryDayStaffing(group.rows);
                     return (
                       <tr className="sp-staffing-row">
-                        <td className="sp-staffing-label" title="Nombre de vendeurs présents / volume horaire salarié du jour">
+                        <td className="sp-staffing-label" title="Nombre de vendeurs présents en magasin / volume horaire de présence (hors CFA)">
                           Effectif / heures
                         </td>
                         {staffing.days.map((item) => (
@@ -1202,7 +1202,7 @@ const StaffPlanning = () => {
                             {formatStaffingCell(item.count, item.hours)}
                           </td>
                         ))}
-                        <td className="sp-staffing-cell" title="Volume horaire vendeurs de la semaine">
+                        <td className="sp-staffing-cell" title="Volume horaire de présence en magasin sur la semaine (hors CFA)">
                           {formatHours(staffing.weekHours)}
                         </td>
                       </tr>

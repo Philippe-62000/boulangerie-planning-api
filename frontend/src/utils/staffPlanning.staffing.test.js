@@ -1,5 +1,6 @@
 import assert from 'assert';
 import {
+  isCfaDay,
   isShopStaffedDay,
   categoryDayStaffing,
   clockToMinutes,
@@ -15,6 +16,14 @@ assert.strictEqual(isShopStaffedDay({ kind: 'code', code: 'REPOS', paidHours: 0 
 assert.strictEqual(isShopStaffedDay({ kind: 'code', code: 'CFA8', paidHours: 8 }), false);
 assert.strictEqual(isShopStaffedDay({ kind: 'code', code: 'CP', paidHours: 0, cpHours: 5.83 }), false);
 assert.strictEqual(isShopStaffedDay({ kind: 'empty', paidHours: 0 }), false);
+assert.strictEqual(isCfaDay({ kind: 'code', code: 'CFA8', paidHours: 8 }), true);
+assert.strictEqual(isShopStaffedDay({ kind: 'hours', code: 'CFA8', paidHours: 8 }), false);
+assert.strictEqual(isShopStaffedDay({
+  kind: 'shifts',
+  paidHours: 8,
+  isCfa: true,
+  shifts: [{ startTime: '08:00', endTime: '16:00' }]
+}), false);
 
 const rows = [
   {
@@ -77,5 +86,30 @@ assert.strictEqual(categoryDayStaffing(coveredRows).days[0].closeCount, 2);
 
 const missingClose = coveredRows.slice(0, 2);
 assert.strictEqual(categoryDayStaffing(missingClose).days[0].covered, false);
+
+const withCfa = categoryDayStaffing([
+  {
+    employeeName: 'Apprenti',
+    days: [{
+      day: 'Lundi',
+      kind: 'shifts',
+      paidHours: 8,
+      isCfa: true,
+      shifts: [{ startTime: '06:00', endTime: '14:00' }]
+    }]
+  },
+  {
+    employeeName: 'Vendeur',
+    days: [{
+      day: 'Lundi',
+      kind: 'shifts',
+      paidHours: 7,
+      shifts: [{ startTime: '13:00', endTime: '20:30' }]
+    }]
+  }
+]);
+assert.strictEqual(withCfa.days[0].count, 1);
+assert.strictEqual(formatHours(withCfa.days[0].hours), '7h');
+assert.strictEqual(withCfa.days[0].openCount, 0);
 
 console.log('staffPlanning staffing tests OK');
