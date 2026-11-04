@@ -126,6 +126,12 @@ const emptyEditor = {
   applyToWeek: false
 };
 
+function previewPlanningNote(text, max = 140) {
+  const value = String(text || '').trim();
+  if (!value) return '';
+  return value.length > max ? `${value.slice(0, max - 1)}…` : value;
+}
+
 function formatSnapshotOption(item) {
   if (!item?.savedAt) return 'Version';
   const parts = new Intl.DateTimeFormat('fr-FR', {
@@ -163,6 +169,7 @@ const StaffPlanning = () => {
   const [teamModal, setTeamModal] = useState(false);
   const [teamSelected, setTeamSelected] = useState([]);
   const [statsModal, setStatsModal] = useState(null);
+  const [noteModal, setNoteModal] = useState(null);
   const [layer, setLayer] = useState('forecast');
   const [lock, setLock] = useState({ today: todayIsoParis(), weekFinished: false, finishedDates: [] });
   const [dragId, setDragId] = useState(null);
@@ -671,14 +678,52 @@ const StaffPlanning = () => {
   const openEmployeeMenu = (event, row) => {
     event.preventDefault();
     event.stopPropagation();
+    const liveNote = String(
+      row.planningNote
+      || (week?.rows || []).find((item) => String(item.employeeId) === String(row.employeeId))?.planningNote
+      || ''
+    ).trim();
     setMenu({
       type: 'employee',
       employeeId: row.employeeId,
       employeeName: row.employeeName,
+      planningNote: liveNote,
       swapOpen: false,
       x: Math.min(event.clientX, window.innerWidth - 280),
-      y: Math.min(event.clientY, window.innerHeight - 420)
+      y: Math.min(event.clientY, window.innerHeight - 480)
     });
+  };
+
+  const openNote = (employeeId, employeeName, planningNote = '') => {
+    setMenu(null);
+    setNoteModal({ employeeId, employeeName, note: planningNote });
+  };
+
+  const saveNoteModal = async () => {
+    if (!canEdit || !noteModal) return;
+    setSaving(true);
+    try {
+      const response = await api.put(`/staff-planning/employee/${noteModal.employeeId}/note`, {
+        note: noteModal.note
+      });
+      const planningNote = response.data.planningNote || '';
+      const stamp = (rows) => (rows || []).map((row) => (
+        String(row.employeeId) === String(noteModal.employeeId)
+          ? { ...row, planningNote }
+          : row
+      ));
+      setWeek((current) => current && ({
+        ...current,
+        rows: stamp(current.rows),
+        actualRows: stamp(current.actualRows)
+      }));
+      setNoteModal(null);
+      toast.success(planningNote ? 'Note enregistrée' : 'Note effacée');
+    } catch (error) {
+      toast.error(error.response?.data?.error || 'Impossible d\'enregistrer la note');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const openTeamModal = (event) => {
@@ -1026,6 +1071,9 @@ const StaffPlanning = () => {
                             {row.isMinor && (
                               <span className="sp-minor-tag no-print" title="Salarié mineur : maximum 8h par jour">Mineur · 8h</span>
                             )}
+                            {String(row.planningNote || '').trim() && (
+                              <span className="sp-name-note no-print" title={row.planningNote}>Note</span>
+                            )}
                           </strong>
                           <small>{row.contractedHours}h</small>
                           <small
@@ -1165,6 +1213,9 @@ const StaffPlanning = () => {
           onClick={(event) => event.stopPropagation()}
         >
           <p className="sp-ctx-title">{menu.employeeName}</p>
+          {previewPlanningNote(menu.planningNote) && (
+            <p className="sp-ctx-note">{previewPlanningNote(menu.planningNote)}</p>
+          )}
           {(() => {
             const ack = (week?.acknowledgements || []).find((item) => String(item.employeeId) === String(menu.employeeId));
             const signed = (week?.actualSignatures || []).find((item) => String(item.employeeId) === String(menu.employeeId));
@@ -1251,6 +1302,9 @@ const StaffPlanning = () => {
           <button type="button" onClick={() => openStats(menu.employeeId, menu.employeeName)}>
             Statistiques
           </button>
+          <button type="button" onClick={() => openNote(menu.employeeId, menu.employeeName, menu.planningNote)}>
+            Note
+          </button>
         </div>
       )}
 
@@ -1307,6 +1361,39 @@ const StaffPlanning = () => {
               </button>
               <button type="button" className="btn btn-secondary" onClick={() => setTeamModal(false)} disabled={saving}>
                 Fermer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {noteModal && (
+        <div className="sp-modal-backdrop no-print" onClick={() => !saving && setNoteModal(null)}>
+          <div className="sp-modal" onClick={(e) => e.stopPropagation()}>
+            <h3>Note — {noteModal.employeeName}</h3>
+            <p className="sp-modal-help">
+              Informations visibles dans le menu du salarié, sur toutes les semaines.
+            </p>
+            <label className="sp-note-field">
+              Note
+              <textarea
+                className="form-control"
+                rows={6}
+                maxLength={2000}
+                value={noteModal.note}
+                readOnly={!canEdit}
+                onChange={(e) => setNoteModal((current) => current && ({ ...current, note: e.target.value }))}
+                placeholder="Ex. : préfère les matinées, ne pas proposer le mercredi soir…"
+              />
+            </label>
+            <div className="sp-modal-actions">
+              {canEdit && (
+                <button type="button" className="btn btn-primary" onClick={saveNoteModal} disabled={saving}>
+                  Enregistrer
+                </button>
+              )}
+              <button type="button" className="btn btn-secondary" onClick={() => setNoteModal(null)} disabled={saving}>
+                {canEdit ? 'Annuler' : 'Fermer'}
               </button>
             </div>
           </div>

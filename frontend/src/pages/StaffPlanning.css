@@ -287,6 +287,17 @@
   color: #334155;
 }
 
+.sp-ctx-note {
+  margin: 0 0.45rem 0.45rem;
+  padding: 0.4rem 0.5rem;
+  border-radius: 7px;
+  background: #fff7ed;
+  color: #9a3412;
+  font-size: 0.78rem;
+  line-height: 1.35;
+  white-space: pre-wrap;
+}
+
 .sp-ctx button {
   text-align: left;
   border: 0;
@@ -494,6 +505,24 @@
   font-weight: 700;
   vertical-align: middle;
   white-space: nowrap;
+}
+
+.sp-name-note {
+  display: inline-block;
+  margin-left: 0.4rem;
+  padding: 0.05rem 0.4rem;
+  border-radius: 999px;
+  background: #fff7ed;
+  color: #c2410c;
+  font-size: 0.68rem;
+  font-weight: 700;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+.sp-note-field textarea {
+  resize: vertical;
+  min-height: 7.5rem;
 }
 
 .sp-alert-minor {
@@ -973,7 +1002,8 @@
     -webkit-print-color-adjust: exact;
   }
 
-  .sp-minor-tag {
+  .sp-minor-tag,
+  .sp-name-note {
     display: none !important;
   }
 
