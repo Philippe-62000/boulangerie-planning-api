@@ -775,6 +775,34 @@ async function overlayPlanningImperatives(weekObj) {
   return weekObj;
 }
 
+async function overlayCfaDays(weekObj) {
+  if (!weekObj) return weekObj;
+  const dateMetas = [];
+  const seen = new Set();
+  for (const row of [...(weekObj.rows || []), ...(weekObj.actualRows || [])]) {
+    for (const day of row.days || []) {
+      if (!day?.date || seen.has(day.date)) continue;
+      seen.add(day.date);
+      dateMetas.push({ date: day.date, day: day.day });
+    }
+  }
+  if (!dateMetas.length) return weekObj;
+  const cfaMap = await cfaDatesByEmployee(dateMetas);
+  const stamp = (rows) => (rows || []).map((row) => {
+    const set = cfaMap.get(employeeIdKey(row.employeeId));
+    return {
+      ...row,
+      days: (row.days || []).map((day) => ({
+        ...day,
+        isCfa: !!(set && day.date && set.has(day.date)) || hours.isCfaCode(day.code)
+      }))
+    };
+  });
+  weekObj.rows = stamp(weekObj.rows);
+  weekObj.actualRows = stamp(weekObj.actualRows);
+  return weekObj;
+}
+
 async function publicWeek(week) {
   if (!week) return week;
   const obj = typeof week.toObject === 'function' ? week.toObject() : { ...week };
@@ -797,6 +825,11 @@ async function publicWeek(week) {
     await overlayPlanningImperatives(obj);
   } catch (error) {
     console.error('overlayPlanningImperatives', error);
+  }
+  try {
+    await overlayCfaDays(obj);
+  } catch (error) {
+    console.error('overlayCfaDays', error);
   }
   return obj;
 }

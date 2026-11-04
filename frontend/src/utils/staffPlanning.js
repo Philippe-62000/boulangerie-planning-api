@@ -510,8 +510,15 @@ export function clockToMinutes(value) {
   return hours * 60 + (Number.isFinite(mins) ? mins : 0);
 }
 
+export function isCfaDay(day) {
+  if (!day) return false;
+  if (day.isCfa) return true;
+  return String(day.code || '').trim().toUpperCase().startsWith('CFA');
+}
+
 export function isShopStaffedDay(day) {
-  if (!day || day.kind === 'empty' || day.kind === 'code') return false;
+  if (!day || isCfaDay(day)) return false;
+  if (day.kind === 'empty' || day.kind === 'code') return false;
   const paid = Number(day.paidHours) || 0;
   return paid > 0 && (day.kind === 'shifts' || day.kind === 'hours');
 }
