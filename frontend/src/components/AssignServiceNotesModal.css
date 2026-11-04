@@ -1,0 +1,59 @@
+.sn-assign-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgb(15 23 42 / 0.5);
+  z-index: 1100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+.sn-assign-card {
+  width: min(520px, 100%);
+  max-height: calc(100vh - 2rem);
+  overflow: auto;
+  background: #fff;
+  border-radius: 12px;
+  padding: 1.25rem;
+}
+
+.sn-assign-card h2 {
+  margin: 0 0 0.4rem;
+}
+
+.sn-assign-card p {
+  margin: 0 0 0.9rem;
+  color: #555;
+}
+
+.sn-assign-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  margin-bottom: 1rem;
+}
+
+.sn-assign-list label {
+  display: flex;
+  gap: 0.6rem;
+  align-items: flex-start;
+  padding: 0.45rem 0.5rem;
+  border: 1px solid #eee;
+  border-radius: 8px;
+}
+
+.sn-assign-list span {
+  display: flex;
+  flex-direction: column;
+}
+
+.sn-assign-list small {
+  color: #667;
+}
+
+.sn-assign-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}

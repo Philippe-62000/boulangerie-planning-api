@@ -1,0 +1,57 @@
+.mv-hub {
+  max-width: 840px;
+  margin: 0 auto;
+  padding: 1.5rem 1rem 3rem;
+}
+
+.mv-hub-header h1 {
+  margin: 0 0 0.35rem;
+  font-size: 1.75rem;
+  color: #2c1810;
+}
+
+.mv-hub-header p {
+  margin: 0 0 1.5rem;
+  color: #666;
+}
+
+.mv-hub-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 1rem;
+}
+
+.mv-hub-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  padding: 1.4rem 1.2rem;
+  background: #fff;
+  border: 1px solid #e4d8c8;
+  border-radius: 12px;
+  text-decoration: none;
+  color: inherit;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.04);
+}
+
+.mv-hub-card:hover {
+  border-color: #a67c52;
+  box-shadow: 0 4px 14px rgb(166 124 82 / 0.18);
+}
+
+.mv-hub-icon {
+  font-size: 1.8rem;
+}
+
+.mv-hub-card h2 {
+  margin: 0;
+  font-size: 1.15rem;
+  color: #2c1810;
+}
+
+.mv-hub-card p {
+  margin: 0;
+  color: #5f6b76;
+  line-height: 1.4;
+  font-size: 0.95rem;
+}

@@ -1,0 +1,150 @@
+.sn-admin {
+  max-width: 920px;
+  margin: 0 auto;
+  padding: 1.5rem 1rem 3rem;
+}
+
+.sn-admin-back {
+  margin: 0 0 0.4rem;
+}
+
+.sn-admin-back a {
+  color: #7a5a3a;
+  text-decoration: none;
+}
+
+.sn-admin-header h1 {
+  margin: 0 0 0.35rem;
+  font-size: 1.75rem;
+  color: #2c1810;
+}
+
+.sn-admin-header p {
+  margin: 0 0 1.25rem;
+  color: #666;
+}
+
+.sn-admin-form,
+.sn-admin-card {
+  background: #fff;
+  border: 1px solid #e4d8c8;
+  border-radius: 12px;
+  padding: 1rem 1.1rem;
+}
+
+.sn-admin-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  margin-bottom: 1.5rem;
+}
+
+.sn-admin-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.sn-admin-form span {
+  font-weight: 600;
+}
+
+.sn-admin-form input,
+.sn-admin-form select,
+.sn-admin-form textarea {
+  font: inherit;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid #cfc5b8;
+  border-radius: 8px;
+}
+
+.sn-admin-form textarea {
+  min-height: 160px;
+  resize: vertical;
+}
+
+.sn-admin-form small,
+.sn-admin-empty {
+  color: #888;
+}
+
+.sn-admin-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.sn-admin-list h2 {
+  margin: 0 0 0.75rem;
+  font-size: 1.15rem;
+}
+
+.sn-admin-card {
+  margin-bottom: 0.75rem;
+}
+
+.sn-admin-card-head {
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-start;
+}
+
+.sn-admin-toggle {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.15rem;
+  background: none;
+  border: 0;
+  padding: 0;
+  text-align: left;
+  cursor: pointer;
+}
+
+.sn-admin-toggle span {
+  color: #667;
+  font-size: 0.88rem;
+}
+
+.sn-admin-content {
+  white-space: pre-wrap;
+  background: #faf7f2;
+  padding: 0.8rem;
+  border-radius: 8px;
+}
+
+.sn-admin-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+}
+
+.sn-admin-table th,
+.sn-admin-table td {
+  border-bottom: 1px solid #eee;
+  padding: 0.4rem 0.35rem;
+  text-align: left;
+  vertical-align: middle;
+}
+
+.sn-admin-sign {
+  height: 42px;
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+}
+
+.sn-admin-assign {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+  margin-top: 0.85rem;
+}
+
+.sn-admin-assign select {
+  min-width: 200px;
+  padding: 0.45rem 0.6rem;
+  border-radius: 8px;
+  border: 1px solid #cfc5b8;
+}

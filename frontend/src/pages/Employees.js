@@ -8,6 +8,7 @@ import DeclarationModal from '../components/DeclarationModal';
 import DelayModal from '../components/DelayModal';
 import OnboardingOffboardingModal from '../components/OnboardingOffboardingModal';
 import UniformModal from '../components/UniformModal';
+import AssignServiceNotesModal from '../components/AssignServiceNotesModal';
 import './Employees.css';
 
 const Employees = () => {
@@ -27,6 +28,7 @@ const Employees = () => {
   const [advanceRequests, setAdvanceRequests] = useState([]);
   const [advanceStats, setAdvanceStats] = useState({});
   const [selectedAdvanceRequest, setSelectedAdvanceRequest] = useState(null);
+  const [assignNotesEmployee, setAssignNotesEmployee] = useState(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -195,6 +197,7 @@ const Employees = () => {
         const response = await api.post('/employees', employeeData);
         console.log('✅ Réponse API:', response.data);
         toast.success('Employé ajouté avec succès');
+        if (response.data?._id) setAssignNotesEmployee(response.data);
       }
       fetchEmployees();
       setShowModal(false);
@@ -531,6 +534,13 @@ const Employees = () => {
             />
           </div>
         </div>
+      )}
+
+      {assignNotesEmployee && (
+        <AssignServiceNotesModal
+          employee={assignNotesEmployee}
+          onClose={() => setAssignNotesEmployee(null)}
+        />
       )}
 
       <div className="card">
