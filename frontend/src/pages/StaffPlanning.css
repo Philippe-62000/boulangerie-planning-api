@@ -974,9 +974,7 @@
   }
 
   .sp-minor-tag {
-    color: #b91c1c;
-    border: 1px solid #b91c1c;
-    background: #fff;
+    display: none !important;
   }
 
   .sp-ferie-check input {
@@ -988,7 +986,11 @@
   }
 
   .sp-cell-imperative {
-    color: #9a3412;
+    display: none !important;
+  }
+
+  .sp-cell-imperative-day {
+    box-shadow: none;
   }
 
   .sp-row-mine .sp-name {
