@@ -299,6 +299,13 @@ const employeeSchema = new mongoose.Schema({
     type: Boolean,
     default: true
   },
+  /** Note libre affichée dans le menu du salarié sur le planning */
+  staffPlanningNote: {
+    type: String,
+    default: '',
+    trim: true,
+    maxlength: 2000
+  },
   createdAt: {
     type: Date,
     default: Date.now

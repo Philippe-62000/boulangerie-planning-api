@@ -11,6 +11,7 @@ const hours = require('../services/staffPlanningHours');
 const frenchHolidays = require('../utils/frenchPublicHolidays');
 const { findEmployeeByPersonName } = require('../utils/personName');
 const { cfaDatesByEmployee } = require('../utils/apprenticeCfaDates');
+const { sanitizePlanningNote } = require('../utils/staffPlanningNote');
 
 function settingsPlain(doc) {
   const json = doc.toObject ? doc.toObject() : doc;
@@ -695,6 +696,23 @@ function employeeIdKey(value) {
   return String(value);
 }
 
+async function planningNoteMap(week) {
+  const ids = [];
+  for (const row of [...(week?.rows || []), ...(week?.actualRows || [])]) {
+    const id = employeeIdKey(row.employeeId);
+    if (id) ids.push(id);
+  }
+  const objectIds = [...new Set(ids)]
+    .filter((id) => mongoose.Types.ObjectId.isValid(id))
+    .map((id) => new mongoose.Types.ObjectId(id));
+  if (!objectIds.length) return new Map();
+  const employees = await Employee.find({ _id: { $in: objectIds } }).select('staffPlanningNote').lean();
+  return new Map(employees.map((item) => [
+    String(item._id),
+    sanitizePlanningNote(item.staffPlanningNote)
+  ]));
+}
+
 async function recupBalanceMap(week) {
   const ids = [];
   for (const row of [...(week?.rows || []), ...(week?.actualRows || [])]) {
@@ -762,9 +780,16 @@ async function publicWeek(week) {
   const obj = typeof week.toObject === 'function' ? week.toObject() : { ...week };
   obj.forecastSnapshots = forecastSnapshotSummaries(obj);
   const map = await recupBalanceMap(obj);
+  let notes = new Map();
+  try {
+    notes = await planningNoteMap(obj);
+  } catch (error) {
+    console.error('planningNoteMap', error);
+  }
   const stamp = (rows) => (rows || []).map((row) => ({
     ...row,
-    recupBalance: map.get(employeeIdKey(row.employeeId)) || 0
+    recupBalance: map.get(employeeIdKey(row.employeeId)) || 0,
+    planningNote: notes.get(employeeIdKey(row.employeeId)) || ''
   }));
   obj.rows = stamp(obj.rows);
   obj.actualRows = stamp(obj.actualRows);
@@ -1896,6 +1921,34 @@ const toggleHoliday = async (req, res) => {
   }
 };
 
+const updateEmployeePlanningNote = async (req, res) => {
+  try {
+    if (!requireAdmin(req, res)) return;
+    const employeeId = String(req.params.employeeId || '');
+    if (!employeeId || !mongoose.Types.ObjectId.isValid(employeeId)) {
+      return res.status(400).json({ success: false, error: 'Salarié requis' });
+    }
+    const planningNote = sanitizePlanningNote(req.body?.note);
+    const employee = await Employee.findByIdAndUpdate(
+      employeeId,
+      { $set: { staffPlanningNote: planningNote, updatedAt: new Date() } },
+      { new: true, select: 'name staffPlanningNote' }
+    ).lean();
+    if (!employee) {
+      return res.status(404).json({ success: false, error: 'Salarié introuvable' });
+    }
+    res.json({
+      success: true,
+      employeeId: String(employee._id),
+      employeeName: employee.name || '',
+      planningNote: sanitizePlanningNote(employee.staffPlanningNote)
+    });
+  } catch (error) {
+    console.error('staff-planning employee note', error);
+    res.status(500).json({ success: false, error: 'Impossible d\'enregistrer la note' });
+  }
+};
+
 const getEmployeeStats = async (req, res) => {
   try {
     const employeeId = String(req.params.employeeId || '');
@@ -2428,6 +2481,7 @@ module.exports = {
   toggleHoliday,
   getMonthCounters,
   getEmployeeStats,
+  updateEmployeePlanningNote,
   acknowledgeWeek,
   signActualWeek,
   createActualWeek,

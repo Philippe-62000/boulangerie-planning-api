@@ -11,6 +11,7 @@ router.put('/settings', controller.updateSettings);
 router.get('/published', controller.getPublishedWeek);
 router.get('/month-counters', controller.getMonthCounters);
 router.get('/stats/:employeeId', controller.getEmployeeStats);
+router.put('/employee/:employeeId/note', controller.updateEmployeePlanningNote);
 router.get('/month-recap', controller.getMonthRecap);
 router.put('/reorder', controller.reorderEmployees);
 router.get('/week/:year/:week', controller.getWeek);
