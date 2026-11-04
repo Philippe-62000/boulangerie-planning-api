@@ -1024,7 +1024,7 @@ const StaffPlanning = () => {
                           <strong>
                             {row.employeeName}
                             {row.isMinor && (
-                              <span className="sp-minor-tag" title="Salarié mineur : maximum 8h par jour">Mineur · 8h</span>
+                              <span className="sp-minor-tag no-print" title="Salarié mineur : maximum 8h par jour">Mineur · 8h</span>
                             )}
                           </strong>
                           <small>{row.contractedHours}h</small>
@@ -1101,7 +1101,7 @@ const StaffPlanning = () => {
                                 <div className="sp-cell-holiday-hint">Férié</div>
                               )}
                               {imperativeLabel && (
-                                <div className="sp-cell-imperative">{imperativeLabel}</div>
+                                <div className="sp-cell-imperative no-print">{imperativeLabel}</div>
                               )}
                               {day?.alerts?.length > 0 && <div className="sp-cell-flag">!</div>}
                               {pauseLine && (
