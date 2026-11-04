@@ -411,6 +411,13 @@ export function buildShopPrintHtml({ weekNumber, dates = [], rows = [], holidayD
     if (row._group) {
       return `<tr class="sp-print-group"><th colspan="9">${row.groupLabel || row.label || ''}</th></tr>`;
     }
+    if (row._staffing) {
+      const staffing = categoryDayStaffing(row.rows);
+      const cells = staffing.days.map((item) => (
+        `<td class="staffing ${item.covered ? 'staffing-ok' : 'staffing-bad'}">${formatStaffingCell(item.count, item.hours)}</td>`
+      )).join('');
+      return `<tr class="staffing-row"><th>Effectif / heures</th>${cells}<td class="staffing">${formatHours(staffing.weekHours)}</td></tr>`;
+    }
     const cells = DAYS.map((dayName) => {
       const day = (row.days || []).find((item) => item.day === dayName);
       const label = (cellLabel(day) || '—').replace(/\n/g, '<br>');
@@ -450,6 +457,10 @@ export function buildShopPrintHtml({ weekNumber, dates = [], rows = [], holidayD
   .hrs { font-size: 9px; color: #333; }
   .minor-over { box-shadow: inset 0 0 0 2px #dc2626; }
   .minor { margin-top: 3px; font-size: 9px; font-weight: 700; color: #b91c1c; }
+  .staffing-row th, .staffing-row td { background: #eef2ff; font-weight: 700; height: auto; }
+  .staffing { font-size: 10px; white-space: nowrap; }
+  .staffing-ok { background: #bbf7d0; color: #14532d; }
+  .staffing-bad { background: #fecaca; color: #991b1b; }
 </style></head><body>
 <h1>${title} semaine ${weekNumber} — ${range}</h1>
 <table>
@@ -484,11 +495,92 @@ export function groupRowsByCategory(rows = [], employeeOrder = []) {
   })).filter((group) => group.rows.length);
 }
 
+export const SHOP_OPEN_CLOCK = '06:00';
+export const SHOP_CLOSE_CLOCK = '20:30';
+const SHOP_OPEN_MINUTES = 6 * 60;
+const SHOP_CLOSE_MINUTES = 20 * 60 + 30;
+
+export function clockToMinutes(value) {
+  const raw = String(value || '').trim().toLowerCase().replace('h', ':');
+  if (!raw) return null;
+  const [h, m = '0'] = raw.split(':');
+  const hours = Number.parseInt(h, 10);
+  const mins = Number.parseInt(m, 10);
+  if (!Number.isFinite(hours) || hours < 0) return null;
+  return hours * 60 + (Number.isFinite(mins) ? mins : 0);
+}
+
+export function isShopStaffedDay(day) {
+  if (!day || day.kind === 'empty' || day.kind === 'code') return false;
+  const paid = Number(day.paidHours) || 0;
+  return paid > 0 && (day.kind === 'shifts' || day.kind === 'hours');
+}
+
+export function dayShiftCoverage(day) {
+  const shifts = Array.isArray(day?.shifts) ? day.shifts : [];
+  let opens = false;
+  let closes = false;
+  for (const shift of shifts) {
+    if (clockToMinutes(shift.startTime) === SHOP_OPEN_MINUTES) opens = true;
+    if (clockToMinutes(shift.endTime) === SHOP_CLOSE_MINUTES) closes = true;
+  }
+  return { opens, closes };
+}
+
+export function isShopCoverageOk(openCount, closeCount) {
+  return (Number(openCount) || 0) >= 1 && (Number(closeCount) || 0) >= 2;
+}
+
+export function staffingCoverageTitle(item = {}) {
+  const open = Number(item.openCount) || 0;
+  const close = Number(item.closeCount) || 0;
+  const status = item.covered ? 'Couverture OK' : 'Couverture incomplète';
+  return `${status} — ouverture ${SHOP_OPEN_CLOCK.replace(':', 'h')} : ${open} · fermeture ${SHOP_CLOSE_CLOCK.replace(':', 'h')} : ${close}`;
+}
+
+export function categoryDayStaffing(rows = []) {
+  const days = DAYS.map((dayName) => {
+    let count = 0;
+    let minutes = 0;
+    let openCount = 0;
+    let closeCount = 0;
+    for (const row of rows || []) {
+      const day = (row.days || []).find((item) => item.day === dayName);
+      if (!isShopStaffedDay(day)) continue;
+      count += 1;
+      minutes += Math.round((Number(day.paidHours) || 0) * 60);
+      const coverage = dayShiftCoverage(day);
+      if (coverage.opens) openCount += 1;
+      if (coverage.closes) closeCount += 1;
+    }
+    return {
+      day: dayName,
+      count,
+      hours: minutes / 60,
+      openCount,
+      closeCount,
+      covered: isShopCoverageOk(openCount, closeCount)
+    };
+  });
+  const weekMinutes = days.reduce((sum, item) => sum + Math.round(item.hours * 60), 0);
+  return { days, weekHours: weekMinutes / 60 };
+}
+
+export function formatStaffingCell(count, hours) {
+  return `${Number(count) || 0} / ${formatHours(hours)}`;
+}
+
 export function flattenGroupedPlanningRows(groups = []) {
-  return (groups || []).flatMap((group) => [
-    { _group: true, groupLabel: group.label },
-    ...(group.rows || [])
-  ]);
+  return (groups || []).flatMap((group) => {
+    const items = [
+      { _group: true, groupLabel: group.label },
+      ...(group.rows || [])
+    ];
+    if (group.id === 'vente' && (group.rows || []).length) {
+      items.push({ _staffing: true, groupId: 'vente', rows: group.rows });
+    }
+    return items;
+  });
 }
 
 export function recapWeeksFromDays(days = [], settings) {

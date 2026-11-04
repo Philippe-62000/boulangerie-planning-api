@@ -616,6 +616,31 @@
   padding: 0.45rem 0.6rem;
 }
 
+.sp-staffing-row td {
+  background: #eef2ff;
+  color: #1e3a8a;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+  padding: 0.4rem 0.3rem;
+  white-space: nowrap;
+}
+
+.sp-staffing-label {
+  text-align: left !important;
+  font-size: 0.82rem;
+}
+
+.sp-staffing-ok {
+  background: #bbf7d0 !important;
+  color: #14532d;
+}
+
+.sp-staffing-bad {
+  background: #fecaca !important;
+  color: #991b1b;
+}
+
 .sp-cell-locked {
   opacity: 0.72;
   cursor: default;
@@ -974,6 +999,19 @@
 
   .sp-cell {
     height: 52px;
+  }
+
+  .sp-staffing-row td {
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+
+  .sp-staffing-ok {
+    background: #bbf7d0 !important;
+  }
+
+  .sp-staffing-bad {
+    background: #fecaca !important;
   }
 
   .sp-pause-line {

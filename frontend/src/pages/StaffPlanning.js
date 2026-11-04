@@ -36,6 +36,9 @@ import {
   formatActualReminderConfirm,
   formatTestModeSendNote,
   flattenGroupedPlanningRows,
+  formatStaffingCell,
+  categoryDayStaffing,
+  staffingCoverageTitle,
   groupRowsByCategory,
   isIsoDayFinished,
   listPlanningSendExclusions,
@@ -1183,6 +1186,28 @@ const StaffPlanning = () => {
                       </tr>
                     );
                   })}
+                  {group.id === 'vente' && group.rows.length > 0 && (() => {
+                    const staffing = categoryDayStaffing(group.rows);
+                    return (
+                      <tr className="sp-staffing-row">
+                        <td className="sp-staffing-label" title="Nombre de vendeurs présents / volume horaire salarié du jour">
+                          Effectif / heures
+                        </td>
+                        {staffing.days.map((item) => (
+                          <td
+                            key={item.day}
+                            className={`sp-staffing-cell ${item.covered ? 'sp-staffing-ok' : 'sp-staffing-bad'}`}
+                            title={staffingCoverageTitle(item)}
+                          >
+                            {formatStaffingCell(item.count, item.hours)}
+                          </td>
+                        ))}
+                        <td className="sp-staffing-cell" title="Volume horaire vendeurs de la semaine">
+                          {formatHours(staffing.weekHours)}
+                        </td>
+                      </tr>
+                    );
+                  })()}
                 </React.Fragment>
               ))}
             </tbody>
