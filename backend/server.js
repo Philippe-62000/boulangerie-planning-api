@@ -246,6 +246,7 @@ app.use('/api/employee-messages', require('./routes/employeeMessages'));
 app.use('/api/service-notes', require('./routes/serviceNotes'));
 app.use('/api/recup-hours', require('./routes/recupHours'));
 app.use('/api/planning-imperatives', require('./routes/planningImperatives'));
+app.use('/api/work-posts', require('./routes/workPosts'));
 app.use('/api/ambassadors', require('./routes/ambassadors'));
 app.use('/api/online-orders', require('./routes/onlineOrders'));
 app.use('/api/partner-auth', require('./routes/partnerAuth'));

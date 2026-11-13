@@ -59,6 +59,7 @@ import MessageVente from './pages/MessageVente';
 import MessageVenteHub from './pages/MessageVenteHub';
 import ServiceNotesAdmin from './pages/ServiceNotesAdmin';
 import ServiceNotesEmployee from './pages/ServiceNotesEmployee';
+import WorkPostFollowup from './pages/WorkPostFollowup';
 import ServiceNoteGate from './components/ServiceNoteGate';
 import MerieuxDocuments from './pages/MerieuxDocuments';
 import CommandeMail from './pages/CommandeMail';
@@ -155,6 +156,11 @@ const AppContent = () => {
                 <MenuPermissionGate menuId="notes-de-service">
                   <ServiceNotesEmployee />
                 </MenuPermissionGate>
+              </ProtectedRoute>
+            } />
+            <Route path="/suivi-poste" element={
+              <ProtectedRoute>
+                <WorkPostFollowup />
               </ProtectedRoute>
             } />
             <Route path="/absences" element={

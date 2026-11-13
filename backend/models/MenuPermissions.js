@@ -136,6 +136,15 @@ menuPermissionsSchema.statics.createDefaultPermissions = async function() {
         order: 5.2
       },
       {
+        menuId: 'suivi-poste',
+        menuName: 'Suivi poste de travail',
+        menuPath: '/suivi-poste',
+        isVisibleToAdmin: true,
+        isVisibleToEmployee: true,
+        requiredPermissions: [],
+        order: 5.25
+      },
+      {
         menuId: 'parameters',
         menuName: 'Paramètres',
         menuPath: '/parameters',

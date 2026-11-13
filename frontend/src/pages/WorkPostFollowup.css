@@ -1,0 +1,434 @@
+.wpf-page {
+  padding: 1.25rem 1.1rem 2.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  max-width: 860px;
+}
+
+.wpf-page.is-admin {
+  max-width: 1100px;
+}
+
+.wpf-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+.wpf-header h2,
+.wpf-card h3,
+.wpf-end h3,
+.wpf-group,
+.wpf-task h3,
+.wpf-modal h3 {
+  margin: 0;
+  color: #243044;
+}
+
+.wpf-header p,
+.wpf-muted,
+.wpf-task p,
+.wpf-admin-task p,
+.wpf-admin-task em {
+  margin: 0.3rem 0 0;
+  color: #5c6b7a;
+  line-height: 1.45;
+}
+
+.wpf-save {
+  margin: 0;
+  font-size: 0.92rem;
+  color: #5c6b7a;
+}
+
+.wpf-save.is-error,
+.wpf-banner.is-error {
+  color: #9f1239;
+}
+
+.wpf-card,
+.wpf-end,
+.wpf-sheet,
+.wpf-task,
+.wpf-admin-task {
+  background: #fff;
+  border: 1px solid #e4e9ef;
+  border-radius: 14px;
+}
+
+.wpf-card,
+.wpf-end {
+  padding: 1rem 1.05rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.wpf-banner {
+  margin: 0;
+  padding: 0.85rem 1rem;
+  border-radius: 12px;
+  background: #f8fafc;
+}
+
+.wpf-banner.is-error {
+  background: #fff1f2;
+}
+
+.wpf-banner.is-ok {
+  background: #ecfdf3;
+  color: #166534;
+}
+
+.wpf-postes,
+.wpf-tabs,
+.wpf-actions,
+.wpf-modal-actions,
+.wpf-filters,
+.wpf-datebar,
+.wpf-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+}
+
+.wpf-poste,
+.wpf-tab,
+.wpf-actions button,
+.wpf-primary,
+.wpf-secondary,
+.wpf-filters button {
+  border: 1px solid #d5dee8;
+  background: #fff;
+  border-radius: 12px;
+  cursor: pointer;
+  font: inherit;
+}
+
+.wpf-poste {
+  flex: 1 1 200px;
+  text-align: left;
+  padding: 0.8rem 0.9rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-height: 72px;
+}
+
+.wpf-poste span {
+  color: #64748b;
+  font-size: 0.88rem;
+}
+
+.wpf-poste.is-on,
+.wpf-tab.is-on,
+.wpf-filters button.is-on {
+  border-color: #1d4ed8;
+  background: #eff6ff;
+}
+
+.wpf-tabs {
+  position: sticky;
+  top: 76px;
+  z-index: 2;
+  background: #f4f6f8;
+  padding: 0.35rem 0;
+}
+
+.wpf-tab {
+  padding: 0.65rem 0.85rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.wpf-tab em {
+  font-style: normal;
+  min-width: 1.3rem;
+  height: 1.3rem;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  color: #fff;
+}
+
+.wpf-tab em.is-bad,
+.wpf-stats .is-bad,
+.wpf-sheet-head .is-bad {
+  background: #b42318;
+  color: #fff;
+}
+
+.wpf-tab em.is-wait {
+  background: #b45309;
+}
+
+.wpf-sheet-head .is-bad,
+.wpf-stats .is-bad,
+.wpf-stats .is-ok {
+  background: transparent;
+}
+
+.wpf-stats .is-ok,
+.wpf-sheet-head .is-ok {
+  color: #166534;
+}
+
+.wpf-stats .is-bad,
+.wpf-sheet-head .is-bad {
+  color: #b42318;
+}
+
+.wpf-tasks {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+}
+
+.wpf-group {
+  font-size: 1rem;
+  margin-top: 0.4rem;
+}
+
+.wpf-task {
+  padding: 0.9rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.wpf-task.is-done {
+  border-color: #b7ebc9;
+  background: #f3fbf6;
+}
+
+.wpf-task.is-not_done,
+.wpf-task.is-problem {
+  border-color: #f3b4bc;
+  background: #fff7f7;
+}
+
+.wpf-task.is-skipped {
+  border-color: #ead7a4;
+  background: #fffaf0;
+}
+
+.wpf-actions button,
+.wpf-primary,
+.wpf-secondary {
+  min-height: 44px;
+  padding: 0.45rem 0.9rem;
+}
+
+.wpf-actions button.is-done {
+  background: #157347;
+  color: #fff;
+  border-color: #157347;
+}
+
+.wpf-actions button.is-missed {
+  background: #b42318;
+  color: #fff;
+  border-color: #b42318;
+}
+
+.wpf-actions button.is-skip {
+  background: #8a6a2f;
+  color: #fff;
+  border-color: #8a6a2f;
+}
+
+.wpf-reason {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-weight: 600;
+}
+
+.wpf-reason textarea,
+.wpf-datebar input,
+.wpf-filters input {
+  font: inherit;
+  font-weight: 400;
+  border: 1px solid #d0d7de;
+  border-radius: 10px;
+  padding: 0.6rem 0.7rem;
+  width: 100%;
+}
+
+.wpf-reason textarea {
+  min-height: 76px;
+  resize: vertical;
+}
+
+.wpf-end {
+  background: #f8fafc;
+}
+
+.wpf-primary {
+  background: #1d4ed8;
+  color: #fff;
+  border-color: #1d4ed8;
+}
+
+.wpf-primary:disabled,
+.wpf-secondary:disabled,
+.wpf-actions button:disabled,
+.wpf-poste:disabled {
+  opacity: 0.65;
+  cursor: default;
+}
+
+.wpf-recap,
+.wpf-done ul,
+.wpf-modal ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.wpf-recap li,
+.wpf-done li {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.wpf-recap button {
+  border: none;
+  background: none;
+  padding: 0;
+  color: #9f1239;
+  font: inherit;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+}
+
+.wpf-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgb(15 23 42 / 0.45);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  z-index: 40;
+  padding: 1rem;
+}
+
+.wpf-modal {
+  background: #fff;
+  width: min(560px, 100%);
+  border-radius: 16px;
+  padding: 1.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+  max-height: 80vh;
+  overflow: auto;
+}
+
+.wpf-modal-actions {
+  justify-content: flex-end;
+}
+
+.wpf-toolbar {
+  gap: 0.8rem;
+}
+
+.wpf-datebar label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-weight: 600;
+}
+
+.wpf-datebar input {
+  width: auto;
+}
+
+.wpf-daytitle {
+  margin: 0;
+  text-transform: capitalize;
+  font-weight: 700;
+}
+
+.wpf-filters input {
+  flex: 1 1 180px;
+  width: auto;
+}
+
+.wpf-sheet-head {
+  width: 100%;
+  border: none;
+  background: transparent;
+  display: grid;
+  grid-template-columns: minmax(140px, 1.3fr) minmax(140px, 1.4fr) auto auto auto;
+  gap: 0.6rem;
+  align-items: center;
+  text-align: left;
+  padding: 0.9rem 1rem;
+  font: inherit;
+  cursor: pointer;
+}
+
+.wpf-sheet-body {
+  padding: 0 1rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.wpf-admin-task {
+  padding: 0.75rem 0.85rem;
+}
+
+.wpf-admin-task.is-not_done {
+  background: #fff7f7;
+  border-color: #f3b4bc;
+}
+
+.wpf-admin-task.is-pending {
+  background: #fffaf0;
+  border-color: #ead7a4;
+}
+
+.wpf-admin-task strong,
+.wpf-admin-task em {
+  display: block;
+}
+
+.wpf-admin-task em {
+  font-style: normal;
+  font-size: 0.86rem;
+}
+
+.wpf-done {
+  margin-top: 0.3rem;
+}
+
+.wpf-done summary {
+  cursor: pointer;
+  font-weight: 700;
+  color: #166534;
+}
+
+@media (max-width: 800px) {
+  .wpf-sheet-head {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (min-width: 720px) {
+  .wpf-modal-backdrop {
+    align-items: center;
+  }
+}
