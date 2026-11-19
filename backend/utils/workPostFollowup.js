@@ -1,4 +1,4 @@
-const { PHASES, TASKS, PHASE_IDS, TASK_BY_ID } = require('../constants/vendeuseWorkPosts');
+const { PHASES, TASKS, PHASE_IDS } = require('../constants/vendeuseWorkPosts');
 
 const VENDEUSE_ROLES = new Set(['vendeuse', 'Apprenti Vendeuse']);
 
@@ -20,25 +20,54 @@ function isVendeuseEmployee(employee) {
   return false;
 }
 
-function phaseLabel(phaseId) {
-  return PHASES.find((phase) => phase.id === phaseId)?.label || phaseId;
+function workPostRoleId(employee) {
+  if (!employee || employee.isActive === false) return '';
+  if (isVendeuseEmployee(employee)) return 'vente';
+  const role = String(employee.role || '').toLowerCase();
+  const category = String(employee.employeeCategory || '').toLowerCase();
+  if (category === 'boulanger' || role.includes('boulanger')) return 'boulanger';
+  if (
+    category === 'preparation'
+    || role.includes('préparateur')
+    || role.includes('preparateur')
+    || role === 'chef prod'
+  ) {
+    return 'preparateur';
+  }
+  return '';
 }
 
-function normalizePostes(rawPostes) {
+function phaseLabel(phaseId, phases = PHASES) {
+  return (phases || PHASES).find((phase) => phase.id === phaseId)?.label || phaseId;
+}
+
+function allowedPhaseIds(allowedIds) {
+  if (allowedIds instanceof Set) return allowedIds;
+  if (Array.isArray(allowedIds)) return new Set(allowedIds);
+  return PHASE_IDS;
+}
+
+function taskSource(tasks) {
+  return Array.isArray(tasks) ? tasks : TASKS;
+}
+
+function normalizePostes(rawPostes, allowedIds = PHASE_IDS) {
+  const allowed = allowedPhaseIds(allowedIds);
   const postes = [];
   for (const value of Array.isArray(rawPostes) ? rawPostes : []) {
     const id = String(value || '');
-    if (PHASE_IDS.has(id) && !postes.includes(id)) postes.push(id);
+    if (allowed.has(id) && !postes.includes(id)) postes.push(id);
   }
   return postes;
 }
 
-function normalizeAnswers(rawAnswers) {
+function normalizeAnswers(rawAnswers, tasks = TASKS) {
+  const byId = new Map(taskSource(tasks).map((task) => [task.id, task]));
   const answers = [];
   const seen = new Set();
   for (const raw of Array.isArray(rawAnswers) ? rawAnswers : []) {
     const taskId = String(raw?.taskId || raw?.id || '');
-    const task = TASK_BY_ID.get(taskId);
+    const task = byId.get(taskId);
     if (!task || seen.has(taskId)) continue;
     seen.add(taskId);
     let status = raw?.status;
@@ -52,15 +81,17 @@ function normalizeAnswers(rawAnswers) {
   return answers;
 }
 
-function dayIssues(postes, answers) {
-  const selected = new Set(normalizePostes(postes));
-  const byId = new Map(normalizeAnswers(answers).map((answer) => [answer.taskId, answer]));
+function dayIssues(postes, answers, tasks = TASKS, allowedIds) {
+  const source = taskSource(tasks);
+  const ids = allowedIds ? allowedPhaseIds(allowedIds) : new Set(source.map((task) => task.phase));
+  const selected = new Set(normalizePostes(postes, ids));
+  const byId = new Map(normalizeAnswers(answers, source).map((answer) => [answer.taskId, answer]));
   const pending = [];
   const missingReason = [];
   const notDone = [];
   const skipped = [];
   let done = 0;
-  const required = TASKS.filter((task) => selected.has(task.phase));
+  const required = source.filter((task) => selected.has(task.phase));
 
   for (const task of required) {
     const answer = byId.get(task.id);
@@ -90,8 +121,8 @@ function dayIssues(postes, answers) {
   };
 }
 
-function validationError(issues, postes) {
-  if (!normalizePostes(postes).length) {
+function validationError(issues, postes, allowedIds = PHASE_IDS) {
+  if (!normalizePostes(postes, allowedIds).length) {
     return 'Choisissez au moins un poste avant de valider la journée.';
   }
   if (issues.pending.length) {
@@ -103,9 +134,10 @@ function validationError(issues, postes) {
   return '';
 }
 
-function presentTasks(answers) {
-  const byId = new Map(normalizeAnswers(answers).map((answer) => [answer.taskId, answer]));
-  return TASKS.map((task) => {
+function presentTasks(answers, tasks = TASKS) {
+  const source = taskSource(tasks);
+  const byId = new Map(normalizeAnswers(answers, source).map((answer) => [answer.taskId, answer]));
+  return source.map((task) => {
     const answer = byId.get(task.id);
     return {
       id: task.id,
@@ -140,6 +172,7 @@ module.exports = {
   PHASES,
   todayIsoParis,
   isVendeuseEmployee,
+  workPostRoleId,
   phaseLabel,
   normalizePostes,
   normalizeAnswers,

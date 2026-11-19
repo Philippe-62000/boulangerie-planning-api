@@ -421,6 +421,143 @@
   color: #166534;
 }
 
+.wpf-admin-switch {
+  margin-bottom: 0.2rem;
+}
+
+.wpf-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+}
+
+.wpf-editor-block,
+.wpf-editor-menu,
+.wpf-editor-item {
+  background: #fff;
+  border: 1px solid #e4e9ef;
+  border-radius: 14px;
+}
+
+.wpf-editor-block {
+  padding: 0.9rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+}
+
+.wpf-editor-menu {
+  margin-left: 0.6rem;
+  padding: 0.75rem;
+  background: #f8fafc;
+}
+
+.wpf-editor-items {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 0.55rem;
+}
+
+.wpf-editor-item {
+  padding: 0.65rem;
+  background: #fff;
+}
+
+.wpf-editor-block.is-hidden,
+.wpf-editor-menu.is-hidden,
+.wpf-editor-item.is-hidden {
+  opacity: 0.62;
+}
+
+.wpf-editor-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.wpf-editor-row strong,
+.wpf-editor-row span {
+  line-height: 1.35;
+}
+
+.wpf-editor-row span {
+  color: #5c6b7a;
+  flex: 1 1 180px;
+}
+
+.wpf-editor-row input,
+.wpf-editor-form input,
+.wpf-editor-form textarea {
+  font: inherit;
+  border: 1px solid #d0d7de;
+  border-radius: 10px;
+  padding: 0.55rem 0.7rem;
+  min-width: 0;
+}
+
+.wpf-editor-row input {
+  flex: 1 1 180px;
+}
+
+.wpf-editor-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.wpf-editor-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  font-weight: 700;
+}
+
+.wpf-editor-form textarea {
+  min-height: 72px;
+}
+
+.wpf-check {
+  flex-direction: row !important;
+  align-items: center;
+  font-weight: 600 !important;
+}
+
+.wpf-order {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.wpf-order button,
+.wpf-editor-row > button,
+.wpf-editor-form button {
+  border: 1px solid #d5dee8;
+  background: #fff;
+  border-radius: 10px;
+  min-height: 36px;
+  padding: 0.3rem 0.65rem;
+  cursor: pointer;
+  font: inherit;
+}
+
+.wpf-editor-row > button.is-on,
+.wpf-order button:disabled,
+.wpf-editor-row > button:disabled {
+  cursor: default;
+}
+
+.wpf-editor-row > button.is-on {
+  background: #eff6ff;
+  border-color: #1d4ed8;
+  color: #1d4ed8;
+}
+
+.wpf-editor-row > button.is-danger {
+  color: #b42318;
+  border-color: #f3b4bc;
+}
+
 @media (max-width: 800px) {
   .wpf-sheet-head {
     grid-template-columns: 1fr 1fr;

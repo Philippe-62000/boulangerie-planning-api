@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import api from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
+import WorkPostMenus from './WorkPostMenus';
 import './WorkPostFollowup.css';
 
 function todayIsoParis() {
@@ -586,6 +587,7 @@ const WorkPostAdmin = () => {
   const [filter, setFilter] = useState('all');
   const [query, setQuery] = useState('');
   const [openIds, setOpenIds] = useState({});
+  const [panel, setPanel] = useState('day');
 
   const load = useCallback(async (date) => {
     setLoading(true);
@@ -632,10 +634,19 @@ const WorkPostAdmin = () => {
       <header className="wpf-header">
         <div>
           <h2>Suivi poste de travail</h2>
-          <p>Tâches des vendeuses : faites, non faites, et journées validées.</p>
+          <p>Journée des équipes, et réglage des menus affichés aux salariés.</p>
         </div>
       </header>
 
+      <div className="wpf-filters wpf-admin-switch">
+        <button type="button" className={panel === 'day' ? 'is-on' : ''} onClick={() => setPanel('day')}>Journée</button>
+        <button type="button" className={panel === 'menus' ? 'is-on' : ''} onClick={() => setPanel('menus')}>Menus et tâches</button>
+      </div>
+
+      {panel === 'menus' && <WorkPostMenus />}
+
+      {panel === 'day' && (
+      <>
       <section className="wpf-card wpf-toolbar">
         <div className="wpf-datebar">
           <button type="button" className="wpf-secondary" onClick={() => setDateIso((value) => shiftIso(value, -1))}>Jour précédent</button>
@@ -734,6 +745,8 @@ const WorkPostAdmin = () => {
           );
         })}
       </div>
+      </>
+      )}
     </div>
   );
 };

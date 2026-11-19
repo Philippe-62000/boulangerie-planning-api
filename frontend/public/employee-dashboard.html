@@ -1053,6 +1053,203 @@
             max-width: 1100px;
         }
 
+        .wp-phone-title {
+            font-size: 22px;
+            text-align: left;
+            margin: 0 0 4px;
+            color: #1f2937;
+        }
+
+        .wp-phone-sub,
+        .wp-status {
+            margin: 0 0 14px;
+            color: #4b5563;
+            line-height: 1.4;
+        }
+
+        .wp-status.is-error {
+            color: #9f1239;
+            font-weight: 700;
+        }
+
+        .wp-back {
+            display: inline-flex;
+            align-items: center;
+            margin: 0 0 14px;
+            padding: 8px 14px;
+            border: none;
+            border-radius: 999px;
+            background: #fff;
+            color: #1d4ed8;
+            font-size: 15px;
+            font-weight: 700;
+            cursor: pointer;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+        }
+
+        .wp-choice {
+            display: block;
+            width: 100%;
+            min-height: 68px;
+            margin: 0 0 10px;
+            padding: 14px 16px;
+            border: none;
+            border-radius: 12px;
+            background: #fff;
+            color: #1f2937;
+            font-size: 18px;
+            font-weight: 700;
+            text-align: left;
+            cursor: pointer;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12);
+        }
+
+        .wp-choice small {
+            display: block;
+            margin-top: 4px;
+            font-size: 13px;
+            font-weight: 600;
+            color: #64748b;
+        }
+
+        .wp-group {
+            margin: 8px 0 10px;
+            color: #fff;
+            font-size: 15px;
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+        }
+
+        .wp-task {
+            background: #fff;
+            border-radius: 12px;
+            padding: 14px;
+            margin-bottom: 12px;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12);
+        }
+
+        .wp-task.is-problem {
+            outline: 3px solid #e11d48;
+        }
+
+        .wp-task h3 {
+            font-size: 16px;
+            margin: 0 0 6px;
+        }
+
+        .wp-task p {
+            color: #4b5563;
+            font-size: 14px;
+            line-height: 1.4;
+            margin: 0;
+        }
+
+        .wp-actions {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin-top: 12px;
+        }
+
+        .wp-actions button,
+        .wp-primary,
+        .wp-secondary {
+            min-height: 48px;
+            width: 100%;
+            border-radius: 10px;
+            border: 1px solid #d1d5db;
+            background: #f8fafc;
+            font-size: 16px;
+            font-weight: 700;
+            cursor: pointer;
+        }
+
+        .wp-actions button.is-done {
+            background: #16a34a;
+            border-color: #16a34a;
+            color: #fff;
+        }
+
+        .wp-actions button.is-missed {
+            background: #e11d48;
+            border-color: #e11d48;
+            color: #fff;
+        }
+
+        .wp-actions button.is-skip {
+            background: #d97706;
+            border-color: #d97706;
+            color: #fff;
+        }
+
+        .wp-reason {
+            display: block;
+            margin-top: 12px;
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .wp-reason textarea {
+            width: 100%;
+            min-height: 80px;
+            margin-top: 6px;
+            padding: 10px;
+            border-radius: 10px;
+            border: 1px solid #d1d5db;
+        }
+
+        .wp-primary {
+            margin-top: 8px;
+            background: #007bff;
+            border-color: #007bff;
+            color: #fff;
+        }
+
+        .wp-secondary {
+            margin-top: 8px;
+            background: #fff;
+            color: #1f2937;
+        }
+
+        .wp-card {
+            background: #fff;
+            border-radius: 12px;
+            padding: 14px;
+            margin-bottom: 12px;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12);
+        }
+
+        .wp-card p,
+        .wp-card li {
+            font-size: 15px;
+            line-height: 1.4;
+        }
+
+        .wp-card ul {
+            margin: 8px 0 0 18px;
+        }
+
+        .phone-layout .wp-phone-title,
+        html:not(.force-pc) .wp-phone-title,
+        .phone-layout .wp-phone-sub,
+        html:not(.force-pc) .wp-phone-sub,
+        .phone-layout .wp-status,
+        html:not(.force-pc) .wp-status {
+            color: #fff;
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+        }
+
+        .phone-layout .wp-status.is-error,
+        html:not(.force-pc) .wp-status.is-error {
+            color: #ffe4e6;
+        }
+
+        .phone-layout.mobile-section-open .tab-content:has(#workpost-panel.active),
+        html:not(.force-pc).mobile-section-open .tab-content:has(#workpost-panel.active) {
+            background: transparent;
+            box-shadow: none;
+            min-height: 0;
+        }
+
         .emp-plan-nav {
             display: flex;
             gap: 8px;
@@ -1465,6 +1662,9 @@
             <button class="tab" onclick="switchTab('notes')">
                 📝 Note de service
             </button>
+            <button class="tab" onclick="openWorkPostFollowup()">
+                ✅ Suivi poste de travail
+            </button>
             <button class="tab" onclick="switchTab('km')">
                 🚗 Frais Kilométriques
             </button>
@@ -1809,6 +2009,10 @@
                 </div>
             </div>
 
+            <div class="tab-panel" id="workpost-panel">
+                <div id="wpPhone"></div>
+            </div>
+
             <!-- Onglet Mes Documents -->
             <div class="tab-panel" id="documents-panel">
                 <div class="form-container">
@@ -2080,6 +2284,7 @@
 
         // Vérifier l'authentification au chargement
         document.addEventListener('DOMContentLoaded', async () => {
+            clearEmployeeBridgeSession();
             applyDashboardLayout();
             try {
                 await checkAuthentication();
@@ -2207,6 +2412,21 @@
             }
         }
 
+        function clearEmployeeBridgeSession() {
+            try {
+                const raw = localStorage.getItem('userRole');
+                if (!raw) return;
+                const user = JSON.parse(raw);
+                if (!user || user.sessionKind === 'site' || user.role === 'admin') return;
+                const data = JSON.parse(localStorage.getItem('employeeData') || 'null');
+                const bridge = user.sessionKind === 'employee-bridge'
+                    || (data && data.name && user.name && String(data.name).trim() === String(user.name).trim());
+                if (bridge) localStorage.removeItem('userRole');
+            } catch (e) {
+                console.warn('Session site non nettoyée', e);
+            }
+        }
+
         function redirectToLogin() {
             window.location.href = BASE_PATH + '/salarie-connexion.html';
         }
@@ -2218,7 +2438,497 @@
 
         function logout() {
             localStorage.removeItem('employeeToken');
+            localStorage.removeItem('employeeData');
+            clearEmployeeBridgeSession();
             redirectToLogin();
+        }
+
+        const WP_ROLES = [
+            { id: 'vente', label: 'Vente', ready: true },
+            { id: 'boulanger', label: 'Boulanger', ready: false },
+            { id: 'preparateur', label: 'Préparateur', ready: false }
+        ];
+        const WP_MOMENTS = [
+            { id: 'ouverture', label: 'Ouverture' },
+            { id: 'matin', label: 'Matin' },
+            { id: 'avant-rush', label: 'Avant Rush' },
+            { id: 'apres-rush', label: 'Après Rush' },
+            { id: 'fermeture', label: 'Fermeture' }
+        ];
+        const wp = {
+            loaded: false,
+            loading: false,
+            error: '',
+            eligible: true,
+            reason: '',
+            employeeName: '',
+            date: '',
+            locked: false,
+            validatedAt: '',
+            postes: [],
+            tasks: [],
+            menus: null,
+            roleId: '',
+            view: 'roles',
+            role: '',
+            moment: '',
+            saveText: '',
+            saveError: '',
+            problemIds: [],
+            confirm: false,
+            acting: false,
+            timer: null
+        };
+        let wpChain = Promise.resolve();
+        let wpJob = 0;
+
+        function openWorkPostFollowup() {
+            const token = localStorage.getItem('employeeToken');
+            if (!token) {
+                redirectToLogin();
+                return;
+            }
+            if (isPhoneLayout()) {
+                openWorkPostPhone();
+                return;
+            }
+            const suffix = BASE_PATH === '/lon' ? '_lon' : '_plan';
+            localStorage.setItem('employeeToken' + suffix, token);
+            localStorage.setItem('userRole', JSON.stringify({
+                role: 'employee',
+                name: (currentEmployee && currentEmployee.name) || 'Salarié',
+                sessionKind: 'employee-bridge',
+                permissions: ['view_planning', 'view_absences', 'view_sales_stats', 'view_meal_expenses', 'view_km_expenses']
+            }));
+            window.location.href = BASE_PATH + '/suivi-poste';
+        }
+
+        function openWorkPostPhone() {
+            document.querySelectorAll('.tab-panel').forEach(panel => panel.classList.remove('active'));
+            document.querySelectorAll('.main-tabs .tab').forEach(tab => tab.classList.remove('active'));
+            const tabButton = document.querySelector('.main-tabs [onclick="openWorkPostFollowup()"]');
+            if (tabButton) tabButton.classList.add('active');
+            const panel = document.getElementById('workpost-panel');
+            if (panel) panel.classList.add('active');
+            document.documentElement.classList.add('mobile-section-open');
+            document.body.classList.add('mobile-section-open');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+            wp.view = 'roles';
+            wp.role = '';
+            wp.moment = '';
+            wp.confirm = false;
+            loadWorkPostPhone();
+        }
+
+        function wpEsc(value) {
+            return String(value == null ? '' : value)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;');
+        }
+
+        function wpFormatDate(iso) {
+            if (!iso || !/^\d{4}-\d{2}-\d{2}$/.test(iso)) return '';
+            const parts = iso.split('-').map(Number);
+            return new Intl.DateTimeFormat('fr-FR', {
+                weekday: 'long',
+                day: 'numeric',
+                month: 'long',
+                timeZone: 'Europe/Paris'
+            }).format(new Date(Date.UTC(parts[0], parts[1] - 1, parts[2], 12)));
+        }
+
+        function wpFormatTime(value) {
+            if (!value) return '';
+            return new Intl.DateTimeFormat('fr-FR', {
+                hour: '2-digit',
+                minute: '2-digit',
+                timeZone: 'Europe/Paris'
+            }).format(new Date(value));
+        }
+
+        function wpApplySheet(data) {
+            wp.employeeName = data.employeeName || wp.employeeName;
+            wp.date = data.date || wp.date;
+            wp.locked = !!data.locked;
+            wp.validatedAt = data.validatedAt || '';
+            wp.postes = Array.isArray(data.postes) ? data.postes.slice() : [];
+            wp.tasks = Array.isArray(data.tasks) ? data.tasks : [];
+            if (Array.isArray(data.menus)) wp.menus = data.menus;
+            if (data.roleId) wp.roleId = data.roleId;
+            wp.eligible = data.eligible !== false;
+            wp.reason = data.reason || '';
+        }
+
+        function wpRoles() {
+            if (Array.isArray(wp.menus) && wp.menus.length) return wp.menus;
+            return WP_ROLES.map(role => ({
+                id: role.id,
+                label: role.label,
+                menus: role.ready ? WP_MOMENTS.map(moment => ({ id: moment.id, label: moment.label, hint: '' })) : []
+            }));
+        }
+
+        function wpCurrentRole() {
+            return wpRoles().find(role => role.id === wp.role) || null;
+        }
+
+        function wpMoments() {
+            const role = wpCurrentRole();
+            return role && Array.isArray(role.menus) ? role.menus : [];
+        }
+
+        function wpMomentMeta(momentId) {
+            if (wp.loading) return 'Chargement…';
+            if (wp.error) return 'Indisponible';
+            if (!wp.eligible) return 'Réservé aux vendeuses';
+            const mine = wp.tasks.filter(task => task.phase === momentId);
+            if (!mine.length) return 'Bientôt';
+            const done = mine.filter(task => task.status === 'done').length;
+            const pending = mine.filter(task => task.status !== 'done' && task.status !== 'not_done' && task.status !== 'skipped').length;
+            return `${done}/${mine.length} faites${pending ? ` · ${pending} à traiter` : ''}`;
+        }
+
+        function wpSelectedTasks() {
+            return wp.tasks.filter(task => wp.postes.includes(task.phase));
+        }
+
+        function wpSetSaveLine() {
+            const line = document.getElementById('wpSaveLine');
+            if (!line) return;
+            line.textContent = wp.saveError || wp.saveText || (wp.locked ? 'Journée validée' : 'Cochez au fur et à mesure');
+            line.className = 'wp-status' + (wp.saveError ? ' is-error' : '');
+        }
+
+        async function loadWorkPostPhone() {
+            wp.loading = true;
+            wp.error = '';
+            renderWorkPostPhone();
+            try {
+                const response = await fetch(`${API_URL}/work-posts/today`, {
+                    headers: employeeAuthHeaders()
+                });
+                const data = await response.json().catch(() => ({}));
+                if (response.status === 404) {
+                    throw new Error('Le suivi n’est pas encore en ligne sur le serveur.');
+                }
+                if (!response.ok) {
+                    throw new Error(data.error || 'Impossible de charger le suivi.');
+                }
+                wp.loaded = true;
+                wpApplySheet(data);
+            } catch (error) {
+                wp.error = error.message || 'Impossible de charger le suivi.';
+            } finally {
+                wp.loading = false;
+                renderWorkPostPhone();
+            }
+        }
+
+        function wpOpenRole(roleId) {
+            const role = wpRoles().find(item => item.id === roleId);
+            if (!role) return;
+            wp.role = roleId;
+            wp.moment = '';
+            wp.confirm = false;
+            wp.view = role.menus && role.menus.length ? 'moments' : 'soon';
+            renderWorkPostPhone();
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function wpOpenMoment(momentId) {
+            wp.moment = momentId;
+            wp.confirm = false;
+            wp.view = 'tasks';
+            renderWorkPostPhone();
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function wpBack() {
+            wp.confirm = false;
+            wp.saveError = '';
+            if (wp.view === 'tasks' || wp.view === 'soon') {
+                const role = wpCurrentRole();
+                wp.view = role && role.menus && role.menus.length && wp.view === 'tasks' ? 'moments' : 'roles';
+                if (wp.view === 'roles') wp.role = '';
+                wp.moment = '';
+            } else {
+                wp.view = 'roles';
+                wp.role = '';
+                wp.moment = '';
+            }
+            renderWorkPostPhone();
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function wpEnsurePoste(phase) {
+            if (!wp.postes.includes(phase) && wp.tasks.some(task => task.phase === phase)) {
+                wp.postes.push(phase);
+            }
+        }
+
+        function wpScheduleSave() {
+            clearTimeout(wp.timer);
+            wp.timer = setTimeout(wpPersist, 450);
+        }
+
+        function wpPersist() {
+            clearTimeout(wp.timer);
+            if (!wp.loaded || !wp.eligible || wp.locked) return;
+            const mine = ++wpJob;
+            const postes = wp.postes.slice();
+            const answers = wp.tasks.map(task => ({
+                taskId: task.id,
+                status: task.status,
+                reason: task.reason
+            }));
+            wp.saveText = 'Enregistrement…';
+            wp.saveError = '';
+            wpSetSaveLine();
+            wpChain = wpChain.catch(() => {}).then(async () => {
+                if (mine !== wpJob || wp.locked) return;
+                try {
+                    const response = await fetch(`${API_URL}/work-posts/today`, {
+                        method: 'PUT',
+                        headers: employeeAuthHeaders(),
+                        body: JSON.stringify({ postes, answers })
+                    });
+                    const data = await response.json().catch(() => ({}));
+                    if (mine !== wpJob) return;
+                    if (!response.ok) {
+                        if (response.status === 409 && Array.isArray(data.tasks)) {
+                            wpApplySheet(data);
+                            renderWorkPostPhone();
+                        }
+                        wp.saveError = data.error || 'Enregistrement impossible.';
+                        wp.saveText = '';
+                        wpSetSaveLine();
+                        return;
+                    }
+                    wp.locked = !!data.locked;
+                    wp.validatedAt = data.validatedAt || wp.validatedAt;
+                    wp.saveText = 'Enregistré';
+                    wp.saveError = '';
+                    wpSetSaveLine();
+                } catch (error) {
+                    if (mine !== wpJob) return;
+                    wp.saveError = 'Enregistrement impossible.';
+                    wp.saveText = '';
+                    wpSetSaveLine();
+                }
+            });
+        }
+
+        function wpSetStatus(taskId, status) {
+            if (wp.locked) return;
+            const task = wp.tasks.find(item => item.id === taskId);
+            if (!task) return;
+            task.status = status;
+            if (status === 'done') task.reason = '';
+            wp.problemIds = wp.problemIds.filter(id => id !== taskId);
+            wpEnsurePoste(task.phase);
+            wpPersist();
+            renderWorkPostPhone();
+        }
+
+        function wpSetReason(taskId, reason) {
+            if (wp.locked) return;
+            const task = wp.tasks.find(item => item.id === taskId);
+            if (!task) return;
+            task.reason = reason;
+            wp.problemIds = wp.problemIds.filter(id => id !== taskId);
+            wpEnsurePoste(task.phase);
+            wp.saveText = '';
+            wpScheduleSave();
+        }
+
+        function wpAskValidate() {
+            if (wp.locked || wp.acting) return;
+            if (!wp.postes.length) {
+                wp.saveError = 'Cochez au moins une tâche pour commencer la journée.';
+                wp.view = 'moments';
+                renderWorkPostPhone();
+                return;
+            }
+            const pending = [];
+            const missing = [];
+            wpSelectedTasks().forEach(task => {
+                if (task.status !== 'done' && task.status !== 'not_done' && task.status !== 'skipped') pending.push(task);
+                if ((task.status === 'not_done' || task.status === 'skipped') && !String(task.reason || '').trim()) missing.push(task);
+            });
+            if (pending.length || missing.length) {
+                const first = pending[0] || missing[0];
+                wp.problemIds = pending.concat(missing).map(task => task.id);
+                wp.saveError = pending.length
+                    ? 'Il reste des tâches à cocher avant de valider la journée.'
+                    : 'Indiquez la raison de chaque tâche non faite.';
+                wp.moment = first.phase;
+                wp.view = 'tasks';
+                wp.confirm = false;
+                renderWorkPostPhone();
+                const node = document.getElementById('wp-task-' + first.id);
+                if (node) node.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                return;
+            }
+            wp.saveError = '';
+            wp.confirm = true;
+            renderWorkPostPhone();
+        }
+
+        async function wpConfirmValidate() {
+            if (wp.acting || wp.locked) return;
+            wp.acting = true;
+            clearTimeout(wp.timer);
+            renderWorkPostPhone();
+            try {
+                const response = await fetch(`${API_URL}/work-posts/today/validate`, {
+                    method: 'POST',
+                    headers: employeeAuthHeaders(),
+                    body: JSON.stringify({
+                        postes: wp.postes,
+                        answers: wp.tasks.map(task => ({
+                            taskId: task.id,
+                            status: task.status,
+                            reason: task.reason
+                        }))
+                    })
+                });
+                const data = await response.json().catch(() => ({}));
+                if (!response.ok) {
+                    if (Array.isArray(data.tasks)) wpApplySheet(data);
+                    wp.saveError = data.error || 'Validation impossible.';
+                    wp.confirm = false;
+                    return;
+                }
+                wpApplySheet(data);
+                wp.confirm = false;
+                wp.problemIds = [];
+                wp.saveError = '';
+                wp.saveText = 'Journée validée';
+                wp.view = 'moments';
+            } catch (error) {
+                wp.saveError = 'Validation impossible.';
+            } finally {
+                wp.acting = false;
+                renderWorkPostPhone();
+            }
+        }
+
+        async function wpReopen() {
+            if (wp.acting) return;
+            wp.acting = true;
+            renderWorkPostPhone();
+            try {
+                const response = await fetch(`${API_URL}/work-posts/today/reopen`, {
+                    method: 'POST',
+                    headers: employeeAuthHeaders()
+                });
+                const data = await response.json().catch(() => ({}));
+                if (!response.ok) throw new Error(data.error || 'Impossible de reprendre la checklist.');
+                wpApplySheet(data);
+                wp.saveText = '';
+                wp.saveError = '';
+            } catch (error) {
+                wp.saveError = error.message || 'Impossible de reprendre la checklist.';
+            } finally {
+                wp.acting = false;
+                renderWorkPostPhone();
+            }
+        }
+
+        function wpTaskHtml(task) {
+            const problem = wp.problemIds.includes(task.id) ? ' is-problem' : '';
+            const reasonBlock = (task.status === 'not_done' || task.status === 'skipped')
+                ? `<label class="wp-reason">${task.status === 'skipped' ? 'Précisez quand cela a été fait' : 'Pourquoi ce n’est pas fait ?'}
+                    <textarea ${wp.locked ? 'disabled' : ''} maxlength="500" placeholder="${task.status === 'skipped' ? 'Ex. fait mardi' : 'Indiquez la raison'}" oninput="wpSetReason('${task.id}', this.value)">${wpEsc(task.reason || '')}</textarea>
+                   </label>`
+                : '';
+            const skip = task.weekly
+                ? `<button type="button" class="${task.status === 'skipped' ? 'is-skip' : ''}" ${wp.locked ? 'disabled' : ''} onclick="wpSetStatus('${task.id}', 'skipped')">Pas aujourd’hui</button>`
+                : '';
+            return `<article class="wp-task${problem}" id="wp-task-${task.id}">
+                <h3>${wpEsc(task.label)}</h3>
+                ${task.detail ? `<p>${wpEsc(task.detail)}</p>` : ''}
+                <div class="wp-actions">
+                    <button type="button" class="${task.status === 'done' ? 'is-done' : ''}" ${wp.locked ? 'disabled' : ''} onclick="wpSetStatus('${task.id}', 'done')">Fait</button>
+                    <button type="button" class="${task.status === 'not_done' ? 'is-missed' : ''}" ${wp.locked ? 'disabled' : ''} onclick="wpSetStatus('${task.id}', 'not_done')">Non fait</button>
+                    ${skip}
+                </div>
+                ${reasonBlock}
+            </article>`;
+        }
+
+        function renderWorkPostPhone() {
+            const root = document.getElementById('wpPhone');
+            if (!root) return;
+            const back = '<button type="button" class="wp-back" onclick="wpBack()">← Retour</button>';
+            let body = '';
+
+            const ownRole = !wp.roleId || wp.role === wp.roleId;
+            if (wp.view === 'roles') {
+                body = `<h2 class="wp-phone-title">Suivi poste de travail</h2>
+                    <p class="wp-phone-sub">Choisissez votre poste</p>
+                    ${wpRoles().map(role => `<button type="button" class="wp-choice" onclick="wpOpenRole('${role.id}')">${wpEsc(role.label)}<small>${role.menus && role.menus.length ? 'Ouvrir le suivi' : 'Bientôt disponible'}</small></button>`).join('')}`;
+            } else if (wp.view === 'soon') {
+                const role = wpCurrentRole();
+                body = `${back}
+                    <h2 class="wp-phone-title">${wpEsc(role ? role.label : 'Poste')}</h2>
+                    <div class="wp-card"><p>Ce suivi sera ajouté ensuite.</p></div>`;
+            } else if (wp.view === 'moments') {
+                const role = wpCurrentRole();
+                const when = wpFormatDate(wp.date);
+                body = `${back}
+                    <h2 class="wp-phone-title">${wpEsc(role ? role.label : 'Poste')}</h2>
+                    <p class="wp-phone-sub">${wpEsc(wp.employeeName)}${wp.employeeName && when ? ' · ' : ''}${wpEsc(when)}</p>
+                    <p id="wpSaveLine" class="wp-status ${wp.saveError ? 'is-error' : ''}">${wpEsc(wp.saveError || wp.saveText || (wp.locked ? 'Journée validée' : 'Choisissez le moment de la journée'))}</p>
+                    ${wp.error ? `<div class="wp-card"><p>${wpEsc(wp.error)}</p></div>` : ''}
+                    ${!wp.error && wp.loaded && !wp.eligible ? `<div class="wp-card"><p>${wp.reason === 'account' ? 'Pour remplir la checklist, connectez-vous avec votre code à 3 chiffres.' : 'Ce suivi ne correspond pas encore à votre poste.'}</p></div>` : ''}
+                    ${!ownRole ? '<div class="wp-card"><p>Ce menu concerne un autre poste.</p></div>' : ''}
+                    ${wpMoments().map(moment => `<button type="button" class="wp-choice" onclick="wpOpenMoment('${moment.id}')">${wpEsc(moment.label)}<small>${wpEsc(ownRole ? wpMomentMeta(moment.id) : 'Autre poste')}</small></button>`).join('')}
+                    ${wp.loaded && wp.eligible && ownRole && !wp.locked ? `<button type="button" class="wp-primary" onclick="wpAskValidate()">Valider ma journée</button>` : ''}
+                    ${wp.locked && ownRole ? `<button type="button" class="wp-secondary" ${wp.acting ? 'disabled' : ''} onclick="wpReopen()">Reprendre la checklist</button>` : ''}`;
+            } else {
+                const moment = wpMoments().find(item => item.id === wp.moment);
+                const ownMoment = !wp.roleId || wp.role === wp.roleId;
+                const tasks = wp.tasks.filter(task => task.phase === wp.moment);
+                const blocks = [];
+                tasks.forEach(task => {
+                    const key = task.group || '';
+                    const last = blocks[blocks.length - 1];
+                    if (!last || last.key !== key) blocks.push({ key, label: task.groupLabel || '', tasks: [task] });
+                    else last.tasks.push(task);
+                });
+                let list = '';
+                if (wp.loading) {
+                    list = '<div class="wp-card"><p>Chargement…</p></div>';
+                } else if (wp.error) {
+                    list = `<div class="wp-card"><p>${wpEsc(wp.error)}</p></div>`;
+                } else if (!ownMoment) {
+                    list = '<div class="wp-card"><p>Ce menu concerne un autre poste.</p></div>';
+                } else if (!wp.eligible) {
+                    list = `<div class="wp-card"><p>${wp.reason === 'account' ? 'Pour remplir la checklist, connectez-vous avec votre code à 3 chiffres.' : 'Ce suivi ne correspond pas encore à votre poste.'}</p></div>`;
+                } else if (!tasks.length) {
+                    list = '<div class="wp-card"><p>Les tâches de ce moment seront ajoutées ensuite.</p></div>';
+                } else {
+                    list = blocks.map(block => `${block.label ? `<h3 class="wp-group">${wpEsc(block.label)}</h3>` : ''}${block.tasks.map(wpTaskHtml).join('')}`).join('');
+                }
+                const notDone = wpSelectedTasks().filter(task => task.status === 'not_done');
+                const confirm = wp.confirm ? `<div class="wp-card">
+                    <h3>Valider la journée ?</h3>
+                    ${notDone.length ? `<p>Ces tâches restent non faites.</p><ul>${notDone.map(task => `<li><strong>${wpEsc(task.label)}</strong> — ${wpEsc(task.reason)}</li>`).join('')}</ul>` : '<p>Toutes les tâches cochées de vos moments sont faites.</p>'}
+                    <button type="button" class="wp-secondary" ${wp.acting ? 'disabled' : ''} onclick="wp.confirm=false; renderWorkPostPhone();">Annuler</button>
+                    <button type="button" class="wp-primary" ${wp.acting ? 'disabled' : ''} onclick="wpConfirmValidate()">${wp.acting ? 'Validation…' : 'Valider ma journée'}</button>
+                </div>` : '';
+                body = `${back}
+                    <h2 class="wp-phone-title">${wpEsc(moment ? moment.label : 'Vente')}</h2>
+                    <p id="wpSaveLine" class="wp-status ${wp.saveError ? 'is-error' : ''}">${wpEsc(wp.saveError || wp.saveText || (wp.locked ? `Journée validée${wp.validatedAt ? ' à ' + wpFormatTime(wp.validatedAt) : ''}` : 'Cochez au fur et à mesure'))}</p>
+                    ${confirm}
+                    ${list}
+                    ${tasks.length && ownMoment && wp.eligible && !wp.locked ? `<button type="button" class="wp-primary" onclick="wpAskValidate()">Valider ma journée</button>` : ''}
+                    ${wp.locked && ownMoment ? `<button type="button" class="wp-secondary" ${wp.acting ? 'disabled' : ''} onclick="wpReopen()">Reprendre la checklist</button>` : ''}`;
+            }
+            root.innerHTML = body;
         }
 
         function isPhoneLayout() {

@@ -2,6 +2,7 @@ const assert = require('assert');
 const { TASKS } = require('../constants/vendeuseWorkPosts');
 const {
   isVendeuseEmployee,
+  workPostRoleId,
   normalizeAnswers,
   normalizePostes,
   dayIssues,
@@ -21,6 +22,10 @@ assert.strictEqual(isVendeuseEmployee({ role: 'apprenti', employeeCategory: 'ven
 assert.strictEqual(isVendeuseEmployee({ role: 'Apprenti Boulanger', isActive: true }), false);
 assert.strictEqual(isVendeuseEmployee({ role: 'vendeuse', isActive: false }), false);
 assert.strictEqual(isVendeuseEmployee({ role: 'boulanger', isActive: true }), false);
+assert.strictEqual(workPostRoleId({ role: 'vendeuse', isActive: true }), 'vente');
+assert.strictEqual(workPostRoleId({ role: 'boulanger', isActive: true }), 'boulanger');
+assert.strictEqual(workPostRoleId({ role: 'préparateur', employeeCategory: 'preparation', isActive: true }), 'preparateur');
+assert.strictEqual(workPostRoleId({ role: 'manager', isActive: true }), '');
 
 assert.deepStrictEqual(normalizePostes(['ouverture', 'ouverture', 'inconnu', 'fermeture']), ['ouverture', 'fermeture']);
 
