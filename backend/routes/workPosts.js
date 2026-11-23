@@ -3,8 +3,17 @@ const router = express.Router();
 const { authenticateEmployee } = require('../middleware/auth');
 const controller = require('../controllers/workPostController');
 const catalog = require('../controllers/workPostCatalogController');
+const missions = require('../controllers/workMissionController');
 
 router.use(authenticateEmployee);
+
+router.get('/missions/today', missions.listToday);
+router.get('/missions/employees', missions.listEmployees);
+router.get('/missions', missions.list);
+router.post('/missions', missions.create);
+router.put('/missions/:id/report', missions.report);
+router.patch('/missions/:id/supervise', missions.supervise);
+router.delete('/missions/:id', missions.remove);
 
 router.get('/today', controller.getToday);
 router.put('/today', controller.saveToday);
