@@ -4,6 +4,7 @@ const { authenticateEmployee } = require('../middleware/auth');
 const controller = require('../controllers/workPostController');
 const catalog = require('../controllers/workPostCatalogController');
 const missions = require('../controllers/workMissionController');
+const logs = require('../controllers/workLogController');
 
 router.use(authenticateEmployee);
 
@@ -14,6 +15,11 @@ router.post('/missions', missions.create);
 router.put('/missions/:id/report', missions.report);
 router.patch('/missions/:id/supervise', missions.supervise);
 router.delete('/missions/:id', missions.remove);
+router.get('/work-logs/today', logs.listToday);
+router.get('/work-logs', logs.list);
+router.post('/work-logs', logs.create);
+router.patch('/work-logs/:id', logs.update);
+router.delete('/work-logs/:id', logs.remove);
 
 router.get('/today', controller.getToday);
 router.put('/today', controller.saveToday);

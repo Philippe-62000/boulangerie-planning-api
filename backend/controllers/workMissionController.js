@@ -92,8 +92,15 @@ exports.report = async (req, res) => {
         error: 'Une mission se note le jour où elle est prévue.'
       });
     }
+    const note = status === 'not_done' ? cleanBlock(req.body?.note, 500) : '';
+    if (status === 'not_done' && !note) {
+      return res.status(400).json({
+        success: false,
+        error: 'Indiquez pourquoi la tâche n’est pas réalisée.'
+      });
+    }
     doc.employeeStatus = status;
-    doc.employeeNote = status === 'done' ? '' : cleanBlock(req.body?.note, 500);
+    doc.employeeNote = note;
     doc.employeeUpdatedAt = new Date();
     await doc.save();
     res.json({ success: true, mission: presentMission(doc) });
@@ -199,8 +206,15 @@ exports.supervise = async (req, res) => {
     if (!doc) {
       return res.status(404).json({ success: false, error: 'Mission introuvable.' });
     }
+    const note = supervisorStatus ? cleanBlock(req.body?.note, 500) : '';
+    if (supervisorStatus && !note) {
+      return res.status(400).json({
+        success: false,
+        error: 'Indiquez pourquoi la tâche est incomplète ou non réalisée.'
+      });
+    }
     doc.supervisorStatus = supervisorStatus;
-    doc.supervisorNote = supervisorStatus ? cleanBlock(req.body?.note, 500) : '';
+    doc.supervisorNote = note;
     doc.supervisedAt = supervisorStatus ? new Date() : null;
     await doc.save();
     res.json({ success: true, mission: presentMission(doc) });
