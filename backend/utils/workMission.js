@@ -61,7 +61,9 @@ function presentMission(doc) {
     effectiveStatus: effectiveStatus({ employeeStatus, supervisorStatus }),
     createdByName: doc?.createdByName || '',
     createdAt: doc?.createdAt || null,
-    updatedAt: doc?.updatedAt || null
+    updatedAt: doc?.updatedAt || null,
+    employeeUpdatedAt: doc?.employeeUpdatedAt || null,
+    supervisedAt: doc?.supervisedAt || null
   };
 }
 
